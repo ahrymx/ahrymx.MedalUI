@@ -658,6 +658,8 @@ SLASH_MDLUI1 = "/mdlui"
 local KEYBIND = { kb = true, keybind = true, keybinds = true, bind = true, binds = true }
 local EDITOR = { edit = true, editor = true, frames = true }
 local MOVE = { move = true, movers = true, unlock = true }
+-- fixes.lua: the known-issues dialog again
+local FIX = { ["fix-issues"] = true, ["fix-issue"] = true, fix = true, fixes = true, issues = true }
 
 -- /mdlui <word>: the window on that page.
 local PAGES = {
@@ -704,6 +706,10 @@ local function OpenSettings(arg)
     end
     if arg == "lfgdump" and ns.lfgData then
         ns.lfgData.Dump()
+        return
+    end
+    if FIX[arg] then
+        if ns.FixIssues then ns.FixIssues() end
         return
     end
     if KEYBIND[arg] then

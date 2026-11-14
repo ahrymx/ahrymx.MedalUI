@@ -147,6 +147,7 @@ Medalluin pairs well with these addons by other authors. They are not part of Me
 | `/mdlui kb` | Enters quick keybinding mode (hover button and press key) |
 | `/mdlui edit` | Launches the interactive unit frame layout editor |
 | `/mdlui taint` | Runs internal diagnostics to inspect secure variable integrity |
+| `/mui fix-issues` | Checks for problems an older version left behind that updating does not undo, and offers to fix them |
 
 ---
 

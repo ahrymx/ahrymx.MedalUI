@@ -5161,6 +5161,61 @@ if ccPass then (function()
     function ToggleClickBindingFrame() if f:IsShown() then HideUIPanel(f) else f:Show() end end
 end)() end
 
+-- "fixes" plays the known issues (fixes.lua) over a stubbed C_EditMode
+-- whose saved layout anchors two systems to Medalluin's frames by name (the
+-- Cooldown Manager to the console, as before 0.41.0): the login's chat line
+-- and dialog, a later login's line alone, /mui fix-issues (and in combat,
+-- until it ends), the Fix button's save and reload, a save that fails, and a
+-- client with no Edit Mode.
+fixesPass = args[2] == "fixes"
+if fixesPass then
+    fixesWorld = { timers = {}, shown = {}, reloads = 0, saves = 0 }
+    local F = fixesWorld
+    local function copy(t)
+        if type(t) ~= "table" then return t end
+        local o = {}
+        for k, v in pairs(t) do o[k] = copy(v) end
+        return o
+    end
+    F.copy = copy
+    local function at(p, rel, rp, x, y)
+        return { point = p, relativeTo = rel, relativePoint = rp, offsetX = x, offsetY = y }
+    end
+    F.at = at
+    function F.Stale()
+        return { activeLayout = 3, layouts = {
+            { layoutName = "testing", layoutType = 1, systems = {
+                { system = 20, systemIndex = 0, anchorInfo = at("BOTTOM", "MedalluinConsole", "TOP", 0, 14),
+                    isInDefaultPosition = false },
+                { system = 20, systemIndex = 1, anchorInfo = at("CENTER", "UIParent", "CENTER", 0, -200),
+                    isInDefaultPosition = false },
+                { system = 0, systemIndex = 1, anchorInfo = at("BOTTOM", "UIParent", "BOTTOM", 0, 40),
+                    anchorInfo2 = at("LEFT", "MedalluinDrawer", "RIGHT", 4, 0), isInDefaultPosition = false },
+            } },
+            { layoutName = "alt", layoutType = 2, systems = {
+                { system = 20, systemIndex = 0, anchorInfo = at("CENTER", "UIParent", "CENTER", 0, -150),
+                    isInDefaultPosition = true },
+            } },
+        } }
+    end
+    F.store = F.Stale()
+    C_EditMode = {
+        GetLayouts = function() return copy(F.store) end,
+        SaveLayouts = function(layouts)
+            if F.failSave then error("SaveLayouts refused") end
+            F.saves = F.saves + 1
+            F.store = copy(layouts)
+        end,
+    }
+    EditModePresetLayoutManager = {
+        GetDefaultSystemAnchorInfo = function(_, system, index)
+            return at("BOTTOM", "UIParent", "BOTTOM", system, 100 + (index or 0))
+        end,
+    }
+    C_Timer = C_Timer or {}
+    C_Timer.After = function(delay, fn) table.insert(F.timers, { delay, fn }) end
+end
+
 -- ------------------------------------------------------------ load + fire
 local ns = {}
 harnessNS = ns     -- for the helpers above it (harnessNextFrame)
@@ -22273,4 +22328,77 @@ if ccPass then (function()
     ToggleClickBindingFrame()
     print("clickcast opens over cdm", "cc=" .. tostring(f.shown), "cdm=" .. tostring(CooldownViewerSettings.shown))
     print("clickcast placed", rect(f))
+end)() end
+
+if fixesPass then (function()
+    local F = fixesWorld
+    StaticPopup_Show = function(which, a, b)
+        table.insert(F.shown, which .. " [" .. tostring(a) .. "] " .. tostring(b):gsub("\n", " / "))
+    end
+    ReloadUI = function() F.reloads = F.reloads + 1 end
+    local function anchor(a)
+        if not a then return "-" end
+        return a.point .. ">" .. a.relativeTo .. ":" .. a.relativePoint .. " " .. a.offsetX .. "," .. a.offsetY
+    end
+    local function state(tag)
+        print("fixes " .. tag, "timers=" .. #F.timers, "shown=" .. #F.shown, "saves=" .. F.saves,
+            "reloads=" .. F.reloads)
+        for _, line in ipairs(F.shown) do print("  dialog", line) end
+        F.shown = {}
+    end
+    local function layouts()
+        for _, l in ipairs(F.store.layouts) do
+            for _, sys in ipairs(l.systems) do
+                print("  layout " .. l.layoutName, sys.system .. "/" .. sys.systemIndex, anchor(sys.anchorInfo),
+                    "2=" .. anchor(sys.anchorInfo2), "default=" .. tostring(sys.isInDefaultPosition))
+            end
+        end
+    end
+    local function regen()
+        for _, f in ipairs(events.PLAYER_REGEN_ENABLED or {}) do f.scripts.OnEvent(f, "PLAYER_REGEN_ENABLED") end
+    end
+    -- the login: the check waits for the game to finish loading
+    local waiting = 0
+    for _, t in ipairs(F.timers) do if t[2] == ns.CheckIssues then waiting = waiting + 1; print("fixes wait", t[1]) end end
+    print("fixes login", "checks waiting=" .. waiting, "shown=" .. #F.shown)
+    -- a second entering (a portal, a reload of the zone) queues nothing more
+    for _, f in ipairs(events.PLAYER_ENTERING_WORLD or {}) do f.scripts.OnEvent(f, "PLAYER_ENTERING_WORLD") end
+    local again = 0
+    for _, t in ipairs(F.timers) do if t[2] == ns.CheckIssues then again = again + 1 end end
+    print("fixes entering again", "checks waiting=" .. again)
+    ns.CheckIssues()
+    state("first login")
+    print("  offered", tostring(MedalluinDB.issuesOffered and MedalluinDB.issuesOffered.editModeConsoleAnchor))
+    ns.CheckIssues()
+    state("later login, still there")
+    SlashCmdList.MEDALLUIN("fix-issues")
+    state("/mui fix-issues")
+    SlashCmdList.MEDALLUIN("  FIX  ")
+    state("/mui fix")
+    inCombat = true
+    SlashCmdList.MEDALLUIN("fix-issues")
+    state("/mui fix-issues in combat")
+    inCombat = false
+    regen()
+    state("combat over")
+    -- the dialog's buttons
+    local d = StaticPopupDialogs.MEDALLUIN_FIX_ISSUES
+    print("fixes dialog", d.button1, d.button2, "timeout=" .. d.timeout, "dead=" .. tostring(d.whileDead))
+    F.failSave = true
+    d.OnAccept()
+    state("fix, the save refused")
+    layouts()
+    F.failSave = nil
+    d.OnAccept()
+    state("fix")
+    layouts()
+    SlashCmdList.MEDALLUIN("fix-issues")
+    state("/mui fix-issues, fixed")
+    ns.CheckIssues()
+    state("login, fixed")
+    -- a client with no Edit Mode
+    C_EditMode = nil
+    SlashCmdList.MEDALLUIN("fix-issues")
+    ns.CheckIssues()
+    state("no Edit Mode")
 end)() end
