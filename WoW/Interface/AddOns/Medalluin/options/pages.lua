@@ -10,7 +10,24 @@
 -- line; more of it (more) is the header's (?) tip. An option marked
 -- reload takes effect after a reload; the window's footer says so once
 -- one has changed.
+--
+-- A group sits on a sheet (On): a tab under its page's header, one of
+-- OPTION_SHEETS, in their order. A page whose groups are on two sheets or
+-- more shows the tabs, one column of cards each; others show every group,
+-- in two columns. A page with variants (Party: the console's frames, or
+-- the widget's) has a switch beside its tabs, each group of one variant
+-- (Variant) shown only with it.
 local _, ns = ...
+
+ns.OPTION_SHEETS = {
+    { "general", "General" },
+    { "position", "Position" },
+    { "look", "Look" },
+    { "elements", "Elements" },
+    { "visibility", "Visibility" },
+    { "auras", "Auras" },
+    { "behaviour", "Behaviour" },
+}
 
 local RELOAD = " Takes effect after a reload."
 
@@ -67,6 +84,21 @@ end
 
 local function Group(title, ...)
     return { title = title, items = { ... } }
+end
+-- A group on a sheet; a list of groups, each on it.
+local function On(sheet, g)
+    g.sheet = sheet
+    return g
+end
+local function AllOn(sheet, groups)
+    for _, g in ipairs(groups) do g.sheet = sheet end
+    return groups
+end
+-- A group of one variant of its page, and the chip on its band saying
+-- where its options are kept.
+local function Variant(variant, chip, g)
+    g.variant, g.chip = variant, chip
+    return g
 end
 -- A section headed by the switch its rows need: on its heading's line, the
 -- rows greyed while it is off (unless they need something else).
@@ -233,17 +265,16 @@ local function Slider(key, label, min, max, step, tip, text)
 end
 local cdmLook = {}               -- by viewer letter: CooldownTab's look specs
 function ns.CdmLookSpecs(letter) return cdmLook[letter] end
--- every viewer's tab: the simulation atop it, its fade at its foot
-local function CdmPreview()
-    return Group("Preview",
-        Check("simCdm", "Simulate cooldowns",
-            "Show every viewer's icons and bars as these options draw them, without a fight: your own spells or "
-            .. "a random full set, cooling down, with charges and stacks, buffs coming and going. A small "
-            .. "panel on the right sets what they show."))
+-- every viewer's tab: the simulation at its tabs' right, its fade on Visibility
+local function CdmSimulate()
+    return Check("simCdm", "Simulate cooldowns",
+        "Show every viewer's icons and bars as these options draw them, without a fight: your own spells or "
+        .. "a random full set, cooling down, with charges and stacks, buffs coming and going. A small "
+        .. "panel on the right sets what they show.")
 end
 local function CdmVisibility(K)
     local V = ns.VISIBILITY
-    return Group("Visibility",
+    return On("visibility", Group("Visibility",
         Choice(K("Vis"), "Visibility", {
             { V.ALWAYS, "Always" },
             { V.COMBAT, "In combat", "Faded out of combat." },
@@ -252,20 +283,24 @@ local function CdmVisibility(K)
         }, "Faded, it is only see-through: it still tracks everything. Whole while the Cooldown Manager or "
             .. "Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides it outright."),
         Opacity(K("Faded"), "Faded opacity", "How see-through it is when faded: 0% is gone."),
-        Seconds(K("FadeTime"), "Fade time", "How long a fade in or out takes."))
+        Seconds(K("FadeTime"), "Fade time", "How long a fade in or out takes.")))
 end
--- its place: movers.lua's sliders, third on the page
+-- its place: movers.lua's sliders, on Position after its layout
 local function CdmPlace(groups, letter)
     for _, g in ipairs(ns.ConsolePlaceGroups(Group, { { "cdm" .. letter, "Place" } })) do
         g.tip = "Drag it in Edit Mode, where it wears a blue mover, or set it here."
-        table.insert(groups, 3, g)
+        g.sheet = "position"
+        table.insert(groups, 2, g)
     end
 end
 local function CooldownTab(v)
     local letter, id, name = v[1], v[2], v[3]
     local function K(field) return "cdm" .. letter .. field end
+    -- an option its layout does not use: off the page meanwhile (greyed on
+    -- the mover's popup)
     local function When(field, value, spec)
         spec.can = function() return ns.db[K(field)] == value end
+        spec.hide = true
         return spec
     end
     local px = function(n) return string.format("%d px", n) end
@@ -309,8 +344,7 @@ local function CooldownTab(v)
     }
     cdmLook[letter] = look
     local groups = {
-        CdmPreview(),
-        Group("Layout",
+        On("position", Group("Layout",
             look[1], look[2], look[3], look[4], look[5],
             Choice(K("Order"), "Fill order", {
                 { "middle", "Middle out", "The first in the middle, then right of it, then left, outward." },
@@ -320,10 +354,10 @@ local function CooldownTab(v)
                 .. "stands."),
             Check(K("Gaps"), "Close gaps",
                 "An icon that is hidden (a buff not up) leaves no hole: the others close ranks as it comes and goes, "
-                .. "in combat too. Off, each keeps its place.")),
-        Group("Icons",
-            look[6], look[7], look[8]),
-        Group("Text",
+                .. "in combat too. Off, each keeps its place."))),
+        On("look", Group("Icons",
+            look[6], look[7], look[8])),
+        On("elements", Group("Text",
             Choice(K("CdSize"), "Cooldown number size", TextSizes({ 0, "Hidden", "The sweep alone says how long." }),
                 "The time left on a cooling-down icon."),
             Choice(K("CdPos"), "Cooldown number at", {
@@ -331,18 +365,18 @@ local function CooldownTab(v)
             }, "Where the time left stands on the icon."),
             Choice(K("CountSize"), "Charges and stacks size", TextSizes({ 0, "Hidden", "No count on the icon." }),
                 "A spell's charges, a buff's stacks."),
-            Choice(K("CountPos"), "Charges and stacks at", Positions(true), "Where the count stands.")),
-        Group("Cooldowns",
+            Choice(K("CountPos"), "Charges and stacks at", Positions(true), "Where the count stands."))),
+        On("elements", Group("Cooldowns",
             Check(K("Swipe"), "Sweep", "The dark sweep that winds round a cooling-down icon."),
             Check(K("Desat"), "Grey while cooling down",
                 "The game greys an icon while its spell cools down. Off, it keeps its colour."),
             Check(K("Range"), "Out-of-range tint", "A red tint over a spell whose target is out of its range."),
-            Check(K("Tips"), "Tooltips", "The spell's tooltip with the pointer over its icon.")),
+            Check(K("Tips"), "Tooltips", "The spell's tooltip with the pointer over its icon."))),
         CdmVisibility(K),
     }
     CdmPlace(groups, letter)
     return {
-        id = id, name = name, intro = "Kept per profile.",
+        id = id, name = name, intro = "Kept per profile.", aside = CdmSimulate(),
         enabled = function() return ns.db.cdmWindow and ns.db.cdmDisplay and true or false end,
         groups = groups,
     }
@@ -376,26 +410,25 @@ local function BarsTab(v)
     }
     cdmLook[letter] = look
     local groups = {
-        CdmPreview(),
-        Group("Bars",
+        On("look", Group("Bars",
             look[1], look[2], look[3], look[4],
             Check(K("Gaps"), "Close gaps",
                 "A bar whose buff is not up leaves no hole: the others close ranks as it comes and goes, in combat "
-                .. "too. Off, each keeps its place.")),
-        Group("Icon", look[5], look[6]),
-        Group("Text",
+                .. "too. Off, each keeps its place."))),
+        On("look", Group("Icon", look[5], look[6])),
+        On("elements", Group("Text",
             Choice(K("NameSize"), "Name size", TextSizes({ 0, "Hidden", "The bar without its spell's name." }),
                 "The spell's name, on its bar."),
             Choice(K("TimeSize"), "Time left size", TextSizes({ 0, "Hidden", "The bar alone says how long." }),
                 "The time left, at the bar's end."),
             Choice(K("CountSize"), "Stacks size", TextSizes({ 0, "Hidden", "No count on the icon." }),
                 "A buff's stacks, on its icon."),
-            Check(K("Tips"), "Tooltips", "The spell's tooltip with the pointer over its bar.")),
+            Check(K("Tips"), "Tooltips", "The spell's tooltip with the pointer over its bar."))),
         CdmVisibility(K),
     }
     CdmPlace(groups, letter)
     return {
-        id = id, name = name, intro = "Kept per profile.",
+        id = id, name = name, intro = "Kept per profile.", aside = CdmSimulate(),
         enabled = function() return ns.db.cdmWindow and ns.db.cdmDisplay and true or false end,
         groups = groups,
     }
@@ -730,7 +763,7 @@ function ns.OptionPages()
                     more = "That is everything under Console, the console's party and the overhead's bosses under "
                         .. "Unit Frames, its skills on the bars and their keys. The widgets, Chat, Side panel and "
                         .. "Bags are shared. What the frames show is under Unit Frames.",
-                    groups = Concat({
+                    groups = Concat(AllOn("general", {
                         Group("Profile",
                             Choice("consoleProfile", "Console profile", ns.PROFILE_NAMES,
                                 "The console the pages under Console start from. Switching brings back the options, "
@@ -771,9 +804,10 @@ function ns.OptionPages()
                             Check("repCast", "Target casts on the reputation bar",
                                 "The reputation bar under your target becomes its cast bar while it casts, and goes "
                                 .. "back to reputation when it stops or you change target.")),
-                    }, Placed("console", "Position",
+                    }), AllOn("position", Placed("console", "Position",
                         "Or open Edit Mode: drag a console anywhere, and click it for its scale. Without Edit "
-                        .. "Mode, /mdlui move. The corner strips keep their own size and place."), {
+                        .. "Mode, /mdlui move. The corner strips keep their own size and place.")),
+                    AllOn("visibility", {
                         Tip("A faded console still works: its buttons click and its keys press. Binding keys, "
                             .. "a spell on the pointer, Edit Mode and Simulate party frames bring it back.",
                         Switched(Check("consoleFade", "Fade when idle",
@@ -796,15 +830,15 @@ function ns.OptionPages()
                                 .. "faded. The corner strips and the corner minimap keep their own."),
                             Seconds("consoleFadeIn", "Fade in", "How long it takes to come back."),
                             Seconds("consoleFadeOut", "Fade out", "How long it takes to fade.")),
-                    }),
+                    })),
                 },
                 {
                     id = "bar", name = "Action Bars", intro = "Kept per profile.",
                     master = Check("actionBar", "Action bar",
                         "Medalluin's bar on top of the console, holding action bar 1. Untick it to keep Blizzard's "
                         .. "bars or use another action-bar addon.", true),
-                    groups = Concat({
-                        Group("Look",
+                    groups = {
+                        On("look", Group("Bar",
                             Choice("rows", "Rows", {
                                 { 1, "1 row", "Action bar 1." },
                                 { 2, "2 rows", "Action bar 2 stacked above action bar 1." },
@@ -816,14 +850,14 @@ function ns.OptionPages()
                                 "Square icons with a thin black edge, the cooldown time on the icon and range as a "
                                 .. "red tint, instead of Blizzard's button art.", true),
                             Check("hideEmpty", "Hide empty buttons",
-                                "Hides empty buttons and their keybind text on extra bars (action bars 2 and 3).")),
-                        Group("Long Resource Bar",
+                                "Hides empty buttons and their keybind text on extra bars (action bars 2 and 3)."))),
+                        On("elements", Group("Long Resource Bar",
                             Choice("barLowRow", "Shows", LowRows(),
-                                "What the row under the buttons shows. Your cast bar covers it while you cast.")),
-                        Group("Text",
+                                "What the row under the buttons shows. Your cast bar covers it while you cast."))),
+                        On("elements", Group("Text",
                             Choice("hotkeySize", "Keybind text size", TextSizes({ 0, "Hidden", "No keybind text." }),
-                                "The key bound to each button, at its top right.")),
-                        Group("Cooldowns",
+                                "The key bound to each button, at its top right."))),
+                        On("elements", Group("Cooldowns",
                             Choice("cooldownText", "Cooldown numbers", {
                                 { "auto", "Default", "Bare icons show them; Blizzard's art follows the game's "
                                     .. "Show cooldown numbers option (Options > Action Bars)." },
@@ -837,20 +871,20 @@ function ns.OptionPages()
                             Check("cooldownEdge", "Sweep edge",
                                 "A bright line along the sweep's leading edge."),
                             Check("cooldownBling", "Flash when ready",
-                                "The flash a button gives as its cooldown ends.")),
-                        Group("Fading",
+                                "The flash a button gives as its cooldown ends."))),
+                        On("visibility", Group("Fading",
                             Choice("visibility", "Bar 1 visibility", Visibility("it comes", "it"),
                                 "A faded bar still works: its buttons and key bindings stay live."),
                             Choice("extraVisibility", "Extra bar(s) visibility", Visibility("they come", "them"),
                                 "Manages the visibility of action bars 2 and 3. Faded bars still work: their buttons "
-                                .. "and key bindings stay live.")),
-                        Group("Minimap buttons",
+                                .. "and key bindings stay live."))),
+                        On("elements", Group("Minimap buttons",
                             Choice("drawer", "Drawer opens", {
                                 { ns.DRAWER.LEFT, "Open left", "One row, out to the left of the bar." },
                                 { ns.DRAWER.UP, "Open up", "One column, up from the bar's left end." },
                             }, "The addons' minimap buttons gather in a drawer behind the box on the bar's left "
-                                .. "end. This is the way it opens.")),
-                    }),
+                                .. "end. This is the way it opens."))),
+                    },
                 },
                 {
                     -- under Action Bars in the sidebar; greyed while the bar is off
@@ -862,7 +896,7 @@ function ns.OptionPages()
                     master = Check("overhead", "Overhead console",
                         "Top-of-screen cascading trapezoid structure for boss frames, pet, focus, target of target, "
                         .. "and action bars.", true),
-                    groups = Concat({
+                    groups = Concat(AllOn("elements", {
                         Group("Frames",
                             Check("topPet", "Player pet frame", "Player pet unit frame on the middle tier."),
                             Check("topFocus", "Focus frame", "Focus target unit frame on the middle tier."),
@@ -889,13 +923,13 @@ function ns.OptionPages()
                                 { "left", "Left", "Beside the totem hovered, on its left." },
                             }, "Where a tooltip stands for the totems opening below the bar. The rest of the "
                                 .. "overhead's stand under it, which would cover them.")),
-                    }, Placed("overhead", "Position"), {
+                    }), AllOn("position", Placed("overhead", "Position")), AllOn("visibility", {
                         Group("Opacity",
                             Opacity("overheadAlpha", "Opacity", "How much of the overhead shows. It shows "
                                 .. "whenever it holds a frame or a bar."),
                             Seconds("overheadFadeIn", "Fade in", "How long it takes to appear."),
                             Seconds("overheadFadeOut", "Fade out", "How long it takes to go once it is empty.")),
-                    }),
+                    })),
                 },
                 {
                     id = "minimap", name = "Minimap",
@@ -903,7 +937,7 @@ function ns.OptionPages()
                     more = "It is in the screen's corner while the 2x5 grid takes the bay. The Medallion's stays "
                         .. "in its ring: of this page, only Area name is for it too.",
                     enabled = function() return ns.MinimapMoves and ns.MinimapMoves() end,
-                    groups = Concat({
+                    groups = Concat(AllOn("behaviour", {
                         Group("Switching",
                             { kind = "key", label = "Minimap key", command = "MEDALLUIN_MINIMAP",
                                 tip = "Puts the minimap back where the game loads it (When the game loads), "
@@ -927,7 +961,7 @@ function ns.OptionPages()
                                 { kind = "check", key = "minimapAutoSkyriding", label = "While skyriding",
                                     tip = "While you skyride: the grid shows the skyriding skills.",
                                     needs = "minimapAuto" })),
-                    }, MinimapCorner(), {
+                    }), AllOn("position", MinimapCorner()), AllOn("visibility", {
                         Group("Area name",
                             { kind = "slider", key = "minimapAreaTime", label = "Shown for", min = 0, max = 10,
                                 step = 0.5, always = true,
@@ -938,7 +972,7 @@ function ns.OptionPages()
                                     if v < 0.25 then return "Always" end
                                     return string.format("%gs", v)
                                 end }),
-                    }),
+                    })),
                 },
             },
         },
@@ -964,21 +998,38 @@ function ns.OptionPages()
                     },
                 },
                 {
+                    -- a set of options for each party: the console's, or the
+                    -- widget's; Editing (beside the tabs) picks which, and
+                    -- opens on the one Party layout shows
                     id = "party", name = "Party",
-                    intro = "The party frames use the group their Party layout puts them in (Console > General).",
-                    more = "The Console group is on the player and target frames too.",
+                    intro = "Editing, at the tabs' right, picks the console's party frames or the widget's.",
+                    more = "Party layout (Console > General) picks which of the two show. The console's are kept "
+                        .. "per profile, and are on the player and target frames too; the widget's are shared by "
+                        .. "every profile.",
+                    variants = { { "console", "Console" }, { "widget", "Widget" } },
+                    variantKey = "partyLayout",
+                    sheetNames = { position = "Position & look" },
                     groups = {
-                        Group("Console (per profile)",
-                            Range("partyRange", "party"), Pets("partyPets"),
-                            Glow("auraGlow"), Threat("auraThreat"), CC("auraCC", "the"), Buffs("auraBuffs"),
-                            Debuffs("auraDebuffs"), BossDebuffs("auraBoss")),
-                        Group("Widget (shared by every profile)",
-                            Range("partyWidgetRange", "party"),
+                        On("position", Group("Editor", Editor(nil, "Edit unit frames"))),
+                        On("position", Variant("widget", "Shared", Group("The widget",
+                            Movers("partyWidgetMoverHover", "Party")))),
+                        On("visibility", Variant("console", "Per profile", Group("Range",
+                            Range("partyRange", "party")))),
+                        On("visibility", Variant("widget", "Shared", Group("Range",
+                            Range("partyWidgetRange", "party")))),
+                        On("elements", Variant("console", "Per profile", Group("Frames", Pets("partyPets")))),
+                        On("elements", Variant("widget", "Shared", Group("Frames",
                             Check("partyWidgetPlayer", "Include yourself",
-                                "Show your own unit frame as the first row of the Party widget."),
-                            Glow("partyWidgetGlow"), Threat("partyWidgetThreat"), CC("partyWidgetCC", "the"),
+                                "Show your own unit frame as the first row of the Party widget.")))),
+                        On("auras", Variant("console", "Per profile", Group("Glows and icons",
+                            Glow("auraGlow"), Threat("auraThreat"), CC("auraCC", "the")))),
+                        On("auras", Variant("console", "Per profile", Group("Aura rows",
+                            Buffs("auraBuffs"), Debuffs("auraDebuffs"), BossDebuffs("auraBoss")))),
+                        On("auras", Variant("widget", "Shared", Group("Glows and icons",
+                            Glow("partyWidgetGlow"), Threat("partyWidgetThreat"), CC("partyWidgetCC", "the")))),
+                        On("auras", Variant("widget", "Shared", Group("Aura rows",
                             Buffs("partyWidgetBuffs"), Debuffs("partyWidgetDebuffs"),
-                            BossDebuffs("partyWidgetBoss"), Movers("partyWidgetMoverHover", "Party")),
+                            BossDebuffs("partyWidgetBoss")))),
                     },
                 },
                 {
@@ -1247,7 +1298,7 @@ function ns.OptionPages()
                 .. "quest's item. Reads Questie's tracked quests when Questie is loaded; "
                 .. "Questie's own tracker is left to Questie's options.", true),
             groups = {
-                Group("Tracker",
+                On("behaviour", Group("Tracker",
                     Choice("questsView", "View", {
                         { "full", "Full", "The character window's place, on the strip up to the screen's top, "
                             .. "fading to a tenth at the right, over the chat." },
@@ -1259,8 +1310,8 @@ function ns.OptionPages()
                         { "zone", "Zone", "The zone you are in first, then the rest by name." },
                     }, "How the quests are ordered. The tracker's own button changes it too."),
                     Button("Reset the minimal view", function() ns.SetOption("questsPlace", false) end,
-                        "The minimal view back to the top left, at its first size and scale.")),
-                Group("Text",
+                        "The minimal view back to the top left, at its first size and scale."))),
+                On("look", Group("Text",
                     Choice("questsTree", "Objectives", {
                         { false, "Bullets", "Each objective under its quest, bulleted, in the quest log's order." },
                         { true, "Tree", "On the branches of a tree, the finished ones risen to the top and "
@@ -1271,15 +1322,15 @@ function ns.OptionPages()
                     Points("questsTitleSize", "Title size", "The quests' titles, and their marks with them."),
                     FontChoice("questsObjectiveFont", "Objective font", "The objectives under each quest."),
                     Points("questsObjectiveSize", "Objective size", "The objectives under each quest. Every row "
-                        .. "is as tall as the larger of the two sizes needs.")),
-                Group("Full view", Check("questsFullMouseover", "Only on mouseover",
+                        .. "is as tall as the larger of the two sizes needs."))),
+                On("visibility", Group("Full view", Check("questsFullMouseover", "Only on mouseover",
                         "Hidden until the pointer is over the tracker's column."),
                     Check("questsFullCombat", "Hidden in combat",
-                        "Gone in combat, items too, and clicks go through to what is behind it.")),
-                Group("Minimal view", Check("questsMinimalMouseover", "Only on mouseover",
+                        "Gone in combat, items too, and clicks go through to what is behind it."))),
+                On("visibility", Group("Minimal view", Check("questsMinimalMouseover", "Only on mouseover",
                         "Hidden until the pointer is over the box."),
                     Check("questsMinimalCombat", "Hidden in combat",
-                        "Gone in combat, items too, and clicks go through to what is behind it.")),
+                        "Gone in combat, items too, and clicks go through to what is behind it."))),
             },
         },
         {
@@ -1343,22 +1394,23 @@ end
 
 -- The sidebar: its categories in order, each a heading over its items (a
 -- page, or one of a page's tabs; a tab `under` another is indented below it). Only the shown page's category is open.
--- A category's scope or note sits by its heading on Modules.
+-- A category's scope or note sits by its heading on Modules; its glyph
+-- (media/strips) by its heading in the sidebar.
 function ns.OptionCategories()
     return {
-        { name = "Overview", items = { "modules", "general" } },
-        { name = "Shared", scope = "Every part's, in one place",
+        { name = "Overview", glyph = "menu", items = { "modules", "general" } },
+        { name = "Shared", glyph = "channels", scope = "Every part's, in one place",
             items = { "shared/visibility", "shared/auras", "shared/look", "shared/tools" } },
-        { name = "Console", scope = "Kept per profile",
+        { name = "Console", glyph = "skills", scope = "Kept per profile",
             items = { "console/general", "console/bar", "console/paging", "console/overhead",
                 "console/minimap" } },
-        { name = "Cooldowns", scope = "Kept per profile",
+        { name = "Cooldowns", glyph = "side-timeless", scope = "Kept per profile",
             items = { "cooldowns/essential", "cooldowns/utility", "cooldowns/buffs", "cooldowns/bars" } },
-        { name = "Unit frames",
+        { name = "Unit frames", glyph = "character",
             items = { "units/general", "units/party", "units/raid", "units/battleground", "units/boss",
                 "units/arena" } },
-        { name = "Interface", scope = "Shared by every profile",
+        { name = "Interface", glyph = "view-full", scope = "Shared by every profile",
             items = { "chat", "side", "quests", "tray", "windows" } },
-        { name = "Extensions", note = "Companion addons", items = { "tooltips" } },
+        { name = "Extensions", glyph = "misc", note = "Companion addons", items = { "tooltips" } },
     }
 end

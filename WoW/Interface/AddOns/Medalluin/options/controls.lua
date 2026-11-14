@@ -4,9 +4,12 @@
 -- writes through ns.SetOption, so the modules hear about the change the
 -- way they always have; Refresh(enabled) redraws one from ns.db.
 --
--- In a row (row true: the window's sections) a control is one line, its
--- label at the left and its box at the right; a label too long for its
--- room wraps, and the row grows to hold it.
+-- In a row (row true: the window's sections) a control is its label at
+-- the left, a line in dim under it saying what it does (UI.Line), and its
+-- box at the right; a label too long for its room wraps, and the row grows
+-- to hold it. A row's on/off is a pill, as a switch; a choice of two or
+-- three short answers is a segmented control (UI.Segment), every answer in
+-- sight.
 --
 -- Nothing here is Blizzard's settings machinery or its dropdown menu: the
 -- window's frames are Medalluin's own, so they can taint nothing the game's
@@ -106,13 +109,50 @@ local function Tipped(frame, title, text)
     frame:SetScript("OnLeave", Untip)
 end
 
--- a row's label: the room left of its box, wrapped; the row as tall as it
-UI.ROW_H = 24
-local function Fit(f, label, room)
-    label:SetWidth(math.max(20, room))
+-- An option's line under its label: spec.line (false for none), or its
+-- tip's first sentence, the reload note left to the tip.
+function UI.Line(spec)
+    if spec.line ~= nil then return spec.line or nil end
+    local tip = spec.tip
+    if type(tip) ~= "string" or tip == "" then return nil end
+    tip = tip:gsub(" Takes effect after a reload%.$", "")
+    return tip:match("^(.-[%.!?])%s") or tip
+end
+
+-- a row's label: the room left of its box, wrapped; its line under it, one
+-- line ending in "..." where it is longer; the row as tall as the two
+UI.ROW_H, UI.LINE_SIZE = 24, 11
+local function Fit(f, label, room, spec)
+    room = math.max(20, room)
+    label:SetWidth(room)
     label:SetJustifyH("LEFT")
     label:SetWordWrap(true)
-    f:SetHeight(math.max(UI.ROW_H, math.ceil(label:GetStringHeight() or 0) + 8))
+    local line = spec and UI.Line(spec)
+    if not line then
+        f:SetHeight(math.max(UI.ROW_H, math.ceil(label:GetStringHeight() or 0) + 8))
+        return
+    end
+    f.line = f.line or UI.Plain(f, UI.LINE_SIZE, C.dim)
+    f.line:SetWordWrap(false)
+    f.line:SetJustifyH("LEFT")
+    f.line:SetWidth(room)
+    f.line:SetText(line)
+    label:ClearAllPoints()
+    label:SetPoint("TOPLEFT", 0, -5)
+    f.line:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
+    f:SetHeight(math.ceil(label:GetStringHeight() or 0) + 2 + math.ceil(f.line:GetStringHeight() or 0) + 10)
+end
+
+-- A text's width in the rows' face, before anything is made for it.
+local ruler
+local function TextWidth(text)
+    if not ruler then
+        local holder = CreateFrame("Frame", nil, UIParent)
+        holder:Hide()
+        ruler = UI.Plain(holder, 12)
+    end
+    ruler:SetText(text)
+    return math.ceil(ruler:GetStringWidth() or 0)
 end
 
 -- ------------------------------------------------------------ button
@@ -146,56 +186,13 @@ function UI.Button(parent, label, width, height, click, tip, red)
     return b
 end
 
--- ------------------------------------------------------------ checkbox
-local CHECK = 16
-UI.CHECK_H = 22
-
-function UI.Check(parent, spec, width, row)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(width, UI.CHECK_H)
-    b.spec = spec
-    local box = Fill(b, "BACKGROUND", C.goldDark, 1)
-    box:SetSize(CHECK, CHECK)
-    box:SetPoint(row and "RIGHT" or "LEFT", 0, 0)
-    local well = Fill(b, "BACKGROUND", C.well, 2)
-    well:SetPoint("TOPLEFT", box, "TOPLEFT", 1, -1)
-    well:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -1, 1)
-    b.tick = b:CreateTexture(nil, "ARTWORK")
-    b.tick:SetTexture(MEDIA .. "check")
-    b.tick:SetSize(CHECK + 4, CHECK + 4)
-    b.tick:SetPoint("CENTER", box, "CENTER", 1, 1)
-    b.label = UI.Plain(b, 12)
-    if row then
-        b.label:SetPoint("LEFT", 0, 0)
-        b.label:SetText(spec.label)
-        Fit(b, b.label, width - CHECK - 12)
-    else
-        b.label:SetPoint("LEFT", box, "RIGHT", 7, 0)
-        b.label:SetPoint("RIGHT", 0, 0)
-        b.label:SetJustifyH("LEFT")
-        b.label:SetText(spec.label)
-    end
-    b:SetScript("OnClick", function() Set(spec, not Get(spec)) end)
-    Tipped(b, spec.label, spec.tip)
-    function b:Refresh(enabled)
-        self:SetEnabled(enabled)
-        self.tick:SetShown(Get(spec) and true or false)
-        local c = enabled and C.text or C.dim
-        self.label:SetTextColor(c[1], c[2], c[3])
-        self:SetAlpha(enabled and 1 or 0.55)
-    end
-    return b
-end
-
--- ------------------------------------------------------------ switch
--- An on/off pill (a page's master, a module's card): a track gold-edged,
--- filled while on, its knob at the right while on and at the left while
--- off; label (optional) left of it. Its tick is the fill, as a checkbox's.
+-- ------------------------------------------------------------ pill
+-- An on/off pill (a page's master, a module's card, a row's on/off): a
+-- track gold-edged, filled while on, its knob at the right while on and at
+-- the left while off. Its tick is the fill, as a checkbox's.
 UI.SWITCH_W, UI.SWITCH_H = 36, 18
 
-function UI.Switch(parent, spec, label)
-    local b = CreateFrame("Button", nil, parent)
-    b.spec = spec
+local function Pill(b)
     local track = CreateFrame("Frame", nil, b)
     track:SetSize(UI.SWITCH_W, UI.SWITCH_H)
     track:SetPoint("RIGHT", 0, 0)
@@ -209,6 +206,77 @@ function UI.Switch(parent, spec, label)
     b.knob:SetTexture(ns.media .. "strips\\round")
     b.knob:SetSize(UI.SWITCH_H - 6, UI.SWITCH_H - 6)
     b.track = track
+end
+
+local function PillShows(b, on)
+    b.tick:SetShown(on)
+    b.knob:ClearAllPoints()
+    b.knob:SetPoint(on and "RIGHT" or "LEFT", on and -3 or 3, 0)
+    local k = on and C.goldBright or C.dim
+    b.knob:SetVertexColor(k[1], k[2], k[3], 1)
+    local e = on and C.gold or C.goldDark
+    for _, t in ipairs(b.edge) do t:SetColorTexture(e[1], e[2], e[3], 1) end
+end
+
+-- ------------------------------------------------------------ checkbox
+-- In a row, a pill at its right; elsewhere (a grid's box) a box, its label
+-- right of it.
+local CHECK = 16
+UI.CHECK_H = 22
+
+function UI.Check(parent, spec, width, row)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(width, UI.CHECK_H)
+    b.spec = spec
+    b.label = UI.Plain(b, 12)
+    b:SetScript("OnClick", function() Set(spec, not Get(spec)) end)
+    Tipped(b, spec.label, spec.tip)
+    if row then
+        Pill(b)
+        b.label:SetPoint("LEFT", 0, 0)
+        b.label:SetText(spec.label)
+        Fit(b, b.label, width - UI.SWITCH_W - 12, spec)
+        function b:Refresh(enabled)
+            self:SetEnabled(enabled)
+            PillShows(self, Get(spec) and true or false)
+            local c = enabled and C.text or C.dim
+            self.label:SetTextColor(c[1], c[2], c[3])
+            self:SetAlpha(enabled and 1 or 0.55)
+        end
+        return b
+    end
+    local box = Fill(b, "BACKGROUND", C.goldDark, 1)
+    box:SetSize(CHECK, CHECK)
+    box:SetPoint("LEFT", 0, 0)
+    local well = Fill(b, "BACKGROUND", C.well, 2)
+    well:SetPoint("TOPLEFT", box, "TOPLEFT", 1, -1)
+    well:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -1, 1)
+    b.tick = b:CreateTexture(nil, "ARTWORK")
+    b.tick:SetTexture(MEDIA .. "check")
+    b.tick:SetSize(CHECK + 4, CHECK + 4)
+    b.tick:SetPoint("CENTER", box, "CENTER", 1, 1)
+    b.label:SetPoint("LEFT", box, "RIGHT", 7, 0)
+    b.label:SetPoint("RIGHT", 0, 0)
+    b.label:SetJustifyH("LEFT")
+    b.label:SetText(spec.label)
+    function b:Refresh(enabled)
+        self:SetEnabled(enabled)
+        self.tick:SetShown(Get(spec) and true or false)
+        local c = enabled and C.text or C.dim
+        self.label:SetTextColor(c[1], c[2], c[3])
+        self:SetAlpha(enabled and 1 or 0.55)
+    end
+    return b
+end
+
+-- ------------------------------------------------------------ switch
+-- A pill with its label (optional) left of it: a page's master, a card's
+-- switch.
+function UI.Switch(parent, spec, label)
+    local b = CreateFrame("Button", nil, parent)
+    b.spec = spec
+    Pill(b)
+    local track = b.track
     local w = UI.SWITCH_W
     if label then
         b.label = UI.Serif(b, 12, C.gold)
@@ -221,14 +289,7 @@ function UI.Switch(parent, spec, label)
     Tipped(b, spec.label, spec.tip)
     function b:Refresh(enabled)
         self:SetEnabled(enabled)
-        local on = Get(spec) and true or false
-        self.tick:SetShown(on)
-        self.knob:ClearAllPoints()
-        self.knob:SetPoint(on and "RIGHT" or "LEFT", on and -3 or 3, 0)
-        local k = on and C.goldBright or C.dim
-        self.knob:SetVertexColor(k[1], k[2], k[3], 1)
-        local e = on and C.gold or C.goldDark
-        for _, t in ipairs(self.edge) do t:SetColorTexture(e[1], e[2], e[3], 1) end
+        PillShows(self, Get(spec) and true or false)
         self:SetAlpha(enabled and 1 or 0.45)
     end
     return b
@@ -481,7 +542,7 @@ function UI.Choice(parent, spec, width, row)
         end
         if need <= width - math.ceil(f.label:GetStringWidth()) - 10 or need <= least then
             f.label:SetPoint("LEFT", 0, 0)
-            Fit(f, f.label, width - need - 10)
+            Fit(f, f.label, width - need - 10, spec)
             b:SetPoint("RIGHT", 0, 0)
             b:SetWidth(need)
         else
@@ -523,6 +584,119 @@ function UI.Choice(parent, spec, width, row)
         if self.row then self.label:SetTextColor(c[1], c[2], c[3]) end
         self:SetAlpha(enabled and 1 or 0.55)
         if not enabled and menu and menu.owner == b then UI.CloseMenu() end
+    end
+    return f
+end
+
+
+-- ------------------------------------------------------------ segmented
+-- A choice of two or three short answers, side by side in one well, the
+-- one chosen lit with a gold foot: one click, every answer in sight. A
+-- choice's row takes one where its answers fit in half the row
+-- (UI.Segmentable); spec.menu keeps the dropdown. Its kind stays "choice".
+UI.SEG_H, UI.SEG_MIN, UI.SEG_PAD = 22, 44, 18
+
+local function SegWidths(spec)
+    local widths, total = {}, 0
+    for i, choice in ipairs(spec.choices) do
+        widths[i] = math.max(UI.SEG_MIN, TextWidth(choice[2]) + UI.SEG_PAD)
+        total = total + widths[i]
+    end
+    return widths, total
+end
+
+-- its answers' width together; a text's width (the window's header)
+function UI.SegmentTotal(spec)
+    local _, total = SegWidths(spec)
+    return total
+end
+UI.TextWidth = TextWidth
+
+function UI.Segmentable(spec, width)
+    if spec.menu or spec.list or spec.multi or type(spec.choices) ~= "table" then return false end
+    local n = #spec.choices
+    if n < 2 or n > 3 then return false end
+    local _, total = SegWidths(spec)
+    return total <= math.floor(width * 0.5)
+end
+
+function UI.Segment(parent, spec, width)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetSize(width, UI.ROW_H)
+    f.spec, f.segment, f.row = spec, true, true
+    f.buttons = {}
+    local widths, total = SegWidths(spec)
+    local box = CreateFrame("Frame", nil, f)
+    box:SetSize(total, UI.SEG_H)
+    box:SetPoint("RIGHT", 0, 0)
+    Fill(box, "BACKGROUND", C.well, 1):SetAllPoints()
+    Outline(box, "BORDER", C.goldDark, 0)
+    f.box = box
+    local x = 0
+    for i, choice in ipairs(spec.choices) do
+        local b = CreateFrame("Button", nil, box)
+        b:SetSize(widths[i], UI.SEG_H)
+        b:SetPoint("TOPLEFT", x, 0)
+        b.value, b.name = choice[1], choice[2]
+        b.lit = Fill(b, "ARTWORK", C.selected, 1)
+        b.lit:SetPoint("TOPLEFT", 1, -1)
+        b.lit:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.foot = Fill(b, "ARTWORK", C.goldBright, 2)
+        b.foot:SetHeight(2)
+        b.foot:SetPoint("BOTTOMLEFT", 1, 1)
+        b.foot:SetPoint("BOTTOMRIGHT", -1, 1)
+        if i > 1 then
+            local sep = Fill(b, "ARTWORK", C.goldDark, 3)
+            sep:SetWidth(1)
+            sep:SetPoint("TOPLEFT", 0, -1)
+            sep:SetPoint("BOTTOMLEFT", 0, 1)
+        end
+        b.text = UI.Plain(b, 12)
+        b.text:SetPoint("CENTER", 0, 0)
+        b.text:SetText(choice[2])
+        b:SetScript("OnClick", function(self) Set(spec, self.value) end)
+        b:SetScript("OnEnter", function(self)
+            if not self.chosen then self.text:SetTextColor(C.text[1], C.text[2], C.text[3]) end
+            local tip = choice[3]
+            if type(tip) == "function" then tip = tip() end
+            UI.Tip(self, spec.label .. ": " .. choice[2], tip or spec.tip)
+        end)
+        b:SetScript("OnLeave", function()
+            f:Paint()
+            Untip()
+        end)
+        f.buttons[i] = b
+        x = x + widths[i]
+    end
+    f.label = UI.Plain(f, 12)
+    f.label:SetPoint("LEFT", 0, 0)
+    f.label:SetText(spec.label)
+    Fit(f, f.label, width - total - 12, spec)
+    function f:Paint()
+        for _, b in ipairs(self.buttons) do
+            local c = b.chosen and C.goldBright or C.dim
+            b.text:SetTextColor(c[1], c[2], c[3])
+        end
+    end
+    -- the answer chosen, in words
+    function f:Shown()
+        for _, b in ipairs(self.buttons) do if b.chosen then return b.name end end
+        return tostring(Get(spec))
+    end
+    function f:IsEnabled() return not self.off end
+    function f:Refresh(enabled)
+        self.off = not enabled
+        local v = Get(spec)
+        for _, b in ipairs(self.buttons) do
+            b:SetEnabled(enabled)
+            b.chosen = b.value == v
+            b.lit:SetShown(b.chosen)
+            b.foot:SetShown(b.chosen)
+        end
+        self:Paint()
+        local c = enabled and C.text or C.dim
+        self.label:SetTextColor(c[1], c[2], c[3])
+        self:SetAlpha(enabled and 1 or 0.55)
     end
     return f
 end
@@ -646,7 +820,7 @@ function UI.Color(parent, spec, width, row)
     if row then
         b.label:SetPoint("LEFT", 0, 0)
         b.label:SetText(spec.label)
-        Fit(b, b.label, width - CHECK - 12)
+        Fit(b, b.label, width - CHECK - 12, spec)
     else
         b.label:SetPoint("LEFT", edge, "RIGHT", 7, 0)
         b.label:SetText(spec.label)
@@ -686,7 +860,7 @@ function UI.Slider(parent, spec, width, row)
         f.label = UI.Plain(f, 12)
         f.label:SetPoint("LEFT", 0, 0)
         f.label:SetText(spec.label)
-        Fit(f, f.label, width - room - UI.VALUE_W - 12)
+        Fit(f, f.label, width - room - UI.VALUE_W - 12, spec)
         f.value = UI.Plain(f, 11)
         f.value:SetPoint("RIGHT", f, "RIGHT", -(room + 6), 0)
         f.value:SetWidth(UI.VALUE_W)

@@ -5298,7 +5298,7 @@ if savedSimParty then HarnessCrowns("crowns, simulated") end
 function optionShown(c)
     local k = c.spec.kind
     if k == "check" then return tostring(c.tick.shown) end
-    if k == "choice" then return c.button.value.text end
+    if k == "choice" then return c.segment and c:Shown() or c.button.value.text end
     if k == "color" then return table.concat(c.swatch.color, ",", 1, 3) end
     if k == "slider" then return c.value.text end
     if k == "key" then return c.box.text.text end
@@ -5335,6 +5335,16 @@ end
 function partyLayoutMenu(tag)
     ns.OpenOptions("console/general")
     local layout = ns.optionControls.partyLayout
+    -- segmented: each answer's button and its tip, as the list would show them
+    if layout.segment then
+        for i, b in ipairs(layout.buttons) do
+            local tip = layout.spec.choices[i][3]
+            if type(tip) == "function" then tip = tip() end
+            print("party layout menu " .. tag, (b.chosen and "*" or "") .. b.name, tip)
+        end
+        ns.CloseOptions()
+        return
+    end
     layout.button.scripts.OnClick(layout.button)
     for _, row in ipairs(MedalluinOptionsMenu.rows) do
         if row.shown then
@@ -5366,6 +5376,16 @@ setmetatable(page, {
                 if not hit:IsEnabled() then print("settings: " .. key .. " set while greyed out") end
                 if c.spec.kind == "check" and ns.db[key] ~= v then
                     c.scripts.OnClick(c)
+                elseif c.segment and ns.db[key] ~= v then
+                    -- a segmented choice: its answer's button clicked
+                    local b
+                    for _, x in ipairs(c.buttons) do if x.value == v then b = x end end
+                    if b then
+                        b.scripts.OnClick(b)
+                    else
+                        print("settings: " .. key .. " offers no " .. tostring(v))
+                        ns.SetOption(key, v)
+                    end
                 elseif c.spec.kind == "choice" and ns.db[key] ~= v then
                     hit.scripts.OnClick(hit)
                     local row = menuRow(v)
@@ -5453,32 +5473,65 @@ if barPass then
         -- the intro, one line; the rest in the header's (?)
         print("  intro", f.intro and f.intro.text or "-", "lines=" .. (f.intro and f.intro:GetStringHeight() or 0),
             "more=" .. (f.head.more and f.head.more.tip:gsub("\n", "/") or "-"))
-        -- each section's column and top, its switch, whether it is a card
+        -- its sheets' tabs, the one shown starred; the aside at their right
+        if f.tabs then
+            local tabs = {}
+            for _, b in ipairs(f.tabs) do
+                if b.shown ~= false then table.insert(tabs, (b.sheet == f.sheet and "*" or "") .. b.text.text) end
+            end
+            local a = f.aside
+            print("  sheets", table.concat(tabs, " | "), "aside=" .. (a and (a.segment and ("Editing " .. a:Shown())
+                or ((a.label and a.label.text or "") .. (a.tick.shown and " on" or " off"))) or "-"))
+        end
+        -- what the sheet shown holds; on a page with sheets, each in turn
+        local function body()
+        -- each section shown: its column and top, its switch, whether it is a card
         local secs = {}
         for _, s in ipairs(f.sections) do
+          if s.shown ~= false then
             local w = s.switch
             table.insert(secs, s.title.text .. "@" .. tostring(s.col) .. "," .. s.top .. " h" .. s.h
                 .. (w and (" [" .. (w.label and w.label.text or "") .. (w.tick.shown and " on" or " off")
                     .. (w:IsEnabled() and "" or " grey") .. "]") or "")
-                .. (s.edge and (" card " .. (s.edge[1].color[1] == ns.OptionsUI.colors.gold[1] and "gold" or "dark")) or ""))
+                .. (s.edge and (" card " .. (s.edge[1].color[1] == ns.OptionsUI.colors.gold[1] and "gold" or "dark")) or "")
+                .. (s.chip and (" (" .. s.chip.text.text .. ")") or ""))
+          end
         end
         print("  sections", table.concat(secs, "; "))
         -- a card's title band: its title and switch centred in it, the rows under
-        local s1 = f.sections[1]
+        local s1
+        for _, s in ipairs(f.sections) do
+            if s.shown ~= false then s1 = s; break end
+        end
+        local r1
+        for _, c in ipairs(f.controls) do
+            if c.parent == s1 then r1 = c; break end
+        end
         if s1 then
             local tp = s1.title.points.LEFT and "LEFT" or next(s1.title.points)
             local t, w = s1.title.points[tp], s1.switch and s1.switch.points.TOPRIGHT
             print("  card", s1.title.text, "band=" .. s1.band.h .. "@" .. s1.band.points.TOPLEFT[4],
                 "title=" .. tp .. ">" .. t[2] .. " " .. t[3] .. "," .. t[4],
                 "switch=" .. (w and (w[3] .. "," .. w[4] .. " h" .. s1.switch.h) or "-"),
-                "row=" .. (f.controls[1] and f.controls[1].parent == s1 and f.controls[1].points.TOPLEFT
-                    and (f.controls[1].points.TOPLEFT[3] .. "," .. f.controls[1].points.TOPLEFT[4]) or "-"))
+                "row=" .. (r1 and r1.points.TOPLEFT and (r1.points.TOPLEFT[3] .. "," .. r1.points.TOPLEFT[4]) or "-"))
         end
         local top = resolve(f)
+        -- a control shown: none of its frames up to the page hidden (its
+        -- section on another sheet, its row one its layout leaves off)
+        local function out(c)
+            local p = c
+            while p and p ~= f do
+                if p.shown == false then return false end
+                p = p.parent
+            end
+            return p == f
+        end
         for _, c in ipairs(f.controls) do
           -- a frame's Own mark (a choice of its own over Shared's): only
           -- while it has one; a grid, its columns and rows
-          if c.spec.kind == "grid" then
+          if not out(c) then
+            -- the header's, or one off the sheet shown
+          elseif c.spec.kind == "grid" then
             local rows = {}
             for i, row in ipairs(c.spec.rows) do
                 local cells = {}
@@ -5496,10 +5549,25 @@ if barPass then
             local choices = {}
             for _, ch in ipairs(c.spec.choices or {}) do table.insert(choices, tostring(ch[1]) .. "=" .. ch[2]) end
             local hit = c.spec.kind == "choice" and c.button or c.less or c.box or c
-            print("  " .. c.spec.kind, c.spec.label, tostring(c.spec.key), "shows=" .. shows(c),
-                hit:IsEnabled() and "live" or "grey", string.format("at=%d,%d %dx%d", r[1] - top[1], r[2] - top[2],
-                    c.w, c.h), c.spec.reload and "reload" or "", table.concat(choices, "; "))
+            print("  " .. c.spec.kind .. (c.segment and " (segmented)" or ""), c.spec.label, tostring(c.spec.key),
+                "shows=" .. shows(c), hit:IsEnabled() and "live" or "grey", string.format("at=%d,%d %dx%d",
+                    r[1] - top[1], r[2] - top[2], c.w, c.h), c.spec.reload and "reload" or "",
+                table.concat(choices, "; "))
           end
+        end
+        end
+        if not f.tabs then return body() end
+        local was = f.sheet
+        for _, b in ipairs(f.tabs) do
+            if b.shown ~= false then
+                b.scripts.OnClick(b)
+                print("  sheet " .. b.text.text, "height=" .. f.h, "range=" .. win.scroll:GetVerticalScrollRange(),
+                    "crumb=" .. f.head.crumb.text)
+                body()
+            end
+        end
+        for _, b in ipairs(f.tabs) do
+            if b.sheet == was then b.scripts.OnClick(b) end
         end
     end
     print("window", "size=" .. win.w .. "x" .. win.h, "strata=" .. tostring(win.strata),
@@ -5823,6 +5891,94 @@ if barPass then
         print("options./mdlui modules", ns.OptionsShown())
         SlashCmdList.MDLUI("bar")
         print("options./mdlui bar", ns.OptionsShown())
+        -- sheets: the one shown, by path; each page remembers its own
+        local function sheet(p) return tostring((ns.optionPages[p] or {}).sheet) end
+        ns.SearchOptions("sweep", 1)
+        print("options.sheet search chosen", ns.OptionsShown(), "sheet=" .. sheet("console/bar"))
+        ns.OpenOptions("console/bar#visibility")
+        local direct = sheet("console/bar")
+        ns.OpenOptions("console/overhead#elements")
+        ns.OpenOptions("console/bar")
+        local kept = sheet("console/bar")
+        ns.OpenOptions("console/bar#nope")
+        print("options.sheet open", "#visibility=" .. direct, "overhead=" .. sheet("console/overhead"),
+            "back=" .. kept, "#nope=" .. sheet("console/bar"), ns.OptionsShown())
+        -- a tab clicked: its sheet, its cards shown and the others' hidden
+        local bar = ns.optionPages["console/bar"]
+        for _, b in ipairs(bar.tabs) do
+            if b.sheet == "look" then b.scripts.OnClick(b) end
+        end
+        local vis = {}
+        for _, s in ipairs(bar.sections) do
+            table.insert(vis, s.title.text .. (s.shown == false and "-" or "+"))
+        end
+        print("options.sheet tab", "sheet=" .. bar.sheet, table.concat(vis, " "))
+        -- a segmented choice: its button writes the option, and lights
+        local cd = ns.optionControls.cooldownText
+        local was = ns.db.cooldownText
+        for _, b in ipairs(cd.buttons) do
+            if b.value == "hide" then b.scripts.OnClick(b) end
+        end
+        local lit = {}
+        for _, b in ipairs(cd.buttons) do
+            if b.chosen then table.insert(lit, b.value) end
+        end
+        print("options.segment", "cooldownText " .. tostring(was) .. "->" .. tostring(ns.db.cooldownText),
+            "lit=" .. table.concat(lit, ","), "shows=" .. tostring(cd:Shown()))
+        ns.SetOption("cooldownText", was)
+        -- a row its layout does not use: off the card, the rows under it moved up
+        ns.OpenOptions("cooldowns/essential#position")
+        local ess = ns.optionPages["cooldowns/essential"]
+        local function rows(label)
+            local o = {}
+            for _, c in ipairs(ess.controls) do
+                local k = c.spec and c.spec.key
+                if k and k:match("^cdmE") and c:GetParent() and c:GetParent().title and c:GetParent().title.text == "Layout" then
+                    table.insert(o, k:gsub("^cdmE", "") .. (c.shown == false and "-" or ("@" .. c.points.TOPLEFT[4])))
+                end
+            end
+            print("options.sheet hidden rows " .. label, "layout=" .. tostring(ns.db.cdmELayout), table.concat(o, " "))
+        end
+        local lay = ns.db.cdmELayout
+        for _, b in ipairs(ns.optionControls.cdmELayout.buttons) do
+            if b.value == "bar" then b.scripts.OnClick(b) end
+        end
+        rows("bar")
+        for _, b in ipairs(ns.optionControls.cdmELayout.buttons) do
+            if b.value == "arch" then b.scripts.OnClick(b) end
+        end
+        rows("arch")
+        ns.SetOption("cdmELayout", lay)
+        -- Party's Editing switch: the auras sheet's rows edit the other
+        -- layout's keys; the layout in use stays as it was
+        ns.OpenOptions("units/party#auras")
+        local party = ns.optionPages["units/party"]
+        local function keys(label)
+            local o = {}
+            for _, c in ipairs(party.controls) do
+                local p, shown = c, true
+                while p and p ~= party do
+                    if p.shown == false then shown = false end
+                    p = p.parent
+                end
+                if shown and c.spec and c.spec.key then table.insert(o, c.spec.key) end
+            end
+            print("options.party " .. label, "editing=" .. tostring(party.variant), "sheet=" .. tostring(party.sheet),
+                "layout=" .. tostring(ns.db.partyLayout), "keys=" .. table.concat(o, ","))
+        end
+        keys("console")
+        for _, b in ipairs(party.variantSeg.buttons) do
+            if b.value == "widget" then b.scripts.OnClick(b) end
+        end
+        keys("widget")
+        for _, b in ipairs(party.tabs) do
+            if b.sheet == "position" then b.scripts.OnClick(b) end
+        end
+        keys("widget position")
+        for _, b in ipairs(party.variantSeg.buttons) do
+            if b.value == "console" then b.scripts.OnClick(b) end
+        end
+        keys("console position")
     end)()
     -- a dropdown's list: its choices, the one in use marked; a row chosen
     ns.OpenOptions("units/party")
@@ -22089,9 +22245,10 @@ if cdmPass then (function()
             for _, g in ipairs(page.tabs[1].groups) do
                 local keys = {}
                 for _, spec in ipairs(g.items) do table.insert(keys, ((spec.key or spec.label):gsub("^cdmE", ""))) end
-                table.insert(out, g.title .. "[" .. table.concat(keys, ",") .. "]")
+                table.insert(out, g.title .. "/" .. tostring(g.sheet) .. "[" .. table.concat(keys, ",") .. "]")
             end
-            print("cdm page essential", table.concat(out, " "))
+            print("cdm page essential", table.concat(out, " "),
+                "aside=" .. tostring(page.tabs[1].aside and page.tabs[1].aside.key))
         end
     end
     -- its mover's popup in Edit Mode: its place, and beside it its look,
@@ -22255,9 +22412,10 @@ if cdmPass then (function()
             for _, g in ipairs(tab.groups) do
                 local keys = {}
                 for _, spec in ipairs(g.items) do table.insert(keys, ((spec.key or spec.label):gsub("^cdmT", ""))) end
-                table.insert(out, g.title .. "[" .. table.concat(keys, ",") .. "]")
+                table.insert(out, g.title .. "/" .. tostring(g.sheet) .. "[" .. table.concat(keys, ",") .. "]")
             end
-            print("cdm page bars", tab.id .. "/" .. tab.name, table.concat(out, " "))
+            print("cdm page bars", tab.id .. "/" .. tab.name, table.concat(out, " "),
+                "aside=" .. tostring(tab.aside and tab.aside.key))
         end
     end
     local tAll, tKept = 0, 0
