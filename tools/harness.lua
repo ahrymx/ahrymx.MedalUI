@@ -14162,6 +14162,61 @@ if movePass then
         table.insert(shown, ctl.spec.key .. "=" .. ctl.value.text)
     end
     print("move popup", table.concat(shown, " "))
+    -- its - and +: Shift five steps, Ctrl ten; held, repeating after a pause
+    local across, size = MedalluinMoverPopup.controls[2], MedalluinMoverPopup.controls[1]
+    local function press(b, mods)
+        modsDown.SHIFT, modsDown.CTRL = mods == "shift", mods == "ctrl"
+        if b.scripts.OnMouseDown then b.scripts.OnMouseDown(b, "LeftButton") end
+        if b.scripts.OnMouseUp then b.scripts.OnMouseUp(b, "LeftButton") end
+        b.scripts.OnClick(b, "LeftButton")
+        modsDown.SHIFT, modsDown.CTRL = nil, nil
+        return tostring(ns.db.overheadX)
+    end
+    local steps = { press(across.more), press(across.more, "shift"), press(across.more, "ctrl"),
+        press(across.less, "shift") }
+    modsDown.SHIFT = true
+    size.more.scripts.OnClick(size.more, "LeftButton")
+    modsDown.SHIFT = nil
+    print("move popup steps", "across " .. table.concat(steps, ","), "scale shift=" .. tostring(ns.db.overheadScale))
+    -- held: nothing before the pause, then a step a repeat (Ctrl's ten while
+    -- it is down); off the button it waits; the release's click adds none
+    local b = across.more
+    local was = mouseOver
+    mouseOver = b
+    local held = {}
+    -- (its timer there only while held)
+    local function tick(dt)
+        if b.scripts.OnUpdate then b.scripts.OnUpdate(b, dt) end
+        table.insert(held, tostring(ns.db.overheadX))
+    end
+    table.insert(held, "at rest " .. tostring(b.scripts.OnUpdate ~= nil))
+    b.scripts.OnMouseDown(b, "LeftButton")
+    tick(0.3)
+    tick(0.15)
+    tick(0.05)
+    modsDown.CTRL = true
+    tick(0.05)
+    modsDown.CTRL = nil
+    mouseOver = false
+    tick(0.05)
+    mouseOver = b
+    tick(0.05)
+    b.scripts.OnMouseUp(b, "LeftButton")
+    table.insert(held, "after " .. tostring(b.scripts.OnUpdate ~= nil))
+    b.scripts.OnClick(b, "LeftButton")
+    tick(0.5)
+    table.insert(held, "released " .. tostring(ns.db.overheadX))
+    -- a plain press after it steps again
+    table.insert(held, "next " .. press(b))
+    mouseOver = was
+    print("move popup held", table.concat(held, " "))
+    -- any other slider: a step a press, Shift or not, and no repeat
+    local plain = ns.OptionsUI.Slider(UIParent, { kind = "slider", key = "overheadX", min = -500, max = 500, step = 1 },
+        200)
+    local before = ns.db.overheadX
+    local p1 = press(plain.more, "shift")
+    print("move plain slider", "from " .. tostring(before), "shift=" .. p1,
+        "hold=" .. tostring(plain.more.scripts.OnUpdate ~= nil))
     MedalluinMoverPopup.reset.scripts.OnClick(MedalluinMoverPopup.reset)
     state("popup reset")
 

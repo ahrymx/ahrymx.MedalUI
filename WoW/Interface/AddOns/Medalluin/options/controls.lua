@@ -668,7 +668,11 @@ end
 -- A number between spec.min and spec.max, by spec.step: the label and the
 -- value over a track, a thumb to drag along it, and a step either way at
 -- its ends. spec.text, when there is one, says the value ("No limit").
+-- With spec.fast (a mover's place and scale, movers.lua) the steps go
+-- further: Shift five at a time, Ctrl ten, and held down they go on by
+-- themselves, after a pause, while the pointer stays on the button.
 UI.SLIDER_H = 40
+UI.HOLD, UI.REPEAT = 0.4, 0.05          -- seconds: before a held step repeats, and between repeats
 
 UI.SLIDER_W, UI.VALUE_W = 140, 44      -- a row's slider (its buttons and track), and its value
 
@@ -702,8 +706,53 @@ function UI.Slider(parent, spec, width, row)
     local function Nudge(by)
         Set(spec, Clamp((Get(spec) or spec.min) + by))
     end
-    f.less = UI.Button(f, "-", 18, 18, function() Nudge(-step) end)
-    f.more = UI.Button(f, "+", 18, 18, function() Nudge(step) end)
+    -- how many steps a press goes: Ctrl ten, Shift five
+    local function Steps()
+        if not spec.fast then return 1 end
+        if IsControlKeyDown and IsControlKeyDown() then return 10 end
+        if IsShiftKeyDown and IsShiftKeyDown() then return 5 end
+        return 1
+    end
+    local function Stepper(label, sign)
+        local held = false     -- repeated while held: the click that ends it steps no more
+        local b = UI.Button(f, label, 18, 18, function()
+            if held then
+                held = false
+                return
+            end
+            Nudge(sign * step * Steps())
+        end)
+        if spec.fast then
+            -- a timer only while held: no button ticks at rest
+            local wait
+            local function Tick(self, dt)
+                if not self:IsEnabled() then
+                    self:SetScript("OnUpdate", nil)
+                    return
+                end
+                wait = wait - dt
+                if wait > 0 then return end
+                wait = UI.REPEAT
+                -- off the button, it waits for the pointer to come back
+                if not self:IsMouseOver() then return end
+                held = true
+                Nudge(sign * step * Steps())
+            end
+            b:SetScript("OnMouseDown", function(self, button)
+                if button ~= "LeftButton" or not self:IsEnabled() then return end
+                wait, held = UI.HOLD, false
+                self:SetScript("OnUpdate", Tick)
+            end)
+            b:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+            b:HookScript("OnHide", function(self)
+                self:SetScript("OnUpdate", nil)
+                held = false
+            end)
+        end
+        return b
+    end
+    f.less = Stepper("-", -1)
+    f.more = Stepper("+", 1)
     if row then
         f.less:SetPoint("RIGHT", f, "RIGHT", -(room - 18), 0)
         f.more:SetPoint("RIGHT", 0, 0)

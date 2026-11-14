@@ -74,19 +74,21 @@ end
 
 local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
--- The page's sliders, and the popup's: one spec each, shared.
+-- The page's sliders, and the popup's: one spec each, shared. Their - and
+-- + go further with Shift (five steps) and Ctrl (ten), and repeat held
+-- down (UI.Slider's fast).
 local function Specs(c)
     return {
-        scale = { kind = "slider", key = Key(c, "Scale"), label = c.label or "Scale",
+        scale = { kind = "slider", key = Key(c, "Scale"), label = c.label or "Scale", fast = true,
             min = SCALE_MIN, max = SCALE_MAX, step = SCALE_STEP,
             text = function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end,
-            tip = "Its size, as a share of the size it is drawn at." },
-        x = { kind = "slider", key = Key(c, "X"), label = "Across",
+            tip = "Its size, as a share of the size it is drawn at. Shift steps five, Ctrl ten; hold to repeat." },
+        x = { kind = "slider", key = Key(c, "X"), label = "Across", fast = true,
             min = -REACH_X, max = REACH_X, step = 1,
-            tip = "Right of where it is drawn, or left below zero." },
-        y = { kind = "slider", key = Key(c, "Y"), label = "Up",
+            tip = "Right of where it is drawn, or left below zero. Shift steps five, Ctrl ten; hold to repeat." },
+        y = { kind = "slider", key = Key(c, "Y"), label = "Up", fast = true,
             min = c.minY, max = c.maxY, step = 1,
-            tip = "Up from where it is drawn, or down below zero." },
+            tip = "Up from where it is drawn, or down below zero. Shift steps five, Ctrl ten; hold to repeat." },
     }
 end
 

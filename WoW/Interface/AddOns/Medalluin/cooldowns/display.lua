@@ -34,7 +34,6 @@ local ROUND = ns.media .. "strips\\round"
 local ROUNDED = ns.media .. "strips\\rounded"
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local GAP = 14                  -- between the console and the rows, and between rows, untouched
-local UTILITY_X = 280           -- Utility's middle, right of the screen's, untouched
 
 -- each shape: its mask, how far in from the icon's edge it is cut, its rim
 -- under the icon (none: bare), and its sweep's edge
@@ -315,16 +314,16 @@ local function Fit(v, key)
     if w > 0 then v:SetScale(Num(key, "Size") / w) end
 end
 
--- Where each stands untouched, its bottom from the screen's: over the
--- console as the profile draws it, Essential in the middle, the buffs over
--- it, Utility at its right. The console moving does not take them along.
+-- Where each stands at Across and Up 0, its bottom from the screen's: over
+-- the console as the profile draws it, in the screen's middle, the buffs
+-- over Essential (Utility's place at its right is its default Across,
+-- settings.lua). The console moving does not take them along.
 -- In design units; k turns the screen's into them (Essential's row is drawn
 -- in the screen's).
 local function Base(key, k)
     local art = ns.art or {}
     local top = (art.bottomGap or 0) + (art.height or 0) + GAP
     if key == "buffs" then return 0, top + (DEFAULT_SIZE.essential + GAP) / k end
-    if key == "utility" then return UTILITY_X, top end
     return 0, top
 end
 

@@ -257,6 +257,9 @@ for _, v in ipairs(ns.CDM_VIEWERS) do
     DEFAULTS["cdm" .. v[1] .. "Size"] = v[4]
 end
 DEFAULTS.cdmBGaps = true
+-- Utility at Essential's right: its default place, so Across reads from the
+-- screen's middle for all three, as the mover shows it
+DEFAULTS.cdmUX = 280
 ns.DRAWER = { LEFT = 1, UP = 2 }
 ns.METER_SESSION = { OVERALL = 0, CURRENT = 1 }     -- Enum.DamageMeterSessionType's values
 ns.LOOT_WHO = { GROUP = 1, MINE = 2 }
