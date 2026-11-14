@@ -1,40 +1,69 @@
 # Medalluin
 
-> **A bespoke, artful HUD, unit frame, and console suite for World of Warcraft.**
+> **A bespoke, artful HUD, unit frame and console suite for World of Warcraft.**
 
-Medalluin transforms World of Warcraft's interface into a unified, ornamental console rendered in an elegant ink-and-gold art style. By wrapping Blizzard's secure templates into custom frames, Medalluin preserves full native combat security, macros, drag-and-drop, and keybindings while delivering a modern, cohesive UI experience.
+Medalluin turns the game's interface into one ornamental console in an ink-and-gold style. It wraps Blizzard's secure templates instead of replacing them, so combat security, macros, drag-and-drop and key bindings all work as they do in the default UI.
 
----
+Runs on **WoW Forever** (`16001`) and **Retail** (`120105`).
 
 > [!NOTE]
-> ### 🤖 AI-Assisted Development Disclaimer
-> **Medalluin is developed with the assistance of Artificial Intelligence.** Design specifications, art tooling, secure template integration, and code iterations have been co-authored and refined using advanced AI paired with human testing and direction. Code is thoroughly linted and harness-tested for taint safety and combat protection.
+> **Medalluin is developed with the assistance of AI.** Design, art tooling and code are co-authored with AI under human direction and in-game testing, then linted and harness-tested for taint and combat safety.
 
 ---
 
-## 📸 Showcase
+## The console
 
-### Console & Overhead
+The medallion console sits at the bottom: player and target on the wings, action bars in between. The overhead row at the top holds the boss, pet, focus and target-of-target frames.
+
 ![The Medallion console with its action bars, and the overhead's boss, pet, focus and target-of-target frames above](showcase/console-overhead.png)
 
-### Settings
-![The Medalluin settings window on its Modules page: each part switched on or off](showcase/settings-modules.png)
+- **Two profiles:** the symmetrical **Medallion** (default), or the compact **Central Console** below.
+- **Action bars:** one to three rows, with Blizzard's button art or **bare icons**. Empty buttons hide and reappear while you drag a spell, item or macro.
+- **Class power and cast bars** built into the console: combo points, holy power, runes, soul shards and the rest.
+- **Party, raid, boss and arena** frames: on the console's own row, or as draggable widgets. Offline and dead members get a look of their own: a plug icon, or wings and a timer.
 
-### Side Panel
+### Central Console
+
+The lighter profile: the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console.
+
+![The console with its minimap bay](showcase/central-console.png)
+
+---
+
+## The corner strips
+
+The bottom corners carry a strip each. The left one holds your portrait medallion and the micro menu under the chat box. The queue eye takes the portrait's place while you are queued, and a vehicle exit takes the backpack's on the right.
+
+![The chat box with its tabs, above the left strip's portrait and micro menu](showcase/chat.png)
+
+### Side panel
+
+The right strip opens a panel with tabs. **Zone** lends it the minimap beside the current zone's quests; **Loot** lists the group's drops and who won each roll.
+
 | Zone | Loot |
 |:---:|:---:|
 | ![The side panel's Zone tab: the minimap beside the zone's quests, with zoom, tracking and world map buttons](showcase/side-panel-zone.png) | ![The side panel's Loot tab: the group's loot with who won each roll](showcase/side-panel-loot.png) |
 
-### Chat & Quests
-| Quest Tracker & Chat | Quest Log |
+- **Meter** shows the game's own damage meter, on clients that have one; **Auras** lists your buffs and debuffs, live in combat.
+- In the Zone tab, click a quest for its objectives, or shift-click it to track it.
+- Addons' minimap buttons gather in a **drawer** at the end of the action bar, instead of crowding the minimap.
+
+---
+
+## Quests
+
+| Quest tracker & chat | Quest log |
 |:---:|:---:|
 | ![The quest tracker's full view above the chat box, with a quest's tooltip](showcase/quest-tracker.png) | ![The quest log on the right strip, quests by zone with their XP, item and coin rewards](showcase/quest-log.png) |
 
+A quest's own page spells out where it sits in its chain, step by step, with its giver, objectives and rewards.
+
 ![A quest's page: its level, zone, giver, step in its chain and status, the chain spelt out, then its objectives, description and rewards](showcase/quest-page.png)
 
-![The chat box with its tabs, above the left strip's portrait and micro menu](showcase/chat.png)
+---
 
-### Character, Spells & Bags
+## Character, bags and spells
+
 | Character | Bags |
 |:---:|:---:|
 | ![The character window: the model, gear slots with item levels, and stats](showcase/character.png) | ![The bags window in groups, with locked items and the free slots](showcase/bags.png) |
@@ -43,126 +72,95 @@ Medalluin transforms World of Warcraft's interface into a unified, ornamental co
 |:---:|:---:|
 | ![The spellbook: spells by school, with ranks, costs and click-cast bindings](showcase/spellbook.png) | ![The macros page, with a macro's editor](showcase/macros.png) |
 
-| Talents | Talent Plans |
+- **Bags** (inspired by Baganator) put the backpack, bags and reagent bag in one window. Items are grouped (New, Equipment, Consumables, Quest items, Trade goods, Junk), and the equipped bags open in a drawer above.
+- **Alt+click** an item to lock it: it shows a padlock and can't be sold or destroyed.
+
+### Talents and plans
+
+A **plan** lays out a build by level. Each talent shows its levels, goal and progress, and the next checkpoint is lit.
+
+| Talents | Talent plans |
 |:---:|:---:|
 | ![The talents window: a tree with the points available and the next talent in your plan](showcase/talents.png) | ![A talent plan: each talent's levels, goal and progress, the next checkpoint lit](showcase/talent-plans.png) |
 
-### Game Menu
+---
+
+## Game menu
+
+Esc opens a game menu that also shows your character, Medalluin's shortcuts, friends online, your guild and this session's gold and time.
+
 ![The game menu: the character, menu buttons, friends, guild and this session](showcase/game-menu.png)
 
-### Central Console
-![The console with its minimap bay](showcase/central-console.png)
+---
+
+## Settings
+
+Every part of Medalluin can be switched off on the **Modules** page; turn off what you'd rather keep from another addon or the default UI.
+
+![The Medalluin settings window on its Modules page: each part switched on or off](showcase/settings-modules.png)
+
+- **Profiles:** settings, action bar skills and key bindings are kept per profile and restored when you switch.
+- **Unit frame editor** (`/mui edit`): every piece's size, font, text and place, on a live canvas.
+- **Movers** in Edit Mode for the consoles, widgets and cooldown viewers.
+- **Cooldowns:** the game's Cooldown Manager viewers, each with its own layout (a bar or an arch), shape, text and visibility, plus a simulation to preview them.
+- **Key binding mode** (`/mui kb`): hover a button and press a key.
 
 ---
 
-## ✨ Features
+## Companion addons
 
-### 🎮 Central Console & Unit Frames
-- **Player & Target Frames**: Sculpted into the primary bottom console with smoothly animated health/power bars, class colors, combat threat glows, and status badges.
-- **Console Profiles**:
-  - **Medallion (Default)**: Symmetrical ornamental console with central artwork, power/cast meters, and expandable side panels.
-  - **Central Console (Light)**: Streamlined, compact variant featuring an integrated minimap bay, a 2x5 form/stance/skyriding center grid (`Action Bar 7`), and a dedicated 4-member party row directly under the console.
-- **Overhead & Boss Frames**: Overhead boss cast bars, health bars, and target-of-target indicators designed to float cleanly above combat encounters.
-- **Party & Raid Layouts**: Choose between the integrated **Console Row** or flexible, draggable **Widgets** for Party, Raid, Boss, and Arena units.
-- **Distinctive Offline & Dead States**:
-  - **Offline**: Distinct plug/unplug icon with diagonal hazard-striped texture bars.
-  - **Dead**: Angel halo wings icon, formatted death duration timer, character name, and embossed skull-texture bars.
+Companions appear under the **Medalluin** category in the AddOn List, each with its own documentation and license.
 
----
-
-### ⚔️ Action Bars & Keybinds
-- **Customizable Rows**: Run 1, 2, or 3 rows (Action Bar 1, MultiBar Bottom Left, and MultiBar Bottom Right).
-- **Art Style Options**:
-  - **With Art**: Preserves Blizzard's iconic button textures with tinting and custom frame styling.
-  - **Bare Icons**: Modern WeakAuras-style clean flat icons with centered cooldown digits, formatted hotkey abbreviations (`s-1`, `c-E`, `M4`), and usable range tints.
-- **Hide Empty Buttons**:
-  - Automatically hides unused button slots and keybind text on extra bars (rows 2 and 3) while keeping Action Bar 1 and stance grids visible.
-  - Seamless drag-and-drop: hovering an item, spell, or macro automatically reveals the empty slots so you can place abilities.
-- **Built-in Power & Cast Bars**: Integrated segment-based class power display (Holy Power, Combo Points, Runes, Soul Shards, Arcane Charges, Dragonriding Vigor) and responsive cast bars.
-- **Keybinding Overlay (`/mdlui kb`)**: Point and click on any action button and press a key to immediately bind or update hotkeys.
-
----
-
-### ⚙️ Profiles & Complete Customizability
-- **Per-Profile Independence**: Settings are stored per profile, allowing distinct layouts and settings across characters or specs.
-- **Action Bar Skills & Keybinds by Profile**: Medalluin remembers which spells, items, macros, and bindings belong to each profile and restores them seamlessly on profile or spec switches.
-- **In-Game Unit Frame Editor (`/mdlui edit`)**:
-  - Interactive visual editor with a live side-by-side canvas.
-  - Customize piece dimensions, fonts, text formats, offsets, and visibility for every unit frame.
-  - Fully secret-guarded to prevent combat lockups and taint.
-
----
-
-### 🎒 All-In-One Bags (Inspired by Baganator)
-- **Single Window Experience**: Combines your backpack, equipped bags, and reagent bag into a single unified window.
-- **Equipped Bag Drawer**: Open the bag drawer above the window to inspect, swap, or equip containers without cluttering the screen.
-- **Automatic Category Grouping**: Organize items into intuitive categories: *New*, *Equipment*, *Consumables*, *Quest items*, *Trade goods*, *Junk*, and *Other*.
-- **Blizzard Search & Sorting**: Full native support for text search, item quality dimming, and one-click bag sorting.
-- **Responsive Resizing**: Drag the bottom-right corner dots to change columns across, with automatic window height scaling.
-- **Item Locking**: Alt+click an item in your bags or bank to lock it. A padlock appears in its corner, its tooltip says "Locked", and it can no longer be destroyed or sold: it is left out of the vendor's Sell tab and Sell junk, and its right click does nothing at a vendor.
-
----
-
-### 🌟 Miscellaneous Highlights
-- **Dynamic LFG Queue Eye**: The queue status eye automatically replaces the character medallion on the left strip whenever you are in queue for a dungeon, raid, or battleground.
-- **Dynamic Vehicle Exit Seat**: When operating a vehicle or on an early-landing taxi, a custom crimson-and-gold ejection seat replaces the backpack medallion on the right strip.
-- **Minimap Addon Drawer**: Neatly collects minimap icons (DBM, Details, RaiderIO, Bagnon, etc.) into a collapsible drawer next to the action bar to keep your minimap clean.
-- **Side Panel Integration**: Integrated side strip supporting embedded damage meters (Details/Recount), timeless logs, and aura lists that keep updating in combat.
-- **Zone Tab**: The side panel's Zone tab moves the minimap into the panel beside the current zone's quests, each with its progress; click a quest for its objectives, shift-click to track it.
-
----
-
-## 🧩 Companion Addons
-
-Companion addons live alongside Medalluin under the **Medalluin** category in the game's AddOn List and have their own documentation and licenses:
-
-| Companion Addon | Description | Documentation & License |
+| Addon | What it adds | Docs & license |
 |:---|:---|:---|
-| **[`mdlui_Tooltips`](WoW/Interface/AddOns/mdlui_Tooltips/README.md)** | Full ornamented tooltip reskin for items, spells, units, auras, quests, mail, and world objects on both WoW Forever (`16001`) and Retail WoW (`120105`). Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard. | [README](WoW/Interface/AddOns/mdlui_Tooltips/README.md) · [MIT License](WoW/Interface/AddOns/mdlui_Tooltips/LICENSE) |
+| **[`mdlui_Tooltips`](WoW/Interface/AddOns/mdlui_Tooltips/README.md)** | An ornamented reskin of every tooltip: items, spells, units, auras, quests, mail and world objects. Forever and Retail. Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard. | [README](WoW/Interface/AddOns/mdlui_Tooltips/README.md) · [MIT](WoW/Interface/AddOns/mdlui_Tooltips/LICENSE) |
 
----
+## Recommended addons
 
-## 🤝 Recommended Addons
-
-Medalluin pairs well with these addons by other authors. They are not part of Medalluin: install each one separately from CurseForge.
+These addons are by other authors and pair well with Medalluin. They are not part of it: install each one separately from CurseForge.
 
 | Addon | What it adds | Clients |
 |:---|:---|:---|
-| **[PlateSCT](https://www.curseforge.com/wow/addons/platesct)** | Scrolling damage and healing numbers above enemy nameplates or in movable screen areas, with three display styles and clutter filters. | Forever · Retail |
-| **[Shadowflare](https://www.curseforge.com/wow/addons/shadowflare)** | On-screen alerts for spell procs across all classes: when your next spell is instant, faster, free, or usable. | Forever |
-| **[MF Nameplates](https://www.curseforge.com/wow/addons/mf-nameplates)** | Customizable nameplates with a live visual designer for arranging their elements. | Forever · Retail |
-| **[Node Sight](https://www.curseforge.com/wow/addons/node-sight)** | Each herb's and ore's own icon on the minimap, with an optional arrow to the nearest node and sparkles on the ones in front of you. | Forever |
-| **[LootOptimizer Forever](https://www.curseforge.com/wow/addons/lootoptimizer-forever)** | Frees bag space when your bags are full by swapping your least valuable item for new loot, and compares gear upgrades for you and your alts. | Forever |
-| **[Keep or Toss: Forever](https://www.curseforge.com/wow/addons/keep-or-toss-forever)** | A tooltip section saying whether an item is useful to your character and why, and marking items new to WoW Forever. | Forever |
+| **[PlateSCT](https://www.curseforge.com/wow/addons/platesct)** | Scrolling damage and healing numbers above enemy nameplates or in movable screen areas. | Forever · Retail |
+| **[Shadowflare](https://www.curseforge.com/wow/addons/shadowflare)** | On-screen alerts for spell procs: when your next spell is instant, faster, free or usable. | Forever |
+| **[MF Nameplates](https://www.curseforge.com/wow/addons/mf-nameplates)** | Customizable nameplates with a live visual designer. | Forever · Retail |
+| **[LootOptimizer Forever](https://www.curseforge.com/wow/addons/lootoptimizer-forever)** | Frees bag space for new loot when your bags are full, and compares gear upgrades for you and your alts. | Forever |
+| **[Keep or Toss: Forever](https://www.curseforge.com/wow/addons/keep-or-toss-forever)** | A tooltip section saying whether an item is useful to your character, and why. | Forever |
 
 ---
 
-## ⌨️ Slash Commands
+## Slash commands
 
-| Command | Description |
+| Command | What it does |
 |:---|:---|
-| `/mdlui` or `/mui` or `/medalluin` | Opens the Medalluin settings window |
-| `/mdlui bar` | Opens settings directly to the Action Bars tab |
-| `/mdlui party` / `raid` / `boss` | Opens settings directly to unit frame pages |
-| `/mdlui kb` | Enters quick keybinding mode (hover button and press key) |
-| `/mdlui edit` | Launches the interactive unit frame layout editor |
-| `/mdlui taint` | Runs internal diagnostics to inspect secure variable integrity |
+| `/mui`, `/mdlui` or `/medalluin` | Opens the settings window |
+| `/mui bar` | Opens settings at the action bars |
+| `/mui party` · `raid` · `boss` | Opens settings at that unit frame page |
+| `/mui kb` | Key binding mode: hover a button and press a key |
+| `/mui edit` | Opens the unit frame editor |
+| `/mui taint` | Runs taint diagnostics |
 | `/mui fix-issues` | Checks for problems an older version left behind that updating does not undo, and offers to fix them |
 
 ---
 
-## 🛠️ Work in Progress & Contributions
+## Credits and inspiration
+
+- **[W2UI](https://wowinterface.com/downloads/info27203-W2UI.html)** by aesketch: a design reference for the character window, the corner medallions and the utility bars. Used as a reference only; no code or art is taken from it.
+- **[Baganator](https://www.curseforge.com/wow/addons/baganator)**: inspiration for the bags window.
+- **[PrettyTooltip](https://github.com/FallenShard/PrettyTooltip)** by FallenShard: the base of `mdlui_Tooltips` (MIT).
+- **Marcellus SC** by Brian J. Bonislawsky (Astigmatic): the interface font (SIL OFL 1.1).
+
+## Work in progress and contributions
 
 > [!IMPORTANT]
-> **Medalluin is an active work-in-progress (WIP).** 
-> Features, textures, and capabilities are continuously evolving.
+> **Medalluin is a work in progress.** Features, textures and options keep changing.
 
-- **Issues & Suggestions**: Feel free to submit an issue on GitHub for bug reports, compatibility edge cases, or feature suggestions.
-- **Pull Requests**: Community contributions, optimizations, and bug fixes are welcome! Please ensure code adheres to standard Lua conventions and passes `luacheck` and the test harness before opening a PR. By opening one, you agree to the contribution terms in section 4 of the [LICENSE](LICENSE).
+- **Issues:** bug reports, compatibility problems and suggestions are welcome on GitHub.
+- **Pull requests:** welcome. Please make sure your change passes `luacheck` and the test harness first. By opening one, you agree to the contribution terms in section 4 of the [LICENSE](LICENSE).
 
 ---
 
-## 📜 License
+## License
 
 Medalluin is **All Rights Reserved** © 2026 AhryMX. You may install it, play with it, read its code, and change your own copy for personal use. Screenshots, videos, and streams are welcome. You may not reupload, redistribute, fork, retexture, or rebrand it, in whole or in part, without written permission. The only official copies are on [GitHub](https://github.com/ahrymx/ahrymx.medalluin) and [CurseForge](https://www.curseforge.com/wow/addons/medalluin/). See [LICENSE](LICENSE) for the full terms.
 
