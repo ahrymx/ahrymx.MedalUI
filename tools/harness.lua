@@ -4890,6 +4890,10 @@ if cdmPass or ccPass then (function()
         vf:SetPoint("CENTER", UIParent, "CENTER", 0, -200)
         vf:SetSize(size * n, size)
         vf.items = {}
+        -- Edit Mode's box for the viewer (EditModeSystemSelectionTemplate)
+        vf.Selection = CreateFrame("Frame", nil, vf)
+        vf.Selection:SetAllPoints(vf)
+        vf.Selection:EnableMouse(true)
         function vf:GetItemFrames() return self.items end
         function vf:OnAcquireItemFrame() end
         function vf:RefreshLayout() end
@@ -21810,6 +21814,14 @@ if cdmPass then (function()
     end
     print("cdm console", rect(ns.console))
     viewers("cdm display")
+    -- Edit Mode's own boxes: out of sight and let through to the movers
+    local boxes = {}
+    for _, name in ipairs({ "BuffIconCooldownViewer", "EssentialCooldownViewer", "UtilityCooldownViewer" }) do
+        local sel = W.viewers[name].Selection
+        table.insert(boxes, name:gsub("CooldownViewer", "") .. "[alpha=" .. sel:GetAlpha()
+            .. " mouse=" .. tostring(sel:IsMouseEnabled()) .. "]")
+    end
+    print("cdm edit mode boxes", table.concat(boxes, " "))
     -- a spell new in combat: dressed, nothing moved; Edit Mode moving one, undone after
     inCombat = true
     local e = W.viewers.EssentialCooldownViewer
@@ -22023,6 +22035,54 @@ if cdmPass then (function()
     holders("cdm utility moved")
     ns.ResetConsolePlace("cdmU")
     holders("cdm utility reset")
+    -- the Cooldowns page's Essential tab: each group's options, by key
+    for _, page in ipairs(ns.OptionPages()) do
+        if page.id == "cooldowns" then
+            local out = {}
+            for _, g in ipairs(page.tabs[1].groups) do
+                local keys = {}
+                for _, spec in ipairs(g.items) do table.insert(keys, ((spec.key or spec.label):gsub("^cdmE", ""))) end
+                table.insert(out, g.title .. "[" .. table.concat(keys, ",") .. "]")
+            end
+            print("cdm page essential", table.concat(out, " "))
+        end
+    end
+    -- its mover's popup in Edit Mode: its place, and beside it its look,
+    -- only what its layout uses
+    ns.ShowConsoleMovers(true)
+    local em = ns.consoleMovers.cdmE
+    em.scripts.OnMouseDown(em, "LeftButton")
+    em.scripts.OnMouseUp(em, "LeftButton")
+    local P = MedalluinMoverPopup
+    local function popupShown(tag)
+        local out = {}
+        for _, ctl in ipairs(P.controls) do
+            if ctl:IsShown() then
+                local _, _, _, x, y = ctl:GetPoint(1)
+                local v = ctl.value and ctl.value.text or ctl.button and ctl.button.value.text or "-"
+                table.insert(out, ctl.spec.key .. "=" .. tostring(v) .. "@" .. tostring(x) .. "," .. tostring(y))
+            end
+        end
+        print(tag, "size=" .. P:GetWidth() .. "x" .. P:GetHeight(), table.concat(out, " "))
+    end
+    popupShown("cdm popup")
+    ns.SetOption("cdmELayout", "arch")
+    popupShown("cdm popup arch")
+    -- its Size's +, as on the page: the viewer follows
+    local before = W.viewers.EssentialCooldownViewer:GetScale()
+    for _, ctl in ipairs(P.controls) do
+        if ctl.spec.key == "cdmESize" then ctl.more.scripts.OnClick(ctl.more, "LeftButton") end
+    end
+    print("cdm popup size +", "saved=" .. tostring(ns.db.cdmESize),
+        string.format("scale %.3f>%.3f", before, W.viewers.EssentialCooldownViewer:GetScale()))
+    ns.SetOption("cdmELayout", "bar")
+    ns.SetOption("cdmESize", ns.OptionBase("cdmESize"))
+    -- another console's popup: narrow again, no look
+    local om = ns.consoleMovers.console
+    om.scripts.OnMouseDown(om, "LeftButton")
+    om.scripts.OnMouseUp(om, "LeftButton")
+    popupShown("cdm popup console")
+    ns.ShowConsoleMovers(false)
 
     -- the simulation (cooldowns/simulate.lua): icons of ours on each holder,
     -- in that viewer's dress; the game's viewers faded out meanwhile

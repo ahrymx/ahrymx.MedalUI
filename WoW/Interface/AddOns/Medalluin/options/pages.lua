@@ -231,6 +231,8 @@ end
 local function Slider(key, label, min, max, step, tip, text)
     return { kind = "slider", key = key, label = label, min = min, max = max, step = step, tip = tip, text = text }
 end
+local cdmLook = {}               -- by viewer letter: CooldownTab's look specs
+function ns.CdmLookSpecs(letter) return cdmLook[letter] end
 local function CooldownTab(v)
     local letter, id, name = v[1], v[2], v[3]
     local function K(field) return "cdm" .. letter .. field end
@@ -247,6 +249,37 @@ local function CooldownTab(v)
         if below then table.insert(out, { "below", "Below", "Under the icon, outside it." }) end
         return out
     end
+    -- its look: on the page's Layout and Icons groups, and on its mover's
+    -- popup in Edit Mode (movers.lua, ns.CdmLookSpecs), the same specs
+    local look = {
+        Choice(K("Layout"), "Layout", {
+            { "bar", "Bar", "Rows of icons, across or down." },
+            { "arch", "Arch", "One arc of icons, standing upright." },
+        }, "How its icons stand."),
+        When("Layout", "bar", Choice(K("Orient"), "Bar runs", {
+            { "across", "Across", "Left to right; another row above." },
+            { "down", "Down", "Top to bottom; another column to the right." },
+        }, "A bar's direction.")),
+        When("Layout", "bar", Slider(K("PerRow"), "Icons per row", 0, 20, 1,
+            "A row this long, then another. All in one row at 0.",
+            function(n) return n == 0 and "One row" or tostring(n) end)),
+        When("Layout", "arch", Slider(K("Span"), "Arch span", 60, 240, 5,
+            "How far round the arc reaches, end to end: wider is flatter for the same icons.",
+            function(n) return string.format("%d°", n) end)),
+        When("Layout", "arch", Choice(K("Opens"), "Arch bends", {
+            { "up", "Up", "Its middle highest, its ends lower: an arch." },
+            { "down", "Down", "Its middle lowest, its ends higher: a bowl." },
+        }, "Which way the arc curves.")),
+        Choice(K("Shape"), "Shape", {
+            { "round", "Round medallion", "Round, in a gold rim, its sweep round." },
+            { "rounded", "Rounded square", "A square with soft corners, in a gold rim." },
+            { "square", "Square", "Square, in a gold rim." },
+            { "bare", "Bare", "The icon alone, square, no rim." },
+        }, "Each icon's shape; its sweep and out-of-range tint follow it."),
+        Slider(K("Size"), "Size", 16, 80, 1, "Each icon's width.", px),
+        Slider(K("Spacing"), "Spacing", 0, 30, 1, "Between icons, and between rows.", px),
+    }
+    cdmLook[letter] = look
     local V = ns.VISIBILITY
     local groups = {
         Group("Preview",
@@ -255,24 +288,7 @@ local function CooldownTab(v)
                 .. "random full set, cooling down, with charges and stacks, buffs coming and going. A small "
                 .. "panel on the right sets what they show.")),
         Group("Layout",
-            Choice(K("Layout"), "Layout", {
-                { "bar", "Bar", "Rows of icons, across or down." },
-                { "arch", "Arch", "One arc of icons, standing upright." },
-            }, "How its icons stand."),
-            When("Layout", "bar", Choice(K("Orient"), "Bar runs", {
-                { "across", "Across", "Left to right; another row above." },
-                { "down", "Down", "Top to bottom; another column to the right." },
-            }, "A bar's direction.")),
-            When("Layout", "bar", Slider(K("PerRow"), "Icons per row", 0, 20, 1,
-                "A row this long, then another. All in one row at 0.",
-                function(n) return n == 0 and "One row" or tostring(n) end)),
-            When("Layout", "arch", Slider(K("Span"), "Arch span", 60, 240, 5,
-                "How far round the arc reaches, end to end: wider is flatter for the same icons.",
-                function(n) return string.format("%d°", n) end)),
-            When("Layout", "arch", Choice(K("Opens"), "Arch bends", {
-                { "up", "Up", "Its middle highest, its ends lower: an arch." },
-                { "down", "Down", "Its middle lowest, its ends higher: a bowl." },
-            }, "Which way the arc curves.")),
+            look[1], look[2], look[3], look[4], look[5],
             Choice(K("Order"), "Fill order", {
                 { "middle", "Middle out", "The first in the middle, then right of it, then left, outward." },
                 { "start", "From the start", "The first at the left, or the top." },
@@ -283,14 +299,7 @@ local function CooldownTab(v)
                 "An icon that is hidden (a buff not up) leaves no hole: the others close ranks as it comes and goes, "
                 .. "in combat too. Off, each keeps its place.")),
         Group("Icons",
-            Choice(K("Shape"), "Shape", {
-                { "round", "Round medallion", "Round, in a gold rim, its sweep round." },
-                { "rounded", "Rounded square", "A square with soft corners, in a gold rim." },
-                { "square", "Square", "Square, in a gold rim." },
-                { "bare", "Bare", "The icon alone, square, no rim." },
-            }, "Each icon's shape; its sweep and out-of-range tint follow it."),
-            Slider(K("Size"), "Size", 16, 80, 1, "Each icon's width.", px),
-            Slider(K("Spacing"), "Spacing", 0, 30, 1, "Between icons, and between rows.", px)),
+            look[6], look[7], look[8]),
         Group("Text",
             Choice(K("CdSize"), "Cooldown number size", TextSizes({ 0, "Hidden", "The sweep alone says how long." }),
                 "The time left on a cooling-down icon."),

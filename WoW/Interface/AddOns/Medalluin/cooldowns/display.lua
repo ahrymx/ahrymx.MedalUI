@@ -453,6 +453,16 @@ local function Adopt(key)
     local v = Viewer(key)
     if not v or viewers[key] then return end
     viewers[key] = v
+    -- Edit Mode's own box for the viewer (its Selection) is sized to the
+    -- game's grid, which no longer holds the icons: it drew inside our mover,
+    -- which covers them where they are. Out of sight and let through to the
+    -- mover; Edit Mode never sets either itself. Widget state only, no field
+    -- written on the game's frames, so nothing is tainted.
+    local box = v.Selection
+    if box and box.SetAlpha then
+        box:SetAlpha(0)
+        if box.EnableMouse then box:EnableMouse(false) end
+    end
     DressAll(v, key)
     if v.OnAcquireItemFrame then
         hooksecurefunc(v, "OnAcquireItemFrame", function(_, item) Dress(item, key) end)

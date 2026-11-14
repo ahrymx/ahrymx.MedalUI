@@ -56,7 +56,7 @@ local CONSOLES = {
 -- placed, not scaled (their icons' Size is an option of their own)
 for _, v in ipairs(ns.CDM_VIEWERS) do
     table.insert(CONSOLES, {
-        id = "cdm" .. v[1], name = v[3], noScale = true,
+        id = "cdm" .. v[1], name = v[3], noScale = true, look = v[1],
         frame = function() return ns.cooldownDisplay and ns.cooldownDisplay.holders[v[2]] end,
         place = function() if ns.cooldownDisplay then ns.cooldownDisplay.Place() end end,
         minY = -REACH_Y, maxY = REACH_Y,
@@ -157,9 +157,25 @@ local function Paint(m)
     for _, t in ipairs(m.edges) do t:SetColorTexture(edge[1], edge[2], edge[3], edge[4]) end
 end
 
+-- A popup's look column (a Cooldown Manager viewer's): only what its layout
+-- uses, stacked down from the top; the rest hidden, as the page greys them.
+local POPUP_W, POPUP_H = 260, 228
+local LOOK_X, LOOK_W, LOOK_H = 272, 236, 388
 local function RefreshPopup()
     if not popup or not popup:IsShown() then return end
-    for _, ctl in ipairs(popup.controls) do ctl:Refresh(true) end
+    local y = -40
+    for _, ctl in ipairs(popup.controls) do
+        if ctl.look then
+            local used = not ctl.spec.can or ctl.spec.can()
+            ctl:SetShown(used)
+            if used then
+                ctl:ClearAllPoints()
+                ctl:SetPoint("TOPLEFT", LOOK_X, y)
+                y = y - ctl:GetHeight() - 8
+            end
+        end
+        ctl:Refresh(true)
+    end
 end
 
 local Popup
@@ -247,12 +263,13 @@ local function Mover(c)
     return m
 end
 
--- The popup: the selected console's scale and place, beside Edit Mode's.
+-- The popup: the selected console's scale and place, beside Edit Mode's; a
+-- Cooldown Manager viewer's also its look (layout, shape, size, spacing).
 function Popup(c)
     if not popup then
         popup = CreateFrame("Frame", "MedalluinMoverPopup", UIParent)
         popup:SetFrameStrata("FULLSCREEN_DIALOG")
-        popup:SetSize(260, 228)
+        popup:SetSize(POPUP_W, POPUP_H)
         popup:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
         popup:SetMovable(true)
         popup:EnableMouse(true)
@@ -277,6 +294,9 @@ function Popup(c)
     end
     popup.console = c
     popup.title:SetText("Medalluin " .. c.name:lower())
+    -- a viewer's popup is wider: its look beside its place
+    local looks = c.look and ns.CdmLookSpecs and ns.CdmLookSpecs(c.look)
+    if looks then popup:SetSize(LOOK_X + LOOK_W + 12, LOOK_H) else popup:SetSize(POPUP_W, POPUP_H) end
     -- each console's sliders are built once, and shown while it is selected
     for id, set in pairs(popup.byConsole) do
         for _, ctl in ipairs(set) do ctl:SetShown(id == c.id) end
@@ -288,6 +308,13 @@ function Popup(c)
             local ctl = UI.Slider(popup, s[field], 236)
             ctl:SetPoint("TOPLEFT", 12, y)
             y = y - UI.SLIDER_H - 8
+            table.insert(set, ctl)
+        end
+        -- a viewer's look: the Cooldowns page's own specs (options/pages.lua)
+        for _, spec in ipairs(looks or {}) do
+            local make = spec.kind == "choice" and UI.Choice or spec.kind == "check" and UI.Check or UI.Slider
+            local ctl = make(popup, spec, LOOK_W)
+            ctl.look = true
             table.insert(set, ctl)
         end
         popup.byConsole[c.id] = set
