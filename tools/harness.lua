@@ -5334,8 +5334,26 @@ function optionsStale()
     return table.concat(stale, " ")
 end
 -- The Party layout's list, as this profile shows it: each choice and its tip.
+-- Console > Layout as the pages describe it: its cards, the console's own
+-- first.
+function layoutCards()
+    for _, page in ipairs(ns.OptionPages()) do
+        for _, tab in ipairs(page.id == "console" and page.tabs or {}) do
+            if tab.id == "layout" then
+                local o = {}
+                for _, g in ipairs(tab.groups) do
+                    local first = g.items[1]
+                    table.insert(o, g.title .. "[" .. (first.key or "?") .. "]")
+                end
+                return table.concat(o, " ")
+            end
+        end
+    end
+    return "none"
+end
 function partyLayoutMenu(tag)
-    ns.OpenOptions("console/general")
+    ns.OpenOptions("console/layout")
+    print("options.layout " .. tag, "built=" .. tostring(ns.consoleBuilt), layoutCards())
     local layout = ns.optionControls.partyLayout
     -- segmented: each answer's button and its tip, as the list would show them
     if layout.segment then
@@ -5575,7 +5593,7 @@ if barPass then
     print("window", "size=" .. win.w .. "x" .. win.h, "strata=" .. tostring(win.strata),
         "esc=" .. tostring(UISpecialFrames[1]), "title=" .. win.title.text)
     for _, path in ipairs({ "general", "shared/visibility", "shared/auras", "shared/look", "shared/tools",
-        "console/general", "console/bar", "console/paging", "console/overhead",
+        "console/general", "console/layout", "console/bar", "console/paging", "console/overhead",
         "console/minimap", "units/general", "units/party", "units/raid", "units/battleground", "units/boss",
         "units/arena", "chat", "side", "windows" }) do dump(path) end
     -- a card's switch off greys its card's rows, not the others; the footer
@@ -8214,6 +8232,9 @@ if profilesPass then
     state("rows 2 and no loot money on the page")
     S.consoleProfile:Set("arena")
     state("switched to arena")
+    -- the window still describes the console built, until the reload
+    print("options.layout after a switch", "profile=" .. ns.db.consoleProfile, "built=" .. tostring(ns.consoleBuilt),
+        layoutCards())
     ns.SetOption("drawer", 2)
     ns.db.sideTab = "auras"
     state("own controls on arena")

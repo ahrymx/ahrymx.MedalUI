@@ -696,7 +696,10 @@ ns.On("ADDON_LOADED", function(_, name)
     MedalluinDB = MedalluinDB or {}
     Migrate(fresh)
     ns.db = layered
-    if ns.db.consoleProfile == "reticule" and ns.ApplyLightProfile then
+    -- the console built, until the next reload: a switch asks for one, and
+    -- the settings window describes this one until it is
+    ns.consoleBuilt = ns.db.consoleProfile
+    if ns.consoleBuilt == "reticule" and ns.ApplyLightProfile then
         ns.ApplyLightProfile()
     end
 end)

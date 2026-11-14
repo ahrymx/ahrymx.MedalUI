@@ -1,4 +1,4 @@
--- The Party widget (Console > General > Party layout > Widget, on either profile):
+-- The Party widget (Console > Layout > Party layout > Widget, on either profile):
 -- the console's own party buttons, party1..4, taken into a box under a
 -- "Party" tab. The console then draws no party: the medallion's solo art,
 -- the light console's plate without the row. In a raid the box gives way to

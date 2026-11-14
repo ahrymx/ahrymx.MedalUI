@@ -218,6 +218,25 @@ local function Dress(content, path)
 end
 
 -- Lists of groups, one after another.
+-- A group only on one console (a profile's id): built when that console is
+-- the one built (ns.consoleBuilt), as a list for Concat; else none.
+local function ForConsole(id, g)
+    return ns.consoleBuilt == id and { g } or {}
+end
+
+-- Where the party sits: on the console (the Reticule's row, or the
+-- Arena's wings), or the widget.
+local function PartyLayout(id)
+    return Choice("partyLayout", "Party layout", {
+        { "console", "Console", id == "reticule"
+            and ("A row of four frames under the Reticule, each member's pet hanging under its frame. While you "
+                .. "are in a group the minimap stays in the top right corner and the centre grid stays out.")
+            or "The medallion's party wings, each member's pet hanging under its frame." },
+        { "widget", "Widget", "A box of party frames, under a Party tab, that you can drag anywhere: hold the tab "
+            .. "to move it. In a raid it gives way to the raid frames." },
+    }, "Where the party frames sit.")
+end
+
 local function Concat(...)
     local out = {}
     for _, list in ipairs({ ... }) do
@@ -775,28 +794,6 @@ function ns.OptionPages()
                                 "This profile's options under Console, and its console party and overhead bosses under "
                                 .. "Unit Frames, back to its own. The widgets, Chat, Side panel and Bags are left as "
                                 .. "they are.")),
-                        Group("Where the frames sit",
-                            Choice("partyLayout", "Party layout", {
-                                { "console", "Console", function()
-                                    if ns.layout and ns.layout.party and ns.layout.party.row then
-                                        return "A row of four frames under the Reticule, each member's pet "
-                                            .. "hanging under its frame. While you are in a group the minimap stays in "
-                                            .. "the top right corner and the centre grid stays out."
-                                    end
-                                    return "The medallion's party wings, each member's pet hanging under its frame."
-                                end },
-                                { "widget", "Widget", "A box of party frames, under a Party tab, that you can drag "
-                                    .. "anywhere: hold the tab to move it. In a raid it gives way to the raid "
-                                    .. "frames." },
-                            }, "Where the party frames sit."),
-                            Choice("bossFrames", "Boss frames", {
-                                { "overhead", "Overhead", "On the overhead's top tier, dividing into 1, 2 or 3 "
-                                    .. "columns." },
-                                { "vertical", "Vertical", "A column under a Boss tab that you can drag anywhere: "
-                                    .. "hold the tab to move it." },
-                                { "both", "Both", "On the overhead and in the column." },
-                            }, "Where the encounter's boss frames show. Raid and arena frames are boxes too: hold a "
-                                .. "box's tab to move it. Simulate party frames shows them all.")),
                         Group("Cast bars",
                             Check("xpCast", "Player casts on the experience bar",
                                 "The experience bar under your portrait becomes your cast bar while you cast, and "
@@ -831,6 +828,23 @@ function ns.OptionPages()
                             Seconds("consoleFadeIn", "Fade in", "How long it takes to come back."),
                             Seconds("consoleFadeOut", "Fade out", "How long it takes to fade.")),
                     })),
+                },
+                {
+                    -- where the console's parts sit: the console's own card,
+                    -- then what both have
+                    id = "layout", name = "Layout", intro = "Kept per profile. Where the console's parts sit.",
+                    groups = Concat(
+                        ForConsole("reticule", Group("Party frames", PartyLayout("reticule"))),
+                        ForConsole("arena", Group("Party frames", PartyLayout("arena"))),
+                        { Group("Boss frames",
+                            Choice("bossFrames", "Boss frames", {
+                                { "overhead", "Overhead", "On the overhead's top tier, dividing into 1, 2 or 3 "
+                                    .. "columns." },
+                                { "vertical", "Vertical", "A column under a Boss tab that you can drag anywhere: "
+                                    .. "hold the tab to move it." },
+                                { "both", "Both", "On the overhead and in the column." },
+                            }, "Where the encounter's boss frames show. Raid and arena frames are boxes too: hold a "
+                                .. "box's tab to move it. Simulate party frames shows them all.")) }),
                 },
                 {
                     id = "bar", name = "Action Bars", intro = "Kept per profile.",
@@ -1007,7 +1021,7 @@ function ns.OptionPages()
                     -- opens on the one Party layout shows
                     id = "party", name = "Party",
                     intro = "Editing, at the tabs' right, picks the console's party frames or the widget's.",
-                    more = "Party layout (Console > General) picks which of the two show. The console's are kept "
+                    more = "Party layout (Console > Layout) picks which of the two show. The console's are kept "
                         .. "per profile, and are on the player and target frames too; the widget's are shared by "
                         .. "every profile.",
                     variants = { { "console", "Console" }, { "widget", "Widget" } },
@@ -1061,7 +1075,7 @@ function ns.OptionPages()
                 },
                 {
                     id = "boss", name = "Boss",
-                    intro = "Where the boss frames show is Console > General > Boss frames.",
+                    intro = "Where the boss frames show is Console > Layout > Boss frames.",
                     groups = {
                         Group("Overhead (per profile)", Mine("bossMine", "a boss")),
                         Group("Widget (shared by every profile)", Mine("bossWidgetMine", "a boss"),
@@ -1406,7 +1420,7 @@ function ns.OptionCategories()
         { name = "Shared", glyph = "channels", scope = "Every part's, in one place",
             items = { "shared/visibility", "shared/auras", "shared/look", "shared/tools" } },
         { name = "Console", glyph = "skills", scope = "Kept per profile",
-            items = { "console/general", "console/bar", "console/paging", "console/overhead",
+            items = { "console/general", "console/layout", "console/bar", "console/paging", "console/overhead",
                 "console/minimap" } },
         { name = "Cooldowns", glyph = "side-timeless", scope = "Kept per profile",
             items = { "cooldowns/essential", "cooldowns/utility", "cooldowns/buffs", "cooldowns/bars" } },
