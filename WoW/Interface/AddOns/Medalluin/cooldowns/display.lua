@@ -1,6 +1,7 @@
 -- The Cooldown Manager's display: the game's own viewers (Blizzard_CooldownViewer),
 -- their spells drawn in Medalluin's dress, each viewer where the player puts it.
 --
+--          [==tracked bar===]                  BuffBarCooldownViewer: the tracked bars
 --                 (b) (b) (b)                  BuffIconCooldownViewer: the tracked buffs
 --          (E)  (E)  (E)  (E)   (u) (u) (u)    Essential, the biggest; Utility at its right
 --        +-----------------------------+
@@ -26,6 +27,12 @@
 -- is undone once combat allows. The icons are the game's plain frames (no
 -- secure template), so they are laid out in combat too, as a buff comes and
 -- goes. Our parts sit in a side table (deco), never as fields on theirs.
+--
+-- The tracked bars are a bar each, not an icon: their own dress (the bar's
+-- well and gold fill, the icon's shape at one end, the texts' sizes), their
+-- own layout (a column, cooldowns/layout.lua's Stack) and their own options
+-- (settings.lua's CDM_BAR_FIELDS, keyed cdmT...). Each bar is sized here, in
+-- the screen's units, so the viewer itself is never scaled.
 local _, ns = ...
 
 local L = ns.cdmLayout
@@ -55,6 +62,8 @@ local POINTS = {
     below = { "TOP", "BOTTOM", 0, -1 },
 }
 local CD_FONT, COUNT_FONT = 14, 13  -- the texts' sizes at Normal, in the icon's own units
+local BAR_FONT = 12                 -- a tracked bar's name and time at Normal
+local BAR_GAP = 3                   -- between a bar's icon and its bar
 
 local display = {}
 ns.cooldownDisplay = display
@@ -67,12 +76,16 @@ local LETTER, DEFAULT_SIZE = {}, {}
 local placing, started = false, false
 display.viewers, display.holders, display.sims = viewers, holders, sims
 
-for _, v in ipairs(ns.CDM_VIEWERS) do
+local ALL = {}                   -- the four: the icon viewers, then the bars
+for _, v in ipairs(ns.CDM_VIEWERS) do table.insert(ALL, v) end
+table.insert(ALL, ns.CDM_BARS)
+for _, v in ipairs(ALL) do
     LETTER[v[2]], DEFAULT_SIZE[v[2]] = v[1], v[4]
     local h = CreateFrame("Frame", "MedalluinCooldowns_" .. v[2], UIParent)
     h:SetSize(v[4], v[4])
     holders[v[2]] = h
 end
+local BARS = ns.CDM_BARS[2]
 
 -- A viewer's option, by its field (settings.lua's CDM_FIELDS)
 local function Opt(key, field) return ns.db["cdm" .. LETTER[key] .. field] end
@@ -80,7 +93,7 @@ local function Num(key, field) return tonumber(Opt(key, field)) or 0 end
 
 local function Viewer(key)
     return key == "essential" and _G.EssentialCooldownViewer or key == "utility" and _G.UtilityCooldownViewer
-        or key == "buffs" and _G.BuffIconCooldownViewer or nil
+        or key == "buffs" and _G.BuffIconCooldownViewer or key == BARS and _G.BuffBarCooldownViewer or nil
 end
 
 local function Items(v)
@@ -144,9 +157,12 @@ end
 
 -- The viewer's options on one of its icons: its shape, its texts, its
 -- cooldown's look. Again on each option changed.
+local RestyleBar
+
 local function Restyle(item)
     local d = deco[item]
     if not d then return end
+    if d.bar then return RestyleBar(item) end
     local key, icon = d.key, item.Icon
     local shape = SHAPES[Opt(key, "Shape")] or SHAPES.round
     local i = shape.inset
@@ -194,7 +210,7 @@ display.Restyle = Restyle
 -- A spell's frame in our dress: its masks swapped for ours, its overlay
 -- hidden, a rim under it; and the hooks that keep the viewer's options
 -- over the game's own refreshes. Once a frame; the shape is Restyle's.
-local function Dress(item, key)
+local function DressIcon(item, key)
     local icon = item and item.Icon
     if not icon or deco[item] then return end
     local d = { key = key }
@@ -259,6 +275,126 @@ local function Dress(item, key)
     end
     Restyle(item)
 end
+
+-- ------------------------------------------------------ the tracked bars
+-- A bar's icon in a shape (the other viewers' masks and rims); its texts'
+-- sizes. Again on each option changed; its size and its parts' places are
+-- Arrange's (they follow its Width and Size).
+local function Fontsize(fs, base, scale, colour)
+    if not fs then return end
+    if scale <= 0 then
+        fs:SetAlpha(0)
+        return
+    end
+    fs:SetAlpha(1)
+    Font(fs, base * scale)
+    if colour and fs.SetTextColor then fs:SetTextColor(colour[1], colour[2], colour[3]) end
+end
+
+function RestyleBar(item)
+    local d = deco[item]
+    local key, frame = d.key, item.Icon
+    local icon = frame and frame.Icon
+    if icon then
+        local shape = SHAPES[Opt(key, "Shape")] or SHAPES.round
+        local i = shape.inset
+        if d.mask then
+            d.mask:SetTexture(shape.tex, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            d.mask:ClearAllPoints()
+            d.mask:SetPoint("TOPLEFT", icon, "TOPLEFT", i, -i)
+            d.mask:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -i, i)
+        end
+        if shape.rim then
+            d.rim:SetTexture(shape.rim)
+            d.rim:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            d.rim:Show()
+        else
+            d.rim:Hide()
+        end
+        Text(frame.Applications, COUNT_FONT, Num(key, "CountSize"), "bottomright", icon)
+    end
+    local bar = item.Bar
+    if bar then
+        local cream = ns.colors and ns.colors.text
+        Fontsize(bar.Name, BAR_FONT, Num(key, "NameSize"), cream)
+        Fontsize(bar.Duration, BAR_FONT, Num(key, "TimeSize"), cream)
+    end
+end
+
+-- A bar in our dress: the game's art put away (its well, its pip, the
+-- icon's square frame and mask), an ink well with a gold edge, a gold fill.
+-- The fill is the bar's own (it runs on values the game may keep secret),
+-- only its texture and colour ours.
+local function DressBar(item, key)
+    if deco[item] then return end
+    local d = { key = key, bar = true }
+    deco[item] = d
+    local frame, bar = item.Icon, item.Bar
+    local icon = frame and frame.Icon
+    if icon then
+        if icon.GetNumMaskTextures and icon.RemoveMaskTexture then
+            for i = (icon:GetNumMaskTextures() or 0), 1, -1 do
+                local m = icon:GetMaskTexture(i)
+                if m then icon:RemoveMaskTexture(m) end
+            end
+        end
+        if icon.SetTexCoord then icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
+        if frame.CreateMaskTexture and icon.AddMaskTexture then
+            d.mask = frame:CreateMaskTexture()
+            icon:AddMaskTexture(d.mask)
+        end
+        for _, r in ipairs({ frame:GetRegions() }) do
+            if r ~= icon and r.GetObjectType and r:GetObjectType() == "Texture" then r:SetAlpha(0) end
+        end
+        d.rim = frame:CreateTexture(nil, "BACKGROUND", nil, -6)
+        d.rim:SetAllPoints(icon)
+    end
+    if bar then
+        for _, r in ipairs({ bar:GetRegions() }) do
+            if r.GetObjectType and r:GetObjectType() == "Texture" then r:SetAlpha(0) end
+        end
+        if bar.SetStatusBarTexture then
+            bar:SetStatusBarTexture(WHITE)
+            local fill = bar.GetStatusBarTexture and bar:GetStatusBarTexture()
+            if fill and fill.SetAlpha then fill:SetAlpha(1) end
+        end
+        if bar.SetStatusBarColor then bar:SetStatusBarColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.85) end
+        d.edge = bar:CreateTexture(nil, "BACKGROUND", nil, -8)
+        d.edge:SetPoint("TOPLEFT", -1, 1)
+        d.edge:SetPoint("BOTTOMRIGHT", 1, -1)
+        d.edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        d.well = bar:CreateTexture(nil, "BACKGROUND", nil, -7)
+        d.well:SetAllPoints()
+        local ink = ns.colors and ns.colors.ink or { 0.05, 0.04, 0.03 }
+        d.well:SetColorTexture(ink[1], ink[2], ink[3], 0.95)
+        d.sheen = bar:CreateTexture(nil, "OVERLAY", nil, -1)
+        d.sheen:SetColorTexture(1, 1, 1, 0.06)
+        d.sheen:SetPoint("TOPLEFT")
+        d.sheen:SetPoint("BOTTOMRIGHT", bar, "RIGHT")
+    end
+    if item.HookScript then
+        item:HookScript("OnEnter", function(self)
+            if not Opt(key, "Tips") and GameTooltip and GameTooltip:GetOwner() == self then GameTooltip:Hide() end
+        end)
+        local function Moved() if Opt(key, "Gaps") then Arrange(key) end end
+        item:HookScript("OnShow", Moved)
+        item:HookScript("OnHide", Moved)
+    end
+    -- the game setting its width or its parts' places again (a new spell,
+    -- Edit Mode's bar settings): ours after
+    for _, method in ipairs({ "SetBarWidth", "SetBarContent" }) do
+        if type(item[method]) == "function" then
+            hooksecurefunc(item, method, function() Arrange(key) end)
+        end
+    end
+    RestyleBar(item)
+end
+
+-- a frame of either kind, in its viewer's dress
+local function Dress(item, key)
+    if key == BARS then return DressBar(item, key) end
+    return DressIcon(item, key)
+end
 display.Dress = Dress
 
 local function DressAll(v, key)
@@ -277,10 +413,8 @@ end
 -- Its icons on the holder, in the Cooldown Manager's order (layoutIndex):
 -- each where the layout puts its rank, the holder sized to them all
 local arranging = {}
-function Arrange(key)
-    local h, items = holders[key], List(key)
-    if not items or arranging[key] then return end
-    arranging[key] = true
+-- its frames in the Cooldown Manager's order, those hidden left out with Close gaps
+local function Ranked(key, items)
     local gaps, list = Opt(key, "Gaps"), {}
     for i, item in ipairs(items) do
         if not gaps or item:IsShown() then table.insert(list, { item, tonumber(item.layoutIndex) or i, i }) end
@@ -289,6 +423,66 @@ function Arrange(key)
         if a[2] ~= b[2] then return a[2] < b[2] end
         return a[3] < b[3]
     end)
+    return list
+end
+
+-- A tracked bar at its Width and Size, its icon at the end Icon says (or
+-- none) and the bar beside it. In the bar's own units: u is a screen unit.
+local function Shape(item, key, u)
+    local width, size = Num(key, "Width"), Num(key, "Size")
+    item:SetSize(width * u, size * u)
+    local frame, bar, side = item.Icon, item.Bar, Opt(key, "Icon")
+    if frame then
+        frame:ClearAllPoints()
+        frame:SetSize(size * u, size * u)
+        frame:SetPoint(side == "right" and "RIGHT" or "LEFT", item, side == "right" and "RIGHT" or "LEFT", 0, 0)
+        frame:SetAlpha(side == "none" and 0 or 1)
+    end
+    if bar then
+        bar:ClearAllPoints()
+        bar:SetHeight(size * u)
+        if side == "none" or not frame then
+            bar:SetPoint("LEFT", item, "LEFT", 0, 0)
+            bar:SetPoint("RIGHT", item, "RIGHT", 0, 0)
+        elseif side == "right" then
+            bar:SetPoint("LEFT", item, "LEFT", 0, 0)
+            bar:SetPoint("RIGHT", frame, "LEFT", -BAR_GAP * u, 0)
+        else
+            bar:SetPoint("LEFT", frame, "RIGHT", BAR_GAP * u, 0)
+            bar:SetPoint("RIGHT", item, "RIGHT", 0, 0)
+        end
+    end
+end
+
+-- The tracked bars on their holder: a column (layout.lua's Stack), each
+-- bar shaped; the holder sized to them, a bar's room at least
+local function ArrangeBars(key, h, items)
+    local list = Ranked(key, items)
+    local s = { size = Num(key, "Size"), spacing = Num(key, "Spacing"), width = Num(key, "Width"),
+        grow = Opt(key, "Grow") }
+    local at, w, ht = L.Stack(#list, s)
+    pcall(function()
+        for rank, e in ipairs(list) do
+            local item = e[1]
+            local k = h:GetEffectiveScale() / item:GetEffectiveScale()
+            item:ClearAllPoints()
+            item:SetPoint("CENTER", h, "CENTER", at[rank][1] * k, at[rank][2] * k)
+            Shape(item, key, k)
+        end
+    end)
+    h:SetSize(math.max(w, s.width), math.max(ht, s.size))
+end
+
+function Arrange(key)
+    local h, items = holders[key], List(key)
+    if not items or arranging[key] then return end
+    arranging[key] = true
+    if key == BARS then
+        ArrangeBars(key, h, items)
+        arranging[key] = nil
+        return
+    end
+    local list = Ranked(key, items)
     local s = Spec(key)
     local at, w, ht = L.Place(#list, s)
     pcall(function()
@@ -308,6 +502,7 @@ display.Arrange = Arrange
 -- A viewer's scale, for its spells to stand at its Size (Edit Mode's own
 -- icon size inside it kept as the base)
 local function Fit(v, key)
+    if key == BARS then return end      -- each bar sized itself (Arrange)
     local item = Items(v)[1]
     if not item then return end
     local w = (item:GetWidth() or 0) * (item:GetScale() or 1)
@@ -324,6 +519,8 @@ local function Base(key, k)
     local art = ns.art or {}
     local top = (art.bottomGap or 0) + (art.height or 0) + GAP
     if key == "buffs" then return 0, top + (DEFAULT_SIZE.essential + GAP) / k end
+    -- the tracked bars over the buffs: their first bar's foot
+    if key == BARS then return 0, top + (DEFAULT_SIZE.essential + GAP + DEFAULT_SIZE.buffs + GAP) / k end
     return 0, top
 end
 
@@ -344,7 +541,13 @@ local function Place()
             local k = UIParent:GetHeight() / design
             local bx, by = Base(key, k)
             h:ClearAllPoints()
-            h:SetPoint("BOTTOM", UIParent, "BOTTOM", (bx + Num(key, "X")) * k, (by + Num(key, "Y")) * k)
+            local x, y = (bx + Num(key, "X")) * k, (by + Num(key, "Y")) * k
+            if key == BARS and Opt(key, "Grow") == "down" then
+                -- growing down, held by its top: the first bar stays where it was
+                h:SetPoint("TOP", UIParent, "BOTTOM", x, y + Num(key, "Size"))
+            else
+                h:SetPoint("BOTTOM", UIParent, "BOTTOM", x, y)
+            end
             local v = viewers[key]
             if v then
                 Fit(v, key)
@@ -430,9 +633,9 @@ ns.On("PLAYER_REGEN_ENABLED", function() inCombat = false; FadeAll() end)
 -- A viewer's option changed: its icons dressed again and laid out again;
 -- its size placed (out of combat); its fade. Its place is movers.lua's.
 local BY_LETTER = {}
-for _, v in ipairs(ns.CDM_VIEWERS) do BY_LETTER[v[1]] = v[2] end
+for _, v in ipairs(ALL) do BY_LETTER[v[1]] = v[2] end
 ns.OnAnySetting(function(setting)
-    local letter, field = tostring(setting):match("^cdm([EUB])(%u%a*)$")
+    local letter, field = tostring(setting):match("^cdm([EUBT])(%u%a*)$")
     local key = letter and BY_LETTER[letter]
     if not key or not List(key) or field == "X" or field == "Y" then return end
     if field == "Vis" or field == "Faded" or field == "FadeTime" then
@@ -441,7 +644,7 @@ ns.OnAnySetting(function(setting)
         return
     end
     for _, item in ipairs(List(key)) do Restyle(item) end
-    if field == "Size" then
+    if field == "Size" or (key == BARS and field == "Grow") then
         if sims[key] then sims[key].Resize() end
         ns.OutOfCombat(Place)
     end
@@ -487,7 +690,7 @@ local function Adopt(key)
 end
 
 local function AdoptAll()
-    for _, key in ipairs({ "essential", "utility", "buffs" }) do Adopt(key) end
+    for _, v in ipairs(ALL) do Adopt(v[2]) end
     if next(viewers) then
         started = true
         ns.OutOfCombat(Place)

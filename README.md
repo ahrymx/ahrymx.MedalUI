@@ -102,7 +102,7 @@ Every part of Medalluin can be switched off on the **Modules** page; turn off wh
 - **Profiles:** settings, action bar skills and key bindings are kept per profile and restored when you switch.
 - **Unit frame editor** (`/mui edit`): every piece's size, font, text and place, on a live canvas.
 - **Movers** in Edit Mode for the consoles, widgets and cooldown viewers.
-- **Cooldowns:** the game's Cooldown Manager viewers, each with its own layout (a bar or an arch), shape, text and visibility, plus a simulation to preview them.
+- **Cooldowns:** the game's Cooldown Manager viewers, each with its own layout (a bar or an arch), shape, text and visibility, and its tracked bars in the same ink and gold, plus a simulation to preview them.
 - **Key binding mode** (`/mui kb`): hover a button and press a key.
 
 ---

@@ -233,6 +233,34 @@ local function Slider(key, label, min, max, step, tip, text)
 end
 local cdmLook = {}               -- by viewer letter: CooldownTab's look specs
 function ns.CdmLookSpecs(letter) return cdmLook[letter] end
+-- every viewer's tab: the simulation atop it, its fade at its foot
+local function CdmPreview()
+    return Group("Preview",
+        Check("simCdm", "Simulate cooldowns",
+            "Show every viewer's icons and bars as these options draw them, without a fight: your own spells or "
+            .. "a random full set, cooling down, with charges and stacks, buffs coming and going. A small "
+            .. "panel on the right sets what they show."))
+end
+local function CdmVisibility(K)
+    local V = ns.VISIBILITY
+    return Group("Visibility",
+        Choice(K("Vis"), "Visibility", {
+            { V.ALWAYS, "Always" },
+            { V.COMBAT, "In combat", "Faded out of combat." },
+            { V.MOUSEOVER, "On mouseover", "Faded until the pointer is over it." },
+            { V.COMBAT_OR_MOUSEOVER, "In combat or on mouseover" },
+        }, "Faded, it is only see-through: it still tracks everything. Whole while the Cooldown Manager or "
+            .. "Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides it outright."),
+        Opacity(K("Faded"), "Faded opacity", "How see-through it is when faded: 0% is gone."),
+        Seconds(K("FadeTime"), "Fade time", "How long a fade in or out takes."))
+end
+-- its place: movers.lua's sliders, third on the page
+local function CdmPlace(groups, letter)
+    for _, g in ipairs(ns.ConsolePlaceGroups(Group, { { "cdm" .. letter, "Place" } })) do
+        g.tip = "Drag it in Edit Mode, where it wears a blue mover, or set it here."
+        table.insert(groups, 3, g)
+    end
+end
 local function CooldownTab(v)
     local letter, id, name = v[1], v[2], v[3]
     local function K(field) return "cdm" .. letter .. field end
@@ -280,13 +308,8 @@ local function CooldownTab(v)
         Slider(K("Spacing"), "Spacing", 0, 30, 1, "Between icons, and between rows.", px),
     }
     cdmLook[letter] = look
-    local V = ns.VISIBILITY
     local groups = {
-        Group("Preview",
-            Check("simCdm", "Simulate cooldowns",
-                "Show every viewer's icons as these options draw them, without a fight: your own spells or a "
-                .. "random full set, cooling down, with charges and stacks, buffs coming and going. A small "
-                .. "panel on the right sets what they show.")),
+        CdmPreview(),
         Group("Layout",
             look[1], look[2], look[3], look[4], look[5],
             Choice(K("Order"), "Fill order", {
@@ -315,21 +338,62 @@ local function CooldownTab(v)
                 "The game greys an icon while its spell cools down. Off, it keeps its colour."),
             Check(K("Range"), "Out-of-range tint", "A red tint over a spell whose target is out of its range."),
             Check(K("Tips"), "Tooltips", "The spell's tooltip with the pointer over its icon.")),
-        Group("Visibility",
-            Choice(K("Vis"), "Visibility", {
-                { V.ALWAYS, "Always" },
-                { V.COMBAT, "In combat", "Faded out of combat." },
-                { V.MOUSEOVER, "On mouseover", "Faded until the pointer is over it." },
-                { V.COMBAT_OR_MOUSEOVER, "In combat or on mouseover" },
-            }, "Faded, it is only see-through: it still tracks everything. Whole while the Cooldown Manager or "
-                .. "Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides it outright."),
-            Opacity(K("Faded"), "Faded opacity", "How see-through it is when faded: 0% is gone."),
-            Seconds(K("FadeTime"), "Fade time", "How long a fade in or out takes.")),
+        CdmVisibility(K),
     }
-    for _, g in ipairs(ns.ConsolePlaceGroups(Group, { { "cdm" .. letter, "Place" } })) do
-        g.tip = "Drag it in Edit Mode, where it wears a blue mover, or set it here."
-        table.insert(groups, 3, g)
-    end
+    CdmPlace(groups, letter)
+    return {
+        id = id, name = name, intro = "Kept per profile.",
+        enabled = function() return ns.db.cdmWindow and ns.db.cdmDisplay and true or false end,
+        groups = groups,
+    }
+end
+
+-- The tracked bars' tab: a bar each, so options of their own (settings.lua's
+-- CDM_BAR_FIELDS, keyed cdmT<field>). Its look is on its mover's popup too.
+local function BarsTab(v)
+    local letter, id, name = v[1], v[2], v[3]
+    local function K(field) return "cdm" .. letter .. field end
+    local px = function(n) return string.format("%d px", n) end
+    local look = {
+        Choice(K("Grow"), "Grows", {
+            { "up", "Up", "The first bar at the bottom, the next above it." },
+            { "down", "Down", "The first bar at the top, the next below it." },
+        }, "Which way the column runs from its first bar, which stays where it is."),
+        Slider(K("Width"), "Width", 80, 400, 5, "Each bar's width, its icon included.", px),
+        Slider(K("Size"), "Height", 12, 48, 1, "Each bar's height; its icon is as tall.", px),
+        Slider(K("Spacing"), "Spacing", 0, 20, 1, "Between bars.", px),
+        Choice(K("Icon"), "Icon", {
+            { "left", "On the left" },
+            { "right", "On the right" },
+            { "none", "None", "The bar alone, its full width." },
+        }, "The spell's icon at one end of its bar."),
+        Choice(K("Shape"), "Icon shape", {
+            { "round", "Round medallion", "Round, in a gold rim." },
+            { "rounded", "Rounded square", "A square with soft corners, in a gold rim." },
+            { "square", "Square", "Square, in a gold rim." },
+            { "bare", "Bare", "The icon alone, square, no rim." },
+        }, "The icon's shape."),
+    }
+    cdmLook[letter] = look
+    local groups = {
+        CdmPreview(),
+        Group("Bars",
+            look[1], look[2], look[3], look[4],
+            Check(K("Gaps"), "Close gaps",
+                "A bar whose buff is not up leaves no hole: the others close ranks as it comes and goes, in combat "
+                .. "too. Off, each keeps its place.")),
+        Group("Icon", look[5], look[6]),
+        Group("Text",
+            Choice(K("NameSize"), "Name size", TextSizes({ 0, "Hidden", "The bar without its spell's name." }),
+                "The spell's name, on its bar."),
+            Choice(K("TimeSize"), "Time left size", TextSizes({ 0, "Hidden", "The bar alone says how long." }),
+                "The time left, at the bar's end."),
+            Choice(K("CountSize"), "Stacks size", TextSizes({ 0, "Hidden", "No count on the icon." }),
+                "A buff's stacks, on its icon."),
+            Check(K("Tips"), "Tooltips", "The spell's tooltip with the pointer over its bar.")),
+        CdmVisibility(K),
+    }
+    CdmPlace(groups, letter)
     return {
         id = id, name = name, intro = "Kept per profile.",
         enabled = function() return ns.db.cdmWindow and ns.db.cdmDisplay and true or false end,
@@ -880,7 +944,8 @@ function ns.OptionPages()
         },
         {
             id = "cooldowns", name = "Cooldowns",
-            tabs = { CooldownTab(ns.CDM_VIEWERS[1]), CooldownTab(ns.CDM_VIEWERS[2]), CooldownTab(ns.CDM_VIEWERS[3]) },
+            tabs = { CooldownTab(ns.CDM_VIEWERS[1]), CooldownTab(ns.CDM_VIEWERS[2]), CooldownTab(ns.CDM_VIEWERS[3]),
+                BarsTab(ns.CDM_BARS) },
         },
         {
             id = "units", name = "Unit Frames",
@@ -1139,10 +1204,10 @@ function ns.OptionPages()
                         true),
                     {
                         Group("Display", Check("cdmDisplay", "Cooldowns in Medalluin's dress",
-                            "The game's cooldown and buff icons in Medalluin's dress, each viewer placed, laid out "
-                            .. "and shaped on its own: Essential, Utility and Tracked buffs, under Cooldowns. Edit "
-                            .. "Mode moving them is undone out of combat; their movers move them. The tracked bars "
-                            .. "stay in the Auras tab. Untick it for the game's icons in their Edit Mode places.",
+                            "The game's cooldown and buff icons and its tracked bars in Medalluin's dress, each "
+                            .. "viewer placed, laid out and shaped on its own: Essential, Utility, Tracked buffs and "
+                            .. "Tracked bars, under Cooldowns. Edit Mode moving them is undone out of combat; their "
+                            .. "movers move them. Untick it for the game's own in their Edit Mode places.",
                             true)),
                     }),
                 Part("cc", "Click Casting", false,
@@ -1288,7 +1353,7 @@ function ns.OptionCategories()
             items = { "console/general", "console/bar", "console/paging", "console/overhead",
                 "console/minimap" } },
         { name = "Cooldowns", scope = "Kept per profile",
-            items = { "cooldowns/essential", "cooldowns/utility", "cooldowns/buffs" } },
+            items = { "cooldowns/essential", "cooldowns/utility", "cooldowns/buffs", "cooldowns/bars" } },
         { name = "Unit frames",
             items = { "units/general", "units/party", "units/raid", "units/battleground", "units/boss",
                 "units/arena" } },

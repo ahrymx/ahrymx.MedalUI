@@ -225,7 +225,7 @@ local DEFAULTS = {
     sharedBoss = true,
 }
 ns.VISIBILITY = { ALWAYS = 1, COMBAT = 2, MOUSEOVER = 3, COMBAT_OR_MOUSEOVER = 4 }
--- The Cooldown Manager's three viewers over the screen (cooldowns/display.lua):
+-- The Cooldown Manager's three icon viewers over the screen (cooldowns/display.lua):
 -- each one's letter in its options' keys (cdmE..., cdmU..., cdmB...), its
 -- display's key, and the size its icons are drawn at.
 ns.CDM_VIEWERS = {
@@ -257,6 +257,24 @@ for _, v in ipairs(ns.CDM_VIEWERS) do
     DEFAULTS["cdm" .. v[1] .. "Size"] = v[4]
 end
 DEFAULTS.cdmBGaps = true
+-- The fourth viewer, the tracked bars (BuffBarCooldownViewer): a bar each,
+-- so options of their own, keyed cdmT<field>. Size is a bar's height.
+ns.CDM_BARS = { "T", "bars", "Tracked bars", 24 }
+local CDM_BAR_FIELDS = {
+    Grow = "up",            -- the next bar above the first ("up") or below ("down")
+    Gaps = true,            -- close ranks over a bar not up
+    Width = 220,            -- a bar's width, its icon in it
+    Spacing = 4,            -- between bars
+    Icon = "left",          -- the spell's icon: "left", "right" or "none"
+    Shape = "round",        -- the icon's, as the other viewers': "round", "rounded", "square", "bare"
+    NameSize = 1, TimeSize = 1, CountSize = 1,  -- the texts: a scale (0, hidden)
+    Tips = true,
+    Vis = 1, Faded = 0, FadeTime = 0.25,
+    X = 0, Y = 0,
+}
+ns.CDM_BAR_FIELDS = CDM_BAR_FIELDS
+for field, value in pairs(CDM_BAR_FIELDS) do DEFAULTS["cdmT" .. field] = value end
+DEFAULTS.cdmTSize = ns.CDM_BARS[4]
 -- Utility at Essential's right: its default place, so Across reads from the
 -- screen's middle for all three, as the mover shows it
 DEFAULTS.cdmUX = 280
@@ -325,7 +343,7 @@ for _, key in ipairs({
 }) do PER_PROFILE[key] = true end
 -- the Cooldown Manager's viewers: placed and dressed per profile, as the console is
 for key in pairs(DEFAULTS) do
-    if key:match("^cdm[EUB]%u") then PER_PROFILE[key] = true end
+    if key:match("^cdm[EUBT]%u") then PER_PROFILE[key] = true end
 end
 ns.PER_PROFILE = PER_PROFILE
 

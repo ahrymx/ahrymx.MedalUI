@@ -7,10 +7,11 @@
 --   Spells        Yours: the spells your Cooldown Manager tracks, each
 --                 viewer's own (a viewer with none gets random ones)
 --                 Random: a full set, Essential - n +, Utility - n +,
---                 Tracked buffs - n +, and New spells for another draw
+--                 Tracked buffs - n +, Tracked bars - n +, and New spells
+--                 for another draw
 --   Cooling       sweeps winding, each spell its own cooldown, again and again
 --   Charges       some spells with charges, their count on the icon
---   Stacks        some buffs with stacks
+--   Stacks        some buffs (and bars) with stacks
 --   Out of range  some spells tinted
 --   Come and go   buffs running out and coming back (Close gaps shows here)
 --   In combat     the viewers' Visibility as in a fight
@@ -45,12 +46,19 @@ local BUFFS = {
     { "Mark of the Wild", "Spell_Nature_Regeneration" }, { "Arcane Intellect", "Spell_Holy_MagicalSentry" },
 }
 local ICONS = "Interface\\Icons\\"
+local BARS = ns.CDM_BARS[2]
+-- the four viewers: the icon viewers, then the tracked bars
+local VIEWERS = {}
+for _, v in ipairs(ns.CDM_VIEWERS) do table.insert(VIEWERS, v) end
+table.insert(VIEWERS, ns.CDM_BARS)
+-- a buff's viewer: an aura that runs out (the icons' or the bars')
+local function Buffs(key) return key == "buffs" or key == BARS end
 local MAX = 12                  -- icons a viewer can have in a random draw
 local TICK = 0.2                -- seconds between looks at the timers
 
 -- the session's choices (the panel's), and the switch
 local S = {
-    source = "random", counts = { essential = 8, utility = 6, buffs = 5 },
+    source = "random", counts = { essential = 8, utility = 6, buffs = 5, [BARS] = 3 },
     cooling = true, charges = true, stacks = true, away = false, comeGo = true, combat = false,
 }
 ns.sim.cdm = S
@@ -89,7 +97,9 @@ local function Yours(key)
     end)
     for _, e in ipairs(list) do
         local item = e[1]
-        local tex = item.Icon and item.Icon.GetTexture and item.Icon:GetTexture()
+        -- a bar's icon is a frame, its texture inside it
+        local icon = item.Icon and item.Icon.Icon or item.Icon
+        local tex = icon and icon.GetTexture and icon:GetTexture()
         if tex == nil or ns.IsSecret(tex) then tex = ICONS .. "INV_Misc_QuestionMark" end
         local name
         pcall(function()
@@ -115,8 +125,12 @@ local function Pick(from, n)
 end
 
 -- ------------------------------------------------------------- the icons
-local function Size(key) return tonumber(ns.db["cdm" .. ns.CDM_VIEWERS[key == "essential" and 1
-    or key == "utility" and 2 or 3][1] .. "Size"]) or 36 end
+local function Size(key)
+    for _, v in ipairs(VIEWERS) do
+        if v[2] == key then return tonumber(ns.db["cdm" .. v[1] .. "Size"]) or v[4] end
+    end
+    return 36
+end
 
 local function Count(parent)
     local c = CreateFrame("Frame", nil, parent)
@@ -157,6 +171,35 @@ local function NewIcon(key, root)
     return item
 end
 
+-- A tracked bar as the game makes its (Icon, a frame holding Icon and
+-- Applications; Bar, a status bar holding Name and Duration), so the
+-- bars' dress fits it. Its size and its parts' places are the display's.
+local function NewBar(root)
+    local item = CreateFrame("Frame", nil, root)
+    item.Icon = CreateFrame("Frame", nil, item)
+    item.Icon.Icon = item.Icon:CreateTexture(nil, "ARTWORK")
+    item.Icon.Icon:SetAllPoints()
+    local count = item.Icon:CreateFontString(nil, "OVERLAY")
+    count:SetFont(ns.font, 13, "OUTLINE")
+    item.Icon.Applications = count
+    item.Bar = CreateFrame("StatusBar", nil, item)
+    item.Bar.Name = item.Bar:CreateFontString(nil, "OVERLAY")
+    item.Bar.Name:SetFont(ns.font, 12, "OUTLINE")
+    item.Bar.Name:SetPoint("LEFT", 5, 0)
+    item.Bar.Duration = item.Bar:CreateFontString(nil, "OVERLAY")
+    item.Bar.Duration:SetFont(ns.font, 12, "OUTLINE")
+    item.Bar.Duration:SetPoint("RIGHT", -6, 0)
+    item:EnableMouse(true)
+    item:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(self.spellName or "")
+        GameTooltip:AddLine("Simulated", 0.6, 0.6, 0.6)
+        GameTooltip:Show()
+    end)
+    item:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return item
+end
+
 local function Resizer(key)
     return function()
         local s = Size(key)
@@ -169,7 +212,7 @@ local function Fill(key)
     local want
     if S.source == "yours" then want = Yours(key) end
     if not want or #want == 0 then
-        want = Pick(key == "buffs" and BUFFS or SPELLS, S.counts[key])
+        want = Pick(Buffs(key) and BUFFS or SPELLS, S.counts[key])
     end
     local set = sets[key]
     if not set then
@@ -184,18 +227,23 @@ local function Fill(key)
     set.items = {}
     local now = GetTime()
     for i, spell in ipairs(want) do
-        local item = pools[key][i] or NewIcon(key, set.root)
+        local item = pools[key][i] or (key == BARS and NewBar(set.root) or NewIcon(key, set.root))
         pools[key][i] = item
         item.spellName = spell[1]
-        item.Icon:SetTexture(spell[2])
+        if key == BARS then
+            item.Icon.Icon:SetTexture(spell[2])
+            item.Bar.Name:SetText(spell[1])
+        else
+            item.Icon:SetTexture(spell[2])
+        end
         item.layoutIndex = i
         item:Show()
         -- its timers: a spell's cooldown, a buff's run, each from a point along it
-        local t = { dur = key == "buffs" and Between(6, 20) or Between(8, 45) }
+        local t = { dur = Buffs(key) and Between(6, 20) or Between(8, 45) }
         t.start = now - Between(0, t.dur - 1)
-        t.charges = key ~= "buffs" and i % 3 == 2 and Between(2, 3) or nil
-        t.stacks = key == "buffs" and i % 2 == 0 and Between(2, 5) or nil
-        t.away = key ~= "buffs" and i % 3 == 0
+        t.charges = not Buffs(key) and i % 3 == 2 and Between(2, 3) or nil
+        t.stacks = Buffs(key) and i % 2 == 0 and Between(2, 5) or nil
+        t.away = not Buffs(key) and i % 3 == 0
         item.sim = t
         set.items[i] = item
     end
@@ -218,6 +266,18 @@ end
 
 local function Draw(key, item, now)
     local t = item.sim
+    if key == BARS then
+        -- a bar runs down as its buff does, its time left at its end
+        local up = not S.comeGo or now < t.start + t.dur
+        if up ~= item:IsShown() then item:SetShown(up) end
+        local left = math.max(0, t.start + t.dur - now)
+        item.Bar:SetMinMaxValues(0, t.dur)
+        item.Bar:SetValue(left)
+        item.Bar.Duration:SetText(left > 0 and string.format("%.1f", left) or "")
+        local stacks = S.stacks and t.stacks
+        item.Icon.Applications:SetText(stacks and tostring(stacks) or "")
+        return
+    end
     if key == "buffs" then
         local up = not S.comeGo or now < t.start + t.dur
         if up ~= item:IsShown() then item:SetShown(up) end
@@ -248,7 +308,7 @@ local function DrawAll(now)
                 -- while they do not come and go); a spell ready a moment,
                 -- then cast again
                 t.gone = t.gone or Between(2, 5)
-                local buff = key == "buffs"
+                local buff = Buffs(key)
                 local wait = (not buff or S.comeGo) and t.gone or 0
                 if (buff or S.cooling) and now >= t.start + t.dur + wait then
                     t.start = now
@@ -273,12 +333,12 @@ end)
 
 -- Every viewer drawn again and handed to the display
 local function Deal()
-    for _, v in ipairs(ns.CDM_VIEWERS) do
+    for _, v in ipairs(VIEWERS) do
         local key = v[2]
         Fill(key)
     end
     DrawAll()
-    for _, v in ipairs(ns.CDM_VIEWERS) do D.Simulate(v[2], sets[v[2]]) end
+    for _, v in ipairs(VIEWERS) do D.Simulate(v[2], sets[v[2]]) end
 end
 
 local function Start()
@@ -306,7 +366,7 @@ local panel
 local function Redraw()
     D.simCombat = S.combat
     DrawAll()
-    for _, v in ipairs(ns.CDM_VIEWERS) do
+    for _, v in ipairs(VIEWERS) do
         D.Arrange(v[2])
         D.Fade(v[2], true)
     end
@@ -331,20 +391,21 @@ local function Build()
     Source(half + 4, "random", "Random spells", "A full set of random spells, as many as the counts below.")
     local y = -K.ROW - 4
     local function Random() return S.source == "random" end
-    for _, v in ipairs(ns.CDM_VIEWERS) do
+    for _, v in ipairs(VIEWERS) do
         local key = v[2]
         y = K.Count(page, y, "cdm.count." .. key, (v[3]:gsub(" cooldowns$", "")), 1, MAX,
             function() return S.counts[key] end, function(n) S.counts[key] = n end,
-            key == "buffs" and "buff" or "spell", Deal, Random)
+            key == BARS and "bar" or key == "buffs" and "buff" or "spell", Deal, Random)
     end
     K.Button(page, 0, y, K.IW, { id = "cdm.again", label = "New spells", redraw = Deal, enabled = Random,
         click = function() end, tip = function() return "Another draw: other spells, other timings." end })
     y = K.Toggles(page, y - K.ROW - 4, "cdm", function() return S end, {
         { "cooling", "Cooling", "Each spell cooling down, its sweep winding, again and again." },
         { "charges", "Charges", "Some spells with charges: one is up, so the icon keeps its colour." },
-        { "stacks", "Stacks", "Some buffs with stacks." },
+        { "stacks", "Stacks", "Some buffs and bars with stacks." },
         { "away", "Out of range", "Some spells out of range, tinted." },
-        { "comeGo", "Come and go", "Buffs running out and coming back: with Close gaps, the rest close ranks." },
+        { "comeGo", "Come and go", "Buffs and bars running out and coming back: with Close gaps, the rest close "
+            .. "ranks." },
         { "combat", "In combat", "The viewers' Visibility as in a fight." },
     }, Redraw)
     K.Button(panel, K.PAD, -(top - y + 6), K.IW, { id = "cdm.end", label = "End simulation",

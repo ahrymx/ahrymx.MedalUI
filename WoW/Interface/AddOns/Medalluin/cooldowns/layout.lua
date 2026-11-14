@@ -100,3 +100,19 @@ function L.Place(n, s)
     for _, p in ipairs(out) do p[1], p[2] = p[1] - cx, p[2] - cy end
     return out, x1 - x0 + s.size, y1 - y0 + s.size
 end
+
+-- The tracked bars: one column, the first at the bottom (up: the next above
+-- it) or at the top (down: the next below). By rank, { x, y } from the
+-- set's middle, in the units Size is in; then the set's width and height.
+--
+--      up    [ 3 ]        down  [ 1 ]
+--            [ 2 ]              [ 2 ]
+--            [ 1 ]              [ 3 ]
+function L.Stack(n, s)
+    local out = {}
+    if n <= 0 then return out, 0, 0 end
+    local step = s.size + s.spacing
+    local sign = s.grow == "down" and -1 or 1
+    for r = 1, n do out[r] = { 0, sign * ((r - 1) - (n - 1) / 2) * step } end
+    return out, s.width, n * s.size + (n - 1) * s.spacing
+end

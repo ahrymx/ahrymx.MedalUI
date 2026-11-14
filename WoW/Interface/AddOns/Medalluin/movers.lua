@@ -53,8 +53,12 @@ local CONSOLES = {
     },
 }
 -- the Cooldown Manager's viewers, each on its own (cooldowns/display.lua):
--- placed, not scaled (their icons' Size is an option of their own)
-for _, v in ipairs(ns.CDM_VIEWERS) do
+-- placed, not scaled (their icons' Size is an option of their own); the
+-- tracked bars last
+local viewers = {}
+for _, v in ipairs(ns.CDM_VIEWERS) do table.insert(viewers, v) end
+table.insert(viewers, ns.CDM_BARS)
+for _, v in ipairs(viewers) do
     table.insert(CONSOLES, {
         id = "cdm" .. v[1], name = v[3], noScale = true, look = v[1],
         frame = function() return ns.cooldownDisplay and ns.cooldownDisplay.holders[v[2]] end,

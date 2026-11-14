@@ -4917,6 +4917,52 @@ if cdmPass or ccPass then (function()
         for _ = 1, n do vf:Add() end
         W.viewers[name] = vf
     end
+    -- the tracked bars (BuffBarCooldownViewer): a bar each, as the game's
+    -- CooldownViewerBuffBarItemTemplate: Icon a frame (its Icon, a mask, the
+    -- square overlay, Applications), Bar a status bar (BarBG, Pip, Name,
+    -- Duration); the game sets each one's width and its parts' places
+    local bv = CreateFrame("Frame", "BuffBarCooldownViewer", UIParent)
+    bv:SetPoint("CENTER", UIParent, "CENTER", -300, 0)
+    bv:SetSize(220, 60)
+    bv.items = {}
+    bv.Selection = CreateFrame("Frame", nil, bv)
+    bv.Selection:SetAllPoints(bv)
+    bv.Selection:EnableMouse(true)
+    function bv:GetItemFrames() return self.items end
+    function bv:OnAcquireItemFrame() end
+    function bv:RefreshLayout() end
+    function bv:Add(spell)
+        local item = CreateFrame("Frame", nil, self)
+        item:SetSize(220, 30)
+        item.Icon = CreateFrame("Frame", nil, item)
+        item.Icon:SetSize(30, 30)
+        item.Icon:SetPoint("LEFT")
+        item.Icon.Icon = item.Icon:CreateTexture(nil, "ARTWORK")
+        item.Icon.Icon:SetAllPoints()
+        item.Icon.mask = item.Icon:CreateMaskTexture()
+        item.Icon.Icon:AddMaskTexture(item.Icon.mask)
+        item.Icon.Overlay = item.Icon:CreateTexture(nil, "OVERLAY")
+        item.Icon.Applications = item.Icon:CreateFontString()
+        item.Bar = CreateFrame("StatusBar", nil, item)
+        item.Bar:SetHeight(19)
+        item.Bar:SetPoint("LEFT", item.Icon, "RIGHT", 2, 0)
+        item.Bar:SetPoint("RIGHT")
+        item.Bar.BarBG = item.Bar:CreateTexture(nil, "BACKGROUND")
+        item.Bar.Pip = item.Bar:CreateTexture(nil, "OVERLAY")
+        item.Bar.Name = item.Bar:CreateFontString()
+        item.Bar.Name:SetText(spell or "Lightning Shield")
+        item.Bar.Duration = item.Bar:CreateFontString()
+        function item:SetBarWidth(w) self:SetWidth(w) end
+        function item:SetBarContent() self.Bar:SetPoint("LEFT", self.Icon, "RIGHT", 2, 0) end
+        table.insert(self.items, item)
+        self:OnAcquireItemFrame(item)
+        item:SetBarContent(1)
+        item:SetBarWidth(220)
+        return item
+    end
+    bv:Add("Lightning Shield")
+    bv:Add("Water Shield")
+    W.viewers.BuffBarCooldownViewer = bv
 end)() end
 
 -- --------------------------------------------------------- click casting
@@ -21816,7 +21862,8 @@ if cdmPass then (function()
     viewers("cdm display")
     -- Edit Mode's own boxes: out of sight and let through to the movers
     local boxes = {}
-    for _, name in ipairs({ "BuffIconCooldownViewer", "EssentialCooldownViewer", "UtilityCooldownViewer" }) do
+    for _, name in ipairs({ "BuffIconCooldownViewer", "EssentialCooldownViewer", "UtilityCooldownViewer",
+        "BuffBarCooldownViewer" }) do
         local sel = W.viewers[name].Selection
         table.insert(boxes, name:gsub("CooldownViewer", "") .. "[alpha=" .. sel:GetAlpha()
             .. " mouse=" .. tostring(sel:IsMouseEnabled()) .. "]")
@@ -22021,7 +22068,7 @@ if cdmPass then (function()
         if c2.id:match("^cdm") then
             table.insert(mv, c2.id .. "(" .. c2.name .. " noScale=" .. tostring(c2.noScale) .. " frame="
                 .. tostring(c2.frame() == D.holders[c2.id == "cdmE" and "essential" or c2.id == "cdmU" and "utility"
-                    or "buffs"]) .. " shown=" .. tostring(c2.shown()) .. ")")
+                    or c2.id == "cdmT" and "bars" or "buffs"]) .. " shown=" .. tostring(c2.shown()) .. ")")
         end
     end
     local g = ns.ConsolePlaceGroups(function(title, ...) return { title = title, items = { ... } } end,
@@ -22082,7 +22129,145 @@ if cdmPass then (function()
     om.scripts.OnMouseDown(om, "LeftButton")
     om.scripts.OnMouseUp(om, "LeftButton")
     popupShown("cdm popup console")
+    -- the tracked bars' popup: their own look
+    local tm = ns.consoleMovers.cdmT
+    tm.scripts.OnMouseDown(tm, "LeftButton")
+    tm.scripts.OnMouseUp(tm, "LeftButton")
+    popupShown("cdm popup bars")
     ns.ShowConsoleMovers(false)
+
+    -- the tracked bars (BuffBarCooldownViewer): dressed, a column on their
+    -- own holder, each bar at their Width and Size
+    local tv = W.viewers.BuffBarCooldownViewer
+    local tb = tv.items[1]
+    local function fsize(fs) return tostring(fs.font and fs.font[2]) .. "/" .. tostring(fs.alpha or 1) end
+    local function dressed(tag)
+        -- ours: a mask made on the icon's frame, beside the game's
+        local masks, tmask = 0, nil
+        for _, m in ipairs(tb.Icon.all_ or {}) do
+            if m.kind == "MaskTexture" and m ~= tb.Icon.mask then
+                masks = masks + 1
+                tmask = m.texture
+            end
+        end
+        local rim
+        for _, r in ipairs({ tb.Icon:GetRegions() }) do
+            if r.kind == "Texture" and r.layer == "BACKGROUND" then rim = r end
+        end
+        print(tag, "overlay=" .. tostring(tb.Icon.Overlay.alpha), "bg=" .. tostring(tb.Bar.BarBG.alpha),
+            "pip=" .. tostring(tb.Bar.Pip.alpha), "fill=" .. base(tb.Bar.statusTexture),
+            "colour=" .. string.format("%.2f,%.2f,%.2f", tb.Bar.barColor[1], tb.Bar.barColor[2], tb.Bar.barColor[3]),
+            "masks=" .. masks .. "(" .. base(tmask) .. ")",
+            "rim=" .. (rim and rim.shown ~= false and base(rim.texture) or "hidden"),
+            "name=" .. fsize(tb.Bar.Name), "time=" .. fsize(tb.Bar.Duration),
+            "stacks=" .. fsize(tb.Icon.Applications))
+    end
+    dressed("cdm bars dressed")
+    local function pt(f2, which)
+        local q = f2.points[which]
+        if not q then return "-" end
+        local rel = q[1] == f2:GetParent() and "parent" or q[1] == tb.Icon and "icon" or q[1] == tb and "item"
+            or q[1] == UIParent and "screen" or "?"
+        return which .. ">" .. rel .. "." .. tostring(q[2]) .. " " .. n1(q[3]) .. "," .. n1(q[4])
+    end
+    local function bars(tag)
+        local h = D.holders.bars
+        local hp = h.points.BOTTOM and "BOTTOM " .. n1(h.points.BOTTOM[3]) .. "," .. n1(h.points.BOTTOM[4])
+            or h.points.TOP and "TOP " .. n1(h.points.TOP[3]) .. "," .. n1(h.points.TOP[4]) or "-"
+        local out = {}
+        for i, item in ipairs(tv.items) do
+            local p = item.points.CENTER
+            local k = h:GetEffectiveScale() / item:GetEffectiveScale()
+            table.insert(out, (item.layoutIndex or i) .. (item.shown == false and "-" or "") .. "@"
+                .. (p and p[1] == h and (n1(p[3] / k) .. "," .. n1(p[4] / k)) or "theirs")
+                .. " " .. n1(item:GetWidth()) .. "x" .. n1(item:GetHeight()))
+        end
+        print(tag, "holder=" .. hp .. " " .. n1(h:GetWidth()) .. "x" .. n1(h:GetHeight()),
+            "viewer=" .. ((tv.points.CENTER or {})[1] == h and "on it" or "elsewhere"), table.concat(out, " "),
+            "icon=" .. n1(tb.Icon:GetWidth()) .. " " .. pt(tb.Icon, "LEFT") .. pt(tb.Icon, "RIGHT")
+                .. " alpha=" .. tostring(tb.Icon.alpha or 1),
+            "bar=" .. n1(tb.Bar:GetHeight()) .. " " .. pt(tb.Bar, "LEFT") .. " " .. pt(tb.Bar, "RIGHT"))
+    end
+    bars("cdm bars placed")
+    ns.SetOption("cdmTGrow", "down")
+    bars("cdm bars grow down")
+    ns.SetOption("cdmTGrow", "up")
+    ns.SetOption("cdmTIcon", "right")
+    bars("cdm bars icon right")
+    ns.SetOption("cdmTIcon", "none")
+    bars("cdm bars no icon")
+    ns.SetOption("cdmTIcon", "left")
+    ns.SetOption("cdmTWidth", 300)
+    ns.SetOption("cdmTSize", 30)
+    ns.SetOption("cdmTSpacing", 8)
+    bars("cdm bars 300x30")
+    -- the game setting its width again (a new spell): ours after
+    tb:SetBarWidth(220)
+    tb:SetBarContent(1)
+    bars("cdm bars game's width")
+    ns.SetOption("cdmTWidth", 220)
+    ns.SetOption("cdmTSize", 24)
+    ns.SetOption("cdmTSpacing", 4)
+    -- a buff not up: the rest close ranks; with gaps kept, not
+    tv:Add("Earth Shield")
+    tv.items[1]:Hide()
+    bars("cdm bars one gone")
+    ns.SetOption("cdmTGaps", false)
+    bars("cdm bars one gone, gaps kept")
+    ns.SetOption("cdmTGaps", true)
+    -- none up: the holder (and its mover) keeps a bar's room
+    for _, item in ipairs(tv.items) do item:Hide() end
+    print("cdm bars none up", "holder=" .. n1(D.holders.bars:GetWidth()) .. "x" .. n1(D.holders.bars:GetHeight()))
+    for _, item in ipairs(tv.items) do item:Show() end
+    -- shape and texts
+    ns.SetOption("cdmTShape", "square")
+    ns.SetOption("cdmTNameSize", 0)
+    ns.SetOption("cdmTTimeSize", 1.5)
+    ns.SetOption("cdmTCountSize", 0.8)
+    dressed("cdm bars square, texts")
+    ns.SetOption("cdmTShape", "round")
+    ns.SetOption("cdmTNameSize", 1)
+    ns.SetOption("cdmTTimeSize", 1)
+    ns.SetOption("cdmTCountSize", 1)
+    -- its tooltip, gone with Tooltips off
+    local function barTip()
+        GameTooltip:SetOwner(tb, "ANCHOR_RIGHT")
+        GameTooltip:Show()
+        tb.scripts.OnEnter(tb)
+        return tostring(GameTooltip.shown)
+    end
+    local tipOn = barTip()
+    ns.SetOption("cdmTTips", false)
+    print("cdm bars tooltips", "on=" .. tipOn, "off=" .. barTip())
+    ns.SetOption("cdmTTips", true)
+    GameTooltip:Hide()
+    -- its fade, on its own
+    ns.SetOption("cdmTFadeTime", 0)
+    ns.SetOption("cdmTFaded", 0.3)
+    ns.SetOption("cdmTVis", V.COMBAT)
+    print("cdm bars fade", "bars=" .. n1(tv:GetAlpha()), "essential=" .. n1(e:GetAlpha()))
+    ns.SetOption("cdmTVis", V.ALWAYS)
+    -- the page's tab, and its options kept per profile
+    for _, page in ipairs(ns.OptionPages()) do
+        if page.id == "cooldowns" then
+            local tab = page.tabs[#page.tabs]
+            local out = {}
+            for _, g in ipairs(tab.groups) do
+                local keys = {}
+                for _, spec in ipairs(g.items) do table.insert(keys, ((spec.key or spec.label):gsub("^cdmT", ""))) end
+                table.insert(out, g.title .. "[" .. table.concat(keys, ",") .. "]")
+            end
+            print("cdm page bars", tab.id .. "/" .. tab.name, table.concat(out, " "))
+        end
+    end
+    local tAll, tKept = 0, 0
+    local tFields = { "Size" }
+    for field in pairs(ns.CDM_BAR_FIELDS) do table.insert(tFields, field) end
+    for _, field in ipairs(tFields) do
+        tAll = tAll + 1
+        if ns.PER_PROFILE["cdmT" .. field] then tKept = tKept + 1 end
+    end
+    print("cdm bars per profile", tKept .. " of " .. tAll)
 
     -- the simulation (cooldowns/simulate.lua): icons of ours on each holder,
     -- in that viewer's dress; the game's viewers faded out meanwhile
@@ -22126,6 +22311,23 @@ if cdmPass then (function()
         "count less=" .. tostring(spb["cdm.count.essential.less"]:IsEnabled()),
         "again=" .. tostring(spb["cdm.again"]:IsEnabled()), "label=" .. tostring(spb["cdm.count.buffs"].label.text))
     sim("cdm sim random")
+    -- the simulated tracked bars: shaped like the game's, dressed and stacked, each running down
+    local function simBars(tag)
+        local set, out = Sim.sets.bars, {}
+        for _, item in ipairs(set and set.items or {}) do
+            local p = item.points.CENTER
+            local b = item.Bar
+            table.insert(out, tostring(item.spellName) .. (item.shown == false and "-" or "") .. "@"
+                .. (p and p[1] == D.holders.bars and (n1(p[3]) .. "," .. n1(p[4])) or "-")
+                .. " " .. n1(item:GetWidth()) .. "x" .. n1(item:GetHeight())
+                .. " " .. n1(b.value or -1) .. "/" .. n1(b.max or -1) .. " '" .. tostring(b.Duration.text) .. "'"
+                .. " x" .. tostring(item.Icon.Applications.text)
+                .. " fill=" .. base(b.statusTexture))
+        end
+        print(tag, "label=" .. tostring(spb["cdm.count.bars"] and spb["cdm.count.bars"].label.text),
+            "viewer=" .. n1(D.viewers.bars:GetAlpha()), #out .. ": " .. table.concat(out, " "))
+    end
+    simBars("cdm sim bars")
     -- one icon's dress: the viewer's shape, its sweep and its count
     local one = Sim.sets.essential.items[2]
     local mask
@@ -22232,6 +22434,9 @@ if cdmPass then (function()
     print("cdm sim ended", "simCdm=" .. tostring(ns.db.simCdm), "panel=" .. tostring(sp.shown ~= false),
         "running=" .. tostring(Sim.Running()))
     sim("cdm sim after")
+    print("cdm sim bars after", "viewer=" .. n1(D.viewers.bars:GetAlpha()),
+        "ours=" .. tostring(Sim.sets.bars.root.shown ~= false), "game's on the holder=" .. tostring(
+            (W.viewers.BuffBarCooldownViewer.items[2].points.CENTER or {})[1] == D.holders.bars))
     for i, item in ipairs(e.items) do item.layoutIndex = i end
     holders("cdm holders after sim")
 end)() end
