@@ -701,7 +701,7 @@ function ns.OptionPages()
     for _, pb in ipairs(ns.PAGING_BARS or {}) do
         table.insert(paging, {
             title = pb.name,
-            tip = pb.grid and "The light profile's 2x5 grid in the centre bay."
+            tip = pb.grid and "The Reticule's 2x5 grid in the centre bay."
                 or pb.base and ("Shown with Rows at " .. pb.name:match("%d") .. " or more.")
                 or "Action bar 1, in the bar's frame.",
             items = {
@@ -779,7 +779,7 @@ function ns.OptionPages()
                             Choice("partyLayout", "Party layout", {
                                 { "console", "Console", function()
                                     if ns.layout and ns.layout.party and ns.layout.party.row then
-                                        return "A row of four frames under the Central Console, each member's pet "
+                                        return "A row of four frames under the Reticule, each member's pet "
                                             .. "hanging under its frame. While you are in a group the minimap stays in "
                                             .. "the top right corner and the centre grid stays out."
                                     end
@@ -933,8 +933,8 @@ function ns.OptionPages()
                 },
                 {
                     id = "minimap", name = "Minimap",
-                    intro = "Kept per profile. The Central Console's minimap: in the console's bay, or the corner.",
-                    more = "It is in the screen's corner while the 2x5 grid takes the bay. The Medallion's stays "
+                    intro = "Kept per profile. The Reticule's minimap: in the console's bay, or the corner.",
+                    more = "It is in the screen's corner while the 2x5 grid takes the bay. Arena's stays "
                         .. "in its ring: of this page, only Area name is for it too.",
                     enabled = function() return ns.MinimapMoves and ns.MinimapMoves() end,
                     groups = Concat(AllOn("behaviour", {
@@ -948,8 +948,8 @@ function ns.OptionPages()
                                 { "console", "In the console" },
                                 { "corner", "In the corner" },
                             }, "Where the minimap is after a login or a reload. It stays there until a ticked "
-                                .. "trigger below starts or ends, or the minimap key is pressed. On the "
-                                .. "Medallion console the minimap stays in its ring.")),
+                                .. "trigger below starts or ends, or the minimap key is pressed. On "
+                                .. "Arena the minimap stays in its ring.")),
                         Tip("A party row under the console always takes the corner: it needs the bay's foot.",
                         Switched(Check("minimapAuto", "Move automatically",
                                     "Into the corner on what is ticked here, and back into the console after."),

@@ -2,7 +2,7 @@
 -- screen. Everything drawn in a window sits BELOW the art, so the art's cut
 -- edges shape the plain rectangles behind them; text sits above it.
 --
---   base       the light profile's combat aura, under all of it; then a
+--   base       the Reticule's combat aura, under all of it; then a
 --              dark backing for each window (an empty window reads as ink)
 --   base + 2   unit buttons, XP bars, minimap
 --   base + 10  the art (solo or group), and over it the combat tint
@@ -98,7 +98,7 @@ ns.tint = tint
 -- outside. A glow follows its piece: the bay's shape (the minimap's or the
 -- grid's), Bar 1 and the wings as they fade, the party row in a group.
 local AURA_ALPHA = 0.85
-local auras                 -- key -> texture, once the light profile has them
+local auras                 -- key -> texture, once the Reticule has them
 local bayActive = false     -- the bay is the grid's (UpdateGroup)
 local hooked = {}
 
@@ -172,7 +172,7 @@ local function UpdateTint()
         local c = Threatened() and TINT.threat or TINT.combat
         tint:SetVertexColor(c[1], c[2], c[3], TINT_ALPHA)
     end
-    -- the light profile's art, and its aura with it
+    -- the Reticule's art, and its aura with it
     if ns.art.exploreFile and UpdateGroup then UpdateGroup() end
 end
 function ns.PreviewTint(kind)
@@ -192,7 +192,7 @@ threat:SetScript("OnEvent", UpdateTint)
 
 -- The group art adds the party row. Textures are not protected, so this
 -- can swap in combat too; the party buttons themselves follow their units.
--- In the "light" profile, party frames are detached (a row under the
+-- In the Reticule, party frames are detached (a row under the
 -- console: party_row.lua), and the console plate swaps between
 -- its exploration (minimap bay) and combat/target (2x5 Bar 7 bay) textures;
 -- the bay is the grid's while the minimap is in the corner (console/minimap.lua).
@@ -234,7 +234,7 @@ ns.On("ADDON_LOADED", UpdateGroup)
 ns.OnSetting("simParty", UpdateGroup)
 
 -- Switch the console, unit windows, XP/Rep slots and action bar tables to the
--- built-in "light" profile when MedalluinDB.consoleProfile == "light".
+-- built-in Reticule profile when MedalluinDB.consoleProfile == "reticule".
 function ns.ApplyLightProfile()
     local p = ns.lightProfile
     if not p then return end

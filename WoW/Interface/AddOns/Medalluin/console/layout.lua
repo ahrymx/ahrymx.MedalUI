@@ -21,7 +21,7 @@ ns.layout = {
     minimapBleed = 2,
 
     -- Windows whose inner end the art cuts at 45 degrees: the dispel glow
-    -- (auras.lua) traces the cut. The light profile's windows are plain
+    -- (auras.lua) traces the cut. The Reticule's windows are plain
     -- rectangles, so its layout has none.
     cuts = { unit = true, party1 = true },
 }

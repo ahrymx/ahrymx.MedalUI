@@ -1279,7 +1279,7 @@ function ns.AttachAuras(b, kind, size)
 end
 
 -- The glow's cut follows the layout's. A cut is built shown, which is the
--- medallion's; the light profile swaps its layout in after this file has run,
+-- medallion's; the Reticule swaps its layout in after this file has run,
 -- and ns.RelayoutUnits (called by ns.ApplyLightProfile) reshapes the glows.
 function ns.ShapeDispelGlows()
     local cuts = ns.layout.cuts or {}

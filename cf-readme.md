@@ -13,20 +13,21 @@ Runs on **WoW Forever** (`16001`) and **Retail** (`120105`).
 
 ## The console
 
-The medallion console sits at the bottom: player and target on the wings, action bars in between. The overhead row at the top holds the boss, pet, focus and target-of-target frames.
+The console sits at the bottom: player and target on its wings, action bars in between. The overhead row at the top holds the boss, pet, focus and target-of-target frames.
 
-![The Medallion console with its action bars, and the overhead's boss, pet, focus and target-of-target frames above](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/console-overhead.png)
+![The Reticule console with its minimap bay](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/central-console.png)
 
-- **Two profiles:** the symmetrical **Medallion** (default), or the compact **Central Console** below.
+- **Two profiles:** the slim **Reticule** (default), or the round **Arena** below.
+- **Reticule:** the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console.
 - **Action bars:** one to three rows, with Blizzard's button art or **bare icons**. Empty buttons hide and reappear while you drag a spell, item or macro.
 - **Class power and cast bars** built into the console: combo points, holy power, runes, soul shards and the rest.
 - **Party, raid, boss and arena** frames: on the console's own row, or as draggable widgets. Offline and dead members get a look of their own: a plug icon, or wings and a timer.
 
-### Central Console
+### Arena
 
-The lighter profile: the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console.
+The medallion console: the party on wings around a large player and target, with the minimap in its ring.
 
-![The console with its minimap bay](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/central-console.png)
+![The Arena console with its action bars, and the overhead's boss, pet, focus and target-of-target frames above](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/console-overhead.png)
 
 ---
 

@@ -1,4 +1,4 @@
--- The 2x5 WeakTextures center grid in the "light" console profile: 10 of
+-- The 2x5 WeakTextures center grid in the Reticule console profile: 10 of
 -- Blizzard's Action bar 7 buttons (MultiBar6Button1-10), on page 7 (slots
 -- 73..82), with state-configurable paging across pages 8, 9 and 10 (slots
 -- 85..118) and the skyriding page 11 (121..130) via a state driver.

@@ -215,7 +215,7 @@ function ns.BuildBar(rows)
     -- The hybrid row: the lower row (the cast bar, the class resource) on
     -- its own frame, so it stays on the console when Bar 1 fades out. Its
     -- piece is a gold-rimmed trapezoid of ink under the bars; the plate
-    -- covers all of it but the window while Bar 1 shows. The light profile
+    -- covers all of it but the window while Bar 1 shows. The Reticule
     -- also lays a frame over the bars (hybridFile).
     local lowParent = tray
     if art.hybridBgFile then

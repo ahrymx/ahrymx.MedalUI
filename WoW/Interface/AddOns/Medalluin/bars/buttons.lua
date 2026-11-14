@@ -296,7 +296,7 @@ ns.StyleButton = Style
 
 -- ------------------------------------------------------------ the look
 -- The Action Bar page's Text and Cooldowns options, on the bar's buttons
--- (bars 1-3 and the light profile's grid), bare icons or Blizzard's art.
+-- (bars 1-3 and the Reticule's grid), bare icons or Blizzard's art.
 -- A size scales what the button drew on its own, read off it the first time,
 -- so 1 leaves Blizzard's art and Style's sizes as they were.
 local function Scale(region, base, scale)

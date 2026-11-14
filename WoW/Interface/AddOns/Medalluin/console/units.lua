@@ -882,7 +882,7 @@ local function ConsoleParty(b)
 end
 
 -- The way a party button faces on the console, -1 left or 1 right: its
--- slot's, or in the light profile's row (party_row.lua) its half's, so the
+-- slot's, or in the Reticule's row (party_row.lua) its half's, so the
 -- row mirrors across the centre as the console's windows do.
 function ns.PartySide(unit)
     local party = ns.layout.party

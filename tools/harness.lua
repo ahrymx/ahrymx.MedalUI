@@ -2206,7 +2206,9 @@ MedalluinDB = profilesPass and args[3] == "saved" and { consoleProfile = "light"
     or savedNoBags and { bags = false } or bankPass and args[3] == "nobank" and { bank = false }
     or savedNoCharacter and { character = false }
     or npcPass and args[3] == "nonpc" and { npcWindows = false }
-    or mailPass and { mail = { Nordanaar = { alts = { "Thalassa" }, recent = { "Thalric", "Okun" } } } } or nil
+    or mailPass and { mail = { Nordanaar = { alts = { "Thalassa" }, recent = { "Thalric", "Okun" } } } }
+    -- an install from before the Reticule became the default: on Arena
+    or { consoleProfile = "arena" }
 if modern then
     function CreateColor(r, g, b, a) return { r, g, b, a } end
     function Region:SetGradient(o, a, b) self.gradient = { o, a, b } end
@@ -5723,10 +5725,10 @@ if barPass then
         -- the console's party is kept per profile: its own goes with it
         ns.SetOption("auraDebuffs", false)
         state("console its own")
-        ns.SetOption("consoleProfile", "light")
-        state("light profile")
-        ns.SetOption("consoleProfile", "default")
-        state("default profile")
+        ns.SetOption("consoleProfile", "reticule")
+        state("reticule profile")
+        ns.SetOption("consoleProfile", "arena")
+        state("arena profile")
         ns.SetOption("auraDebuffs", true)
         ns.SetOption("arenaMine", true)
         state("restored")
@@ -8195,8 +8197,8 @@ if profilesPass then
             "bare=" .. tostring(ns.db.bareIcons), "drawer=" .. tostring(ns.db.drawer),
             "lootMoney=" .. tostring(ns.db.lootMoney), "sideTab=" .. tostring(ns.db.sideTab),
             "rowsDefault=" .. tostring(S.rows:Default()), "page.rows=" .. tostring(S.rows:Get()))
-        print("  default", list(MedalluinDB.profiles.default))
-        print("  light", list(MedalluinDB.profiles.light))
+        print("  arena", list(MedalluinDB.profiles.arena))
+        print("  reticule", list(MedalluinDB.profiles.reticule))
         print("  global", list(MedalluinDB.global))
         print("  top", "rows=" .. tostring(rawget(MedalluinDB, "rows")), "bareIcons=" .. tostring(rawget(MedalluinDB,
             "bareIcons")), "retired=" .. tostring(MedalluinDB.retired))
@@ -8210,21 +8212,21 @@ if profilesPass then
     S.rows:Set(2)
     S.lootMoney:Set(false)
     state("rows 2 and no loot money on the page")
-    S.consoleProfile:Set("default")
-    state("switched to default")
+    S.consoleProfile:Set("arena")
+    state("switched to arena")
     ns.SetOption("drawer", 2)
     ns.db.sideTab = "auras"
-    state("own controls on default")
-    S.consoleProfile:Set("light")
-    state("back to light")
+    state("own controls on arena")
+    S.consoleProfile:Set("reticule")
+    state("back to reticule")
     S.rows:Set(3)
     state("rows 3 = the profile's")
     StaticPopupDialogs.MEDALLUIN_RESET_PROFILE.OnAccept()
-    state("light reset")
-    S.consoleProfile:Set("default")
-    state("default again")
+    state("reticule reset")
+    S.consoleProfile:Set("arena")
+    state("arena again")
     ns.ResetProfile()
-    state("default reset")
+    state("arena reset")
     if args[3] == "saved" then
         -- the widgets' options came from the profile in use once (see
         -- "migrated"): with the party's saved in it and the raid's back to
@@ -8236,6 +8238,61 @@ if profilesPass then
         for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "Medalluin") end
         print("  widgets shared, next login", "raid=" .. tostring(MedalluinDB.global.raidRange))
     end
+    -- the profiles' names and ids: Reticule the default, first; Arena the
+    -- medallion. Each login below is ADDON_LOADED again, on saved data of
+    -- its own.
+    local names = {}
+    for _, p in ipairs(ns.PROFILE_NAMES) do table.insert(names, p[1] .. "=" .. p[2]) end
+    print("profiles names", table.concat(names, "; "))
+    local applied = 0
+    local apply = ns.ApplyLightProfile
+    ns.ApplyLightProfile = function(...)
+        applied = applied + 1
+        return apply(...)
+    end
+    local function login(db, char)
+        MedalluinDB, MedalluinCharDB, applied = db, char, 0
+        for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "Medalluin") end
+    end
+    local function ids(t)
+        if type(t) ~= "table" then return "-" end
+        local o = {}
+        for k, v in pairs(t) do
+            local n = 0
+            if type(v) == "table" then for _ in pairs(v) do n = n + 1 end end
+            table.insert(o, k .. ":" .. n)
+        end
+        table.sort(o)
+        return table.concat(o, ",")
+    end
+    -- a new install: the Reticule, and its console built
+    login(nil, nil)
+    print("profiles fresh", "saved=" .. tostring(MedalluinDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
+        "rows=" .. tostring(ns.db.rows), "built=" .. applied)
+    -- an install that never chose: the medallion it was on, now Arena
+    login({ global = {}, profiles = { default = { rows = 2 } } }, {})
+    print("profiles upgrade", "saved=" .. tostring(MedalluinDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
+        "rows=" .. tostring(ns.db.rows), "built=" .. applied)
+    -- the old ids, wherever they key something; one already under its new
+    -- id wins; a second login changes nothing
+    local function idState(tag)
+        print("profiles ids " .. tag, "chosen=" .. tostring(MedalluinDB.consoleProfile),
+            "profiles=" .. ids(MedalluinDB.profiles), "account keys=" .. ids(MedalluinDB.keys),
+            "layouts=" .. ids(MedalluinCharDB.layouts), "character keys=" .. ids(MedalluinCharDB.keys),
+            "rows=" .. tostring(ns.db.rows), "drawer=" .. tostring(MedalluinDB.profiles.arena.drawer),
+            "A1=" .. tostring(MedalluinCharDB.keys.reticule and MedalluinCharDB.keys.reticule.ACTIONBUTTON1
+                and MedalluinCharDB.keys.reticule.ACTIONBUTTON1[1]),
+            "slot1=" .. tostring(MedalluinCharDB.layouts.arena["1"][1][2]), "built=" .. applied)
+    end
+    login({ consoleProfile = "light", global = {},
+        profiles = { default = { drawer = 2 }, light = { rows = 1 }, reticule = { rows = 2 } },
+        keys = { default = { ACTIONBUTTON1 = { "1" } }, light = { ACTIONBUTTON1 = { "Q" } } } },
+        { layouts = { default = { ["1"] = { [1] = { "spell", 133 } } }, light = { ["1"] = {} } },
+            keys = { light = { ACTIONBUTTON1 = { "Q" }, ACTIONBUTTON2 = { "E" } } } })
+    idState("renamed")
+    login(MedalluinDB, MedalluinCharDB)
+    idState("again")
+    ns.ApplyLightProfile = apply
 end
 -- ------------------------------------------------------------ skills per profile
 -- "skills" plays each profile's own action slots (bars/skills.lua): the first
@@ -8271,7 +8328,7 @@ if args[2] == "skills" then
         print("skills " .. tag, "profile=" .. ns.db.consoleProfile, "cursor=" .. tostring(cursor),
             "reloads=" .. reloads, "asked=" .. #asked .. (asked[1] and " " .. asked[#asked] or ""))
         print("  bars", bars())
-        print("  saved default", saved("default"), "light", saved("light"))
+        print("  saved arena", saved("arena"), "reticule", saved("reticule"))
         local keys = {}
         for k, c in pairs(bindings) do
             table.insert(keys, k .. "=" .. c:gsub("ACTIONBUTTON", "A"):gsub("MULTIACTIONBAR(%d)BUTTON", "M%1-"))
@@ -8297,9 +8354,9 @@ if args[2] == "skills" then
     actionSlots = { [1] = { "spell", 133 }, [2] = { "spell", 116 }, [3] = { "macro", "Heal" },
         [4] = { "item", 6948 }, [121] = { "spell", 372608 }, [181] = { "spell", 999 } }
     state("login")
-    S.consoleProfile:Set("light")
+    S.consoleProfile:Set("reticule")
     state("first switch: the bars as they are")
-    -- light's own keys: Q too on button 1, 2 off, 3 to bar 2, 4 to the map
+    -- reticule's own keys: Q too on button 1, 2 off, 3 to bar 2, 4 to the map
     -- (no action button: shared by both profiles)
     SetBinding("Q", "ACTIONBUTTON1")
     SetBinding("2")
@@ -8308,16 +8365,16 @@ if args[2] == "skills" then
     actionSlots[1], actionSlots[3], actionSlots[4] = { "spell", 2136 }, nil, { "spell", 116 }
     actionSlots[12] = { "macro", "Focus" }
     actionSlots[100] = { "item", 6948 }
-    state("light's own bars")
-    S.consoleProfile:Set("default")
-    state("back to default")
-    S.consoleProfile:Set("light")
-    state("light again")
+    state("reticule's own bars")
+    S.consoleProfile:Set("arena")
+    state("back to arena")
+    S.consoleProfile:Set("reticule")
+    state("reticule again")
     inCombat = true
-    S.consoleProfile:Set("default")
-    state("default in combat: waits")
-    S.consoleProfile:Set("light")
-    S.consoleProfile:Set("default")
+    S.consoleProfile:Set("arena")
+    state("arena in combat: waits")
+    S.consoleProfile:Set("reticule")
+    S.consoleProfile:Set("arena")
     fire("PLAYER_LOGOUT")
     state("logout with two more waiting")
     inCombat = false
@@ -8327,38 +8384,38 @@ if args[2] == "skills" then
     print("  reload asked, accepted", "reloads=" .. reloads)
     -- a later switch in combat asks again
     inCombat = true
-    S.consoleProfile:Set("light")
+    S.consoleProfile:Set("reticule")
     inCombat = false
     fire("PLAYER_REGEN_ENABLED")
-    S.consoleProfile:Set("default")
+    S.consoleProfile:Set("arena")
     print("  combat again", "asked=" .. #asked, "reloads=" .. reloads)
     inBags[6948], macros[1] = nil, "Renamed"
-    S.consoleProfile:Set("light")
-    S.consoleProfile:Set("default")
-    state("hearthstone gone, Heal renamed: kept for default")
+    S.consoleProfile:Set("reticule")
+    S.consoleProfile:Set("arena")
+    state("hearthstone gone, Heal renamed: kept for arena")
     actionSlots[4] = { "spell", 122 }
-    S.consoleProfile:Set("light")
-    state("slot 4 used on default: the hearthstone gone from it")
+    S.consoleProfile:Set("reticule")
+    state("slot 4 used on arena: the hearthstone gone from it")
     StaticPopupDialogs.MEDALLUIN_RESET_PROFILE.OnAccept()
-    state("light reset: the bars stay")
+    state("reticule reset: the bars stay")
     fire("PLAYER_LOGOUT")
     state("logout")
     GetSpecialization = function() return 2 end
-    S.consoleProfile:Set("default")
+    S.consoleProfile:Set("arena")
     state("other spec: its first switch")
-    print("  saved on spec 2", "light", saved("light", "2"), "default", saved("default", "2"))
+    print("  saved on spec 2", "reticule", saved("reticule", "2"), "arena", saved("arena", "2"))
     print("  key sets", "character", keySets(MedalluinCharDB), "account", keySets(MedalluinDB))
     -- account bindings: kept account-wide, and put back at login, where
     -- another character left the other profile's
     bindingSet = 1
-    S.consoleProfile:Set("light")
+    S.consoleProfile:Set("reticule")
     state("account bindings: the first switch keeps the keys")
     SetBinding("E", "ACTIONBUTTON1")
-    S.consoleProfile:Set("default")
+    S.consoleProfile:Set("arena")
     print("  key sets", "character", keySets(MedalluinCharDB), "account", keySets(MedalluinDB))
-    MedalluinDB.keys.default.ACTIONBUTTON2 = { "Z" }   -- another character's default
+    MedalluinDB.keys.arena.ACTIONBUTTON2 = { "Z" }   -- another character's arena
     fire("PLAYER_LOGIN")
-    state("login: the account's default keys")
+    state("login: the account's arena keys")
 end
 -- ------------------------------------------------------------ group widgets
 -- "widgets" (after "group", alone or after "light") plays the draggable
@@ -9448,13 +9505,13 @@ local function PagingPass()
     -- back; row 2 is Custom on both, so only its conditional moves
     ns.SetOption("row2PagingCustom", "[mod:alt] 3; 6")
     ns.SetOption("row2Paging", "custom")
-    S.consoleProfile:Set(ns.db.consoleProfile == "light" and "default" or "light")
+    S.consoleProfile:Set(ns.db.consoleProfile == "reticule" and "arena" or "reticule")
     print("paging other profile", "row3=" .. ns.db.row3Paging)
     bars("other profile")
     ns.SetOption("row2PagingCustom", "[mod:ctrl] 4; 6")
     ns.SetOption("row2Paging", "custom")
     bars("other profile, row2 custom")
-    S.consoleProfile:Set(ns.db.consoleProfile == "light" and "default" or "light")
+    S.consoleProfile:Set(ns.db.consoleProfile == "reticule" and "arena" or "reticule")
     print("paging back", "row3=" .. ns.db.row3Paging)
     bars("back")
     SlashCmdList.MDLUI("paging")
@@ -9525,7 +9582,7 @@ local function RowPass()
         end
     end
     print("row option", "saved=" .. tostring(ns.db.partyLayout), "profile=" .. ns.db.consoleProfile,
-        "stored=" .. tostring(MedalluinDB.profiles.light.partyLayout))
+        "stored=" .. tostring(MedalluinDB.profiles.reticule.partyLayout))
     hasTarget = false
     inCombat = false
     fire("PLAYER_TARGET_CHANGED")
@@ -10102,7 +10159,7 @@ local function EditorPass()
     -- per profile, or shared
     print("editor storage", "unit " .. stored("editUnit"))
     print("  raid " .. stored("editRaid"))
-    ns.SetOption("consoleProfile", ns.db.consoleProfile == "light" and "default" or "light")
+    ns.SetOption("consoleProfile", ns.db.consoleProfile == "reticule" and "arena" or "reticule")
     print("  other profile", "editUnit=" .. tostring(ns.db.editUnit), "editRaid=" .. tostring(ns.db.editRaid ~= false))
     piece("player other profile", P, "name")
     -- the other profile's party is unedited: the role's place is read off
@@ -10112,7 +10169,7 @@ local function EditorPass()
     print("  other profile role seed", "on=" .. tostring(get("on")), "x=" .. tostring(get("x")),
         "y=" .. tostring(get("y")), "anchor=" .. tostring(E.Seed(E.byId.party, "role").h) .. "-"
         .. tostring(E.Seed(E.byId.party, "role").v))
-    ns.SetOption("consoleProfile", ns.db.consoleProfile == "light" and "default" or "light")
+    ns.SetOption("consoleProfile", ns.db.consoleProfile == "reticule" and "arena" or "reticule")
     piece("player back", P, "name")
 
     -- the party's layout: the widget's edits, the console's
@@ -11290,8 +11347,8 @@ function MinimapPass()
         print("minimap key unbound", "shows=" .. box.text.text, "binding=" .. tostring((GetBindingKey("MEDALLUIN_MINIMAP"))))
         ns.CloseOptions()
     end
-    print("minimap saved", "light=" .. tostring(MedalluinDB.profiles.light.minimapScale),
-        "default=" .. tostring(MedalluinDB.profiles.default.minimapScale), "window stale=" .. optionsStale())
+    print("minimap saved", "reticule=" .. tostring(MedalluinDB.profiles.reticule.minimapScale),
+        "arena=" .. tostring(MedalluinDB.profiles.arena.minimapScale), "window stale=" .. optionsStale())
 end
 
 -- Time enough for every fade under way to end (console/fade.lua).
@@ -14436,7 +14493,7 @@ if lookPass then
     show("changed")
     set({ { "hotkeySize", 0 } })
     show("hidden keys")
-    local other = ns.db.consoleProfile == "light" and "default" or "light"
+    local other = ns.db.consoleProfile == "reticule" and "arena" or "reticule"
     print("look saved", "here=" .. tostring(MedalluinDB.profiles[ns.db.consoleProfile].hotkeySize),
         other .. "=" .. tostring(MedalluinDB.profiles[other].hotkeySize))
     set({ { "hotkeySize", 1 }, { "cooldownTextSize", 1 }, { "cooldownSwipe", true },
@@ -14469,7 +14526,7 @@ if movePass then
     page.settings.overheadScale:Set(0.8)
     page.settings.overheadY:Set(-30)
     state("page")
-    local other = ns.db.consoleProfile == "light" and "default" or "light"
+    local other = ns.db.consoleProfile == "reticule" and "arena" or "reticule"
     local here = ns.db.consoleProfile
     page.settings.consoleProfile:Set(other)
     state("other profile")

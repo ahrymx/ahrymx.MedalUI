@@ -157,8 +157,10 @@ local function Restore(profile)
         end
     end
     if lost > 0 then
+        local name = profile
+        for _, p in ipairs(ns.PROFILE_NAMES) do if p[1] == profile then name = p[2]:gsub(" %(.*%)$", "") end end
         Say(("%d %s of the %s profile could not come back (not in your bags, or not known)."):format(
-            lost, lost == 1 and "skill" or "skills", profile == "light" and "Central Console" or "Medallion"))
+            lost, lost == 1 and "skill" or "skills", name))
     end
 end
 

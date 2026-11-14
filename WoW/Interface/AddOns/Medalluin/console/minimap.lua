@@ -12,7 +12,7 @@ local AREA_SIZE, AREA_PAD, AREA_INSET = 10, 3, 4
 local AREA_FADE_IN, AREA_FADE_OUT = 0.5, 1      -- seconds it takes to come and to go
 
 -- ------------------------------------------------------------ where it goes
--- The light profile's minimap sits in the console's bay, or in the screen's
+-- The Reticule's minimap sits in the console's bay, or in the screen's
 -- top-right corner while the 2x5 grid takes the bay (console/bar7.lua). One
 -- rule decides, and the console's art follows it (console/frame.lua):
 --
@@ -58,7 +58,7 @@ function ns.MinimapPinned() return pin end
 function ns.ToggleMinimap()
     if not ns.MinimapMoves() then
         if UIErrorsFrame then
-            UIErrorsFrame:AddMessage("Medalluin: only the Central Console profile's minimap moves.", 1, 0.82, 0)
+            UIErrorsFrame:AddMessage("Medalluin: only the Reticule profile's minimap moves.", 1, 0.82, 0)
         end
         return
     end

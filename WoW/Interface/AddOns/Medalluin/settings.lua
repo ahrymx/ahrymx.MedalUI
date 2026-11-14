@@ -34,7 +34,7 @@ local DEFAULTS = {
     -- units (a 1080-high screen), so a place survives a resolution change
     consoleScale = 1, consoleX = 0, consoleY = 0,
     overheadScale = 1, overheadX = 0, overheadY = 0,
-    -- the light profile's minimap (console/minimap.lua): whether it moves to
+    -- the Reticule's minimap (console/minimap.lua): whether it moves to
     -- the screen's corner by itself, and on what; and the corner's size and
     -- place, as the consoles' are (movers.lua)
     minimapAuto = true,
@@ -157,7 +157,7 @@ local DEFAULTS = {
     simParty = false,       -- simulate party frames and show the group art layer
     simCdm = false,         -- simulate the Cooldown Manager's viewers in their options (cooldowns/simulate.lua)
     partyPets = true,       -- show pet frames directly below party members with pets
-    partyLayout = "console", -- "console": on the console, the medallion's wings or the light profile's row
+    partyLayout = "console", -- "console": on the console, Arena's medallion wings or the Reticule's row
                              -- under it (console/party_row.lua); "widget": a box dragged anywhere
                              -- (widgets/party.lua)
     partyRange = 40,        -- distance in yards to fade out-of-range party frames (0 = off)
@@ -211,7 +211,7 @@ local DEFAULTS = {
     editUnit = false, editParty = false,
     editPartyWidget = false, editRaid = false, editBoss = false, editArena = false,
     blizzardAuras = false,  -- Blizzard's own buff and debuff rows, top right (blizzard.lua)
-    consoleProfile = "default", -- "default": medallion console; "light": central console with square minimap & bar 7
+    consoleProfile = "reticule", -- "reticule": the slim console, square minimap & bar 7; "arena": the medallion
     -- which page each bar shows (bars/paging.lua): "default", "stances", "page1".."page10" or
     -- "custom", with the custom conditional beside it
     bar1Paging = "default", bar1PagingCustom = "",
@@ -296,17 +296,22 @@ ns.METER_METRICS = {
 ns.LOOT_QUALITIES = { { 0, "Poor" }, { 1, "Common" }, { 2, "Uncommon" }, { 3, "Rare" }, { 4, "Epic" } }
 
 -- The built-in profiles. Each is a look the console starts from: what it
--- changes from DEFAULTS. The art the light profile draws is
+-- changes from DEFAULTS. The art the Reticule draws is
 -- console/light_profile.lua; this is only what it means for the options.
+-- Reticule is the default; Arena is the round medallion console. Their ids
+-- were "light" and "default" until 0.44 (Migrate renames them).
 local PROFILES = {
-    default = {},
-    light = { rows = 3 },
+    arena = {},
+    reticule = { rows = 3 },
 }
 ns.PROFILE_NAMES = {
-    { "default", "Medallion (default)", "The classic round medallion console with integrated party wings." },
-    { "light", "Central Console (light)", "Flush-top player/target wings, dynamic square minimap / 2x5 Bar 7 bay, "
+    { "reticule", "Reticule (default)", "Flush-top player/target wings, dynamic square minimap / 2x5 Bar 7 bay, "
         .. "split Action Bars 2 & 3, and party frames in a row under the console." },
+    { "arena", "Arena", "The classic round medallion console with integrated party wings, and a large player "
+        .. "and target." },
 }
+-- the ids the profiles had, and what they are now
+local OLD_IDS = { default = "arena", light = "reticule" }
 
 -- The options are layered: DEFAULTS, then the chosen profile, then the
 -- player's own choices on top. Only a choice that differs from the profile
@@ -389,7 +394,7 @@ ns.SHARED = SHARED
 function ns.SharedOf(key) return SHARED_OF[key] end
 
 local function Profile()
-    return MedalluinDB and PROFILES[MedalluinDB.consoleProfile] and MedalluinDB.consoleProfile or "default"
+    return MedalluinDB and PROFILES[MedalluinDB.consoleProfile] and MedalluinDB.consoleProfile or "reticule"
 end
 
 -- Where the player's choice for an option is kept.
@@ -529,17 +534,43 @@ end
 -- profile it was on (the other profile starts as it is drawn), the rest the
 -- global ones; only what differs from the profile is kept, and anything
 -- unknown is left where it is.
-local function Migrate()
+-- A table keyed by profile id, its old ids renamed: an entry already under
+-- the new id wins; the old one goes either way.
+local function RenameIds(t)
+    if type(t) ~= "table" then return end
+    for old, new in pairs(OLD_IDS) do
+        if t[old] ~= nil then
+            if t[new] == nil then t[new] = t[old] end
+            t[old] = nil
+        end
+    end
+end
+
+local function Migrate(fresh)
     local db = MedalluinDB
     db.global = db.global or {}
     db.profiles = db.profiles or {}
+    -- the profiles' ids, renamed wherever they key something: the options
+    -- per profile, the keys (the account's binding set here, a character's
+    -- in MedalluinCharDB, with the character's skills on the bars, migrated
+    -- as each character logs in), and the profile chosen
+    RenameIds(db.profiles)
+    RenameIds(db.keys)
+    if type(MedalluinCharDB) == "table" then
+        RenameIds(MedalluinCharDB.layouts)
+        RenameIds(MedalluinCharDB.keys)
+    end
+    db.consoleProfile = OLD_IDS[db.consoleProfile] or db.consoleProfile
+    -- an install that never chose was on the medallion, the default until
+    -- 0.44: it stays there; a new one starts on the Reticule
+    if not fresh and db.consoleProfile == nil then db.consoleProfile = "arena" end
     for name in pairs(PROFILES) do db.profiles[name] = db.profiles[name] or {} end
     -- the overhead's Boss frames checkbox became Boss frames: Overhead,
     -- Vertical or Both; turned off, the bosses were not on the overhead
     local stores = { db }
     for name in pairs(PROFILES) do table.insert(stores, db.profiles[name]) end
     -- the party layout was Vertical (the medallion's wings, the light
-    -- profile's stack on the left), Horizontal (the light profile's row) or
+    -- profile's stack on the left), Horizontal (the Reticule's row) or
     -- Widget; the stack is gone, and both others are now the console's own
     for _, store in ipairs(stores) do
         if store.partyLayout == "vertical" or store.partyLayout == "horizontal" then store.partyLayout = nil end
@@ -661,10 +692,11 @@ end
 
 ns.On("ADDON_LOADED", function(_, name)
     if name ~= addonName then return end
+    local fresh = MedalluinDB == nil
     MedalluinDB = MedalluinDB or {}
-    Migrate()
+    Migrate(fresh)
     ns.db = layered
-    if ns.db.consoleProfile == "light" and ns.ApplyLightProfile then
+    if ns.db.consoleProfile == "reticule" and ns.ApplyLightProfile then
         ns.ApplyLightProfile()
     end
 end)

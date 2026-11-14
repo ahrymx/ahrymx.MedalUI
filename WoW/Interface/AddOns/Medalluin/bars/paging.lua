@@ -5,7 +5,7 @@
 --   bar 1         ActionButton1-12              Blizzard's own paging by default
 --   row 2         MultiBarBottomLeftButton1-12  page 6 (action bar 2) by default
 --   row 3         MultiBarBottomRightButton1-12 page 5 (action bar 3) by default
---   centre grid   MultiBar6Button1-10           the light profile's forms, stealth, flying
+--   centre grid   MultiBar6Button1-10           the Reticule's forms, stealth, flying
 --
 -- A page is 12 slots: page n holds actions (n - 1) * 12 + 1 to n * 12. Pages
 -- 7 to 10 are the ones the game swaps bar 1 to for stances, forms and stealth,
@@ -33,7 +33,7 @@ local MAIN = "[overridebar][vehicleui][possessbar][shapeshift] possess; [bonusba
     .. "[bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
     .. "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9; [bonusbar:4] 10; 1"
 
--- Bar 1 where the centre grid flies instead (the light profile): the same,
+-- Bar 1 where the centre grid flies instead (the Reticule): the same,
 -- without skyriding, so bar 1 keeps its page and the skyriding page shows
 -- on the grid alone (the user's call, 2026-11-01).
 local GROUNDED = MAIN:gsub("%[bonusbar:5%] 11; ", "")
@@ -43,14 +43,14 @@ local GROUNDED = MAIN:gsub("%[bonusbar:5%] 11; ", "")
 ns.PAGING_BARS = {
     { key = "bar1Paging", name = "Bar 1", base = nil,
       defaultLabel = "Blizzard's", defaultTip = "The game's own paging: the page arrows, stances, forms and "
-        .. "stealth, skyriding, vehicles and override bars. With the centre grid (the light profile), "
+        .. "stealth, skyriding, vehicles and override bars. With the centre grid (the Reticule), "
         .. "skyriding pages the grid instead, and bar 1 keeps its page." },
     { key = "row2Paging", name = "Row 2", base = 6,
       defaultLabel = "Action bar 2 (page 6)", defaultTip = "What Blizzard's action bar 2 shows." },
     { key = "row3Paging", name = "Row 3", base = 5,
       defaultLabel = "Action bar 3 (page 5)", defaultTip = "What Blizzard's action bar 3 shows." },
     { key = "gridPaging", name = "Centre grid", base = 7, grid = true,
-      defaultLabel = "Forms, stealth, flying (7-11)", defaultTip = "The light profile's: page 7, page 8 "
+      defaultLabel = "Forms, stealth, flying (7-11)", defaultTip = "The Reticule's: page 7, page 8 "
         .. "in the first form or stance, 9 in the second and third, 10 in stealth, and 11 on a skyriding "
         .. "mount, the page bar 1 flies on, so skyriding skills can go on the grid." },
 }

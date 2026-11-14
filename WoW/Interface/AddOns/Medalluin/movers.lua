@@ -41,7 +41,7 @@ local CONSOLES = {
         shown = function() return ns.db.overhead ~= false end,
     },
     {
-        -- the light profile's minimap in the screen's corner (console/minimap.lua);
+        -- the Reticule's minimap in the screen's corner (console/minimap.lua);
         -- its mover shows where the corner is even while the minimap is in the bay
         id = "minimap", name = "Corner minimap", label = "Size",
         frame = function() return ns.minimapBezel end,
