@@ -22,13 +22,26 @@ local C = {
     goldBright = { 0.878, 0.722, 0.290 },
     ink = ns.colors.ink,
     panel = { 0.102, 0.094, 0.082 },
-    well = { 0.047, 0.047, 0.047 },
+    well = { 0.051, 0.047, 0.039 },     -- #0d0c0a: a control's well (sunken)
     selected = { 0.204, 0.165, 0.086 },
     hover = { 0.271, 0.220, 0.114 },
     red = { 0.471, 0.094, 0.078 },
     redHover = { 0.580, 0.125, 0.098 },
     text = ns.colors.text,
     dim = ns.colors.dim,
+    -- the surfaces, darkest out: the window's chrome (its head, sidebar and
+    -- footer), the page, a card on it
+    chrome = ns.colors.ink,
+    page = { 0.090, 0.082, 0.063 },     -- #171510
+    raised = { 0.118, 0.106, 0.086 },   -- #1e1b16
+    -- neutral hairlines (gold is kept for what is on, chosen or primary)
+    line = { 0.169, 0.153, 0.125 },     -- #2b2720
+    lineStrong = { 0.239, 0.212, 0.165 }, -- #3d362a: a control's edge
+    faint = { 0.490, 0.459, 0.384 },    -- #7d7562: the least of the text
+    -- a lift under the pointer, a press, a lit row: translucent, over any surface
+    lift = { 0.949, 0.918, 0.824, 0.045 },
+    lift2 = { 0.949, 0.918, 0.824, 0.08 },
+    lit = { 0.878, 0.722, 0.290, 0.11 },
 }
 local MEDIA = ns.media .. "options\\"
 
@@ -37,10 +50,19 @@ ns.OptionsUI = UI
 
 local function Fill(parent, layer, color, sub)
     local t = parent:CreateTexture(nil, layer, nil, sub)
-    t:SetColorTexture(color[1], color[2], color[3], 1)
+    t:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
     return t
 end
 UI.Fill = Fill
+-- a texture (or each of an outline's) recoloured
+local function Paint(t, color)
+    if t.SetColorTexture then
+        t:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+        return
+    end
+    for _, e in ipairs(t) do e:SetColorTexture(color[1], color[2], color[3], color[4] or 1) end
+end
+UI.Paint = Paint
 
 -- A one-pixel line round a frame, inset.
 local function Outline(parent, layer, color, inset, sub)
@@ -62,14 +84,14 @@ local function Outline(parent, layer, color, inset, sub)
 end
 UI.Outline = Outline
 
--- The suite's frame: a fill, a gold edge (two pixels, or one), a dark line
--- inside it.
+-- The suite's frame: a fill, a dark gold edge (two pixels, or one), a
+-- hairline inside it.
 function UI.Skin(frame, color, edge)
     edge = edge or 2
     local bg = Fill(frame, "BACKGROUND", color, 1)
     bg:SetAllPoints()
-    for i = 0, edge - 1 do Outline(frame, "BORDER", C.gold, i, 1) end
-    Outline(frame, "BORDER", C.goldDark, edge, 2)
+    for i = 0, edge - 1 do Outline(frame, "BORDER", i == 0 and C.goldDark or C.lineStrong, i, 1) end
+    Outline(frame, "BORDER", C.line, edge, 2)
     return bg
 end
 
@@ -156,32 +178,71 @@ local function TextWidth(text)
 end
 
 -- ------------------------------------------------------------ button
--- A gold-edged button; red for the window's Close.
-function UI.Button(parent, label, width, height, click, tip, red)
+-- A button in one of four styles: "primary" (gold, the one main action),
+-- "secondary" (every other), "quiet" (no box until the pointer is on it)
+-- and "danger" (red; true, the old argument, means it too). Each lifts
+-- under the pointer, darkens pressed (its text down a pixel) and fades
+-- disabled. b:SetStyle(style) changes it (the footer's Reload UI goes
+-- primary while a reload waits).
+local INK = { 0.086, 0.075, 0.047 }
+local NONE = { 0, 0, 0, 0 }
+UI.BUTTON = {
+    primary = { rest = C.gold, hover = C.goldBright, press = { 0.659, 0.541, 0.259 },
+        edge = C.goldBright, text = INK, lit = INK },
+    secondary = { rest = C.raised, hover = { 0.149, 0.133, 0.106 }, press = { 0.078, 0.071, 0.055 },
+        edge = C.lineStrong, edgeLit = C.goldDark, text = C.gold, lit = C.goldBright },
+    quiet = { rest = NONE, hover = C.lift, press = C.lift2, edge = NONE, text = C.dim, lit = C.text },
+    danger = { rest = C.red, hover = C.redHover, press = { 0.369, 0.071, 0.059 },
+        edge = { 0.604, 0.200, 0.149 }, text = { 0.949, 0.847, 0.784 }, lit = { 0.949, 0.847, 0.784 } },
+}
+function UI.Button(parent, label, width, height, click, tip, style)
+    if style == true then style = "danger" end
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(width, height)
-    local bg = Fill(b, "BACKGROUND", red and C.red or C.selected, 1)
+    local bg = Fill(b, "BACKGROUND", C.raised, 1)
     bg:SetAllPoints()
-    Outline(b, "BORDER", C.gold, 0)
-    b.text = UI.Serif(b, 12, C.goldBright)
+    b.bg = bg
+    b.edge = Outline(b, "BORDER", C.lineStrong, 0)
+    b.text = UI.Serif(b, 12, C.gold)
     b.text:SetPoint("CENTER", 0, 0)
     b.text:SetText(label)
-    local rest, lit = red and C.red or C.selected, red and C.redHover or C.hover
+    -- its look in a state: "rest", "hover" or "press"
+    function b:Show_(state)
+        local s = UI.BUTTON[self.style]
+        self.state = state
+        Paint(bg, s[state])
+        Paint(self.edge, state ~= "rest" and s.edgeLit or s.edge)
+        local c = self.off and C.dim or state == "rest" and s.text or s.lit
+        self.text:SetTextColor(c[1], c[2], c[3])
+        self.text:ClearAllPoints()
+        self.text:SetPoint("CENTER", 0, state == "press" and -1 or 0)
+    end
+    function b:SetStyle(to)
+        self.style = UI.BUTTON[to] and to or "secondary"
+        self:Show_(self.state or "rest")
+    end
     b:SetScript("OnClick", function() click() end)
     b:SetScript("OnEnter", function(self)
-        bg:SetColorTexture(lit[1], lit[2], lit[3], 1)
+        self:Show_("hover")
         if tip then UI.Tip(self, label, tip) end
     end)
-    b:SetScript("OnLeave", function()
-        bg:SetColorTexture(rest[1], rest[2], rest[3], 1)
+    b:SetScript("OnLeave", function(self)
+        self:Show_("rest")
         Untip()
+    end)
+    b:SetScript("OnMouseDown", function(self)
+        if self:IsEnabled() then self:Show_("press") end
+    end)
+    b:SetScript("OnMouseUp", function(self)
+        self:Show_(self:IsMouseOver() and "hover" or "rest")
     end)
     function b:Refresh(enabled)
         self:SetEnabled(enabled)
-        local c = enabled and C.goldBright or C.dim
-        self.text:SetTextColor(c[1], c[2], c[3])
-        self:SetAlpha(enabled and 1 or 0.5)
+        self.off = not enabled or nil
+        self:Show_(enabled and self.state or "rest")
+        self:SetAlpha(enabled and 1 or 0.4)
     end
+    b:SetStyle(style)
     b.spec = { kind = "button", label = label }
     return b
 end
@@ -198,8 +259,8 @@ local function Pill(b)
     track:SetPoint("RIGHT", 0, 0)
     local well = Fill(track, "BACKGROUND", C.well, 1)
     well:SetAllPoints()
-    b.edge = Outline(track, "BORDER", C.goldDark, 0)
-    b.tick = Fill(track, "ARTWORK", C.goldDark, 1)
+    b.edge = Outline(track, "BORDER", C.lineStrong, 0)
+    b.tick = Fill(track, "ARTWORK", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.28 }, 1)
     b.tick:SetPoint("TOPLEFT", 1, -1)
     b.tick:SetPoint("BOTTOMRIGHT", -1, 1)
     b.knob = track:CreateTexture(nil, "OVERLAY")
@@ -214,8 +275,7 @@ local function PillShows(b, on)
     b.knob:SetPoint(on and "RIGHT" or "LEFT", on and -3 or 3, 0)
     local k = on and C.goldBright or C.dim
     b.knob:SetVertexColor(k[1], k[2], k[3], 1)
-    local e = on and C.gold or C.goldDark
-    for _, t in ipairs(b.edge) do t:SetColorTexture(e[1], e[2], e[3], 1) end
+    Paint(b.edge, on and C.gold or C.lineStrong)
 end
 
 -- ------------------------------------------------------------ checkbox
@@ -245,7 +305,7 @@ function UI.Check(parent, spec, width, row)
         end
         return b
     end
-    local box = Fill(b, "BACKGROUND", C.goldDark, 1)
+    local box = Fill(b, "BACKGROUND", C.lineStrong, 1)
     box:SetSize(CHECK, CHECK)
     box:SetPoint("LEFT", 0, 0)
     local well = Fill(b, "BACKGROUND", C.well, 2)
@@ -314,7 +374,7 @@ function UI.Key(parent, spec, width)
     box:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     local bg = Fill(box, "BACKGROUND", C.well, 1)
     bg:SetAllPoints()
-    Outline(box, "BORDER", C.goldDark, 0)
+    Outline(box, "BORDER", C.lineStrong, 0)
     box.text = UI.Plain(box, 12)
     box.text:SetPoint("CENTER", 0, 0)
     f.box = box
@@ -397,7 +457,7 @@ local function Row(i)
     if row then return row end
     row = CreateFrame("Button", nil, menu)
     row:SetHeight(ROW_H)
-    row.lit = Fill(row, "BACKGROUND", C.hover, 1)
+    row.lit = Fill(row, "BACKGROUND", C.lift2, 1)
     row.lit:SetAllPoints()
     row.lit:Hide()
     row.mark = row:CreateTexture(nil, "ARTWORK")
@@ -565,7 +625,7 @@ function UI.Choice(parent, spec, width, row)
     b:SetHeight(22)
     local bg = Fill(b, "BACKGROUND", C.well, 1)
     bg:SetAllPoints()
-    Outline(b, "BORDER", C.goldDark, 0)
+    b.edge = Outline(b, "BORDER", C.lineStrong, 0)
     b.value:SetPoint("LEFT", 8, 0)
     b.value:SetPoint("RIGHT", -24, 0)
     b.value:SetJustifyH("LEFT")
@@ -574,7 +634,14 @@ function UI.Choice(parent, spec, width, row)
     b.arrow:SetSize(16, 16)
     b.arrow:SetPoint("RIGHT", -5, 0)
     b:SetScript("OnClick", function(self) UI.OpenMenu(self, spec) end)
-    Tipped(b, spec.label, spec.tip)
+    b:SetScript("OnEnter", function(self)
+        Paint(self.edge, C.goldDark)
+        UI.Tip(self, spec.label, spec.tip)
+    end)
+    b:SetScript("OnLeave", function(self)
+        Paint(self.edge, C.lineStrong)
+        Untip()
+    end)
     f.button = b
     function f:Refresh(enabled)
         b:SetEnabled(enabled)
@@ -630,7 +697,7 @@ function UI.Segment(parent, spec, width)
     box:SetSize(total, UI.SEG_H)
     box:SetPoint("RIGHT", 0, 0)
     Fill(box, "BACKGROUND", C.well, 1):SetAllPoints()
-    Outline(box, "BORDER", C.goldDark, 0)
+    Outline(box, "BORDER", C.lineStrong, 0)
     f.box = box
     local x = 0
     for i, choice in ipairs(spec.choices) do
@@ -638,7 +705,11 @@ function UI.Segment(parent, spec, width)
         b:SetSize(widths[i], UI.SEG_H)
         b:SetPoint("TOPLEFT", x, 0)
         b.value, b.name = choice[1], choice[2]
-        b.lit = Fill(b, "ARTWORK", C.selected, 1)
+        b.lit = Fill(b, "ARTWORK", C.lit, 1)
+        b.lift = Fill(b, "ARTWORK", C.lift, 0)
+        b.lift:SetPoint("TOPLEFT", 1, -1)
+        b.lift:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.lift:Hide()
         b.lit:SetPoint("TOPLEFT", 1, -1)
         b.lit:SetPoint("BOTTOMRIGHT", -1, 1)
         b.foot = Fill(b, "ARTWORK", C.goldBright, 2)
@@ -646,7 +717,7 @@ function UI.Segment(parent, spec, width)
         b.foot:SetPoint("BOTTOMLEFT", 1, 1)
         b.foot:SetPoint("BOTTOMRIGHT", -1, 1)
         if i > 1 then
-            local sep = Fill(b, "ARTWORK", C.goldDark, 3)
+            local sep = Fill(b, "ARTWORK", C.line, 3)
             sep:SetWidth(1)
             sep:SetPoint("TOPLEFT", 0, -1)
             sep:SetPoint("BOTTOMLEFT", 0, 1)
@@ -656,12 +727,16 @@ function UI.Segment(parent, spec, width)
         b.text:SetText(choice[2])
         b:SetScript("OnClick", function(self) Set(spec, self.value) end)
         b:SetScript("OnEnter", function(self)
-            if not self.chosen then self.text:SetTextColor(C.text[1], C.text[2], C.text[3]) end
+            if not self.chosen then
+                self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+                self.lift:Show()
+            end
             local tip = choice[3]
             if type(tip) == "function" then tip = tip() end
             UI.Tip(self, spec.label .. ": " .. choice[2], tip or spec.tip)
         end)
-        b:SetScript("OnLeave", function()
+        b:SetScript("OnLeave", function(self)
+            self.lift:Hide()
             f:Paint()
             Untip()
         end)
@@ -810,7 +885,7 @@ function UI.Color(parent, spec, width, row)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(width, UI.CHECK_H)
     b.spec = spec
-    local edge = Fill(b, "BACKGROUND", C.gold, 1)
+    local edge = Fill(b, "BACKGROUND", C.lineStrong, 1)
     edge:SetSize(CHECK, CHECK)
     edge:SetPoint(row and "RIGHT" or "LEFT", 0, 0)
     b.swatch = Fill(b, "ARTWORK", { 1, 1, 1 })
@@ -895,7 +970,7 @@ function UI.Slider(parent, spec, width, row)
                 return
             end
             Nudge(sign * step * Steps())
-        end)
+        end, nil, "quiet")
         if spec.fast then
             -- a timer only while held: no button ticks at rest
             local wait
@@ -938,13 +1013,17 @@ function UI.Slider(parent, spec, width, row)
     track:SetPoint("BOTTOMLEFT", f.less, "BOTTOMRIGHT", 6, 0)
     track:SetPoint("BOTTOMRIGHT", f.more, "BOTTOMLEFT", -6, 0)
     track:SetHeight(18)
-    local rail = Fill(track, "BACKGROUND", C.well, 1)
+    local rail = Fill(track, "BACKGROUND", C.lineStrong, 1)
     rail:SetPoint("LEFT", 0, 0)
     rail:SetPoint("RIGHT", 0, 0)
-    rail:SetHeight(5)
-    Outline(track, "BORDER", C.goldDark, 0)
+    rail:SetHeight(4)
     f.thumb = Fill(track, "ARTWORK", C.gold)
     f.thumb:SetSize(8, 14)
+    -- the rail lit gold up to the thumb
+    f.fill = Fill(track, "BACKGROUND", C.goldDark, 2)
+    f.fill:SetHeight(4)
+    f.fill:SetPoint("LEFT", track, "LEFT", 0, 0)
+    f.fill:SetPoint("RIGHT", f.thumb, "CENTER", 0, 0)
     f.track = track
     -- where the pointer is on the track, as a value
     local function AtCursor()

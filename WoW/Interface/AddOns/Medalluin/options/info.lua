@@ -40,7 +40,7 @@ local function Page()
     about:SetText((Metadata("Notes") or "") .. "\n\nIts options have a window of their own.")
 
     local open = UI.Button(f, "Open Medalluin settings", 220, 30, function() ns.OpenOptions() end,
-        "Closes this panel and opens Medalluin's own settings window.")
+        "Closes this panel and opens Medalluin's own settings window.", "primary")
     open:SetPoint("TOPLEFT", about, "BOTTOMLEFT", 0, -16)
 
     local head = UI.Serif(f, 14, C.goldBright)

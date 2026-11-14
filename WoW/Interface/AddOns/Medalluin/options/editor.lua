@@ -716,7 +716,7 @@ local function Window()
 
     -- the footer: Preview | the canvas's chips, under their caption |
     -- Reset frame, Close
-    local foot = UI.Fill(window, "ARTWORK", C.goldDark)
+    local foot = UI.Fill(window, "ARTWORK", C.line)
     foot:SetHeight(1)
     foot:SetPoint("BOTTOMLEFT", PAD, FOOT - 8)
     foot:SetPoint("BOTTOMRIGHT", -PAD, FOOT - 8)
@@ -725,7 +725,7 @@ local function Window()
         .. "they show.")
     window.preview:SetPoint("BOTTOMLEFT", PAD, 10)
     window.preview.SetText = function(self, t) self.text:SetText(t) end
-    local close = UI.Button(window, "Close", 96, 24, function() window:Hide() end, nil, true)
+    local close = UI.Button(window, "Close", 96, 24, function() window:Hide() end, nil, "quiet")
     close:SetPoint("BOTTOMRIGHT", -PAD, 10)
     local reset = UI.Button(window, "Reset frame", 100, 24, function() E.ResetFrame(frame) end,
         "Every piece of this frame back to how it draws it.")
@@ -734,7 +734,7 @@ local function Window()
     local from, to = PAD + 100 + 18, W - PAD - 96 - 8 - 100 - 18
     window.dividers = {}
     for i, x in ipairs({ from - 9, to + 9 }) do
-        local d = UI.Fill(window, "ARTWORK", C.goldDark)
+        local d = UI.Fill(window, "ARTWORK", C.line)
         d:SetSize(1, 20)
         d:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", x, 12)
         window.dividers[i] = d

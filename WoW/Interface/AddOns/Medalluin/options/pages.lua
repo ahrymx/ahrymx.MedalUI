@@ -590,13 +590,17 @@ local function Shared(list)
     local grid = Group("On the frames", { kind = "grid", label = "Auras", cols = AURA_COLS, rows = AURA_ROWS })
     grid.wide = true
     grid.tip = "All sets every frame that has not chosen its own; a gold corner marks one that has."
-    local tools = Mirror("Tools", { "simParty", "simCdm", "gameMenu" })
-    table.insert(tools.items, 2, Editor(nil, "Edit unit frames"))
-    table.insert(tools.items, 3, Button("Bind keys", function()
-        if ns.CloseOptions then ns.CloseOptions() end
-        ns.KeybindMode(true)
-    end, "Closes this window. Point at an action button and press a key to bind it; Esc over a button "
-        .. "removes its keys. Also /mdlui kb."))
+    -- Tools: Overview > General's sections, the same ones
+    local tools = {
+        Mirror("Preview", { "simParty", "simCdm" }),
+        Group("Editor", Editor(nil, "Edit unit frames")),
+        Group("Key bindings", Button("Bind keys", function()
+            if ns.CloseOptions then ns.CloseOptions() end
+            ns.KeybindMode(true)
+        end, "Closes this window. Point at an action button and press a key to bind it; Esc over a button "
+            .. "removes its keys. Also /mdlui kb.")),
+        Mirror("Game menu", { "gameMenu" }),
+    }
     return {
         id = "shared", name = "Shared",
         tabs = {
@@ -633,7 +637,7 @@ local function Shared(list)
             },
             {
                 id = "tools", name = "Tools", intro = "Also on Overview > General.",
-                groups = { tools },
+                groups = tools,
             },
         },
     }
@@ -748,10 +752,6 @@ function ns.OptionPages()
                             .. "chained to the next." },
                         { "game", "The game's", "The game's own menu, as it stands." },
                     }, "How the menu Escape opens looks. Its buttons stay the game's own.", true)),
-                Group("Dead and offline",
-                    Color("deadColor", "Dead frame colour",
-                        "A dead or offline friend's frame: the player's, the party's (console or widget) "
-                        .. "and the raid's. It shows the status icon, time or disconnection, and their name.")),
             },
         },
         {
@@ -989,6 +989,10 @@ function ns.OptionPages()
                     intro = "Shared by every profile.",
                     groups = {
                         Group("Editor", Editor(nil, "Edit unit frames")),
+                        Group("Dead and offline",
+                            Color("deadColor", "Dead frame colour",
+                                "A dead or offline friend's frame: the player's, the party's (console or widget) "
+                                .. "and the raid's. It shows the status icon, time or disconnection, and their name.")),
                         Glows(),
                         Group("Blizzard's auras (shared by every profile)",
                             Check("blizzardAuras", "Blizzard's buff and debuff rows",

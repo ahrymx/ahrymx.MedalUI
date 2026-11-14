@@ -288,7 +288,7 @@ function Popup(c)
             popup:Hide()
             selected = nil
             for _, m in pairs(movers) do Paint(m) end
-        end)
+        end, nil, "quiet")
         popup.close:SetPoint("BOTTOMRIGHT", -12, 12)
         popup.reset = UI.Button(popup, "Reset", 80, 22, function()
             if popup.console then Reset(popup.console) end

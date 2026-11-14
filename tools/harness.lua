@@ -5493,7 +5493,7 @@ if barPass then
             table.insert(secs, s.title.text .. "@" .. tostring(s.col) .. "," .. s.top .. " h" .. s.h
                 .. (w and (" [" .. (w.label and w.label.text or "") .. (w.tick.shown and " on" or " off")
                     .. (w:IsEnabled() and "" or " grey") .. "]") or "")
-                .. (s.edge and (" card " .. (s.edge[1].color[1] == ns.OptionsUI.colors.gold[1] and "gold" or "dark")) or "")
+                .. (s.accent and (" card " .. (s.accent.shown and "lit" or "plain")) or "")
                 .. (s.chip and (" (" .. s.chip.text.text .. ")") or ""))
           end
         end
@@ -5803,6 +5803,21 @@ if barPass then
         local secs = {}
         for _, s in ipairs(mods.sections) do table.insert(secs, s.title.text .. " (" .. s.note.text .. ")") end
         print("options.modules sections", table.concat(secs, "; "))
+        -- a tab per category; only its cards shown, under the intro
+        local function shownSecs()
+            local o = {}
+            for _, s in ipairs(mods.sections) do
+                if s.shown ~= false then table.insert(o, s.sheet .. "@" .. select(5, s:GetPoint(1))) end
+            end
+            return table.concat(o, ",")
+        end
+        local tabs = {}
+        for _, b in ipairs(mods.tabs or {}) do table.insert(tabs, b.name .. (b.foot.shown and "*" or "")) end
+        local before = shownSecs()
+        for _, b in ipairs(mods.tabs or {}) do if b.name == "Interface" then b.scripts.OnClick(b) end end
+        print("options.modules tabs", table.concat(tabs, " "), "shown=" .. before, "after Interface=" .. shownSecs(),
+            "crumb=" .. mods.head.crumb.text)
+        for _, b in ipairs(mods.tabs or {}) do if b.name == "Console" then b.scripts.OnClick(b) end end
         cards("all on")
         page.settings.side:Set(false)
         cards("side off")
@@ -5979,6 +5994,74 @@ if barPass then
             if b.value == "console" then b.scripts.OnClick(b) end
         end
         keys("console position")
+        -- the window's head: its name, the version, a close that goes red
+        -- under the pointer; the head is the grip
+        local x = win.closeX
+        local function tint(t) return t.vertex and string.format("%.2f", t.vertex[1]) or "-" end
+        local rest = "lit=" .. tostring(x.lit.shown) .. " glyph=" .. tint(x.glyph)
+        x.scripts.OnEnter(x)
+        local over = "lit=" .. tostring(x.lit.shown) .. " glyph=" .. tint(x.glyph)
+        x.scripts.OnLeave(x)
+        print("options.head", win.title.text, win.version.text, "bar=" .. win.titleBox.h,
+            "close=" .. x.w .. "x" .. x.h, "rest " .. rest, "over " .. over,
+            "left lit=" .. tostring(x.lit.shown), "grip=" .. tostring(win.titleBox.scripts.OnDragStart ~= nil))
+        -- the sidebar: an item lifts under the pointer, the lit one doesn't;
+        -- a heading brightens
+        ns.OpenOptions("console/bar")
+        local items = {}
+        for _, r in ipairs(win.tree.rows) do
+            if r.path == "console/bar" then items.lit = r elseif r.path == "console/overhead" then items.other = r end
+        end
+        local C = ns.OptionsUI.colors
+        local function col(fs) return fs.textColor and string.format("%.2f", fs.textColor[1]) or "-" end
+        local function item(r)
+            r.scripts.OnEnter(r)
+            local on = "lift=" .. tostring(r.lift.shown) .. " text=" .. col(r.text)
+            r.scripts.OnLeave(r)
+            return on .. " / left lift=" .. tostring(r.lift.shown) .. " text=" .. col(r.text)
+        end
+        local folded
+        for _, h in ipairs(win.tree.heads) do
+            if not h.open and not folded then folded = h end
+        end
+        folded.scripts.OnEnter(folded)
+        local head = folded.text.text .. " text=" .. col(folded.text) .. " pill=" .. tostring(folded.pill.shown)
+            .. "(" .. folded.sign.text .. ")"
+        folded.scripts.OnLeave(folded)
+        print("options.sidebar hover", "other: " .. item(items.other), "lit: " .. item(items.lit),
+            "heading: " .. head .. " / left text=" .. col(folded.text),
+            "colours text=" .. string.format("%.2f", C.text[1]) .. " dim=" .. string.format("%.2f", C.dim[1]))
+        -- a row lifts under the pointer, and lets go
+        local was = mouseOver
+        mouseOver = true
+        local row = win.Hover()
+        local lifted = row and row.lift.shown
+        mouseOver = false
+        win.Hover()
+        print("options.row hover", "row=" .. tostring(row and row.spec and row.spec.label), "lift=" .. tostring(lifted),
+            "after=" .. tostring(row and row.lift.shown))
+        mouseOver = was
+        -- buttons: a press darkens and drops the text; disabled fades;
+        -- Reload UI is gold while a reload waits
+        local b = win.footButton
+        local function look(bt)
+            local p = bt.text.points.CENTER
+            return bt.style .. "/" .. tostring(bt.state) .. " bg=" .. string.format("%.2f", bt.bg.color[1])
+                .. " text@" .. (p and p[4] or "?")
+        end
+        local at = { look(b) }
+        b.scripts.OnMouseDown(b)
+        table.insert(at, look(b))
+        b.scripts.OnMouseUp(b)
+        table.insert(at, look(b))
+        b:Refresh(false)
+        table.insert(at, "off alpha=" .. tostring(b.alpha))
+        b:Refresh(true)
+        ns.SetOption("bags", not ns.db.bags)
+        table.insert(at, "reload " .. look(b) .. " pill=" .. tostring(win.footReload.pill.shown))
+        ns.SetOption("bags", not ns.db.bags)
+        table.insert(at, "back " .. look(b) .. " pill=" .. tostring(win.footReload.pill.shown))
+        print("options.button", table.concat(at, "; "))
     end)()
     -- a dropdown's list: its choices, the one in use marked; a row chosen
     ns.OpenOptions("units/party")

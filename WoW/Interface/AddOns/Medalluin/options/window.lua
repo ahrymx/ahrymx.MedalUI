@@ -6,8 +6,9 @@
 -- it does, and its control at the right. A page whose groups are on two
 -- sheets or more has a tab for each under its header, its cards one column
 -- across the page; another has its cards in two columns. Modules, the page
--- it opens on, has a card for each part with a master. The title on the
--- top edge, or the window itself, drags it; where it is left is kept. The
+-- it opens on, has a card for each part with a master, a tab for each
+-- category with one. The head across its top, or the window itself, drags
+-- it; where it is left is kept. The
 -- footer names the profile being edited and, once an option that waits for
 -- one has changed, asks for a reload.
 --
@@ -19,23 +20,22 @@ local UI = ns.OptionsUI
 local C = UI.colors
 
 local W, H = 900, 600
-local PAD, SIDE_W, TITLE_ROOM, FOOT = 14, 200, 22, 46
-local HEAD_H, COL_GAP, SEC_GAP, CARD_PAD, BAND_H = 54, 12, 12, 8, 28
+local SIDE_W, BAR_H, FOOT, EDGE = 200, 34, 40, 1 -- the sidebar; the window's head and footer; its edge
+local HEAD_TOP, RIGHT = EDGE + BAR_H + 14, 16    -- a page's header: its top, and its right margin
+local HEAD_H, COL_GAP, SEC_GAP, CARD_PAD, BAND_H = 50, 12, 12, 12, 36
 local STRIP_H, ROW_GAP = 26, 4          -- a page's sheet tabs, under its crumb; between a card's rows
-local ITEM_H, CAT_H, SEARCH_H, LINK_H = 22, 22, 22, 20
+local ITEM_H, CAT_H, SEARCH_H, LINK_H = 24, 28, 26, 20
 local CARD_H, CARD_GAP = 44, 8
-local X = PAD + SIDE_W + 14             -- the header's and body's left
+local X = EDGE + SIDE_W + 18            -- the header's and body's left
 local ROUND = ns.media .. "strips\\round"
 local GREEN = { 0.42, 0.78, 0.36 }
-local BAND = { 0.110, 0.098, 0.075 } -- a card's title band, between ink and panel
-local HAIR = { 0.122, 0.110, 0.086 } -- the line between a card's rows
 
 local pages        -- pages.lua's, built at login
 local categories
 local window, side, nav, navChild, search, body, scroll, thumb, flash
 local finds        -- a search's page: the sections it matched, lent by their own
 local colW         -- a section's width
-local footProfile, footReload, footDot
+local footProfile, footReload, footDot, footChip, footButton
 local built = {}   -- page frames by path ("general", "console/unit")
 ns.optionPages = built
 local current      -- the path shown
@@ -222,11 +222,11 @@ end
 -- their right; a hairline under. Shown with its page.
 local function Header(f, content, path, page, tab)
     local head = CreateFrame("Frame", nil, window)
-    head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -(PAD + TITLE_ROOM))
-    head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -PAD, -(PAD + TITLE_ROOM))
+    head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -HEAD_TOP)
+    head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -RIGHT, -HEAD_TOP)
     head:SetHeight(HEAD_H)
     local at = place[path]
-    head.title = UI.Serif(head, 20, C.goldBright)
+    head.title = UI.Serif(head, 20, C.text)
     head.title:SetPoint("TOPLEFT", 0, -2)
     head.title:SetText(at and ItemName(at.item) or (tab and tab.name or page.name))
     local parts = {}
@@ -237,8 +237,8 @@ local function Header(f, content, path, page, tab)
     end
     head.scope = content.scope or at and at.cat.scope
     head.crumbBase = table.concat(parts, "  >  ")
-    head.crumb = UI.Plain(head, 12, C.dim)
-    head.crumb:SetPoint("TOPLEFT", 0, -30)
+    head.crumb = UI.Plain(head, 12, C.faint)
+    head.crumb:SetPoint("TOPLEFT", 0, -28)
     head.crumb:SetText(Crumb(head, nil))
     local more = content.more and content.also and (content.more .. "\n\n" .. content.also)
         or content.more or content.also
@@ -273,6 +273,9 @@ local function Header(f, content, path, page, tab)
             local b = CreateFrame("Button", nil, head)
             b.sheet, b.name = id, SheetName(content, id)
             b:SetHeight(STRIP_H)
+            b.lift = UI.Fill(b, "BACKGROUND", C.lift, 1)
+            b.lift:SetAllPoints()
+            b.lift:Hide()
             b.text = UI.Serif(b, 13, C.dim)
             b.text:SetPoint("CENTER", 0, 1)
             b.text:SetText(b.name)
@@ -283,9 +286,15 @@ local function Header(f, content, path, page, tab)
             b.foot:SetPoint("BOTTOMRIGHT", -8, 0)
             b:SetScript("OnClick", function(self) ShowSheet(f, self.sheet) end)
             b:SetScript("OnEnter", function(self)
-                if f.sheet ~= self.sheet then self.text:SetTextColor(C.text[1], C.text[2], C.text[3]) end
+                if f.sheet ~= self.sheet then
+                    self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+                    self.lift:Show()
+                end
             end)
-            b:SetScript("OnLeave", function() Strip(f) end)
+            b:SetScript("OnLeave", function(self)
+                self.lift:Hide()
+                Strip(f)
+            end)
             table.insert(f.tabs, b)
         end
         -- at the tabs' right: which variant the rows edit (Party: the
@@ -308,7 +317,7 @@ local function Header(f, content, path, page, tab)
         if aside then aside:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, 3) end
         f.aside = aside
     end
-    local rule = UI.Fill(head, "ARTWORK", C.goldDark)
+    local rule = UI.Fill(head, "ARTWORK", C.line)
     rule:SetHeight(1)
     rule:SetPoint("BOTTOMLEFT", 0, 0)
     rule:SetPoint("BOTTOMRIGHT", 0, 0)
@@ -338,25 +347,32 @@ local function Own(row, spec)
     return b
 end
 
--- A group as a card: a band across its top holding its title, its chip
--- (where a variant's options are kept) and, on the right, the switch its
--- rows need; its tip, then an option a row, a hairline between them,
--- under that. Its edge is gold while its switch is on. sheet: its sheet's
--- name, for search's crumb.
+-- A group as a card, a step lighter than the page: its head holding its
+-- title, its chip (where a variant's options are kept) and, on the right,
+-- the switch its rows need, a hairline under it; its tip, then an option a
+-- row, a hairline between them. A gold bar runs down its left while its
+-- switch is on; a row lifts under the pointer. sheet: its sheet's name,
+-- for search's crumb.
 local function Section(f, group, width, path, sheet)
     local s = CreateFrame("Frame", nil, f)
     s:SetWidth(width)
     s.group = group
     local inset = CARD_PAD
     width = width - 2 * inset
-    UI.Fill(s, "BACKGROUND", C.ink, 1):SetAllPoints()
-    local band = UI.Fill(s, "BACKGROUND", BAND, 2)
+    UI.Fill(s, "BACKGROUND", C.raised, 1):SetAllPoints()
+    -- its head: the card's own fill (the band is where it is)
+    local band = UI.Fill(s, "BACKGROUND", C.raised, 2)
     band:SetPoint("TOPLEFT", 1, -1)
     band:SetPoint("TOPRIGHT", -1, -1)
     band:SetHeight(BAND_H - 1)
     s.band = band
-    s.edge = UI.Outline(s, "BORDER", C.goldDark, 0)
-    s.title = UI.Serif(s, 14, C.goldBright)
+    s.edge = UI.Outline(s, "BORDER", C.line, 0)
+    s.accent = UI.Fill(s, "OVERLAY", C.goldBright)
+    s.accent:SetWidth(2)
+    s.accent:SetPoint("TOPLEFT", 1, -1)
+    s.accent:SetPoint("BOTTOMLEFT", 1, 1)
+    s.accent:Hide()
+    s.title = UI.Serif(s, 14, C.text)
     s.title:SetPoint("LEFT", s, "TOPLEFT", inset, -BAND_H / 2)
     s.title:SetText(group.title)
     if group.chip then
@@ -364,14 +380,14 @@ local function Section(f, group, width, path, sheet)
         local chip = CreateFrame("Frame", nil, s)
         chip:SetHeight(14)
         chip:SetPoint("LEFT", s.title, "RIGHT", 8, 0)
-        UI.Outline(chip, "BORDER", shared and C.goldDark or C.gold, 0)
+        UI.Outline(chip, "BORDER", shared and C.lineStrong or { C.gold[1], C.gold[2], C.gold[3], 0.45 }, 0)
         chip.text = UI.Plain(chip, 10, shared and C.dim or C.gold)
         chip.text:SetPoint("CENTER", 0, 0)
         chip.text:SetText(group.chip)
         chip:SetWidth(math.ceil(chip.text:GetStringWidth()) + 10)
         s.chip = chip
     end
-    local rule = UI.Fill(s, "ARTWORK", C.goldDark)
+    local rule = UI.Fill(s, "ARTWORK", C.line)
     rule:SetHeight(1)
     rule:SetPoint("TOPLEFT", 1, -BAND_H)
     rule:SetPoint("TOPRIGHT", -1, -BAND_H)
@@ -385,12 +401,11 @@ local function Section(f, group, width, path, sheet)
         local refresh = w.Refresh
         function w:Refresh(enabled)
             refresh(self, enabled)
-            local e = UI.Get(group.switch) and C.gold or C.goldDark
-            for _, t in ipairs(s.edge) do t:SetColorTexture(e[1], e[2], e[3], 1) end
+            s.accent:SetShown(UI.Get(group.switch) and true or false)
         end
         table.insert(index, { label = group.switch.label, path = path, section = s, control = w, where = where })
     end
-    local y = -BAND_H - 8
+    local y = -BAND_H - 10
     if group.tip then
         local tip = UI.Plain(s, 11, C.dim)
         tip:SetPoint("TOPLEFT", inset, y)
@@ -420,12 +435,18 @@ local function Section(f, group, width, path, sheet)
             c.own = Own(c, spec)
             table.insert(f.controls, c.own)
         end
+        -- its lift under the pointer, across the card (Hover)
+        c.lift = c:CreateTexture(nil, "BACKGROUND")
+        UI.Paint(c.lift, C.lift)
+        c.lift:SetPoint("TOPLEFT", c, "TOPLEFT", -(inset - 1), ROW_GAP / 2)
+        c.lift:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", inset - 1, -ROW_GAP / 2)
+        c.lift:Hide()
         if i > 1 then
             local hair = c:CreateTexture(nil, "BACKGROUND")
-            hair:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
+            UI.Paint(hair, C.line)
             hair:SetHeight(1)
-            hair:SetPoint("BOTTOMLEFT", c, "TOPLEFT", 0, ROW_GAP / 2)
-            hair:SetPoint("BOTTOMRIGHT", c, "TOPRIGHT", 0, ROW_GAP / 2)
+            hair:SetPoint("BOTTOMLEFT", c, "TOPLEFT", -(inset - 1), ROW_GAP / 2)
+            hair:SetPoint("BOTTOMRIGHT", c, "TOPRIGHT", inset - 1, ROW_GAP / 2)
         end
         table.insert(s.rows, r)
         -- a grid's rows are found by their names
@@ -464,7 +485,22 @@ end
 -- (a wide one across both, under the longer). Each's rows as they stand.
 -- A section a search has lent is left where it is.
 local function Layout(f)
-    if f.cards then return end
+    if f.cards then
+        -- Modules: the category shown, its cards under the intro
+        local h = 0
+        for _, sec in ipairs(f.sections) do
+            local on = sec.sheet == f.sheet
+            sec:SetShown(on)
+            if on then
+                sec:ClearAllPoints()
+                sec:SetPoint("TOPLEFT", 0, f.y0)
+                sec.top = -f.y0
+                h = sec:GetHeight()
+            end
+        end
+        f:SetHeight(-f.y0 + h + 4)
+        return
+    end
     local tops = { f.y0, f.y0 }
     for _, sec in ipairs(f.sections) do
         if sec:GetParent() == f then
@@ -565,11 +601,14 @@ local function Card(parent, content, path, width, names)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(width, CARD_H)
     b.path, b.needs, b.content = path, m and m.needs, content
-    UI.Fill(b, "BACKGROUND", C.ink, 1):SetAllPoints()
-    b.edge = UI.Outline(b, "BORDER", C.goldDark, 0)
+    UI.Fill(b, "BACKGROUND", C.raised, 1):SetAllPoints()
+    b.lift = UI.Fill(b, "BACKGROUND", C.lift, 2)
+    b.lift:SetAllPoints()
+    b.lift:Hide()
+    b.edge = UI.Outline(b, "BORDER", C.line, 0)
     -- a gold bar down its left while it is on
     b.bar = UI.Fill(b, "ARTWORK", C.goldBright, 4)
-    b.bar:SetWidth(3)
+    b.bar:SetWidth(2)
     b.bar:SetPoint("TOPLEFT", 1, -1)
     b.bar:SetPoint("BOTTOMLEFT", 1, 1)
     local ring = b:CreateTexture(nil, "ARTWORK", nil, 1)
@@ -594,7 +633,7 @@ local function Card(parent, content, path, width, names)
     local tag = CreateFrame("Frame", nil, b)
     tag:SetHeight(14)
     tag:SetPoint("LEFT", b.name, "RIGHT", 8, 0)
-    UI.Outline(tag, "BORDER", C.goldDark, 0)
+    UI.Outline(tag, "BORDER", C.lineStrong, 0)
     tag.text = UI.Plain(tag, 10, C.gold)
     tag.text:SetPoint("CENTER", 0, 0)
     b.tag = tag
@@ -618,10 +657,14 @@ local function Card(parent, content, path, width, names)
         if content.group then Reveal(self.path, content.group) else Select(self.path) end
     end)
     b:SetScript("OnEnter", function(self)
+        self.lift:Show()
         local why = self.off and ("Turn on " .. (names[self.needs] or self.needs) .. " first.")
         UI.Tip(self, self.name:GetText(), why or (m and m.tip) or content.intro)
     end)
-    b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
+    b:SetScript("OnLeave", function(self)
+        self.lift:Hide()
+        if GameTooltip then GameTooltip:Hide() end
+    end)
     function b:Refresh(enabled)
         local on
         if m then
@@ -632,9 +675,7 @@ local function Card(parent, content, path, width, names)
             Tag(on and "Loaded" or "Addon off")
         end
         self.off = m and not enabled
-        local e = on and C.gold or C.goldDark
-        for _, t in ipairs(self.edge) do t:SetColorTexture(e[1], e[2], e[3], 1) end
-        local n = enabled and (on and C.goldBright or C.gold) or C.dim
+        local n = enabled and (on and C.text or C.dim) or C.faint
         self.name:SetTextColor(n[1], n[2], n[3])
         local g = on and C.goldBright or C.dim
         self.glyph:SetVertexColor(g[1], g[2], g[3], 1)
@@ -654,14 +695,6 @@ local function Modules(content, path, page, width)
     f.controls = {}
     f.sections = {}
     f.cards = {}
-    Header(f, content, path, page, nil)
-    local intro = UI.Plain(f, 12, C.dim)
-    intro:SetPoint("TOPLEFT", 0, -4)
-    intro:SetWidth(width)
-    intro:SetJustifyH("LEFT")
-    intro:SetText(content.intro)
-    f.intro = intro
-    local y = -4 - math.ceil(intro:GetStringHeight()) - 16
     -- the parts, and the names of those another needs
     local names = {}
     local function Parts(cat)
@@ -691,22 +724,36 @@ local function Modules(content, path, page, width)
         end
         return out
     end
-    local lists = {}
-    for i, cat in ipairs(categories) do lists[i] = Parts(cat) end
+    -- a tab for each category with a part, by its name
+    local lists, sheets = {}, {}
+    for i, cat in ipairs(categories) do
+        lists[i] = Parts(cat)
+        if #lists[i] > 0 then table.insert(sheets, cat.name) end
+    end
+    if #sheets >= 2 then f.sheets, f.sheet = sheets, sheets[1] end
+    Header(f, content, path, page, nil)
+    local intro = UI.Plain(f, 12, C.dim)
+    intro:SetPoint("TOPLEFT", 0, -4)
+    intro:SetWidth(width)
+    intro:SetJustifyH("LEFT")
+    intro:SetText(content.intro)
+    f.intro = intro
+    f.y0 = -4 - math.ceil(intro:GetStringHeight()) - 16
     local cardW = math.floor((width - CARD_GAP) / 2)
     for i, cat in ipairs(categories) do
         local list = lists[i]
         if #list > 0 then
+            -- a category's cards, on its tab: its scope or note over them
             local s = CreateFrame("Frame", nil, f)
-            s:SetPoint("TOPLEFT", 0, y)
             s:SetWidth(width)
-            s.title = UI.Serif(s, 14, C.goldBright)
-            s.title:SetPoint("TOPLEFT", 0, 0)
+            s.sheet = cat.name
+            s.title = UI.Serif(s, 14, C.text)
             s.title:SetText(cat.name)
-            s.note = UI.Plain(s, 11, C.dim)
-            s.note:SetPoint("BOTTOMLEFT", s.title, "BOTTOMRIGHT", 10, 1)
+            s.title:Hide()
+            s.note = UI.Plain(s, 11, C.faint)
+            s.note:SetPoint("TOPLEFT", 0, 0)
             s.note:SetText(cat.note or cat.scope or "")
-            local sy = -24
+            local sy = s.note:GetText() ~= "" and -20 or 0
             for n, part in ipairs(list) do
                 local card = Card(s, part[1], part[2], cardW, names)
                 local col = (n - 1) % 2
@@ -716,12 +763,11 @@ local function Modules(content, path, page, width)
                 table.insert(f.cards, card)
             end
             s:SetHeight(-sy)
-            s.top = -y
             table.insert(f.sections, s)
-            y = y - s:GetHeight() - SEC_GAP
         end
     end
-    f:SetHeight(-y + 4)
+    Strip(f)
+    Layout(f)
     f:Hide()
     return f
 end
@@ -798,23 +844,25 @@ local function Nav()
         for _, r in ipairs(h.rows) do here = here or r.path == shown end
         h.open = here
         h.sign:SetText(h.open and "" or tostring(#h.rows))
-        local g = h.open and C.goldBright or C.goldDark
-        h.glyph:SetVertexColor(g[1], g[2], g[3], 1)
+        h.pill:SetWidth(math.max(18, math.ceil(h.sign:GetStringWidth()) + 10))
+        h.pill:SetShown(not h.open)
+        h:Paint(false)
         h:SetPoint("TOPLEFT", 0, y)
         h:SetPoint("TOPRIGHT", 0, y)
         h:Show()
         y = y - CAT_H
         for _, r in ipairs(h.rows) do
             if h.open then
-                r:SetPoint("TOPLEFT", 0, y)
-                r:SetPoint("TOPRIGHT", 0, y)
+                r:SetPoint("TOPLEFT", 6, y)
+                r:SetPoint("TOPRIGHT", -6, y)
                 r:Show()
                 y = y - ITEM_H
             end
             local on = r.path == item
             r.lit:SetShown(on)
             r.bar:SetShown(on)
-            local c = on and C.goldBright or C.gold
+            r.lift:Hide()
+            local c = on and C.goldBright or C.dim
             r.text:SetTextColor(c[1], c[2], c[3])
         end
         y = y - 4
@@ -824,6 +872,8 @@ local function Nav()
     if nav:GetVerticalScroll() > range then nav:SetVerticalScroll(range) end
 end
 
+-- A category's heading: its glyph and name; folded, the count of its
+-- pages in a pill at the right. Under the pointer, it brightens.
 local function Head(cat)
     local h = CreateFrame("Button", nil, navChild)
     h:SetHeight(CAT_H)
@@ -831,16 +881,26 @@ local function Head(cat)
     h.glyph = h:CreateTexture(nil, "ARTWORK")
     h.glyph:SetTexture(ns.media .. "strips\\" .. (cat.glyph or "help"))
     h.glyph:SetSize(13, 13)
-    h.glyph:SetPoint("LEFT", 8, -2)
-    h.text = UI.Plain(h, 10, C.gold)
-    h.text:SetPoint("LEFT", 26, -2)
+    h.glyph:SetPoint("LEFT", 12, -3)
+    h.text = UI.Plain(h, 10, C.dim)
+    h.text:SetPoint("LEFT", 31, -3)
     h.text:SetText(cat.name:upper())
-    h.sign = UI.Plain(h, 12, C.dim)
-    h.sign:SetPoint("RIGHT", -8, -2)
-    local rule = UI.Fill(h, "ARTWORK", C.goldDark)
-    rule:SetHeight(1)
-    rule:SetPoint("LEFT", h.text, "RIGHT", 8, 0)
-    rule:SetPoint("RIGHT", h, "RIGHT", -22, -2)
+    h.pill = CreateFrame("Frame", nil, h)
+    h.pill:SetHeight(15)
+    h.pill:SetPoint("RIGHT", -12, -3)
+    UI.Fill(h.pill, "BACKGROUND", C.lift2, 1):SetAllPoints()
+    h.sign = UI.Plain(h.pill, 10, C.dim)
+    h.sign:SetPoint("CENTER", 0, 0)
+    -- open, gold; under the pointer, bright; else dim
+    function h:Paint(over)
+        self.over = over
+        local t = self.open and C.gold or over and C.text or C.dim
+        self.text:SetTextColor(t[1], t[2], t[3])
+        local g = self.open and C.goldBright or over and C.gold or C.faint
+        self.glyph:SetVertexColor(g[1], g[2], g[3], 1)
+    end
+    h:SetScript("OnEnter", function(self) self:Paint(true) end)
+    h:SetScript("OnLeave", function(self) self:Paint(false) end)
     -- a folded category opens on the item last shown in it, or its first
     h:SetScript("OnClick", function(self)
         local to = lastIn[self.cat.name] or (self.rows[1] and self.rows[1].path)
@@ -850,23 +910,39 @@ local function Head(cat)
     return h
 end
 
+-- A page's row: its name; the page shown lit (a faint gold fill, a gold
+-- bar at the sidebar's edge, gold text); another lifts under the pointer.
+-- A page under another (Paging) hangs off it on an elbow.
 local function Item(path)
     local r = CreateFrame("Button", nil, navChild)
     r:SetHeight(ITEM_H)
     r.path = path
-    r.lit = UI.Fill(r, "BACKGROUND", C.selected, 1)
+    r.lift = UI.Fill(r, "BACKGROUND", C.lift, 1)
+    r.lift:SetAllPoints()
+    r.lift:Hide()
+    r.lit = UI.Fill(r, "BACKGROUND", C.lit, 2)
     r.lit:SetAllPoints()
     r.lit:Hide()
     r.bar = UI.Fill(r, "ARTWORK", C.goldBright)
     r.bar:SetWidth(3)
-    r.bar:SetPoint("TOPLEFT", 0, 0)
-    r.bar:SetPoint("BOTTOMLEFT", 0, 0)
+    r.bar:SetPoint("TOPLEFT", -6, 0)
+    r.bar:SetPoint("BOTTOMLEFT", -6, 0)
     r.bar:Hide()
-    r.text = UI.Serif(r, 12, C.gold)
+    r.text = UI.Serif(r, 12, C.dim)
     -- a tab under another, indented below it
     r.sub = Parent(path) and true or nil
-    r.text:SetPoint("LEFT", r.sub and 40 or 26, 0)
+    r.text:SetPoint("LEFT", r.sub and 34 or 20, 0)
     r.text:SetText(ItemName(path))
+    if r.sub then
+        local down = UI.Fill(r, "ARTWORK", C.lineStrong)
+        down:SetWidth(1)
+        down:SetPoint("TOPLEFT", 22, 0)
+        down:SetPoint("BOTTOMLEFT", r, "LEFT", 22, 0)
+        local across = UI.Fill(r, "ARTWORK", C.lineStrong)
+        across:SetSize(6, 1)
+        across:SetPoint("LEFT", 22, 0)
+        r.elbow = { down, across }
+    end
     local content = select(2, Find(path)) or Find(path)
     r.master = content.master and content.master.kind == "check" and content.master or nil
     r.addon = content.addon and content or nil
@@ -874,13 +950,17 @@ local function Item(path)
         r.dot = r:CreateTexture(nil, "ARTWORK")
         r.dot:SetTexture(ROUND)
         r.dot:SetSize(7, 7)
-        r.dot:SetPoint("RIGHT", -10, 0)
+        r.dot:SetPoint("RIGHT", -8, 0)
     end
-    local function Lit(self, c)
-        if not self.lit:IsShown() then self.text:SetTextColor(c[1], c[2], c[3]) end
-    end
-    r:SetScript("OnEnter", function(self) Lit(self, C.goldBright) end)
-    r:SetScript("OnLeave", function(self) Lit(self, C.gold) end)
+    r:SetScript("OnEnter", function(self)
+        if self.lit:IsShown() then return end
+        self.lift:Show()
+        self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+    end)
+    r:SetScript("OnLeave", function(self)
+        self.lift:Hide()
+        if not self.lit:IsShown() then self.text:SetTextColor(C.dim[1], C.dim[2], C.dim[3]) end
+    end)
     r:SetScript("OnClick", function(self) Select(self.path) end)
     return r
 end
@@ -1046,8 +1126,8 @@ local function Search(text)
             f.head:Hide()
         end
         body:ClearAllPoints()
-        body:SetPoint("TOPLEFT", window, "TOPLEFT", X, -(PAD + TITLE_ROOM + HEAD_H + 12))
-        body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -PAD, FOOT + 4)
+        body:SetPoint("TOPLEFT", window, "TOPLEFT", X, -(HEAD_TOP + HEAD_H + 12))
+        body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -RIGHT, EDGE + FOOT + 6)
         finds:Show()
         finds.head:Show()
         scroll:SetScrollChild(finds)
@@ -1063,16 +1143,16 @@ end
 local function SearchBox()
     local box = CreateFrame("EditBox", nil, side)
     box:SetHeight(SEARCH_H)
-    box:SetPoint("TOPLEFT", 8, -8)
-    box:SetPoint("TOPRIGHT", -8, -8)
+    box:SetPoint("TOPLEFT", 10, -10)
+    box:SetPoint("TOPRIGHT", -10, -10)
     box:SetAutoFocus(false)
     box:SetFont(STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF", 12, "")
     box:SetTextColor(C.text[1], C.text[2], C.text[3])
     box:SetTextInsets(8, 8, 0, 0)
     box:SetMaxLetters(40)
     UI.Fill(box, "BACKGROUND", C.well, 1):SetAllPoints()
-    box.edge = UI.Outline(box, "BORDER", C.goldDark, 0)
-    box.hint = UI.Plain(box, 12, C.dim)
+    box.edge = UI.Outline(box, "BORDER", C.lineStrong, 0)
+    box.hint = UI.Plain(box, 12, C.faint)
     box.hint:SetPoint("LEFT", 8, 0)
     box.hint:SetText("Search options")
     box:SetScript("OnTextChanged", function(self)
@@ -1090,10 +1170,10 @@ local function SearchBox()
         if first and first:IsShown() then Choose(first.entry) end
     end)
     box:SetScript("OnEditFocusGained", function(self)
-        for _, t in ipairs(self.edge) do t:SetColorTexture(C.gold[1], C.gold[2], C.gold[3], 1) end
+        UI.Paint(self.edge, C.gold)
     end)
     box:SetScript("OnEditFocusLost", function(self)
-        for _, t in ipairs(self.edge) do t:SetColorTexture(C.goldDark[1], C.goldDark[2], C.goldDark[3], 1) end
+        UI.Paint(self.edge, C.lineStrong)
     end)
     return box
 end
@@ -1139,10 +1219,13 @@ local function Refresh()
     for _, p in ipairs(ns.PROFILE_NAMES) do
         if p[1] == name then name = p[2] end
     end
-    footProfile:SetText("Profile: " .. name)
+    footProfile:SetText("Profile \194\183 |cffc4a557" .. name .. "|r")
+    footChip:SetWidth(9 + 12 + 6 + math.ceil(footProfile:GetStringWidth()) + 10)
     local reload = NeedsReload()
     footReload:SetShown(reload)
+    footReload.pill:SetShown(reload)
     footDot:SetShown(reload)
+    footButton:SetStyle(reload and "primary" or "secondary")
     -- a row its layout no longer uses goes, one it does comes back
     if finds and finds.on then
         Found()
@@ -1170,10 +1253,10 @@ function Select(path, sheet)
         if ok then f.sheet = sheet end
         Strip(f)
     end
-    local top = PAD + TITLE_ROOM + f.head:GetHeight() + 12
+    local top = HEAD_TOP + f.head:GetHeight() + 12
     body:ClearAllPoints()
     body:SetPoint("TOPLEFT", window, "TOPLEFT", X, -top)
-    body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -PAD, FOOT + 4)
+    body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -RIGHT, EDGE + FOOT + 6)
     for p, pf in pairs(built) do
         pf:SetShown(p == current)
         pf.head:SetShown(p == current)
@@ -1206,16 +1289,21 @@ end
 
 local function Sidebar()
     side = CreateFrame("Frame", nil, window)
-    side:SetPoint("TOPLEFT", PAD, -(PAD + TITLE_ROOM))
-    side:SetPoint("BOTTOMLEFT", PAD, FOOT + 4)
+    -- docked: flush to the window's left edge, between its head and footer
+    side:SetPoint("TOPLEFT", EDGE, -(EDGE + BAR_H))
+    side:SetPoint("BOTTOMLEFT", EDGE, EDGE + FOOT)
     side:SetWidth(SIDE_W)
-    UI.Skin(side, C.ink, 1)
+    UI.Fill(side, "BACKGROUND", C.chrome, 1):SetAllPoints()
+    local rule = UI.Fill(side, "BORDER", C.line)
+    rule:SetWidth(1)
+    rule:SetPoint("TOPRIGHT", 0, 0)
+    rule:SetPoint("BOTTOMRIGHT", 0, 0)
     search = SearchBox()
     nav = CreateFrame("ScrollFrame", nil, side)
-    nav:SetPoint("TOPLEFT", 3, -(8 + SEARCH_H + 8))
-    nav:SetPoint("BOTTOMRIGHT", -3, 4)
+    nav:SetPoint("TOPLEFT", 0, -(10 + SEARCH_H + 4))
+    nav:SetPoint("BOTTOMRIGHT", -1, 4)
     navChild = CreateFrame("Frame", nil, nav)
-    navChild:SetWidth(SIDE_W - 6)
+    navChild:SetWidth(SIDE_W - 1)
     navChild:SetHeight(1)
     nav:SetScrollChild(navChild)
     nav:EnableMouseWheel(true)
@@ -1243,29 +1331,130 @@ local function Sidebar()
     end
 end
 
+-- The window's footer, the head's match: the profile being edited in a
+-- chip; while a reload waits, a pill saying so; Reload UI (gold, the main
+-- action, while one waits) and Close.
 local function Footer()
-    local rule = UI.Fill(window, "ARTWORK", C.goldDark)
+    local bar = CreateFrame("Frame", nil, window)
+    bar:SetPoint("BOTTOMLEFT", EDGE, EDGE)
+    bar:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
+    bar:SetHeight(FOOT)
+    UI.Fill(bar, "BACKGROUND", C.chrome, 1):SetAllPoints()
+    local rule = UI.Fill(bar, "BORDER", C.line)
     rule:SetHeight(1)
-    rule:SetPoint("BOTTOMLEFT", PAD, FOOT - 8)
-    rule:SetPoint("BOTTOMRIGHT", -PAD, FOOT - 8)
-    footProfile = UI.Serif(window, 12, C.dim)
-    footProfile:SetPoint("BOTTOMLEFT", PAD + 4, 16)
-    local close = UI.Button(window, "Close", 96, 24, function() window:Hide() end, nil, true)
-    close:SetPoint("BOTTOMRIGHT", -PAD, 10)
-    local reload = UI.Button(window, "Reload UI", 104, 24, ReloadUI,
+    rule:SetPoint("TOPLEFT", 0, 0)
+    rule:SetPoint("TOPRIGHT", 0, 0)
+    footChip = CreateFrame("Frame", nil, bar)
+    footChip:SetHeight(24)
+    footChip:SetPoint("LEFT", 12, 0)
+    UI.Outline(footChip, "BORDER", C.line, 0)
+    local who = footChip:CreateTexture(nil, "ARTWORK")
+    who:SetTexture(ns.media .. "strips\\character")
+    who:SetSize(12, 12)
+    who:SetPoint("LEFT", 9, 0)
+    who:SetVertexColor(C.faint[1], C.faint[2], C.faint[3], 1)
+    footProfile = UI.Plain(footChip, 11, C.dim)
+    footProfile:SetPoint("LEFT", who, "RIGHT", 6, 0)
+    local close = UI.Button(bar, "Close", 64, 26, function() window:Hide() end, nil, "quiet")
+    close:SetPoint("RIGHT", -8, 0)
+    footButton = UI.Button(bar, "Reload UI", 96, 26, ReloadUI,
         "Reload the interface so a changed option takes effect.")
-    reload:SetPoint("RIGHT", close, "LEFT", -8, 0)
-    footReload = UI.Plain(window, 12, C.goldBright)
-    footReload:SetPoint("RIGHT", reload, "LEFT", -12, 0)
-    footReload:SetText("Reload to apply")
-    footReload:Hide()
-    -- lit beside it until the reload
-    footDot = window:CreateTexture(nil, "ARTWORK")
+    footButton:SetPoint("RIGHT", close, "LEFT", -6, 0)
+    -- the pill: "Reload to apply", a dot before it, until the reload
+    local pill = CreateFrame("Frame", nil, bar)
+    pill:SetHeight(24)
+    pill:SetPoint("RIGHT", footButton, "LEFT", -10, 0)
+    UI.Fill(pill, "BACKGROUND", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.10 }, 1):SetAllPoints()
+    UI.Outline(pill, "BORDER", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.35 }, 0)
+    footDot = pill:CreateTexture(nil, "ARTWORK")
     footDot:SetTexture(ROUND)
     footDot:SetSize(7, 7)
-    footDot:SetPoint("RIGHT", footReload, "LEFT", -7, 0)
+    footDot:SetPoint("LEFT", 10, 0)
     footDot:SetVertexColor(C.goldBright[1], C.goldBright[2], C.goldBright[3], 1)
+    footReload = UI.Plain(pill, 11, C.goldBright)
+    footReload:SetPoint("LEFT", footDot, "RIGHT", 7, 0)
+    footReload:SetText("Reload to apply")
+    pill:SetWidth(10 + 7 + 7 + math.ceil(footReload:GetStringWidth()) + 10)
+    footReload.pill = pill
+    pill:Hide()
+    footReload:Hide()
     footDot:Hide()
+    window.foot, window.footChip, window.footButton = bar, footChip, footButton
+end
+
+-- A card's row under the pointer lifts: the rows aren't the mouse's (their
+-- controls are), so the body asks each frame which shown row the pointer
+-- is over, on the page shown or the sections a search lent.
+local hovered
+local function Hover(c)
+    if hovered == c then return end
+    if hovered then hovered.lift:Hide() end
+    hovered = c
+    if c then c.lift:Show() end
+end
+local function UnderPointer()
+    local sections = finds and finds.on and finds.lent or (built[current] or {}).sections or {}
+    for _, s in ipairs(sections) do
+        if s.rows and s:IsVisible() and s:IsMouseOver() then
+            for _, r in ipairs(s.rows) do
+                local c = r.control
+                if c.lift and c:IsVisible() and c:IsMouseOver() then return c end
+            end
+        end
+    end
+end
+
+-- The window's head, across its top: its name, the version;
+-- a close button at the right, red under the pointer. All of it drags
+-- the window.
+local function WindowHead()
+    local bar = CreateFrame("Frame", nil, window)
+    bar:SetPoint("TOPLEFT", EDGE, -EDGE)
+    bar:SetPoint("TOPRIGHT", -EDGE, -EDGE)
+    bar:SetHeight(BAR_H)
+    bar:SetFrameLevel(window:GetFrameLevel() + 5)
+    UI.Fill(bar, "BACKGROUND", C.chrome, 1):SetAllPoints()
+    local rule = UI.Fill(bar, "BORDER", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint("BOTTOMLEFT", 0, 0)
+    rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    local text = UI.Serif(bar, 15, C.goldBright)
+    text:SetPoint("LEFT", 14, 0)
+    text:SetText("Medalluin")
+    local get = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+    local version = get and get("Medalluin", "Version")
+    local sub = UI.Plain(bar, 11, C.faint)
+    sub:SetPoint("LEFT", text, "RIGHT", 10, -1)
+    sub:SetText("Settings" .. (version and ("  \194\183  " .. version) or ""))
+    Grip(bar)
+    window.title, window.titleBox, window.version = text, bar, sub
+
+    local x = CreateFrame("Button", nil, bar)
+    x:SetSize(BAR_H, BAR_H - 1)
+    x:SetPoint("TOPRIGHT", 0, 0)
+    local lit = UI.Fill(x, "BACKGROUND", C.red, 1)
+    lit:SetAllPoints()
+    lit:Hide()
+    local seam = UI.Fill(x, "BORDER", C.line)
+    seam:SetWidth(1)
+    seam:SetPoint("TOPLEFT", 0, 0)
+    seam:SetPoint("BOTTOMLEFT", 0, 0)
+    x.glyph = x:CreateTexture(nil, "ARTWORK")
+    x.glyph:SetTexture(ns.media .. "strips\\close")
+    x.glyph:SetSize(14, 14)
+    x.glyph:SetPoint("CENTER", 0, 0)
+    x.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    x.lit = lit
+    x:SetScript("OnClick", function() window:Hide() end)
+    x:SetScript("OnEnter", function(self)
+        self.lit:Show()
+        self.glyph:SetVertexColor(0.949, 0.847, 0.784, 1)
+    end)
+    x:SetScript("OnLeave", function(self)
+        self.lit:Hide()
+        self.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    end)
+    window.closeX = x
 end
 
 local function Window()
@@ -1283,47 +1472,38 @@ local function Window()
     else
         window:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
     end
-    UI.Skin(window, C.panel)
+    -- the page's tone; a hairline edge, a faint gold ring outside it
+    UI.Fill(window, "BACKGROUND", C.page, 1):SetAllPoints()
+    UI.Outline(window, "BORDER", C.lineStrong, 0)
+    UI.Outline(window, "BORDER", { C.gold[1], C.gold[2], C.gold[3], 0.35 }, -1)
     window:Hide()
     -- Esc closes it, as it closes the game's own windows
     if UISpecialFrames then table.insert(UISpecialFrames, "MedalluinOptions") end
-    window:SetScript("OnHide", function() UI.CloseMenu() end)
-    window:SetScript("OnShow", function() Refresh() end)
+    -- a row's lift follows the pointer only while the window is open
+    local function Track() Hover(UnderPointer()) end
+    window:SetScript("OnHide", function()
+        UI.CloseMenu()
+        if body then body:SetScript("OnUpdate", nil) end
+        Hover(nil)
+    end)
+    window:SetScript("OnShow", function()
+        if body then body:SetScript("OnUpdate", Track) end
+        Refresh()
+    end)
 
-    -- the title, set into the top edge: a grip too
-    local title = CreateFrame("Frame", nil, window)
-    title:SetHeight(28)
-    title:SetPoint("CENTER", window, "TOP", 0, 0)
-    title:SetFrameLevel(window:GetFrameLevel() + 5)
-    UI.Skin(title, C.ink)
-    local text = UI.Serif(title, 15, C.goldBright)
-    text:SetPoint("CENTER", 0, 0)
-    text:SetText("Medalluin")
-    title:SetWidth(math.ceil(text:GetStringWidth()) + 44)
-    Grip(title)
-    window.title, window.titleBox = text, title
-
-    local x = CreateFrame("Button", nil, window)
-    x:SetSize(20, 20)
-    x:SetPoint("TOPRIGHT", -8, -6)
-    x.text = UI.Serif(x, 14, C.gold)
-    x.text:SetPoint("CENTER", 0, 1)
-    x.text:SetText("x")
-    x:SetScript("OnClick", function() window:Hide() end)
-    x:SetScript("OnEnter", function(self) self.text:SetTextColor(C.goldBright[1], C.goldBright[2], C.goldBright[3]) end)
-    x:SetScript("OnLeave", function(self) self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3]) end)
-    window.closeX = x
+    WindowHead()
 
     Places()
     Sidebar()
 
     body = CreateFrame("Frame", nil, window)
+    window.Hover = function() Hover(UnderPointer()) return hovered end
     scroll = CreateFrame("ScrollFrame", nil, body)
     scroll:SetPoint("TOPLEFT", 0, 0)
     scroll:SetPoint("BOTTOMRIGHT", -12, 0)
     scroll:EnableMouseWheel(true)
     scroll:SetScript("OnMouseWheel", function(_, delta) Scroll(delta) end)
-    thumb = UI.Fill(body, "ARTWORK", C.goldDark)
+    thumb = UI.Fill(body, "ARTWORK", C.lineStrong)
     thumb:SetWidth(4)
     thumb:Hide()
     -- a search's match, outlined a moment
@@ -1341,7 +1521,7 @@ local function Window()
     window.search, window.nav, window.flash = search, nav, flash
     window.footProfile, window.footReload, window.footDot = footProfile, footReload, footDot
 
-    local width = W - 2 * PAD - SIDE_W - 14 - 12
+    local width = W - X - RIGHT - 12
     colW = math.floor((width - COL_GAP) / 2)
     -- a search's page, its header saying what it found
     finds = CreateFrame("Frame", nil, scroll)
@@ -1349,15 +1529,15 @@ local function Window()
     finds:SetHeight(1)
     finds.lent, finds.links = {}, {}
     finds.head = CreateFrame("Frame", nil, window)
-    finds.head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -(PAD + TITLE_ROOM))
-    finds.head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -PAD, -(PAD + TITLE_ROOM))
+    finds.head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -HEAD_TOP)
+    finds.head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -RIGHT, -HEAD_TOP)
     finds.head:SetHeight(HEAD_H)
-    finds.head.title = UI.Serif(finds.head, 20, C.goldBright)
+    finds.head.title = UI.Serif(finds.head, 20, C.text)
     finds.head.title:SetPoint("TOPLEFT", 0, -2)
     finds.head.title:SetText("Search")
-    finds.head.crumb = UI.Plain(finds.head, 12, C.dim)
-    finds.head.crumb:SetPoint("TOPLEFT", 0, -30)
-    local rule = UI.Fill(finds.head, "ARTWORK", C.goldDark)
+    finds.head.crumb = UI.Plain(finds.head, 12, C.faint)
+    finds.head.crumb:SetPoint("TOPLEFT", 0, -28)
+    local rule = UI.Fill(finds.head, "ARTWORK", C.line)
     rule:SetHeight(1)
     rule:SetPoint("BOTTOMLEFT", 0, 0)
     rule:SetPoint("BOTTOMRIGHT", 0, 0)
