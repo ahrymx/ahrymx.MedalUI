@@ -19,6 +19,7 @@ references are not mirrored (portrait outer, backpack inner), so two mirrored re
     python3 art/strips/gen_strips.py layer3   -> assets/layer3.png, assets/strips/*.png
     python3 art/strips/gen_strips.py glyphs   -> assets/strips/<glyph>.png alone
     python3 art/strips/gen_strips.py mailbox  -> assets/strips/mailbox.png, media/strips/mailbox.tga
+    python3 art/strips/gen_strips.py rounded  -> assets/strips/rounded.png, media/strips/rounded.tga
     python3 art/strips/gen_strips.py stripes  -> assets/strips/stripes.png (a tile of diagonal stripes)
     python3 art/strips/gen_strips.py shadow   -> assets/strips/shadow.png (a floating window's shadow's corner)
 
@@ -430,6 +431,25 @@ def mailbox(size=64):
             f'<circle cx="32" cy="35" r="2" fill="none" stroke="#f0a090" stroke-width="0.6" opacity="0.6"/></g>')
 
 
+# White square with soft corners: the Cooldown Manager's Rounded square
+# icons' mask, rim and sweep (cooldowns/display.lua), beside round.
+ROUNDED = '<rect x="0.5" y="0.5" width="63" height="63" rx="14" ry="14" fill="#fff"/>'
+
+
+def rounded_part():
+    """assets/strips/rounded.png and media/strips/rounded.tga."""
+    parts = os.path.join(ROOT, "assets", "strips")
+    part("rounded", ROUNDED, size=64)
+    im = Image.open(os.path.join(parts, "rounded.png")).convert("RGBA")
+    media = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "strips", "rounded.tga")
+    os.makedirs(OUT, exist_ok=True)
+    tmp = os.path.join(OUT, "rounded-tga.png")
+    im.save(tmp)
+    subprocess.run(["magick", tmp, "-define", "tga:compression=none", media], check=True)
+    os.remove(tmp)
+    print(media)
+
+
 def mailbox_part():
     """assets/strips/mailbox.png and media/strips/mailbox.tga, and a look at
     it in render/mailbox.png: at 4x, and at the 42 px the head draws it,
@@ -622,6 +642,7 @@ def layer3():
         part(g, glyph(g, 6, 6))
     # white disc: the backpack icon's mask and the medallions' hover glow
     part("round", '<circle cx="32" cy="32" r="31.5" fill="#fff"/>', size=64)
+    part("rounded", ROUNDED, size=64)
     # the leave-vehicle seat, in the right well while a vehicle can be left
     part("leave", leave(), size=64)
     # the mailbox's portrait in the NPC box's head
@@ -852,5 +873,7 @@ if __name__ == "__main__":
         rings()
     elif sys.argv[1:2] == ["mailbox"]:
         mailbox_part()
+    elif sys.argv[1:2] == ["rounded"]:
+        rounded_part()
     else:
         main()

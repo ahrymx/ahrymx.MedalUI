@@ -225,6 +225,109 @@ local function TextSizes(first)
     return sizes
 end
 
+-- A Cooldown Manager viewer's tab (cooldowns/display.lua): the same options
+-- for each, keyed cdm<letter><field> (settings.lua's CDM_FIELDS), an
+-- option greyed while its layout does not use it.
+local function Slider(key, label, min, max, step, tip, text)
+    return { kind = "slider", key = key, label = label, min = min, max = max, step = step, tip = tip, text = text }
+end
+local function CooldownTab(v)
+    local letter, id, name = v[1], v[2], v[3]
+    local function K(field) return "cdm" .. letter .. field end
+    local function When(field, value, spec)
+        spec.can = function() return ns.db[K(field)] == value end
+        return spec
+    end
+    local px = function(n) return string.format("%d px", n) end
+    local function Positions(below)
+        local out = {
+            { "bottomright", "Bottom right" }, { "topright", "Top right" }, { "bottomleft", "Bottom left" },
+            { "topleft", "Top left" }, { "center", "Centre" },
+        }
+        if below then table.insert(out, { "below", "Below", "Under the icon, outside it." }) end
+        return out
+    end
+    local V = ns.VISIBILITY
+    local groups = {
+        Group("Preview",
+            Check("simCdm", "Simulate cooldowns",
+                "Show every viewer's icons as these options draw them, without a fight: your own spells or a "
+                .. "random full set, cooling down, with charges and stacks, buffs coming and going. A small "
+                .. "panel on the right sets what they show.")),
+        Group("Layout",
+            Choice(K("Layout"), "Layout", {
+                { "bar", "Bar", "Rows of icons, across or down." },
+                { "arch", "Arch", "One arc of icons, standing upright." },
+            }, "How its icons stand."),
+            When("Layout", "bar", Choice(K("Orient"), "Bar runs", {
+                { "across", "Across", "Left to right; another row above." },
+                { "down", "Down", "Top to bottom; another column to the right." },
+            }, "A bar's direction.")),
+            When("Layout", "bar", Slider(K("PerRow"), "Icons per row", 0, 20, 1,
+                "A row this long, then another. All in one row at 0.",
+                function(n) return n == 0 and "One row" or tostring(n) end)),
+            When("Layout", "arch", Slider(K("Span"), "Arch span", 60, 240, 5,
+                "How far round the arc reaches, end to end: wider is flatter for the same icons.",
+                function(n) return string.format("%d°", n) end)),
+            When("Layout", "arch", Choice(K("Opens"), "Arch bends", {
+                { "up", "Up", "Its middle highest, its ends lower: an arch." },
+                { "down", "Down", "Its middle lowest, its ends higher: a bowl." },
+            }, "Which way the arc curves.")),
+            Choice(K("Order"), "Fill order", {
+                { "middle", "Middle out", "The first in the middle, then right of it, then left, outward." },
+                { "start", "From the start", "The first at the left, or the top." },
+                { "finish", "From the end", "The first at the right, or the bottom." },
+            }, "The order is the Cooldown Manager's own, as you drag spells in it (/cdm): this is where its first "
+                .. "stands."),
+            Check(K("Gaps"), "Close gaps",
+                "An icon that is hidden (a buff not up) leaves no hole: the others close ranks as it comes and goes, "
+                .. "in combat too. Off, each keeps its place.")),
+        Group("Icons",
+            Choice(K("Shape"), "Shape", {
+                { "round", "Round medallion", "Round, in a gold rim, its sweep round." },
+                { "rounded", "Rounded square", "A square with soft corners, in a gold rim." },
+                { "square", "Square", "Square, in a gold rim." },
+                { "bare", "Bare", "The icon alone, square, no rim." },
+            }, "Each icon's shape; its sweep and out-of-range tint follow it."),
+            Slider(K("Size"), "Size", 16, 80, 1, "Each icon's width.", px),
+            Slider(K("Spacing"), "Spacing", 0, 30, 1, "Between icons, and between rows.", px)),
+        Group("Text",
+            Choice(K("CdSize"), "Cooldown number size", TextSizes({ 0, "Hidden", "The sweep alone says how long." }),
+                "The time left on a cooling-down icon."),
+            Choice(K("CdPos"), "Cooldown number at", {
+                { "center", "Centre" }, { "top", "Top" }, { "bottom", "Bottom" },
+            }, "Where the time left stands on the icon."),
+            Choice(K("CountSize"), "Charges and stacks size", TextSizes({ 0, "Hidden", "No count on the icon." }),
+                "A spell's charges, a buff's stacks."),
+            Choice(K("CountPos"), "Charges and stacks at", Positions(true), "Where the count stands.")),
+        Group("Cooldowns",
+            Check(K("Swipe"), "Sweep", "The dark sweep that winds round a cooling-down icon."),
+            Check(K("Desat"), "Grey while cooling down",
+                "The game greys an icon while its spell cools down. Off, it keeps its colour."),
+            Check(K("Range"), "Out-of-range tint", "A red tint over a spell whose target is out of its range."),
+            Check(K("Tips"), "Tooltips", "The spell's tooltip with the pointer over its icon.")),
+        Group("Visibility",
+            Choice(K("Vis"), "Visibility", {
+                { V.ALWAYS, "Always" },
+                { V.COMBAT, "In combat", "Faded out of combat." },
+                { V.MOUSEOVER, "On mouseover", "Faded until the pointer is over it." },
+                { V.COMBAT_OR_MOUSEOVER, "In combat or on mouseover" },
+            }, "Faded, it is only see-through: it still tracks everything. Whole while the Cooldown Manager or "
+                .. "Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides it outright."),
+            Opacity(K("Faded"), "Faded opacity", "How see-through it is when faded: 0% is gone."),
+            Seconds(K("FadeTime"), "Fade time", "How long a fade in or out takes.")),
+    }
+    for _, g in ipairs(ns.ConsolePlaceGroups(Group, { { "cdm" .. letter, "Place" } })) do
+        g.tip = "Drag it in Edit Mode, where it wears a blue mover, or set it here."
+        table.insert(groups, 3, g)
+    end
+    return {
+        id = id, name = name, intro = "Kept per profile.",
+        enabled = function() return ns.db.cdmWindow and ns.db.cdmDisplay and true or false end,
+        groups = groups,
+    }
+end
+
 -- How far a group's frames reach before they fade.
 local function Range(key, who)
     return Choice(key, "Fade out of range", {
@@ -381,7 +484,7 @@ local function Shared(list)
     local grid = Group("On the frames", { kind = "grid", label = "Auras", cols = AURA_COLS, rows = AURA_ROWS })
     grid.wide = true
     grid.tip = "All sets every frame that has not chosen its own; a gold corner marks one that has."
-    local tools = Mirror("Tools", { "simParty", "gameMenu" })
+    local tools = Mirror("Tools", { "simParty", "simCdm", "gameMenu" })
     table.insert(tools.items, 2, Editor(nil, "Edit unit frames"))
     table.insert(tools.items, 3, Button("Bind keys", function()
         if ns.CloseOptions then ns.CloseOptions() end
@@ -516,7 +619,11 @@ function ns.OptionPages()
                         .. "party frames while solo. The group boxes show too. A small panel on the left sets "
                         .. "what they show, a tab each for the party, the raid, the enemies and the "
                         .. "overhead frames: members and their health, deaths, range, pets, auras, "
-                        .. "ready and role checks.")),
+                        .. "ready and role checks."),
+                    Check("simCdm", "Simulate cooldowns",
+                        "Show each Cooldown Manager viewer's icons as its options (Cooldowns) draw them, "
+                        .. "without a fight: your own spells or a random full set, cooling down, with charges "
+                        .. "and stacks, buffs coming and going. A small panel on the right sets what they show.")),
                 Group("Editor",
                     Editor(nil, "Edit unit frames")),
                 Group("Key bindings",
@@ -761,6 +868,10 @@ function ns.OptionPages()
                     }),
                 },
             },
+        },
+        {
+            id = "cooldowns", name = "Cooldowns",
+            tabs = { CooldownTab(ns.CDM_VIEWERS[1]), CooldownTab(ns.CDM_VIEWERS[2]), CooldownTab(ns.CDM_VIEWERS[3]) },
         },
         {
             id = "units", name = "Unit Frames",
@@ -1018,11 +1129,12 @@ function ns.OptionPages()
                         .. "keep the game's look.",
                         true),
                     {
-                        Group("Display", Check("cdmDisplay", "Cooldowns over the console",
-                            "The game's cooldown and buff icons as medallions in rows over the console: the tracked "
-                            .. "buffs on top, Essential under them, Utility smaller at its right, their sweeps round. "
-                            .. "Edit Mode moving them is undone out of combat. The tracked bars stay in the Auras tab. "
-                            .. "Untick it for the game's icons in their Edit Mode places.", true)),
+                        Group("Display", Check("cdmDisplay", "Cooldowns in Medalluin's dress",
+                            "The game's cooldown and buff icons in Medalluin's dress, each viewer placed, laid out "
+                            .. "and shaped on its own: Essential, Utility and Tracked buffs, under Cooldowns. Edit "
+                            .. "Mode moving them is undone out of combat; their movers move them. The tracked bars "
+                            .. "stay in the Auras tab. Untick it for the game's icons in their Edit Mode places.",
+                            true)),
                     }),
                 Part("cc", "Click Casting", false,
                     Check("ccWindow", "Click Casting window",
@@ -1166,6 +1278,8 @@ function ns.OptionCategories()
         { name = "Console", scope = "Kept per profile",
             items = { "console/general", "console/bar", "console/paging", "console/overhead",
                 "console/minimap" } },
+        { name = "Cooldowns", scope = "Kept per profile",
+            items = { "cooldowns/essential", "cooldowns/utility", "cooldowns/buffs" } },
         { name = "Unit frames",
             items = { "units/general", "units/party", "units/raid", "units/battleground", "units/boss",
                 "units/arena" } },

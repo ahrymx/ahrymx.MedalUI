@@ -155,6 +155,7 @@ local DEFAULTS = {
     xpCast = false,         -- the player's casts over the experience bar
     repCast = false,        -- the target's casts over the reputation bar
     simParty = false,       -- simulate party frames and show the group art layer
+    simCdm = false,         -- simulate the Cooldown Manager's viewers in their options (cooldowns/simulate.lua)
     partyPets = true,       -- show pet frames directly below party members with pets
     partyLayout = "console", -- "console": on the console, the medallion's wings or the light profile's row
                              -- under it (console/party_row.lua); "widget": a box dragged anywhere
@@ -224,6 +225,38 @@ local DEFAULTS = {
     sharedBoss = true,
 }
 ns.VISIBILITY = { ALWAYS = 1, COMBAT = 2, MOUSEOVER = 3, COMBAT_OR_MOUSEOVER = 4 }
+-- The Cooldown Manager's three viewers over the screen (cooldowns/display.lua):
+-- each one's letter in its options' keys (cdmE..., cdmU..., cdmB...), its
+-- display's key, and the size its icons are drawn at.
+ns.CDM_VIEWERS = {
+    { "E", "essential", "Essential cooldowns", 44 },
+    { "U", "utility", "Utility cooldowns", 32 },
+    { "B", "buffs", "Tracked buffs", 30 },
+}
+-- each one's options, the same set: their names after cdm<letter>, and what
+-- they are untouched
+local CDM_FIELDS = {
+    Layout = "bar",         -- "bar" or "arch" (cooldowns/layout.lua)
+    Orient = "across",      -- a bar's rows: "across" or "down"
+    PerRow = 0,             -- a bar's icons a row; 0, one row
+    Span = 120,             -- an arch's sweep, in degrees
+    Opens = "up",           -- an arch: "up" (its ends low) or "down"
+    Order = "middle",       -- where its first spell stands: "middle", "start" or "finish"
+    Gaps = false,           -- close ranks over a hidden icon (true for the buffs)
+    Shape = "round",        -- "round", "rounded", "square" or "bare"
+    Spacing = 4,            -- between icons
+    CdSize = 1, CdPos = "center",               -- the cooldown's number: a scale (0, hidden), and where
+    CountSize = 1, CountPos = "bottomright",    -- charges and stacks: the same
+    Swipe = true, Desat = true, Range = true, Tips = true,
+    Vis = 1, Faded = 0, FadeTime = 0.25,        -- ns.VISIBILITY; the faded opacity and the fade's length
+    X = 0, Y = 0,           -- moved from where it is drawn (movers.lua)
+}
+ns.CDM_FIELDS = CDM_FIELDS
+for _, v in ipairs(ns.CDM_VIEWERS) do
+    for field, value in pairs(CDM_FIELDS) do DEFAULTS["cdm" .. v[1] .. field] = value end
+    DEFAULTS["cdm" .. v[1] .. "Size"] = v[4]
+end
+DEFAULTS.cdmBGaps = true
 ns.DRAWER = { LEFT = 1, UP = 2 }
 ns.METER_SESSION = { OVERALL = 0, CURRENT = 1 }     -- Enum.DamageMeterSessionType's values
 ns.LOOT_WHO = { GROUP = 1, MINE = 2 }
@@ -287,6 +320,10 @@ for _, key in ipairs({
     "detachToTX", "detachToTY",
     "xpCast", "repCast",
 }) do PER_PROFILE[key] = true end
+-- the Cooldown Manager's viewers: placed and dressed per profile, as the console is
+for key in pairs(DEFAULTS) do
+    if key:match("^cdm[EUB]%u") then PER_PROFILE[key] = true end
+end
 ns.PER_PROFILE = PER_PROFILE
 
 -- The party's options: the console's (per profile, shaped and placed by

@@ -447,6 +447,8 @@ end
 function Region:SetHideCountdownNumbers(h) self.hideNumbers = h end
 -- a cooldown's sweep, its edge and its end flash (the Action Bar's Cooldowns options)
 function Region:SetDrawSwipe(on) self.drawSwipe = on end
+function Region:SetSwipeTexture(t) self.swipeTexture = t end
+function Region:SetUseCircularEdge(on) self.circular = on end
 function Region:SetDrawEdge(on) self.drawEdge = on end
 function Region:SetDrawBling(on) self.drawBling = on end
 function Region:GetCountdownFontString()
@@ -5408,6 +5410,15 @@ if barPass then
     print("  footer", win.footProfile.text, "reload=" .. tostring(win.footReload.shown))
     page.settings.bags:Set(true)
     print("  bags back", "reload=" .. tostring(win.footReload.shown))
+    -- Cooldowns: a viewer's tab; an arch greys the bar's rows, and the
+    -- bar's the arch's; the display off greys the whole tab
+    dump("cooldowns/essential")
+    ns.SetOption("cdmELayout", "arch")
+    dump("cooldowns/essential")
+    ns.SetOption("cdmELayout", "bar")
+    ns.SetOption("cdmDisplay", false)
+    dump("cooldowns/buffs")
+    ns.SetOption("cdmDisplay", true)
     -- every dropdown as wide as its longest choice (by the 7px a character
     -- above), else its value one line ending in "..."; never wrapped
     ;(function()
@@ -21376,6 +21387,11 @@ if cdmPass then (function()
         local e = W.viewers.EssentialCooldownViewer
         print("cdm display off", rect(e), string.format("scale=%.2f", e:GetScale()),
             "overlay=" .. tostring(e.items[1].Overlay.alpha))
+        -- nothing to simulate: the dress is off
+        ns.SetOption("simCdm", true)
+        print("cdm sim display off", "running=" .. tostring(ns.cdmSim.Running()),
+            "panel=" .. tostring(_G.MedalluinCdmSimPanel ~= nil))
+        ns.SetOption("simCdm", false)
         return
     end
     -- a heading folded
@@ -21694,6 +21710,360 @@ if cdmPass then (function()
     inCombat = false
     for _, fr in ipairs(events.PLAYER_REGEN_ENABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_ENABLED") end
     viewers("cdm after combat")
+
+    -- each viewer on its own holder, on the screen's bottom (not the console)
+    local function n1(v) return string.format("%.1f", v):gsub("%.0$", ""):gsub("^%-0$", "0") end
+    local function holders(tag)
+        local out = {}
+        for _, key in ipairs({ "essential", "utility", "buffs" }) do
+            local h = D.holders[key]
+            local p = h.points.BOTTOM or {}
+            local v = D.viewers[key]
+            local vp = v.points.CENTER or {}
+            table.insert(out, string.format("%s[%s %s %s,%s scale=%.2f %sx%s viewer=%s]", key,
+                p[1] == UIParent and "screen" or tostring(p[1] and p[1].name), tostring(p[2]), n1(p[3] or 0),
+                n1(p[4] or 0), h:GetScale(), n1(h:GetWidth()), n1(h:GetHeight()),
+                vp[1] == h and "on it" or "elsewhere"))
+        end
+        print(tag, table.concat(out, " "))
+    end
+    holders("cdm holders")
+    -- every viewer option kept per profile, as the console's are
+    local all, kept = 0, 0
+    for _, v in ipairs(ns.CDM_VIEWERS) do
+        local fields = { "Size" }
+        for field in pairs(ns.CDM_FIELDS) do table.insert(fields, field) end
+        for _, field in ipairs(fields) do
+            all = all + 1
+            if ns.PER_PROFILE["cdm" .. v[1] .. field] then kept = kept + 1 end
+        end
+    end
+    print("cdm per profile", kept .. " of " .. all)
+    -- the geometry alone (cooldowns/layout.lua): by rank, from the set's middle
+    local Lay = ns.cdmLayout
+    local function geo(tag, n, spec)
+        spec.size, spec.spacing = spec.size or 40, spec.spacing or 4
+        spec.layout, spec.order = spec.layout or "bar", spec.order or "start"
+        local at, w, h = Lay.Place(n, spec)
+        local out = {}
+        for _, p in ipairs(at) do table.insert(out, n1(p[1]) .. "," .. n1(p[2])) end
+        print("cdm layout " .. tag, table.concat(out, " "), "box=" .. n1(w) .. "x" .. n1(h))
+    end
+    geo("bar start", 5, {})
+    geo("bar middle", 5, { order = "middle" })
+    geo("bar middle even", 4, { order = "middle" })
+    geo("bar finish", 5, { order = "finish" })
+    geo("bar rows of 3", 5, { perRow = 3 })
+    geo("bar down", 3, { orient = "down" })
+    geo("bar down rows of 2", 3, { orient = "down", perRow = 2 })
+    geo("arch up 180", 5, { layout = "arch", span = 180, opens = "up" })
+    geo("arch up 90", 5, { layout = "arch", span = 90, opens = "up" })
+    geo("arch down 90 middle", 5, { layout = "arch", span = 90, opens = "down", order = "middle" })
+    geo("arch one", 1, { layout = "arch", span = 90 })
+    geo("none", 0, {})
+    -- the viewers' icons on their holders, in the Cooldown Manager's order
+    local function placed(key)
+        local out = {}
+        for i, item in ipairs(D.viewers[key].items) do
+            local p = item.points.CENTER
+            local k = D.holders[key]:GetEffectiveScale() / item:GetEffectiveScale()
+            table.insert(out, (item.layoutIndex or i) .. (item.shown == false and "-" or "") .. "@"
+                .. (p and p[1] == D.holders[key] and (n1(p[3] / k) .. "," .. n1(p[4] / k)) or "theirs"))
+        end
+        return table.concat(out, " ")
+    end
+    print("cdm arranged", "essential " .. placed("essential"), "buffs " .. placed("buffs"))
+    -- the buffs in the game's order (layoutIndex), two more acquired
+    local bv = W.viewers.BuffIconCooldownViewer
+    bv:Add()
+    bv:Add()
+    for i, item in ipairs(bv.items) do item.layoutIndex, item.shown = 5 - i, true end
+    D.Arrange("buffs")
+    print("cdm buffs ordered", placed("buffs"))
+    -- a buff gone in combat: the rest close ranks there and then
+    inCombat = true
+    bv.items[2]:Hide()
+    print("cdm buff gone in combat", placed("buffs"), "holder=" .. n1(D.holders.buffs:GetWidth()))
+    bv.items[2]:Show()
+    print("cdm buff back", placed("buffs"))
+    inCombat = false
+    -- gaps kept: a buff gone leaves its place empty
+    ns.SetOption("cdmBGaps", false)
+    bv.items[3]:Hide()
+    print("cdm buff gone, gaps kept", placed("buffs"))
+    bv.items[3]:Show()
+    ns.SetOption("cdmBGaps", true)
+    -- Essential as an arch, middle out, then a bar again
+    ns.SetOption("cdmELayout", "arch")
+    ns.SetOption("cdmESpan", 90)
+    print("cdm essential arch", placed("essential"), "holder=" .. n1(D.holders.essential:GetWidth()) .. "x"
+        .. n1(D.holders.essential:GetHeight()))
+    ns.SetOption("cdmEOrder", "start")
+    print("cdm essential arch from the start", placed("essential"))
+    ns.SetOption("cdmELayout", "bar")
+    ns.SetOption("cdmEOrder", "middle")
+    -- its size: scaled out of combat, the step with it
+    ns.SetOption("cdmESize", 60)
+    print("cdm essential size 60", string.format("drawn=%.0f", e.items[1]:GetWidth() * e:GetScale()
+        / D.holders.essential:GetScale()), placed("essential"))
+    ns.SetOption("cdmESize", 44)
+    -- the shapes: mask, its inset, rim, sweep
+    local it = e.items[1]
+    local function base(t) return t and tostring(t):match("([^\\]+)$") or "none" end
+    for _, shape in ipairs({ "rounded", "square", "bare", "round" }) do
+        ns.SetOption("cdmEShape", shape)
+        local mask
+        for _, r in ipairs(it.all_) do if r.kind == "MaskTexture" and r ~= it.mask then mask = r end end
+        local tl = mask and mask.points.TOPLEFT
+        local rim
+        for _, r in ipairs({ it:GetRegions() }) do
+            if r.kind == "Texture" and r.layer == "BACKGROUND" then rim = r end
+        end
+        print("cdm shape " .. shape, "mask=" .. base(mask and mask.texture), "inset=" .. tostring(tl and tl[3]),
+            "rim=" .. (rim and rim.shown ~= false and base(rim.texture) or "hidden"),
+            "sweep=" .. base(it.Cooldown.swipeTexture), "circular=" .. tostring(it.Cooldown.circular),
+            "oor=" .. base(it.OutOfRange.texture))
+    end
+    -- the texts: the cooldown's number bigger at the top, the count hidden, then below
+    ns.SetOption("cdmECdSize", 1.5)
+    ns.SetOption("cdmECdPos", "top")
+    ns.SetOption("cdmECountSize", 0)
+    local t = it.Cooldown.timer
+    local c = it.ChargeCount.Current
+    local function at(fs)
+        local pt, q = next(fs.points or {})
+        return pt and (pt .. ">" .. tostring(q[2]) .. " " .. n1(q[3]) .. "," .. n1(q[4])) or "-"
+    end
+    print("cdm texts", "number=" .. tostring(t.font and t.font[2]) .. " " .. at(t) .. " alpha=" .. tostring(t.alpha),
+        "count alpha=" .. tostring(c.alpha))
+    ns.SetOption("cdmECountSize", 1.25)
+    ns.SetOption("cdmECountPos", "below")
+    print("cdm count below", "size=" .. tostring(c.font and c.font[2]), at(c), "alpha=" .. tostring(c.alpha))
+    -- the cooldown's look, kept over the game's own refreshes
+    ns.SetOption("cdmESwipe", false)
+    ns.SetOption("cdmEDesat", false)
+    ns.SetOption("cdmERange", false)
+    -- the game's own refresh after: put back
+    it.Cooldown:SetDrawSwipe(true)
+    it.Icon:SetDesaturated(true)
+    print("cdm look off", "sweep=" .. tostring(it.Cooldown.drawSwipe), "grey=" .. tostring(it.Icon.desaturated),
+        "oor alpha=" .. tostring(it.OutOfRange.alpha))
+    ns.SetOption("cdmESwipe", true)
+    ns.SetOption("cdmEDesat", true)
+    ns.SetOption("cdmERange", true)
+    it.Cooldown:SetDrawSwipe(true)
+    it.Icon:SetDesaturated(true)
+    print("cdm look on", "sweep=" .. tostring(it.Cooldown.drawSwipe), "grey=" .. tostring(it.Icon.desaturated),
+        "oor alpha=" .. tostring(it.OutOfRange.alpha))
+    -- its tooltip, gone with Tooltips off
+    it:SetScript("OnEnter", it.scripts.OnEnter)
+    local function hover()
+        GameTooltip:SetOwner(it, "ANCHOR_RIGHT")
+        GameTooltip:Show()
+        it.scripts.OnEnter(it)
+        return tostring(GameTooltip.shown)
+    end
+    local on = hover()
+    ns.SetOption("cdmETips", false)
+    print("cdm tooltips", "on=" .. on, "off=" .. hover())
+    ns.SetOption("cdmETips", true)
+    GameTooltip:Hide()
+    -- the fade: in combat only, then on mouseover
+    local V = ns.VISIBILITY
+    ns.SetOption("cdmEFadeTime", 0)
+    ns.SetOption("cdmEFaded", 0.2)
+    ns.SetOption("cdmEVis", V.COMBAT)
+    local a1 = e:GetAlpha()
+    inCombat = true
+    for _, fr in ipairs(events.PLAYER_REGEN_DISABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_DISABLED") end
+    local a2 = e:GetAlpha()
+    inCombat = false
+    for _, fr in ipairs(events.PLAYER_REGEN_ENABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_ENABLED") end
+    print("cdm fade in combat", "out=" .. n1(a1), "in=" .. n1(a2), "out again=" .. n1(e:GetAlpha()),
+        "utility=" .. n1(W.viewers.UtilityCooldownViewer:GetAlpha()))
+    ns.SetOption("cdmEVis", V.MOUSEOVER)
+    local away = e:GetAlpha()
+    mouseOver = D.holders.essential
+    D.Fade("essential")
+    local over = e:GetAlpha()
+    mouseOver = false
+    D.Fade("essential")
+    print("cdm fade mouseover", "away=" .. n1(away), "over=" .. n1(over), "left=" .. n1(e:GetAlpha()))
+    f:Show()
+    print("cdm fade while /cdm open", "alpha=" .. n1(e:GetAlpha()))
+    f:Hide()
+    ns.SetOption("cdmEVis", V.ALWAYS)
+    -- its movers: placed, not scaled; the page's sliders
+    local mv = {}
+    for _, c2 in ipairs(ns.CONSOLE_MOVERS) do
+        if c2.id:match("^cdm") then
+            table.insert(mv, c2.id .. "(" .. c2.name .. " noScale=" .. tostring(c2.noScale) .. " frame="
+                .. tostring(c2.frame() == D.holders[c2.id == "cdmE" and "essential" or c2.id == "cdmU" and "utility"
+                    or "buffs"]) .. " shown=" .. tostring(c2.shown()) .. ")")
+        end
+    end
+    local g = ns.ConsolePlaceGroups(function(title, ...) return { title = title, items = { ... } } end,
+        { { "cdmU", "Place" } })[1]
+    local labels = {}
+    for _, spec in ipairs(g.items) do table.insert(labels, spec.key or spec.label) end
+    print("cdm movers", table.concat(mv, " "), "page=" .. table.concat(labels, ","))
+    -- moved by its slider: the holder moves, the console's place untouched
+    ns.SetOption("cdmUX", 40)
+    ns.SetOption("cdmUY", -25)
+    holders("cdm utility moved")
+    ns.ResetConsolePlace("cdmU")
+    holders("cdm utility reset")
+
+    -- the simulation (cooldowns/simulate.lua): icons of ours on each holder,
+    -- in that viewer's dress; the game's viewers faded out meanwhile
+    local Sim = ns.cdmSim
+    local spb = ns.simButtons
+    local function click(id) spb[id].scripts.OnClick(spb[id]) end
+    for i, item in ipairs(e.items) do item.Icon:SetTexture("Interface\\Icons\\Mine" .. i) end
+    local function sim(tag)
+        local out = {}
+        for _, key in ipairs({ "essential", "utility", "buffs" }) do
+            local set = Sim.sets[key]
+            local icons, up = {}, 0
+            for _, item in ipairs(set and set.items or {}) do
+                local p = item.points.CENTER
+                up = up + (item.shown == false and 0 or 1)
+                table.insert(icons, base(item.Icon.texture) .. (item.shown == false and "-" or "")
+                    .. "@" .. (p and p[1] == D.holders[key] and (n1(p[3]) .. "," .. n1(p[4])) or "-"))
+            end
+            -- an icon of an earlier, bigger draw left showing
+            local extra = 0
+            if set then
+                local mine = {}
+                for _, item in ipairs(set.items) do mine[item] = true end
+                for _, c3 in ipairs({ set.root:GetChildren() }) do
+                    if not mine[c3] and c3.shown ~= false then extra = extra + 1 end
+                end
+            end
+            if extra > 0 then table.insert(icons, "+" .. extra .. " stray") end
+            local v = D.viewers[key]
+            table.insert(out, string.format("%s[%d up=%d viewer=%s ours=%s %sx%s: %s]", key, #(set and set.items or {}), up,
+                n1(v:GetAlpha()), set and set.root.shown ~= false and n1(set.root:GetAlpha()) or "hidden",
+                n1(D.holders[key]:GetWidth()), n1(D.holders[key]:GetHeight()), table.concat(icons, " ")))
+        end
+        print(tag, table.concat(out, " "))
+    end
+    sim("cdm sim before")
+    function Region:SetCooldown(start, duration) self.start, self.duration = start, duration end
+    ns.SetOption("simCdm", true)
+    local sp = _G.MedalluinCdmSimPanel
+    print("cdm sim panel", "shown=" .. tostring(sp.shown ~= false), "running=" .. tostring(Sim.Running()),
+        "count less=" .. tostring(spb["cdm.count.essential.less"]:IsEnabled()),
+        "again=" .. tostring(spb["cdm.again"]:IsEnabled()), "label=" .. tostring(spb["cdm.count.buffs"].label.text))
+    sim("cdm sim random")
+    -- one icon's dress: the viewer's shape, its sweep and its count
+    local one = Sim.sets.essential.items[2]
+    local mask
+    for _, r in ipairs(one.all_) do if r.kind == "MaskTexture" then mask = r end end
+    print("cdm sim dress", "mask=" .. base(mask and mask.texture), "sweep=" .. base(one.Cooldown.swipeTexture),
+        "cd=" .. tostring(one.Cooldown.start) .. "+" .. tostring(one.Cooldown.duration),
+        "swipe=" .. tostring(one.Cooldown.drawSwipe),
+        "grey=" .. tostring(one.Icon.desaturated), "first grey=" .. tostring(Sim.sets.essential.items[1].Icon.desaturated),
+        "charges=" .. tostring(one.ChargeCount.Current.text),
+        "size=" .. n1(one:GetWidth()))
+    -- more Essential, fewer buffs: drawn again
+    click("cdm.count.essential.more")
+    click("cdm.count.buffs.less")
+    sim("cdm sim counts")
+    -- the options apply: Square, an arch; Swipe and grey off stay off over our own calls
+    ns.SetOption("cdmEShape", "square")
+    ns.SetOption("cdmELayout", "arch")
+    ns.SetOption("cdmESwipe", false)
+    ns.SetOption("cdmEDesat", false)
+    Sim.Draw()
+    local grey = false
+    for _, item in ipairs(Sim.sets.essential.items) do grey = grey or item.Icon.desaturated == true end
+    print("cdm sim options", "rim=" .. base(one.all_ and (function()
+            for _, r in ipairs({ one:GetRegions() }) do
+                if r.kind == "Texture" and r.layer == "BACKGROUND" then return r.texture end
+            end
+        end)()), "sweep=" .. tostring(one.Cooldown.drawSwipe), "any grey=" .. tostring(grey))
+    sim("cdm sim arch")
+    ns.SetOption("cdmEShape", "round")
+    ns.SetOption("cdmELayout", "bar")
+    ns.SetOption("cdmESwipe", true)
+    ns.SetOption("cdmEDesat", true)
+    print("cdm sim look back", "sweep=" .. tostring(one.Cooldown.drawSwipe),
+        "first grey=" .. tostring(Sim.sets.essential.items[1].Icon.desaturated))
+    -- with no game viewer (its addon not loaded), ours still take the options
+    local uv = D.viewers.utility
+    D.viewers.utility = nil
+    ns.SetOption("cdmUShape", "bare")
+    local u1 = Sim.sets.utility.items[1]
+    local urim
+    for _, r in ipairs({ u1:GetRegions() }) do
+        if r.kind == "Texture" and r.layer == "BACKGROUND" then urim = r end
+    end
+    print("cdm sim no viewer", "utility rim=" .. (urim and urim.shown ~= false and base(urim.texture) or "hidden"))
+    D.viewers.utility = uv
+    ns.SetOption("cdmUShape", "round")
+    ns.SetOption("cdmESize", 60)
+    print("cdm sim size 60", "icon=" .. n1(one:GetWidth()), "holder=" .. n1(D.holders.essential:GetWidth()))
+    ns.SetOption("cdmESize", 44)
+    -- buffs coming and going: one gone, the rest close ranks; with gaps kept, not
+    local was = now
+    local b1 = Sim.sets.buffs.items[1].sim
+    now = b1.start + b1.dur + 0.5
+    Sim.Draw()
+    sim("cdm sim buff gone")
+    ns.SetOption("cdmBGaps", false)
+    sim("cdm sim buff gone, gaps kept")
+    ns.SetOption("cdmBGaps", true)
+    now = b1.start + b1.dur + b1.gone + 0.5
+    Sim.Draw()
+    print("cdm sim buff back", "up=" .. tostring(Sim.sets.buffs.items[1].shown ~= false),
+        "from=" .. tostring(Sim.sets.buffs.items[1].Cooldown.start == now))
+    now = was
+    -- cooling off: no sweeps, no grey; out of range on
+    click("cdm.cooling")
+    click("cdm.away")
+    local cds, tinted = {}, 0
+    for _, item in ipairs(Sim.sets.essential.items) do
+        table.insert(cds, tostring(item.Cooldown.duration))
+        tinted = tinted + (item.OutOfRange.shown and 1 or 0)
+    end
+    print("cdm sim still", "durations=" .. table.concat(cds, ","), "out of range=" .. tinted)
+    click("cdm.cooling")
+    click("cdm.away")
+    -- Visibility in combat: faded until the panel plays a fight
+    ns.SetOption("cdmEFaded", 0.2)
+    ns.SetOption("cdmEVis", V.COMBAT)
+    local out1 = Sim.sets.essential.root:GetAlpha()
+    click("cdm.combat")
+    print("cdm sim combat", "out=" .. n1(out1), "in=" .. n1(Sim.sets.essential.root:GetAlpha()),
+        "viewer=" .. n1(e:GetAlpha()))
+    click("cdm.combat")
+    ns.SetOption("cdmEVis", V.ALWAYS)
+    -- your spells: the viewers' own, in their order (the Cooldown Manager's, not the frames')
+    for i, item in ipairs(e.items) do item.layoutIndex = #e.items - i + 1 end
+    click("cdm.source.yours")
+    print("cdm sim yours panel", "count less=" .. tostring(spb["cdm.count.essential.less"]:IsEnabled()),
+        "again=" .. tostring(spb["cdm.again"]:IsEnabled()))
+    sim("cdm sim yours")
+    -- the tooltip names the spell, and is gone with Tooltips off
+    local first = Sim.sets.essential.items[1]
+    local function tip()
+        GameTooltip:Hide()
+        first.scripts.OnEnter(first)
+        return tostring(GameTooltip.shown) .. "(" .. tostring(GameTooltip.owner == first) .. ")"
+    end
+    local tipOn = tip()
+    ns.SetOption("cdmETips", false)
+    print("cdm sim tooltips", "on=" .. tipOn, "off=" .. tip())
+    ns.SetOption("cdmETips", true)
+    GameTooltip:Hide()
+    -- ended: ours gone, the viewers back
+    click("cdm.end")
+    print("cdm sim ended", "simCdm=" .. tostring(ns.db.simCdm), "panel=" .. tostring(sp.shown ~= false),
+        "running=" .. tostring(Sim.Running()))
+    sim("cdm sim after")
+    for i, item in ipairs(e.items) do item.layoutIndex = i end
+    holders("cdm holders after sim")
 end)() end
 
 -- --------------------------------------------------------- click casting

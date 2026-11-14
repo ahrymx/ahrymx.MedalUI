@@ -52,9 +52,25 @@ local CONSOLES = {
         placesItself = true,
     },
 }
+-- the Cooldown Manager's viewers, each on its own (cooldowns/display.lua):
+-- placed, not scaled (their icons' Size is an option of their own)
+for _, v in ipairs(ns.CDM_VIEWERS) do
+    table.insert(CONSOLES, {
+        id = "cdm" .. v[1], name = v[3], noScale = true,
+        frame = function() return ns.cooldownDisplay and ns.cooldownDisplay.holders[v[2]] end,
+        place = function() if ns.cooldownDisplay then ns.cooldownDisplay.Place() end end,
+        minY = -REACH_Y, maxY = REACH_Y,
+        shown = function() return ns.cooldownDisplay and ns.cooldownDisplay.On() end,
+    })
+end
 ns.CONSOLE_MOVERS = CONSOLES
 
 local function Key(c, field) return c.id .. field end
+-- what the player sets of it: its scale (unless noScale) and its place
+local function Fields(c)
+    if c.noScale then return { "X", "Y" } end
+    return { "Scale", "X", "Y" }
+end
 
 local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
@@ -76,7 +92,7 @@ end
 
 -- Back to where, and how big, the profile draws it.
 local function Reset(c)
-    for _, field in ipairs({ "Scale", "X", "Y" }) do
+    for _, field in ipairs(Fields(c)) do
         ns.SetOption(Key(c, field), ns.OptionBase(Key(c, field)))
     end
 end
@@ -92,9 +108,14 @@ function ns.ConsolePlaceGroups(Group, ids)
         for _, c in ipairs(CONSOLES) do
             if c.id == id[1] then
                 local s = Specs(c)
-                table.insert(groups, Group(id[2] or c.name, s.scale, s.x, s.y,
-                    { kind = "button", label = "Reset " .. c.name:lower(), click = function() Reset(c) end,
-                        tip = "Back to where the profile draws it, at its own size." }))
+                local reset = { kind = "button", label = "Reset " .. c.name:lower(), click = function() Reset(c) end,
+                    tip = c.noScale and "Back to where the profile draws it."
+                        or "Back to where the profile draws it, at its own size." }
+                if c.noScale then
+                    table.insert(groups, Group(id[2] or c.name, s.x, s.y, reset))
+                else
+                    table.insert(groups, Group(id[2] or c.name, s.scale, s.x, s.y, reset))
+                end
             end
         end
     end
@@ -104,7 +125,7 @@ end
 -- A setting moved: place the console it belongs to.
 for _, c in ipairs(CONSOLES) do
     if not c.placesItself then
-        for _, field in ipairs({ "Scale", "X", "Y" }) do
+        for _, field in ipairs(Fields(c)) do
             ns.OnSetting(Key(c, field), c.place)
         end
     end
@@ -261,7 +282,7 @@ function Popup(c)
     if not popup.byConsole[c.id] then
         local s, set = Specs(c), {}
         local y = -40
-        for _, field in ipairs({ "scale", "x", "y" }) do
+        for _, field in ipairs(c.noScale and { "x", "y" } or { "scale", "x", "y" }) do
             local ctl = UI.Slider(popup, s[field], 236)
             ctl:SetPoint("TOPLEFT", 12, y)
             y = y - UI.SLIDER_H - 8
@@ -296,7 +317,7 @@ ns.consoleMovers = movers
 ns.OnAnySetting(function(key)
     RefreshPopup()
     -- the overhead turned off or on while its mover is out
-    if key == "overhead" and showing then ShowMovers(true) end
+    if (key == "overhead" or key == "cdmDisplay") and showing then ShowMovers(true) end
 end)
 
 -- Edit Mode's own frame or events; a client without them has /mdlui move.

@@ -128,7 +128,7 @@ local function Button(parent, x, y, w, spec)
     b.id, b.lit, b.enabled, b.text, b.tip = spec.id, spec.lit, spec.enabled, spec.text, spec.tip
     b:SetScript("OnClick", function(self)
         spec.click()
-        Redraw()
+        ;(spec.redraw or Redraw)()
         Paint()
         if GameTooltip:IsOwned(self) then Tip(self) end
     end)
@@ -147,28 +147,32 @@ local function Label(parent, y, text)
     return fs
 end
 
--- A count: label, -, the number (a click for none or all), +.
-local function Count(page, y, id, label, min, max, get, set, what)
+-- A count: label, -, the number (a click for none or all), +. A panel of
+-- its own passes its redraw, and when the count applies.
+local function Count(page, y, id, label, min, max, get, set, what, redraw, can)
+    can = can or function() return true end
     Label(page, y, label)
     local function By(n) set(math.max(min, math.min(max, get() + n))) end
-    Button(page, COL0, y, 22, { id = id .. ".less", label = "-", click = function() By(-1) end,
-        enabled = function() return get() > min end, tip = function() return "One " .. what .. " fewer." end })
+    Button(page, COL0, y, 22, { id = id .. ".less", label = "-", click = function() By(-1) end, redraw = redraw,
+        enabled = function() return can() and get() > min end,
+        tip = function() return "One " .. what .. " fewer." end })
     Button(page, COL0 + 26, y, IW - COL0 - 52, { id = id, text = function() return tostring(get()) end,
-        click = function() set(get() == min and max or min) end,
+        click = function() set(get() == min and max or min) end, redraw = redraw, enabled = can,
         tip = function() return "How many " .. what .. "s. Click for " .. min .. ", or " .. max .. "." end })
-    Button(page, IW - 22, y, 22, { id = id .. ".more", label = "+", click = function() By(1) end,
-        enabled = function() return get() < max end, tip = function() return "One " .. what .. " more." end })
+    Button(page, IW - 22, y, 22, { id = id .. ".more", label = "+", click = function() By(1) end, redraw = redraw,
+        enabled = function() return can() and get() < max end,
+        tip = function() return "One " .. what .. " more." end })
     return y - ROW
 end
 
 -- On/off toggles, two to a row across the page: { key, label, tip, enabled }
 -- read from and written to the table t.
-local function Toggles(page, y, idp, t, list)
+local function Toggles(page, y, idp, t, list, redraw)
     local half = (IW - 4) / 2
     for k, spec in ipairs(list) do
         local key = spec[1]
         Button(page, (k - 1) % 2 * (half + 4), y - math.floor((k - 1) / 2) * ROW, half, {
-            id = idp .. "." .. key, label = spec[2], enabled = spec[4],
+            id = idp .. "." .. key, label = spec[2], enabled = spec[4], redraw = redraw,
             lit = function() return t()[key] == true end,
             click = function() t()[key] = not t()[key] end,
             tip = function() return spec[3] end })
@@ -315,28 +319,39 @@ local function Show(id)
     panel:SetHeight(TOP + h + 6 + ROW + PAD - 4)
 end
 
-local function Build()
-    panel = CreateFrame("Frame", "MedalluinSimPanel", UIParent)
-    panel:SetFrameStrata("DIALOG")
-    panel:SetWidth(W)
-    panel:SetPoint("LEFT", UIParent, "LEFT", 16, 120)
-    panel:SetClampedToScreen(true)
-    panel:SetMovable(true)
-    panel:EnableMouse(true)
-    panel:RegisterForDrag("LeftButton")
-    panel:SetScript("OnDragStart", panel.StartMoving)
-    panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
-    local edge = panel:CreateTexture(nil, "BACKGROUND", nil, 1)
+-- A panel's frame: an inked well in a gold edge, its title, dragged by any
+-- free spot.
+local function Chrome(name, text, point, x, y)
+    local f = CreateFrame("Frame", name, UIParent)
+    f:SetFrameStrata("DIALOG")
+    f:SetWidth(W)
+    f:SetPoint(point, UIParent, point, x, y)
+    f:SetClampedToScreen(true)
+    f:SetMovable(true)
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    local edge = f:CreateTexture(nil, "BACKGROUND", nil, 1)
     edge:SetAllPoints()
     edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    local bg = panel:CreateTexture(nil, "BACKGROUND", nil, 2)
+    local bg = f:CreateTexture(nil, "BACKGROUND", nil, 2)
     bg:SetPoint("TOPLEFT", 1, -1)
     bg:SetPoint("BOTTOMRIGHT", -1, 1)
     bg:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.92)
-    local title = ns.Text(panel, 11)
+    local title = ns.Text(f, 11)
     title:SetPoint("TOPLEFT", PAD, -PAD)
-    title:SetText("Simulated frames")
+    title:SetText(text)
     title:SetTextColor(unpack(GOLD))
+    return f
+end
+
+-- the pieces, for the Cooldown Manager's panel (cooldowns/simulate.lua)
+ns.simKit = { Chrome = Chrome, Button = Button, Label = Label, Count = Count, Toggles = Toggles, Paint = Paint,
+    ROW = ROW, PAD = PAD, IW = IW }
+
+local function Build()
+    panel = Chrome("MedalluinSimPanel", "Simulated frames", "LEFT", 16, 120)
 
     local tw = (IW - 2 * (#TABS - 1)) / #TABS
     for k, t in ipairs(TABS) do
