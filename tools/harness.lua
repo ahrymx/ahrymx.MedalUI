@@ -353,7 +353,16 @@ function Region:SetText(t)
     if isSecret(t) then secretsUsed = secretsUsed + 1 end
     self.text = t
 end
-function Region:SetAlpha(a) self.alpha = a end
+-- a secret alpha marks the frame's alpha secret for good (Blizzard's
+-- SecretAspect.Alpha: nothing clears it short of SetToDefaults), and every
+-- frame under it reads its own alpha back as a secret too
+function Region:SetAlpha(a)
+    if isSecret(a) then
+        self.alphaAspect = true
+        a = rawget(a, "v") or 1
+    end
+    self.alpha = a
+end
 -- the modern client's: a boolean (a secret's, from its hidden v) picks the alpha
 function Region:SetAlphaFromBoolean(v, yes, no)
     local secretOne = isSecret(v)
@@ -606,7 +615,14 @@ function Region:HookScript(k, f)
         f(...)
     end
 end
-function Region:GetAlpha() return self.alpha or 1 end
+function Region:GetAlpha()
+    local f = self
+    while f do
+        if f.alphaAspect then return secret() end
+        f = f.parent
+    end
+    return self.alpha or 1
+end
 -- an edit box's focus: one at a time, with its two scripts
 local focused
 function Region:HasFocus() return focused == self end
@@ -1678,6 +1694,22 @@ local function ChatWindow(i)
         box[k].shown = false
     end
     f.editBox = box
+    -- the shown lines, bottom up in a chain (ScrollingMessageFrame's
+    -- RefreshLayout), each its own alpha (RefreshDisplay, the fade)
+    f.visibleLines = {}
+    for n = 1, 4 do
+        local line = new("FontString", f)
+        line.h = 14
+        if n == 1 then
+            line:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0)
+        else
+            line:SetPoint("BOTTOMLEFT", f.visibleLines[n - 1], "TOPLEFT", 0, 0)
+        end
+        line:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+        f.visibleLines[n] = line
+    end
+    function f:RefreshDisplay() end
+    function f:AtBottom() return not self.scrolledUp end
     local tab = new("Button", UIParent, name .. "Tab")
     for _, k in ipairs(TAB_ART) do tab[k] = new("Texture", tab) end
     tab.w, tab.h = 60, 32
@@ -5545,7 +5577,17 @@ if barPass then
             print("  card", s1.title.text, "band=" .. s1.band.h .. "@" .. s1.band.points.TOPLEFT[4],
                 "title=" .. tp .. ">" .. t[2] .. " " .. t[3] .. "," .. t[4],
                 "switch=" .. (w and (w[3] .. "," .. w[4] .. " h" .. s1.switch.h) or "-"),
-                "row=" .. (r1 and r1.points.TOPLEFT and (r1.points.TOPLEFT[3] .. "," .. r1.points.TOPLEFT[4]) or "-"))
+                "row=" .. (r1 and r1.points.TOPLEFT and (r1.points.TOPLEFT[3] .. "," .. r1.points.TOPLEFT[4]) or "-"),
+                "tip=" .. (function()
+                    -- the tip: the one plain line under the band that is not the title
+                    for _, g in ipairs({ s1:GetRegions() }) do
+                        if g.kind == "FontString" and g ~= s1.title and g.text and g.text ~= ""
+                            and not (s1.chip and g == s1.chip.text) then
+                            return g.text
+                        end
+                    end
+                    return "-"
+                end)())
         end
         local top = resolve(f)
         -- a control shown: none of its frames up to the page hidden (its
@@ -7513,6 +7555,85 @@ if sidePass then
     tabs()
     SlashCmdList.MDLUI("meter")
     print("/mdlui meter opens", tostring(page.opened))
+    -- Immersion Mode: faded when idle, whole when what is ticked is so
+    do
+        local function fire(e)
+            for _, h in ipairs(events[e] or {}) do h.scripts.OnEvent(h, e) end
+        end
+        local p, fader, watch = ns.side.panel, ns.sideFader, ns.sideFadeWatch
+        p:Show()
+        local function step(sec)
+            for _ = 1, math.floor(sec * 10 + 0.5) do
+                watch.scripts.OnUpdate(watch, 0.1)
+                if fader.driver.shown then fader.driver.scripts.OnUpdate(fader.driver, 0.1) end
+            end
+        end
+        local function at(tag) print("side immersion " .. tag, string.format("alpha=%.2f", p:GetAlpha())) end
+        -- health in plain numbers (a secret says nothing either way)
+        local health, most, wasTarget = UnitHealth, UnitHealthMax, hasTarget
+        local function hurt() return 82 end
+        UnitHealth, UnitHealthMax = function() return 100 end, function() return 100 end
+        hasTarget, grouped, mouseOver = false, false, false
+        at("off")
+        ns.SetOption("sideImmersion", true)
+        at("on, idle")
+        step(1)
+        at("idle 1s")
+        local function brings(tag, key, on, off)
+            on()
+            step(0.1)
+            local mid = p:GetAlpha()
+            step(0.2)
+            local whole = p:GetAlpha()
+            ns.SetOption(key, not ns.db[key])
+            local unticked = p:GetAlpha()
+            ns.SetOption(key, not ns.db[key])
+            off()
+            fire("PLAYER_TARGET_CHANGED")
+            step(0.3)
+            local half = p:GetAlpha()
+            step(0.4)
+            print("side immersion " .. tag, string.format("tick in %.2f, then %.2f; key flipped %.2f; out 0.3s %.2f, 0.7s %.2f",
+                mid, whole, unticked, half, p:GetAlpha()))
+        end
+        local combat = false
+        brings("combat", "sideShowCombat", function()
+            inCombat, combat = true, true
+            fire("PLAYER_REGEN_DISABLED")
+        end, function()
+            inCombat = false
+            fire("PLAYER_REGEN_ENABLED")
+        end)
+        brings("target", "sideShowTarget", function() hasTarget = true end, function() hasTarget = false end)
+        brings("mouse", "sideShowMouse", function() mouseOver = p end, function() mouseOver = false end)
+        brings("hurt (unticked)", "sideShowHurt", function() UnitHealth = hurt end,
+            function() UnitHealth = function() return 100 end end)
+        ns.SetOption("sideShowHurt", true)
+        brings("hurt (ticked)", "sideShowHurt", function() UnitHealth = hurt end,
+            function() UnitHealth = function() return 100 end end)
+        ns.SetOption("sideShowHurt", false)
+        brings("group (unticked)", "sideShowGroup", function() grouped = true end, function() grouped = false end)
+        ns.SetOption("sideShowGroup", true)
+        brings("group (ticked)", "sideShowGroup", function() grouped = true end, function() grouped = false end)
+        ns.SetOption("sideShowGroup", false)
+        ns.SetOption("sideFadedAlpha", 0.3)
+        step(1)
+        at("opacity 30%")
+        ns.SetOption("sideFadeOut", 2)
+        mouseOver = p
+        step(0.3)
+        mouseOver = false
+        step(1)
+        at("fade out 2s, 1s in")
+        ns.SetOption("sideFadeOut", 0.6)
+        ns.SetOption("sideFadedAlpha", 0.5)
+        ns.SetOption("sideImmersion", false)
+        at("turned off")
+        step(1)
+        at("off, idle 1s")
+        UnitHealth, UnitHealthMax, hasTarget = health, most, wasTarget
+        assert(combat)
+    end
     return
 end
 
@@ -7964,6 +8085,108 @@ if stripsPass then
         local typing = lit(b1)
         b1:ClearFocus()
         print("editBox backing", "rest=" .. rest, "typing=" .. typing, "after=" .. lit(b1))
+        -- Immersion Mode: bare when idle, the box on use; each line on a
+        -- band that follows the line's own alpha, as much as the box is not
+        do
+            local drawerWas = chat.drawer.shown
+            if drawerWas then chat.cog.scripts.OnClick(chat.cog) end
+            local function fire(e)
+                for _, h in ipairs(events[e] or {}) do h.scripts.OnEvent(h, e) end
+            end
+            local watch, chrome = ns.chatBareWatch, ns.chatChrome
+            local function step(sec)
+                for _ = 1, math.floor(sec * 10 + 0.5) do
+                    watch.scripts.OnUpdate(watch, 0.1)
+                    if chrome.driver.shown then chrome.driver.scripts.OnUpdate(chrome.driver, 0.1) end
+                end
+            end
+            local function bare(tag)
+                local shown, alphas = 0, {}
+                for _, line in ipairs(ChatFrame1.visibleLines) do
+                    local band = ns.chatBands[line]
+                    if band and band.shown then
+                        shown = shown + 1
+                        table.insert(alphas, string.format("%.2f", band:GetAlpha()))
+                    end
+                end
+                local band = ns.chatBands[ChatFrame1.visibleLines[1]]
+                local g = band and band.gradient
+                print("chat bare " .. tag, string.format("box=%.2f tab1=%.2f tab3=%.2f bar=%.2f undocked tab2=%.2f",
+                    chat.box:GetAlpha(), ChatFrame1Tab:GetAlpha(), ChatFrame3Tab:GetAlpha(),
+                    ChatFrame1.ScrollBar:GetAlpha(), ChatFrame2Tab:GetAlpha()),
+                    "bands=" .. shown .. (#alphas > 0 and " @" .. table.concat(alphas, ",") or ""),
+                    g and string.format("ink %.2f>%.2f", g[2][4], g[3][4]) or "",
+                    "frame2 bands=" .. tostring(ns.chatBands[ChatFrame2.visibleLines[1]] ~= nil))
+            end
+            mouseOver = false
+            bare("off")
+            step(6)
+            bare("off, idle 6s")
+            ns.SetOption("chatImmersion", true)
+            bare("on")
+            step(3.5)
+            bare("idle 3.5s")
+            step(0.8)
+            bare("idle 4.3s")
+            step(0.5)
+            bare("idle 4.8s")
+            -- Blizzard's tab fade and its own tab update write past us
+            ChatFrame1Tab:SetAlpha(1)
+            ChatFrame1.ScrollBar:SetAlpha(1)
+            FCFTab_UpdateAlpha(ChatFrame3)
+            print("chat bare tab write", string.format("tab1=%.2f tab3=%.2f", ChatFrame1Tab:GetAlpha(), ChatFrame3Tab:GetAlpha()))
+            step(0.1)
+            bare("tab written, a tick on")
+            -- a line fading out (Blizzard's chat fade): its band with it
+            ChatFrame1.visibleLines[2]:SetAlpha(0.5)
+            ChatFrame1.visibleLines[4]:Hide()
+            step(0.1)
+            bare("lines fading")
+            ChatFrame1.visibleLines[2]:SetAlpha(1)
+            ChatFrame1.visibleLines[4]:Show()
+            ns.SetOption("chatBands", 0.8)
+            step(0.1)
+            bare("bands 80%")
+            ns.SetOption("chatBands", 0.45)
+            -- what brings the box: each, alone, from bare
+            local function brings(tag, on, off)
+                on()
+                step(0.1)
+                local mid = chat.box:GetAlpha()
+                step(0.2)
+                bare(tag .. string.format(" (%.2f a tick in)", mid))
+                off()
+                step(3.5)
+                local held = chat.box:GetAlpha()
+                step(1.5)
+                print("chat bare after " .. tag, string.format("held 3.5s=%.2f, gone 5s=%.2f", held, chat.box:GetAlpha()))
+            end
+            brings("mouse on the box", function() mouseOver = chat.box end, function() mouseOver = false end)
+            brings("mouse on the lines", function() mouseOver = ChatFrame1 end, function() mouseOver = false end)
+            brings("typing", function() ChatFrame1.editBox:SetFocus() end, function() ChatFrame1.editBox:ClearFocus() end)
+            brings("scrolled up", function() ChatFrame3.scrolledUp = true end, function() ChatFrame3.scrolledUp = nil end)
+            brings("drawer open", function() chat.cog.scripts.OnClick(chat.cog) end,
+                function() chat.cog.scripts.OnClick(chat.cog) end)
+            inCombat = true
+            fire("PLAYER_REGEN_DISABLED")
+            step(0.3)
+            bare("combat, unticked")
+            inCombat = false
+            fire("PLAYER_REGEN_ENABLED")
+            ns.SetOption("chatBareCombat", true)
+            brings("combat, ticked", function() inCombat = true; fire("PLAYER_REGEN_DISABLED") end,
+                function() inCombat = false; fire("PLAYER_REGEN_ENABLED") end)
+            ns.SetOption("chatBareCombat", false)
+            ns.SetOption("chatBareDelay", 1)
+            brings("delay 1s", function() mouseOver = chat.box end, function() mouseOver = false end)
+            ns.SetOption("chatBareDelay", 4)
+            ns.SetOption("chatImmersion", false)
+            bare("turned off")
+            step(6)
+            bare("off again, idle 6s")
+            -- the drawer as the passes after expect it
+            if drawerWas then chat.cog.scripts.OnClick(chat.cog) end
+        end
         local temp = FCF_OpenTemporaryWindow()
         print("whisper", art(temp), tab(temp))
         -- the arrow keys move the cursor in every box, Alt or not
@@ -11488,6 +11711,27 @@ function FadePass()
         health = 82
         UnitHealth, UnitHealthMax = secret, secret
         print("fade tick hurt, secret", "shows=" .. tostring(ns.ConsoleWanted()))
+        -- guessed instead: hurt while the player's health keeps changing
+        -- (regeneration), full once it has been quiet 3 seconds
+        set("consoleFade", true)
+        fire("UNIT_HEALTH", "target")
+        print("fade guess, a target's health changed", "shows=" .. tostring(ns.ConsoleWanted()))
+        fire("UNIT_HEALTH", "player")
+        print("fade guess, own health changed", "shows=" .. tostring(ns.ConsoleWanted()))
+        now = now + 2.9
+        print("fade guess, 2.9s on", "shows=" .. tostring(ns.ConsoleWanted()))
+        set("consoleShowHurt", false)
+        print("fade guess, 2.9s on, unticked", "shows=" .. tostring(ns.ConsoleWanted()))
+        set("consoleShowHurt", true)
+        now = now + 0.2
+        print("fade guess, 3.1s on (quiet: full)", "shows=" .. tostring(ns.ConsoleWanted()))
+        -- and the console's alpha stays plain: a secret one would mark every
+        -- frame under it (2026-11-15: Bar 7, the bars and the console's art
+        -- all broke comparing their own alpha)
+        set("consoleFade", true)
+        run(0.3)
+        print("fade secret health, idle", "console alpha plain=" .. tostring(not isSecret(con:GetAlpha())),
+            "bar 7 plain=" .. tostring(not (ns.bar7Frame and isSecret(ns.bar7Frame:GetAlpha()))))
         health = 100
     end
     UnitHealth, UnitHealthMax = function() return health end, function() return 100 end

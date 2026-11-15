@@ -27,6 +27,8 @@ ns.OPTION_SHEETS = {
     { "visibility", "Visibility" },
     { "auras", "Auras" },
     { "behaviour", "Behaviour" },
+    { "immersion", "Immersion Mode" },
+    { "advanced", "Advanced" },
 }
 
 local RELOAD = " Takes effect after a reload."
@@ -625,7 +627,21 @@ local function Shared(list)
         tabs = {
             {
                 id = "visibility", name = "Visibility & fading", intro = SHARED_NOTE,
-                groups = {
+                -- Immersion Mode: each profile's switch and its main choices;
+                -- Advanced: every option, those the same ones (a key is one
+                -- setting wherever it is shown)
+                groups = Concat({
+                    On("immersion", ns.consoleBuilt == "reticule"
+                        and Mirror("Console: Minimal OoC Mode", { "consoleMinimal", "consoleMinimalUnits",
+                            "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt",
+                            "consoleMinimalGroup", "consoleMinimalMouse" },
+                            "Out of combat, the console fades away but for your player and target frames.")
+                        or Tip("The Reticule's: choose it on Profiles to use it.",
+                            Group("Console: Minimal OoC Mode"))),
+                    On("immersion", Mirror("Chat & side panel", { "chatImmersion", "chatBareCombat",
+                        "sideImmersion", "sideFadedAlpha", "sideShowCombat", "sideShowTarget", "sideShowMouse" },
+                        "The chat bare when idle, its box back on use; the side panel faded when idle.")),
+                }, AllOn("advanced", {
                     Group("Every frame",
                         Check("moverHover", "Movers only on mouseover",
                             "Hide each box's tab, the grip that moves it, and the corner minimap's, until the "
@@ -641,7 +657,10 @@ local function Shared(list)
                     Mirror("Quest tracker, full view", { "questsFullMouseover", "questsFullCombat" }),
                     Mirror("Quest tracker, minimal view", { "questsMinimalMouseover", "questsMinimalCombat" }),
                     Mirror("Edge Draw", { "trayDelay" }),
-                },
+                    Mirror("Chat", { "chatImmersion", "chatBareCombat", "chatBareDelay", "chatBands" }),
+                    Mirror("Side panel", { "sideImmersion", "sideFadedAlpha", "sideShowCombat", "sideShowTarget",
+                        "sideShowHurt", "sideShowGroup", "sideShowMouse", "sideFadeIn", "sideFadeOut" }),
+                })),
             },
             {
                 id = "auras", name = "Auras", intro = SHARED_NOTE,
@@ -1127,6 +1146,15 @@ function ns.OptionPages()
                     Check("chatLevels", "Levels",
                         "A speaker's level before their name, \"[60:Name]\", when it is known: from the game for "
                         .. "the line, else from your group, target, nameplates, guild, friends or a /who.")),
+                Switched(Check("chatImmersion", "Bare when idle",
+                        "Left alone, the chat drops its box, tabs and buttons, each message on a faint band of "
+                        .. "its own over the world. The box comes back while you type, point at it or scroll up."),
+                    "Immersion",
+                    Check("chatBareCombat", "Box in combat", "Keep the whole box while you are in combat."),
+                    { kind = "slider", key = "chatBareDelay", label = "Bare again after",
+                        min = 0, max = 10, step = 0.5, tip = "How long the box stays once you are done with it.",
+                        text = function(v) return v < 0.25 and "At once" or string.format("%.1fs", v) end },
+                    Opacity("chatBands", "Band opacity", "How dark the band behind each message is.")),
             },
         },
         {
@@ -1188,6 +1216,17 @@ function ns.OptionPages()
                             Check("lootMoney", "Money and currencies",
                                 "Your share of looted money on each heading, and the currencies you loot as lines.")),
                     }),
+                Switched(Check("sideImmersion", "Faded when idle",
+                        "Left alone, the panel fades to its faded opacity, whole again on what is ticked here."),
+                    "Immersion",
+                    Opacity("sideFadedAlpha", "Faded opacity", "How much of the panel shows while it is faded."),
+                    Check("sideShowCombat", "In combat", "Whole while you are in combat."),
+                    Check("sideShowTarget", "With a target", "Whole while you have a target."),
+                    Check("sideShowHurt", "Health not full", "Whole while your health is below its most."),
+                    Check("sideShowGroup", "In a group", "Whole while you are in a party or a raid."),
+                    Check("sideShowMouse", "On mouseover", "Whole while the pointer is over the panel."),
+                    Seconds("sideFadeIn", "Fade in", "How long it takes to come back."),
+                    Seconds("sideFadeOut", "Fade out", "How long it takes to fade.")),
             },
         },
         {

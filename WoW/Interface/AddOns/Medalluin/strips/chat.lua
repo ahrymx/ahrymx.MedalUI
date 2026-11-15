@@ -758,8 +758,173 @@ local function Build()
     if FCF_UnDockFrame then hooksecurefunc("FCF_UnDockFrame", Undress) end
 end
 
+-- --------------------------------------------------------------- immersion
+-- Bare when idle (Shared > Visibility & fading, Immersion Mode): left
+-- alone, the chat's chrome (the box, its tabs, the cog, the scroll bar)
+-- fades out and each message stands on a band of its own over the world;
+-- the chrome comes back while it is typed in, pointed at, scrolled up, its
+-- drawer open, or (ticked) in combat, and goes again chatBareDelay seconds
+-- after. A band is anchored to its line's points, never measured (a line's
+-- text may be secret), and follows its line's alpha, so Blizzard's own
+-- chat fade takes the band with the line. Docked windows only: one torn
+-- out is Blizzard's.
+local inCombat, idle = false, 0
+local chrome                -- the chrome's fader; its alpha is the box's
+local bands = {}            -- a line's band, by the line (a FontString)
+ns.chatBands = bands
+
+local function Num(key, lo, hi)
+    local v = tonumber(ns.db[key])
+    if v == nil then v = tonumber(ns.OptionBase(key)) or lo end
+    return math.max(lo, math.min(hi, v))
+end
+
+-- dressed is docked: a window torn out is undressed (FCF_UnDockFrame)
+local function Docked()
+    local out = {}
+    for _, frame in ipairs(Frames()) do
+        if frame and dressed[frame] then table.insert(out, frame) end
+    end
+    return out
+end
+
+local function Immersed() return ns.db.chatImmersion and chatBox ~= nil end
+
+-- a band's colour: ink, darker at the line's start, lighter at its end
+local function Tint(band)
+    local ink, a = ns.colors.ink, Num("chatBands", 0, 1)
+    if band.SetGradient and CreateColor then
+        band:SetColorTexture(1, 1, 1, 1)
+        band:SetGradient("HORIZONTAL", CreateColor(ink[1], ink[2], ink[3], a),
+            CreateColor(ink[1], ink[2], ink[3], a * 0.6))
+    else
+        band:SetColorTexture(ink[1], ink[2], ink[3], a * 0.8)
+    end
+end
+
+-- each visible line's band, shown with it, as much of it as its line is
+-- and as the chrome is not
+local function Bands(frame)
+    -- the chrome is whole while the mode is off, so no band shows then
+    local away = 1 - (chrome and chrome.alpha or 1)
+    for _, line in ipairs(frame.visibleLines or {}) do
+        local band = bands[line]
+        if not band and away > 0 then
+            band = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+            band:SetPoint("TOPLEFT", line, "TOPLEFT", -6, 1)
+            band:SetPoint("BOTTOMLEFT", line, "BOTTOMLEFT", -6, -1)
+            band:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
+            Tint(band)
+            bands[line] = band
+        end
+        if band then
+            local on = away > 0 and frame:IsShown() and line:IsShown()
+            band:SetShown(on and true or false)
+            if on then band:SetAlpha(away * (line:GetAlpha() or 1)) end
+        end
+    end
+end
+
+local function AllBands()
+    for _, frame in ipairs(Docked()) do Bands(frame) end
+end
+
+-- the chrome at an alpha: the box and all on it, the docked windows' scroll
+-- bars and tabs; the bands the other way
+local function Chrome(a)
+    if chatBox then chatBox:SetAlpha(a) end
+    for _, frame in ipairs(Docked()) do
+        for _, part in ipairs({ frame.ScrollBar, frame.ScrollToBottomButton, frame.buttonFrame }) do
+            if part and part.SetAlpha then part:SetAlpha(a) end
+        end
+        local tab = _G[frame:GetName() .. "Tab"]
+        if tab then tab:SetAlpha(a) end
+    end
+    AllBands()
+end
+
+-- the chrome wanted now: off, or the chat in use
+function ns.ChatWanted()
+    if not Immersed() then return true end
+    if open or (ns.db.chatBareCombat and inCombat) then return true end
+    if chatBox:IsMouseOver() then return true end
+    for _, frame in ipairs(Docked()) do
+        local box = frame.editBox
+        if box and box:HasFocus() then return true end
+        if frame:IsShown() then
+            if frame:IsMouseOver() then return true end
+            if frame.AtBottom and not frame:AtBottom() then return true end
+        end
+    end
+    return false
+end
+
+-- now: a setting changed, so go there at once rather than fade
+local function Immerse(now, dt)
+    if not chrome then return end
+    local want = ns.ChatWanted()
+    idle = want and 0 or idle + (dt or 0)
+    local goal = (want or idle < Num("chatBareDelay", 0, 10)) and 1 or 0
+    if now then
+        chrome:Go(goal, 0)
+    elseif goal ~= chrome.goal then
+        chrome:Go(goal, goal == 1 and 0.2 or 0.6)
+    end
+end
+ns.UpdateChatBare = Immerse
+
+local function Immersion()
+    chrome = ns.Fader({
+        GetAlpha = function() return 1 end,
+        SetAlpha = function(_, a) Chrome(a) end,
+    })
+    ns.chatChrome = chrome
+    for _, frame in ipairs(Frames()) do
+        if frame and frame.RefreshDisplay then hooksecurefunc(frame, "RefreshDisplay", Bands) end
+    end
+    -- Blizzard's own fade of a tab, while bare, kept to the chrome's
+    if FCFTab_UpdateAlpha then
+        hooksecurefunc("FCFTab_UpdateAlpha", function(frame)
+            local tab = frame and frame.GetName and _G[frame:GetName() .. "Tab"]
+            if tab and Immersed() and dressed[frame] then tab:SetAlpha(chrome.alpha) end
+        end)
+    end
+    -- the pointer, the scroll and the lines' own fade have no event: the
+    -- chat looks ten times a second
+    local watch = CreateFrame("Frame", nil, UIParent)
+    local since = 0
+    watch:SetScript("OnUpdate", function(_, dt)
+        since = since + dt
+        if since < 0.1 then return end
+        Immerse(false, since)
+        since = 0
+        -- Blizzard's own chat fade (UIFrameFade on the tabs and buttons)
+        -- writes past the hook: held to the chrome's while bare
+        if Immersed() then Chrome(chrome.alpha) end
+    end)
+    ns.chatBareWatch = watch
+    inCombat = UnitAffectingCombat("player") and true or false
+    Immerse(true)
+end
+
+ns.On("PLAYER_REGEN_DISABLED", function() inCombat = true; Immerse() end)
+ns.On("PLAYER_REGEN_ENABLED", function() inCombat = false; Immerse() end)
+ns.OnSetting("chatImmersion", function()
+    idle = 0
+    Immerse(true)
+    AllBands()
+end)
+ns.OnSetting("chatBareCombat", function() Immerse() end)
+ns.OnSetting("chatBands", function()
+    for _, band in pairs(bands) do Tint(band) end
+    AllBands()
+end)
+
 ns.On("PLAYER_LOGIN", function()
-    if ns.db.chat and ChatFrame1 then Build() end
+    if ns.db.chat and ChatFrame1 then
+        Build()
+        Immersion()
+    end
 end)
 
 -- ------------------------------------------------------------ the levels seen

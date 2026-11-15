@@ -72,14 +72,28 @@ local fader = ns.Fader(console)
 ns.consoleFader = fader
 local inCombat = false
 
--- Hurt: health below its most. A secret value cannot be compared, so it
--- says nothing either way; in combat, where values go secret, In combat
--- answers instead.
+-- Hurt: health below its most. Where health is secret (retail always,
+-- Forever in combat) it cannot be compared, so it is guessed: health that
+-- is not full keeps changing (regeneration, or the fight), and full health
+-- goes quiet. So hurt while the player's health changed in the last
+-- REGEN_QUIET seconds. Wrong while regeneration is stopped, and briefly
+-- after a change at full (a max health buff). Never a secret alpha instead:
+-- it would mark every frame under the console secret too (2026-11-15:
+-- Bar 7, the bars and the console art all broke reading their own alpha).
+local REGEN_QUIET = 3
+local healthChanged = -math.huge
+local healthWatch = CreateFrame("Frame")
+healthWatch:RegisterUnitEvent("UNIT_HEALTH", "player")
+healthWatch:SetScript("OnEvent", function(_, _, unit)
+    if unit == "player" then healthChanged = GetTime() end
+end)
 local function Hurt()
     local h, most = UnitHealth("player"), UnitHealthMax("player")
-    if ns.IsSecret(h) or ns.IsSecret(most) or not h or not most or most <= 0 then return false end
+    if ns.IsSecret(h) or ns.IsSecret(most) then return GetTime() - healthChanged < REGEN_QUIET end
+    if not h or not most or most <= 0 then return false end
     return h < most
 end
+ns.PlayerHurt = Hurt
 
 -- The pointer over the console or anything that hangs off it.
 local function Over()

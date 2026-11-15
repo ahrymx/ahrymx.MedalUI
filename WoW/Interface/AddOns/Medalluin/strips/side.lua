@@ -345,6 +345,71 @@ local function Build()
     Arrange()
 end
 
+-- --------------------------------------------------------------- immersion
+-- Faded when idle (Shared > Visibility & fading, Immersion Mode): the panel
+-- at its faded opacity while none of what is ticked is so, whole again
+-- when one is. Only its alpha: it still works faded, as the console does
+-- (console/fade.lua). The minimap in the Zone view draws its pins past it.
+local inCombat = false
+local fader, wanted
+
+local function Num(key, lo, hi)
+    local v = tonumber(ns.db[key])
+    if v == nil then v = tonumber(ns.OptionBase(key)) or lo end
+    return math.max(lo, math.min(hi, v))
+end
+
+function ns.SideWanted()
+    local db = ns.db
+    if not db.sideImmersion then return true end
+    return (db.sideShowCombat and inCombat)
+        or (db.sideShowTarget and UnitExists("target"))
+        or (db.sideShowHurt and ns.PlayerHurt and ns.PlayerHurt())
+        or (db.sideShowGroup and IsInGroup())
+        or (db.sideShowMouse and panel:IsVisible() and panel:IsMouseOver())
+        or false
+end
+
+-- now: a setting changed, so go there at once rather than fade
+local function Immerse(now)
+    if not fader then return end
+    local want = ns.SideWanted()
+    local goal = want and 1 or Num("sideFadedAlpha", 0, 1)
+    if not now and want == wanted and goal == fader.goal then return end
+    wanted = want
+    fader:Go(goal, (not now) and Num(want and "sideFadeIn" or "sideFadeOut", 0, 10) or 0)
+end
+ns.UpdateSideFade = Immerse
+
+local function Immersion()
+    fader = ns.Fader(panel)
+    ns.sideFader = fader
+    -- the pointer has no event: the panel looks ten times a second
+    local watch = CreateFrame("Frame", nil, UIParent)
+    local since = 0
+    watch:SetScript("OnUpdate", function(_, dt)
+        since = since + dt
+        if since < 0.1 then return end
+        since = 0
+        Immerse()
+    end)
+    ns.sideFadeWatch = watch
+    inCombat = UnitAffectingCombat("player") and true or false
+    Immerse(true)
+end
+
+ns.On("PLAYER_REGEN_DISABLED", function() inCombat = true; Immerse() end)
+ns.On("PLAYER_REGEN_ENABLED", function() inCombat = false; Immerse() end)
+ns.On("PLAYER_TARGET_CHANGED", function() Immerse() end)
+ns.On("GROUP_ROSTER_UPDATE", function() Immerse() end)
+for _, key in ipairs({ "sideImmersion", "sideFadedAlpha", "sideShowCombat", "sideShowTarget", "sideShowHurt",
+    "sideShowGroup", "sideShowMouse" }) do
+    ns.OnSetting(key, function() Immerse(true) end)
+end
+
 ns.On("PLAYER_LOGIN", function()
-    if ns.db.side then Build() end
+    if ns.db.side then
+        Build()
+        Immersion()
+    end
 end)

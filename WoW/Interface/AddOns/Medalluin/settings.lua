@@ -75,6 +75,12 @@ local DEFAULTS = {
     sideLoot = true,        -- its Loot tab
     sideZone = true,        -- its Zone tab: the minimap and this zone's quests
     sideTab = "meter",      -- the tab last shown (not on the page: the tabs set it)
+    -- Immersion (Shared > Visibility & fading): the chat bare when idle, its
+    -- box back on use (strips/chat.lua); the side panel faded when idle,
+    -- whole again on what is ticked (strips/side.lua)
+    chatImmersion = false, chatBareCombat = false, chatBareDelay = 4, chatBands = 0.45,
+    sideImmersion = false, sideFadedAlpha = 0.5, sideShowCombat = true, sideShowTarget = true,
+    sideShowHurt = false, sideShowGroup = false, sideShowMouse = true, sideFadeIn = 0.2, sideFadeOut = 0.6,
     meterColumns = 1,       -- 2 shows a second list beside the first
     meterLeft = "damage",   -- what the first list shows: see METER_METRICS
     meterRight = "healing", -- what the second list shows

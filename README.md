@@ -33,7 +33,7 @@ The medallion console: the party on wings around a large player and target, with
 
 ## The corner strips
 
-The bottom corners carry a strip each. The left one holds your portrait medallion and the micro menu under the chat box. The queue eye takes the portrait's place while you are queued, and a vehicle exit takes the backpack's on the right.
+The bottom corners carry a strip each. The left one holds your portrait medallion and the micro menu under the chat box. The queue eye takes the portrait's place while you are queued, and a vehicle exit takes the backpack's on the right. Immersion Mode (Shared > Visibility & fading) leaves the idle chat bare, each message on a band of its own, with its box back while you type or point at it; it fades the side panel when idle too.
 
 ![The chat box with its tabs, above the left strip's portrait and micro menu](showcase/chat.png)
 
