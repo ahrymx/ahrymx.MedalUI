@@ -8394,6 +8394,16 @@ if stripsPass then
                 gone:Show()
                 step(0.1)
                 print("chat bare relaid back", "frame1 bands shown=" .. all())
+                -- a wrapped message pushes the top lines past the window's
+                -- top, where Blizzard's container clips them: their bands too
+                local band = ns.chatBands[ChatFrame1.visibleLines[1]]
+                local clip = band.parent
+                local tl, br = clip.points.TOPLEFT, clip.points.BOTTOMRIGHT
+                print("chat bare clipped", "on the window=" .. tostring(clip == ChatFrame1),
+                    "clips=" .. tostring(clip.clipsChildren), "parent=" .. tostring(clip.parent == ChatFrame1),
+                    "top=" .. tostring(tl and tl[1] == ChatFrame1 and tl[2] .. "@" .. tl[3] .. "," .. tl[4]),
+                    "bottom=" .. tostring(br and br[1] == ChatFrame1 and br[2] .. "@" .. br[3] .. "," .. br[4]),
+                    "level=" .. tostring(clip.level) .. " window=" .. tostring(ChatFrame1.level))
             end)()
             ns.SetOption("chatBands", 0.8)
             step(0.1)

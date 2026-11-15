@@ -775,7 +775,11 @@ end
 -- text may be secret), and follows its line's alpha, so Blizzard's own
 -- chat fade takes the band with the line. A line Blizzard lays out again
 -- drops out of visibleLines (fewer lines: a shorter window, a bigger font)
--- and its band goes with it. Docked windows only: one torn out is Blizzard's.
+-- and its band goes with it. Blizzard lays out lines enough for one-line
+-- messages, so wrapped ones push the top lines past the window's top,
+-- where its FontStringContainer clips them: the bands are clipped there
+-- too, in a frame of their own (6 px wider on the left, for their margin).
+-- Docked windows only: one torn out is Blizzard's.
 local inCombat, idle = false, 0
 local chrome                -- the chrome's fader; its alpha is the box's
 local bands = {}            -- a line's band, by the line (a FontString)
@@ -812,6 +816,20 @@ end
 
 -- each visible line's band, shown with it, as much of it as its line is
 -- and as the chrome is not
+local clips = {}            -- a window's bands' clip, by the window
+local function Clip(frame)
+    local clip = clips[frame]
+    if not clip then
+        clip = CreateFrame("Frame", nil, frame)
+        clip:SetPoint("TOPLEFT", frame, "TOPLEFT", -6, 0)
+        clip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, -2)
+        clip:SetClipsChildren(true)
+        clip:SetFrameLevel(frame:GetFrameLevel())   -- under the lines' container
+        clips[frame] = clip
+    end
+    return clip
+end
+
 local function Bands(frame)
     -- the chrome is whole while the mode is off, so no band shows then
     local away = 1 - (chrome and chrome.alpha or 1)
@@ -824,7 +842,7 @@ local function Bands(frame)
     for _, line in ipairs(frame.visibleLines or {}) do
         local band = bands[line]
         if not band and away > 0 then
-            band = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
+            band = Clip(frame):CreateTexture(nil, "BACKGROUND", nil, -8)
             band:SetPoint("TOPLEFT", line, "TOPLEFT", -6, 1)
             band:SetPoint("BOTTOMLEFT", line, "BOTTOMLEFT", -6, -1)
             band:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
