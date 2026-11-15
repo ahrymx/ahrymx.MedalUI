@@ -75,6 +75,7 @@ local DEFAULTS = {
     sideLoot = true,        -- its Loot tab
     sideZone = true,        -- its Zone tab: the minimap and this zone's quests
     sideTab = "meter",      -- the tab last shown (not on the page: the tabs set it)
+    sideClosed = false,     -- closed to its tab row (not on the page: a click on the lit tab)
     -- Immersion (Shared > Visibility & fading): the chat bare when idle, its
     -- box back on use (strips/chat.lua); the side panel faded when idle,
     -- whole again on what is ticked (strips/side.lua)

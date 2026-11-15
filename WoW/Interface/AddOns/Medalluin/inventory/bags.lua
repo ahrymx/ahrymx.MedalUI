@@ -121,7 +121,9 @@ local function Anchor()
         -- x, y }, reads as SetPoint(point, UIParent, x, y), which is the same place
         window:SetPoint(at[1], UIParent, at[2], at[3], at[4])
     elseif ns.side and ns.side.panel and ns.side.panel:IsShown() then
-        window:SetPoint("BOTTOMRIGHT", ns.side.panel, "TOPRIGHT", 0, 36)
+        -- closed to its tabs, over the row (the medallion's corner spans it to the edge)
+        local over = ns.side.Closed() and ns.side.well or ns.side.panel
+        window:SetPoint("BOTTOMRIGHT", over, "TOPRIGHT", 0, 36)
     else
         window:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -24, 260)
     end

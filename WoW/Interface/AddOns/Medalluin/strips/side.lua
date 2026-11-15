@@ -184,7 +184,12 @@ local function Ladder(view, spec, y, bottom, from)
 end
 
 -- ----------------------------------------------------------------- tabs
+-- Closed (a click on the lit tab), the panel is its tab row alone: the body,
+-- its box and the column gone, no tab lit; a tab clicked opens it again.
+local closed = false
+
 local function Selected(view, on)
+    on = on and not closed
     view.tab.mark:SetShown(on)
     view.tab.glyph:SetAlpha(on and 1 or 0.6)
 end
@@ -198,11 +203,22 @@ local function Select(view)
             v.body:SetShown(shown)
             v.column:SetShown(shown)
             Selected(v, shown)
-            if v.Shown then v.Shown(shown) end
+            if v.Shown then v.Shown(shown and not closed) end
         end
     end
-    if view then view.Refresh() end
+    if view and not closed then view.Refresh() end
     ns.side.Changed()
+end
+
+local function Close(on)
+    closed = on and true or false
+    ns.db.sideClosed = closed
+    area:SetShown(not closed)
+    ns.side.dress:SetShown(not closed)
+    ns.side.divider:SetShown(not closed)
+    -- the views told after the body went or came (the Zone lends the
+    -- minimap by whether its body is visible)
+    Select(current)
 end
 
 -- The tabs that are on, from the outer end inward, sharing the row edge to
@@ -244,10 +260,23 @@ local function Tab(view)
     tab.glyph:SetSize(GLYPH, GLYPH)
     tab.glyph:SetPoint("CENTER")
     tab.glyph:SetTexture(PARTS .. "side-" .. view.key)
-    tab:SetScript("OnClick", function() Select(view) end)
-    tab:SetScript("OnEnter", function(self)
-        ns.Tip(self, ns.side.Beside, { title = view.label })
+    tab:SetScript("OnClick", function(self)
+        if closed then
+            current = view
+            Close(false)
+        elseif current == view then
+            Close(true)
+        else
+            Select(view)
+        end
+        if self:IsMouseOver() and self.OnEnter then self:OnEnter() end
     end)
+    tab.OnEnter = function(self)
+        ns.Tip(self, ns.side.Beside, { title = view.label,
+            { "hint", closed and "Click to open the panel." or current == view and "Click to close the panel."
+                or "Click to show it." } })
+    end
+    tab:SetScript("OnEnter", tab.OnEnter)
     tab:SetScript("OnLeave", function() GameTooltip:Hide() end)
     view.tab = tab
 end
@@ -270,8 +299,11 @@ function ns.side.PassWheel(frame)
 end
 
 function ns.side.IsCurrent(view)
-    return panel ~= nil and current == view and panel:IsShown()
+    return panel ~= nil and current == view and panel:IsShown() and not closed
 end
+
+-- closed to its tab row (the bags stand over the row instead)
+function ns.side.Closed() return closed end
 
 local function Build()
     local strip = ns.strips[1]
@@ -383,6 +415,7 @@ local function Build()
         end
     end
     Arrange()
+    if ns.db.sideClosed then Close(true) end
 end
 
 -- --------------------------------------------------------------- immersion

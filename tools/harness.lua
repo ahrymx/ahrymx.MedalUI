@@ -7654,6 +7654,63 @@ if sidePass then
         UnitHealth, UnitHealthMax, hasTarget = health, most, wasTarget
         assert(combat)
     end
+    -- a click on the lit tab closes the panel to its tab row (the corner
+    -- over the medallion with it); a click on any tab opens it on that tab
+    ;(function()
+        local side = ns.side
+        local function view(key)
+            for _, v in ipairs(side.views) do if v.available and v.key == key then return v end end
+        end
+        local function click(v) v.tab.scripts.OnClick(v.tab) end
+        local function state(tag)
+            local lit = {}
+            for _, v in ipairs(side.views) do
+                if v.available and v.tab.mark:IsShown() then table.insert(lit, v.key) end
+            end
+            local cur = view(ns.db.sideTab)
+            print("side close " .. tag, "closed=" .. tostring(side.Closed()), "saved=" .. tostring(ns.db.sideClosed),
+                "body=" .. tostring(side.area:IsVisible()), "box=" .. tostring(side.dress:IsVisible()),
+                "divider=" .. tostring(side.divider:IsShown()), "tabs=" .. tostring(side.row:IsVisible()),
+                "corner=" .. tostring(side.well:IsVisible()), "lit=" .. table.concat(lit, ","),
+                "tab=" .. tostring(ns.db.sideTab), "current=" .. tostring(cur and side.IsCurrent(cur)),
+                "view body=" .. tostring(cur and cur.body:IsVisible()))
+        end
+        local others = {}
+        for _, v in ipairs(side.views) do
+            if v.available and v.key ~= ns.db.sideTab then table.insert(others, v) end
+        end
+        state("open")
+        click(view(ns.db.sideTab))
+        state("lit tab clicked")
+        click(view(ns.db.sideTab))
+        state("clicked again")
+        click(others[1])
+        state("another tab")
+        click(view(ns.db.sideTab))
+        state("closed")
+        click(others[2] or others[1])
+        state("opened on another")
+        if view("zone") then
+            -- the minimap lent to the Zone's body while it shows, home when closed
+            local function lent(tag)
+                local f, inSide = Minimap, false
+                while f do
+                    if f == side.panel then inSide = true end
+                    f = f:GetParent()
+                end
+                print("side close " .. tag .. " minimap", "in the panel=" .. tostring(inSide),
+                    "parent=" .. tostring(Minimap:GetParent() and Minimap:GetParent():GetName()))
+            end
+            click(view("zone"))
+            lent("zone lit")
+            click(view("zone"))
+            state("zone closed")
+            lent("zone closed")
+            click(view("zone"))
+            state("zone open")
+            lent("zone open")
+        end
+    end)()
     return
 end
 
@@ -13069,6 +13126,29 @@ if bagsPass then
     -- 1. at login: Blizzard's frames out of sight, the window closed
     blizz("bags.login")
     print("bags.strata", w.strata, "parent=" .. tostring(w.parent == UIParent), "search=" .. tostring(_G.MedalluinBagsSearch ~= nil))
+    -- not dragged: over the side panel, or over its tab row while it is
+    -- closed to it (a click on the lit tab)
+    ;(function()
+        local side = ns.side
+        if not (side and side.panel) then return print("bags.over the side", "no panel") end
+        local saved = ns.db.bagsPoint
+        ns.db.bagsPoint = nil
+        local function over(tag)
+            w.scripts.OnShow(w)
+            local point, to, rel, x, y = w:GetPoint(1)
+            print("bags.over the side " .. tag, point, to == side.panel and "panel" or to == side.well and "corner"
+                or tostring(to and to:GetName()), rel, x, y)
+        end
+        local lit
+        for _, v in ipairs(side.views) do if v.available and v.key == ns.db.sideTab then lit = v end end
+        over("open")
+        lit.tab.scripts.OnClick(lit.tab)
+        over("closed")
+        lit.tab.scripts.OnClick(lit.tab)
+        over("opened again")
+        ns.db.bagsPoint = saved
+        w.scripts.OnShow(w)
+    end)()
 
     -- the slots are made at login, before any open (one made in combat
     -- would use items tainted until /reload)
