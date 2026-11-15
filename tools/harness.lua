@@ -8372,6 +8372,29 @@ if stripsPass then
             bare("lines fading")
             ChatFrame1.visibleLines[2]:SetAlpha(1)
             ChatFrame1.visibleLines[4]:Show()
+            -- laid out again with fewer lines (RefreshLayout: the pool
+            -- released, hidden, the top line left out): no band over nothing
+            ;(function()
+                local gone = ChatFrame1.visibleLines[4]
+                local function all()
+                    local n = 0
+                    for _, band in pairs(ns.chatBands) do
+                        if band.frame == ChatFrame1 and band.shown then n = n + 1 end
+                    end
+                    return n
+                end
+                step(0.1)
+                print("chat bare relaid before", "frame1 bands shown=" .. all())
+                gone:Hide()
+                ChatFrame1.visibleLines[4] = nil
+                step(0.1)
+                print("chat bare relaid fewer", "frame1 bands shown=" .. all(),
+                    "gone's band=" .. tostring(ns.chatBands[gone] and ns.chatBands[gone].shown))
+                ChatFrame1.visibleLines[4] = gone
+                gone:Show()
+                step(0.1)
+                print("chat bare relaid back", "frame1 bands shown=" .. all())
+            end)()
             ns.SetOption("chatBands", 0.8)
             step(0.1)
             bare("bands 80%")

@@ -773,8 +773,9 @@ end
 -- tracker's full view), or (ticked) in combat, and goes again chatBareDelay seconds
 -- after. A band is anchored to its line's points, never measured (a line's
 -- text may be secret), and follows its line's alpha, so Blizzard's own
--- chat fade takes the band with the line. Docked windows only: one torn
--- out is Blizzard's.
+-- chat fade takes the band with the line. A line Blizzard lays out again
+-- drops out of visibleLines (fewer lines: a shorter window, a bigger font)
+-- and its band goes with it. Docked windows only: one torn out is Blizzard's.
 local inCombat, idle = false, 0
 local chrome                -- the chrome's fader; its alpha is the box's
 local bands = {}            -- a line's band, by the line (a FontString)
@@ -814,6 +815,12 @@ end
 local function Bands(frame)
     -- the chrome is whole while the mode is off, so no band shows then
     local away = 1 - (chrome and chrome.alpha or 1)
+    local current = {}
+    for _, line in ipairs(frame.visibleLines or {}) do current[line] = true end
+    -- a line laid out away (released to the pool) never comes round again
+    for line, band in pairs(bands) do
+        if band.frame == frame and not current[line] then band:Hide() end
+    end
     for _, line in ipairs(frame.visibleLines or {}) do
         local band = bands[line]
         if not band and away > 0 then
@@ -822,6 +829,7 @@ local function Bands(frame)
             band:SetPoint("BOTTOMLEFT", line, "BOTTOMLEFT", -6, -1)
             band:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
             Tint(band)
+            band.frame = frame
             bands[line] = band
         end
         if band then
