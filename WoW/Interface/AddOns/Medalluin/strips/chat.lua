@@ -311,14 +311,20 @@ local function BoxArt(box)
         { box.focusLeft, box.focusMid, box.focusRight }
 end
 
--- The backing shows only while the box is typed in: at rest (the Classic
--- chat style keeps the box) it was an empty bar over the messages' foot.
--- At rest it takes the pointer only right of the timeless buffs, which
--- share the margin (strips/buffs.lua): the box is over the strips, so it
--- took their tooltips and right clicks. Typed in, it covers them.
+-- The backing shows only while the box is typed in or holds text: at rest
+-- and empty (the Classic chat style keeps the box) it was an empty bar over
+-- the messages' foot. Empty, it takes the pointer only right of the
+-- timeless buffs, which share the margin (strips/buffs.lua): the box is over
+-- the strips, so it took their tooltips and right clicks. Typed in, or left
+-- with text by a click elsewhere, it covers them (its text lay over the
+-- buffs); left with text, its border dims till a click or Enter takes it up.
+local BORDER, BORDER_IDLE = 0.9, 0.35
 local function Lit(box)
-    local on = box.medalluinDressed and box:HasFocus() and true or false
+    local typing = box:HasFocus() and true or false
+    local text = box:GetText()
+    local on = box.medalluinDressed and (typing or (text ~= nil and text ~= "")) and true or false
     for _, t in ipairs(box.medalluin or {}) do t:SetShown(on) end
+    if box.medalluin and box.medalluin[1] then box.medalluin[1]:SetAlpha(typing and BORDER or BORDER_IDLE) end
     local inset = 0
     local w = box.medalluinDressed and not on and ns.BuffRowWidth and ns.BuffRowWidth() or 0
     if w > 0 and edit then inset = w * edit:GetEffectiveScale() / box:GetEffectiveScale() end
@@ -343,6 +349,7 @@ local function EditBox(frame)
         end
         box:HookScript("OnEditFocusGained", Lit)
         box:HookScript("OnEditFocusLost", Lit)
+        box:HookScript("OnTextChanged", Lit)
     end
     box.medalluinDressed = true
     Lit(box)

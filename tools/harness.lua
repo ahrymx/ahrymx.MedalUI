@@ -8348,6 +8348,16 @@ if stripsPass then
         local typing = lit(b1)
         b1:ClearFocus()
         print("editBox backing", "rest=" .. rest, "typing=" .. typing, "after=" .. lit(b1))
+        -- typed in, then a click elsewhere: the text stays, and so does the
+        -- box over the buffs (its text lay over them), its border dimmed
+        b1:SetFocus()
+        b1:SetText("teeext")
+        b1.scripts.OnTextChanged(b1, true)
+        b1:ClearFocus()
+        local held, border = lit(b1), tostring(b1.medalluin[1].alpha)
+        b1:SetText("")
+        b1.scripts.OnTextChanged(b1, false)
+        print("editBox left with text", "backing=" .. held, "border=" .. border, "cleared=" .. lit(b1))
         -- Immersion Mode: bare when idle, the box on use; each line on a
         -- band that follows the line's own alpha, as much as the box is not
         do
@@ -8712,7 +8722,11 @@ if stripsPass then
         if box then
             box:SetFocus()
             buffState("buffs, chat typed in")
+            box:SetText("half a message")
             box:ClearFocus()
+            buffState("buffs, chat left with text")
+            box:SetText("")
+            if box.scripts.OnTextChanged then box.scripts.OnTextChanged(box, false) end
         end
         local function aura(info)
             for _, f in ipairs(events.UNIT_AURA) do f.scripts.OnEvent(f, "UNIT_AURA", "player", info) end
