@@ -88,7 +88,7 @@ A **plan** lays out a build by level. Each talent shows its levels, goal and pro
 
 ## Game menu
 
-Esc opens a game menu that also shows your character, Medalluin's shortcuts, and your friends and guild on two tabs of a Social window. A clock at the top of the screen shows the time, with your gold, session length and latency under it. Left alone, the panel folds into a thin rail at the edge while the camera turns slowly around your character. The cog opens the menu's options.
+Esc opens a game menu that also shows your character, Medalluin's shortcuts, and your friends and guild on two tabs of a Social window. A clock at the top of the screen shows the time, with your gold, session length and latency under it. Your volumes sit at the bottom of the screen: Master, with Music, Effects, Ambience and Dialogue in a tray above it and a shortcut to the game's Audio settings. Left alone, the panel folds into a thin rail at the edge while the camera turns slowly around your character. The cog opens the menu's options, among them how the world behind the menu is dimmed: a vignette or an even shade, its strength and its tint.
 
 ![The game menu: the character, menu buttons, friends, guild and this session](showcase/game-menu.png)
 

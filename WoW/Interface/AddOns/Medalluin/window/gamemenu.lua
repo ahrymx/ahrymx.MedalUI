@@ -98,6 +98,20 @@ local FADE_AFTER, FADE_FOR, FADE_TO = 5, 1, 0.15    -- the clock: still, fading,
 local RAIL_W = 24                           -- the rail on the panel's right edge, open or folded
 local FOLD_IDLE, FOLD_FOR, DWELL = 8, 0.35, 0.25    -- folds after, slides for; the rail opens under the mouse after
 local SPIN = 0.035                          -- the camera's turn while folded (MoveViewLeftStart)
+-- the filter over the world behind the menu (2026-11-15): on or off, its
+-- shape, its strength and its tint. A vignette (the default) leaves the
+-- world's middle clear, darker out to the edges, its strength half again at
+-- the corners; even, as before: docked, at the panel's edge fading out
+-- across, medallion two fifths of it over the whole screen
+local STRENGTHS = { 0.2, 0.35, 0.5, 0.65, 0.8 }
+local TINTS = {
+    { "black", "Black", { 0, 0, 0 } },
+    { "night", "Night", { 0.04, 0.08, 0.20 } },
+    { "dusk", "Dusk", { 0.12, 0.05, 0.18 } },
+    { "ember", "Ember", { 0.22, 0.06, 0.03 } },
+    { "moss", "Moss", { 0.04, 0.13, 0.06 } },
+    { "gold", "Gold", { 0.24, 0.18, 0.06 } },
+}
 local MEDAL, BACK_MEDAL = 48, 58           -- a medallion's size; Return to Game's
 local REACH = 0.30                          -- the ring's radius, of the screen's height
 local ARCH_FROM, ARCH_TO = 160, 20          -- the arch's ends, in degrees, for six
@@ -168,6 +182,17 @@ local deco = {}                 -- a button's dress, by button (no field of ours
 local heads = {}                -- the docked panel's headings, pooled
 local who = {}                  -- the docked panel's portrait and lines
 
+local function FilterOn() return ns.db.gameMenuFilter ~= false end
+local function Strength()
+    local v = tonumber(ns.db.gameMenuFilterStrength) or 0.5
+    return math.max(0, math.min(1, v))
+end
+local VIGNETTE = ns.media .. "gamemenu-vignette"
+local function Tint()
+    for _, t in ipairs(TINTS) do if t[1] == ns.db.gameMenuFilterTint then return t[3] end end
+    return TINTS[1][3]
+end
+
 local function Style()
     local style = ns.db.gameMenu or "docked"
     if style == "ribbon" then return "medallion" end
@@ -183,6 +208,20 @@ local function Fade(t, c, a)
     else
         t:SetColorTexture(c[1], c[2], c[3], a * 0.55)
     end
+end
+
+-- the filter on the shade, over the world it covers (wide: docked, fading
+-- out across)
+local function Paint(t, wide)
+    t:SetShown(FilterOn())
+    local c, a = Tint(), Strength()
+    if ns.db.gameMenuFilterShape ~= "even" then
+        t:SetTexture(VIGNETTE)
+        t:SetVertexColor(c[1], c[2], c[3], math.min(1, a * 1.5))
+        return
+    end
+    t:SetVertexColor(1, 1, 1, 1)
+    if wide then Fade(t, c, a) else t:SetColorTexture(c[1], c[2], c[3], a * 0.4) end
 end
 
 -- Blizzard's look put away (its slices, its words), ours drawn on the
@@ -540,8 +579,8 @@ menu.Hidden, menu.SetHidden = Hidden, SetHidden
 
 -- the sections' words, by key, in their order
 local TITLES = { menu = "Game menu", shortcuts = "Shortcuts", friends = "Friends", guild = "Guild",
-    clock = "Clock & session" }
-local ORDER = { "menu", "shortcuts", "friends", "guild", "clock" }
+    clock = "Clock & session", sound = "Sound" }
+local ORDER = { "menu", "shortcuts", "friends", "guild", "clock", "sound" }
 menu.TITLES, menu.ORDER = TITLES, ORDER
 
 -- A key's dress, as the strips' keys: its well lighter at the top, a dark
@@ -1553,6 +1592,224 @@ local function Folding()
     return fold
 end
 
+-- ------------------------------------------------------------- the sound
+-- The game's volumes at the screen's bottom centre (docked, 2026-11-15),
+-- the clock's counterpart: Master, and a chevron opening a tray above it
+-- with Music, Effects, Ambience and Dialogue, and the game's Audio
+-- settings (opened beside the menu, as the Options card opens). A row: its
+-- speaker (a click turns the channel off or on), its word, its bar (a
+-- click or a drag sets it, to a step of 0.05), its percent; the wheel over
+-- it a step. It fades as the clock does, but always (the clock's Fade is
+-- the clock's alone), and the tray shuts once it has faded. The volumes
+-- are the game's CVars, read again whenever one changes (its Audio page
+-- beside).
+local sound, Sound, SoundFade
+do
+local SOUND_W, SOUND_ROW, SOUND_BAR, SOUND_STEP = 320, 26, 150, 0.05
+local CHANNELS = {              -- key, word, volume, on or off
+    { "master", "Master", "Sound_MasterVolume", "Sound_EnableAllSound" },
+    { "music", "Music", "Sound_MusicVolume", "Sound_EnableMusic" },
+    { "effects", "Effects", "Sound_SFXVolume", "Sound_EnableSFX" },
+    { "ambience", "Ambience", "Sound_AmbienceVolume", "Sound_EnableAmbience" },
+    { "dialogue", "Dialogue", "Sound_DialogVolume", "Sound_EnableDialog" },
+}
+local function GetVar(k)
+    local get = C_CVar and C_CVar.GetCVar or GetCVar
+    return get and get(k)
+end
+local function SetVar(k, v)
+    local set = C_CVar and C_CVar.SetCVar or SetCVar
+    if set then set(k, v) end
+end
+
+local function Volume(ch) return math.max(0, math.min(1, tonumber(GetVar(ch[3])) or 0)) end
+local function Muted(ch) return GetVar(ch[4]) == "0" end
+
+-- a volume set: held to 0..1, to the nearest step
+local function SetVolume(ch, v)
+    v = math.max(0, math.min(1, v))
+    v = math.floor(v / SOUND_STEP + 0.5) * SOUND_STEP
+    SetVar(ch[3], format("%.2f", v))
+    if sound then sound.Draw() end
+end
+
+-- where the cursor stands along a bar: its volume
+local function PickVolume(bar)
+    local left, w = bar:GetLeft(), bar:GetWidth()
+    if not (left and w and w > 0) then return end
+    local x = GetCursorPosition() / bar:GetEffectiveScale()
+    SetVolume(bar.ch, (x - left) / w)
+end
+
+local function SoundRow(parent, ch)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetSize(SOUND_W, SOUND_ROW)
+    row:EnableMouseWheel(true)
+    row.ch = ch
+    local speaker = CreateFrame("Button", nil, row)
+    speaker:SetSize(18, 18)
+    speaker:SetPoint("LEFT", 8, 0)
+    speaker:RegisterForClicks("LeftButtonUp")
+    speaker.glyph = speaker:CreateTexture(nil, "ARTWORK")
+    speaker.glyph:SetAllPoints()
+    speaker:SetScript("OnClick", function()
+        SetVar(ch[4], Muted(ch) and "1" or "0")
+        sound.Draw()
+    end)
+    row.speaker = speaker
+    row.word = ns.Text(row, 12)
+    row.word:SetPoint("LEFT", 32, 0)
+    row.word:SetText(ch[2])
+    local bar = CreateFrame("Frame", nil, row)
+    bar:SetSize(SOUND_BAR, 14)
+    bar:SetPoint("LEFT", 104, 0)
+    bar:EnableMouse(true)
+    bar.ch = ch
+    row.track = bar:CreateTexture(nil, "BACKGROUND")
+    row.track:SetPoint("LEFT")
+    row.track:SetPoint("RIGHT")
+    row.track:SetHeight(4)
+    row.track:SetColorTexture(SEAM[1], SEAM[2], SEAM[3], 1)
+    row.fill = bar:CreateTexture(nil, "ARTWORK")
+    row.fill:SetPoint("LEFT")
+    row.fill:SetHeight(4)
+    row.knob = Diamond(bar)
+    row.knob:SetPoint("CENTER", row.fill, "RIGHT")
+    bar:SetScript("OnMouseDown", function(self)
+        self.held = true
+        PickVolume(self)
+    end)
+    bar:SetScript("OnMouseUp", function(self)
+        if self.held then PickVolume(self) end
+        self.held = false
+    end)
+    bar:SetScript("OnUpdate", function(self) if self.held then PickVolume(self) end end)
+    row.bar = bar
+    row.value = ns.PlainText(row, 11)
+    row.value:SetPoint("RIGHT", row, "LEFT", 296, 0)
+    row:SetScript("OnMouseWheel", function(_, delta) SetVolume(ch, Volume(ch) + delta * SOUND_STEP) end)
+    function row.Draw()
+        local v, off = Volume(ch), Muted(ch)
+        row.fill:SetWidth(math.max(1, math.floor(SOUND_BAR * v + 0.5)))
+        row.fill:SetShown(v > 0)
+        row.value:SetText(format("%d%%", math.floor(v * 100 + 0.5)))
+        speaker.glyph:SetTexture(ns.media .. "strips\\" .. (off and "sound-off" or "sound"))
+        local c = off and DIM or GOLD
+        speaker.glyph:SetVertexColor(c[1], c[2], c[3])
+        local f = off and GOLD_D or GOLD
+        row.fill:SetColorTexture(f[1], f[2], f[3], 1)
+        row.knob:SetVertexColor(f[1], f[2], f[3])
+        if off then row.word:SetTextColor(DIM[1], DIM[2], DIM[3])
+        else row.word:SetTextColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3]) end
+        row.value:SetTextColor(DIM[1], DIM[2], DIM[3])
+    end
+    return row
+end
+
+local function Tray(on)
+    sound.tray:SetShown(on)
+    if sound.chevron.SetRotation then sound.chevron:SetRotation(on and math.pi or 0) end
+end
+
+-- its alpha, by how long it has stood still with the mouse off it; faded,
+-- the tray shut
+SoundFade = function()
+    local a = 1
+    if not sound.over then
+        local past = sound.idle - FADE_AFTER
+        if past > 0 then a = 1 - (1 - FADE_TO) * math.min(1, past / FADE_FOR) end
+        if past >= FADE_FOR and sound.tray:IsShown() then Tray(false) end
+    end
+    sound:SetAlpha(a)
+end
+
+-- the game's Audio settings beside the menu, as the Options card opens them
+local function AudioSettings()
+    local id = Settings and Settings.AUDIO_CATEGORY_ID
+    if not (id and Settings.OpenToCategory) then
+        local f = GameMenuFrame
+        for _, b in ipairs(f and f.buttons or {}) do
+            if Kind(b, f.closeButton) == "options" and b.Click then return b:Click() end
+        end
+        return
+    end
+    Setup.Close()
+    want = "options"
+    Settings.OpenToCategory(id)
+    Post()
+end
+
+Sound = function()
+    if sound then return sound end
+    sound = CreateFrame("Frame", nil, holder)
+    sound:SetSize(SOUND_W, SOUND_ROW)
+    sound:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 24)
+    sound:SetFrameLevel(docked:GetFrameLevel() + 2)
+    sound:EnableMouse(true)
+    sound.rows = { SoundRow(sound, CHANNELS[1]) }
+    sound.rows[1]:SetPoint("BOTTOMLEFT")
+    -- the chevron at Master's end: the tray open or shut
+    local more = CreateFrame("Button", nil, sound)
+    more:SetSize(18, 18)
+    more:SetPoint("RIGHT", -4, 0)
+    more:RegisterForClicks("LeftButtonUp")
+    sound.chevron = Chevron(more, 14, 0)
+    sound.chevron:SetPoint("CENTER")
+    sound.chevron:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+    more:SetScript("OnClick", function() Tray(not sound.tray:IsShown()) end)
+    sound.more = more
+    -- the tray: a window's card above it, its rows, the Audio settings key
+    local tray = CreateFrame("Frame", nil, sound)
+    tray:SetSize(SOUND_W, (#CHANNELS - 1) * SOUND_ROW + 52)
+    tray:SetPoint("BOTTOM", sound, "TOP", 0, 6)
+    tray:EnableMouse(true)
+    local ink = tray:CreateTexture(nil, "BACKGROUND")
+    ink:SetAllPoints()
+    ink:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.92)
+    Sides(tray, 0, GOLD_D, 1)
+    local l, r = Diamond(tray), Diamond(tray)
+    l:SetPoint("CENTER", tray, "TOPLEFT")
+    r:SetPoint("CENTER", tray, "TOPRIGHT")
+    for i = 2, #CHANNELS do
+        local row = SoundRow(tray, CHANNELS[i])
+        row:SetPoint("TOPLEFT", 0, -8 - (i - 2) * SOUND_ROW)
+        sound.rows[i] = row
+    end
+    local key = CreateFrame("Button", nil, tray)
+    key:SetSize(140, 22)
+    key:SetPoint("BOTTOM", 0, 10)
+    key:RegisterForClicks("LeftButtonUp")
+    Keyed(key)
+    key.word = ns.Text(key, 12)
+    key.word:SetPoint("CENTER")
+    key.word:SetText("Audio settings")
+    key:SetScript("OnClick", AudioSettings)
+    sound.audio = key
+    sound.tray = tray
+    Tray(false)
+    function sound.Draw()
+        for _, row in ipairs(sound.rows) do row.Draw() end
+    end
+    sound.idle = 0
+    sound:SetScript("OnUpdate", function(self, elapsed)
+        self.over = self:IsMouseOver() or (self.tray:IsShown() and self.tray:IsMouseOver()) or false
+        self.idle = self.over and 0 or self.idle + elapsed
+        SoundFade()
+    end)
+    -- each time the menu opens: full again, the tray shut
+    holder:HookScript("OnShow", function()
+        sound.idle, sound.over = 0, false
+        Tray(false)
+        sound.Draw()
+        SoundFade()
+    end)
+    menu.sound = sound
+    return sound
+end
+-- the game's own changes (its Audio page, a key binding): drawn as they come
+ns.On("CVAR_UPDATE", function() if sound and sound:IsVisible() then sound.Draw() end end)
+end
+
 local function Social()
     if social.motd then return social end
     -- over the guild's window
@@ -1633,7 +1890,8 @@ local lastRanks = {}            -- the guild's ranks, as the panel last read the
 -- the menu closing shuts it.
 local LINE, LABEL, RULE_H, SEG = 22, 18, 13, 24
 local POP_INK = { 0.078, 0.067, 0.047 }
-local PAGES = { { "sections", "Sections" }, { "friends", "Friends" }, { "guild", "Guild" }, { "clock", "Clock" } }
+local PAGES = { { "sections", "Sections" }, { "friends", "Friends" }, { "guild", "Guild" }, { "clock", "Clock" },
+    { "filter", "Filter" } }
 local PANE_W = SETUP_W - SETUP_NAV - 40
 
 
@@ -1689,6 +1947,12 @@ local function PopSeg(i)
     Keyed(k)
     k.word = ns.Text(k, 11)
     k.word:SetPoint("CENTER")
+    -- a colour's bar along its foot (the filter's tints)
+    k.swatch = k:CreateTexture(nil, "ARTWORK", nil, 2)
+    k.swatch:SetPoint("BOTTOMLEFT", 6, 3)
+    k.swatch:SetPoint("BOTTOMRIGHT", -6, 3)
+    k.swatch:SetHeight(3)
+    k.swatch:Hide()
     k:SetScript("OnClick", function(self) if self.run then self.run() end end)
     Setup.segs[i] = k
     return k
@@ -1757,6 +2021,14 @@ local function Fill(page)
             k.held = current == it[1]
             k.Lit(false)
             k.word:SetText(it[2])
+            -- a tint is shown lit, its hue made out of its darkness (black a grey)
+            local c = it[3]
+            k.swatch:SetShown(c ~= nil)
+            if c then
+                local top = math.max(c[1], c[2], c[3])
+                if top <= 0 then k.swatch:SetColorTexture(0.25, 0.25, 0.25, 1)
+                else k.swatch:SetColorTexture(c[1] / top * 0.8, c[2] / top * 0.8, c[3] / top * 0.8, 1) end
+            end
             local t = k.held and ns.colors.text or DIM
             k.word:SetTextColor(t[1], t[2], t[3])
             k.run = function() save(it[1]); Again() end
@@ -1769,7 +2041,7 @@ local function Fill(page)
         local counts = Setup.counts or {}
         local asides = { menu = format("%d cards", counts.menu or 0),
             shortcuts = format("%d cards", counts.shortcuts or 0), friends = "a tab", guild = "a tab",
-            clock = "top of the screen" }
+            clock = "top of the screen", sound = "bottom of the screen" }
         Line("label", "Shown in the menu")
         for _, key in ipairs(ORDER) do
             Line("check", TITLES[key], not Hidden(key), function() SetHidden(key, not Hidden(key)); Again() end, 0,
@@ -1828,6 +2100,19 @@ local function Fill(page)
             function() Flip("gameMenuSession"); Again() end)
         Line("check", "Fade after 5 seconds", ns.db.gameMenuClockFade ~= false,
             function() Flip("gameMenuClockFade"); Again() end)
+    elseif page == "filter" then
+        Line("label", "The world behind the menu")
+        Line("check", "Dim and tint it", FilterOn(), function() Flip("gameMenuFilter"); Again() end)
+        Line("rule")
+        Line("label", "Shape")
+        Seg({ { "vignette", "Vignette" }, { "even", "Even" } }, ns.db.gameMenuFilterShape or "vignette",
+            function(v) ns.db.gameMenuFilterShape = v end)
+        Line("label", "Strength")
+        local strengths = {}
+        for _, v in ipairs(STRENGTHS) do table.insert(strengths, { v, format("%d%%", v * 100 + 0.5) }) end
+        Seg(strengths, Strength(), function(v) ns.db.gameMenuFilterStrength = v end)
+        Line("label", "Tint")
+        Seg(TINTS, ns.db.gameMenuFilterTint or "black", function(v) ns.db.gameMenuFilterTint = v end)
     end
     for i = nl + 1, #Setup.lines do Setup.lines[i]:Hide() end
     for i = nk + 1, #Setup.segs do Setup.segs[i]:Hide() end
@@ -2189,6 +2474,12 @@ local function Docked(sections, leave, back)
     ClockDraw()
     ClockFade()
 
+    -- the volumes at its bottom centre
+    local so = Sound()
+    so:SetShown(not Hidden("sound"))
+    so.Draw()
+    SoundFade()
+
     -- the foot (E2): Log Out and Exit squared either side, Return to Game
     -- wide between; a third Leave (a client's own) takes the next side
     local sides = { {}, {} }
@@ -2215,7 +2506,7 @@ local function Docked(sections, leave, back)
     shade:ClearAllPoints()
     shade:SetPoint("TOPLEFT", docked, "TOPRIGHT")
     shade:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT")
-    Fade(shade, { 0, 0, 0 }, 0.5)
+    Paint(shade, true)
     Setup.Refresh()
 end
 
@@ -2301,6 +2592,7 @@ local function Medallion(sections, leave, back)
     end
     for i = used + 1, #bars do bars[i]:Hide() end
     if clock then clock:Hide() end
+    if sound then sound:Hide() end
     Setup.Close()
     if fold.rail then
         Spin(false)
@@ -2310,7 +2602,7 @@ local function Medallion(sections, leave, back)
     shade:SetAlpha(1)
     shade:ClearAllPoints()
     shade:SetAllPoints(UIParent)
-    shade:SetColorTexture(0, 0, 0, 0.2)
+    Paint(shade, false)
 end
 
 -- Taken in: after each InitButtons (as it shows, as the store's state

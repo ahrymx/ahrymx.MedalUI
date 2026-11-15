@@ -2139,6 +2139,7 @@ Settings = {
     RegisterAddOnCategory = function() page.registered = true end,
     OpenToCategory = function(id) page.blizzardOpened = id end,
 }
+Settings.AUDIO_CATEGORY_ID = 12
 UISpecialFrames = {}
 C_AddOns = C_AddOns or {}
 C_AddOns.GetAddOnMetadata = function(_, field)
@@ -4416,6 +4417,12 @@ if gamemenuPass then (function()
     MedalluinDB = MedalluinDB or { consoleProfile = "arena" }
     MedalluinDB.global = MedalluinDB.global or {}
     MedalluinDB.global.gameMenuHidden = { session = false }
+    -- the game's sound CVars, as strings (the game menu's sound panel)
+    gmSound = { Sound_MasterVolume = "0.65", Sound_MusicVolume = "0.7", Sound_SFXVolume = "0.9",
+        Sound_AmbienceVolume = "0.4", Sound_DialogVolume = "1", Sound_EnableAllSound = "1",
+        Sound_EnableMusic = "1", Sound_EnableSFX = "1", Sound_EnableAmbience = "1", Sound_EnableDialog = "1" }
+    function GetCVar(k) return gmSound[k] end
+    function SetCVar(k, v) gmSound[k] = tostring(v) end
     function Region:GetObjectType() return self.kind end
     function Region:IsIgnoringParentAlpha() return self.ignoreParentAlpha end
     -- every frame under UIParent, in turn, as the game's EnumerateFrames
@@ -21834,7 +21841,168 @@ if gamemenuPass then (function()
     M.holder:Show()
     run(1.5)
     folded("gamemenu fold reopened after 7s alone, 1.5s")
+    -- the filter over the world (2026-11-15): a vignette by default, black
+    -- at half strength (its corners 0.75); the Filter page: on or off,
+    -- shape, strength, tint; even, the old shade fading out across
+    local function filter(tag)
+        local t = M.shade
+        local function c4(c) return c and string.format("%.2f,%.2f,%.2f,%.2f", c[1], c[2], c[3], c[4] or 1) or "-" end
+        local g = t.gradient
+        print(tag, "shown=" .. tostring(t.shown), "tex=" .. tostring(t.texture and t.texture:match("([^\\]+)$")),
+            "vertex=" .. c4(t.vertex), "color=" .. c4(t.color),
+            "gradient=" .. (g and (g[1] .. " " .. c4(g[2]) .. ">" .. c4(g[3])) or "-"))
+    end
+    filter("gamemenu filter default")
+    click(M.cog)
+    page("filter")
+    pop("gamemenu filter page")
+    local sw = {}
+    for _, k in ipairs(P.segs) do
+        if k.shown then
+            local c = k.swatch.shown and k.swatch.color
+            table.insert(sw, k.word.text .. (c and string.format("[%.2f,%.2f,%.2f]", c[1], c[2], c[3]) or ""))
+        end
+    end
+    print("gamemenu filter swatches", table.concat(sw, " "))
+    click(seg("Night"))
+    click(seg("80%"))
+    filter("gamemenu filter night 80%")
+    click(seg("Even"))
+    filter("gamemenu filter even")
+    pop("gamemenu filter even page")
+    click(line("Dim and tint it"))
+    filter("gamemenu filter off")
+    print("gamemenu filter saved", tostring(ns.db.gameMenuFilter), tostring(ns.db.gameMenuFilterShape),
+        tostring(ns.db.gameMenuFilterStrength), tostring(ns.db.gameMenuFilterTint))
+    -- a strength saved out of reach is held to full
+    ns.db.gameMenuFilterStrength = 3
+    M.Relayout()
+    filter("gamemenu filter strength 3, even")
+    click(line("Dim and tint it"))
+    click(seg("Vignette"))
+    click(seg("Black"))
+    click(seg("50%"))
+    filter("gamemenu filter back")
+    click(P.close)
     MoveViewLeftStart, MoveViewLeftStop = nil, nil
+    -- the sound (2026-11-15): Master at the bottom centre, a chevron
+    -- opening the tray of the other four above it and Audio settings; a
+    -- click or drag on a bar sets it (held to 0..1, a step of 0.05), the
+    -- wheel a step, the speaker the channel off or on; the game's changes
+    -- drawn as they come; it fades as the clock does, always, the tray shut
+    -- once faded
+    local SO = M.sound
+    local function sound(tag)
+        local rows = {}
+        for _, r in ipairs(SO.rows) do
+            if r:IsVisible() then
+                local g = r.speaker.glyph
+                table.insert(rows, string.format("%s=%s[%d]%s", r.ch[1], r.value.text,
+                    r.fill.shown and r.fill:GetWidth() or 0,
+                    g.texture:match("sound%-off$") and "/off" or ""))
+            end
+        end
+        local q = SO.points.BOTTOM
+        print(tag, string.format("shown=%s alpha=%.2f tray=%s at=%s%s,%d", tostring(SO:IsVisible()),
+            SO.alpha or 1, tostring(SO.tray.shown), q[1] == UIParent and "screen " or "?", q[2], q[4]),
+            table.concat(rows, " "))
+    end
+    local function vars()
+        local out = {}
+        for _, k in ipairs({ "Master", "Music", "SFX", "Ambience", "Dialog" }) do
+            table.insert(out, k .. "=" .. gmSound["Sound_" .. k .. "Volume"])
+        end
+        return table.concat(out, " ") .. " musicOn=" .. gmSound.Sound_EnableMusic
+    end
+    sound("gamemenu sound")
+    click(SO.more)
+    sound("gamemenu sound tray")
+    -- a click at 30% along Music's bar; a drag from half way past its end
+    local mb = SO.rows[2].bar
+    local realCursor, cx = GetCursorPosition, 0
+    function GetCursorPosition() return cx * mb:GetEffectiveScale(), 300 end
+    cx = mb:GetLeft() + 0.3 * mb:GetWidth()
+    mb.scripts.OnMouseDown(mb)
+    mb.scripts.OnMouseUp(mb)
+    sound("gamemenu sound music 30%")
+    cx = mb:GetLeft() + 0.5 * mb:GetWidth()
+    mb.scripts.OnMouseDown(mb)
+    cx = mb:GetLeft() + 0.73 * mb:GetWidth()
+    mb.scripts.OnUpdate(mb, 0.1)
+    sound("gamemenu sound music dragging")
+    cx = mb:GetLeft() + 1.4 * mb:GetWidth()
+    mb.scripts.OnUpdate(mb, 0.1)
+    mb.scripts.OnMouseUp(mb)
+    cx = mb:GetLeft()
+    mb.scripts.OnUpdate(mb, 0.1)
+    sound("gamemenu sound music past its end, let go")
+    GetCursorPosition = realCursor
+    -- the wheel over Effects: up a step, held at full; down at Master
+    local er = SO.rows[3]
+    er.scripts.OnMouseWheel(er, 1)
+    sound("gamemenu sound effects wheel up")
+    er.scripts.OnMouseWheel(er, 1)
+    er.scripts.OnMouseWheel(er, 1)
+    SO.rows[1].scripts.OnMouseWheel(SO.rows[1], -1)
+    sound("gamemenu sound effects wheel past full, master down")
+    print("gamemenu sound cvars", vars())
+    -- Music's speaker: off, dimmed; on again
+    click(SO.rows[2].speaker)
+    sound("gamemenu sound music off")
+    print("gamemenu sound cvars off", vars())
+    click(SO.rows[2].speaker)
+    -- the game's own change, drawn as it comes
+    gmSound.Sound_AmbienceVolume = "0.25"
+    fire("CVAR_UPDATE", "Sound_AmbienceVolume", "0.25")
+    sound("gamemenu sound changed by the game")
+    -- the fade: full to 5 s, faded by 6, the tray shut; the mouse over it
+    -- full; the clock's Fade off is the clock's alone
+    SO.scripts.OnUpdate(SO, 4)
+    sound("gamemenu sound at 4s")
+    SO.scripts.OnUpdate(SO, 1.5)
+    sound("gamemenu sound at 5.5s")
+    SO.scripts.OnUpdate(SO, 1)
+    sound("gamemenu sound at 6.5s")
+    mouseOver = SO
+    SO.scripts.OnUpdate(SO, 10)
+    sound("gamemenu sound under the mouse, 10s")
+    click(SO.more)
+    mouseOver = SO.tray
+    SO.scripts.OnUpdate(SO, 10)
+    sound("gamemenu sound over the tray, 10s")
+    mouseOver = false
+    ns.db.gameMenuClockFade = false
+    SO.scripts.OnUpdate(SO, 6.5)
+    sound("gamemenu sound clock fade off, 6.5s")
+    ns.db.gameMenuClockFade = nil
+    SO.scripts.OnUpdate(SO, 0)
+    -- Audio settings: the game's Audio page, beside the menu
+    mouseOver = SO
+    SO.scripts.OnUpdate(SO, 0)
+    mouseOver = false
+    local realOpen, audioAt = Settings.OpenToCategory, nil
+    Settings.OpenToCategory = function(id)
+        audioAt = id
+        realOpen(id)
+        SettingsPanel:Open()
+    end
+    click(SO.more)
+    click(SO.audio)
+    print("gamemenu sound audio settings", "category=" .. tostring(audioAt), "beside=" .. tostring(M.Beside()),
+        "settings=" .. tostring(SettingsPanel.shown), "menu=" .. tostring(f.shown) .. "/" .. tostring(M.holder.shown))
+    Settings.OpenToCategory = realOpen
+    SettingsPanel:Close()
+    print("gamemenu sound audio settings closed", "beside=" .. tostring(M.Beside()),
+        "menu=" .. tostring(f.shown) .. "/" .. tostring(M.holder.shown))
+    sound("gamemenu sound back")
+    -- unticked on the Sections page: gone
+    click(M.cog)
+    page("sections")
+    click(line("Sound"))
+    sound("gamemenu sound hidden")
+    click(line("Sound"))
+    click(P.close)
+    sound("gamemenu sound shown again")
     -- a row under the mouse: whisper and invite; a click on it whispers
     for _, c in ipairs(M.docked.all_ or {}) do
         if c.shown and c.person and c.person.name == "Thalen" then
@@ -21890,7 +22058,7 @@ if gamemenuPass then (function()
     ns.db.gameMenu = "ribbon"
     f:Show()
     print("gamemenu medallion", "style=" .. M.Style(), "ring=" .. tostring(M.ring.shown),
-        "docked=" .. tostring(M.docked.shown))
+        "docked=" .. tostring(M.docked.shown), "sound=" .. tostring(M.sound.shown))
     -- each medallion's centre: its angle and distance from the ring's centre
     local R = 0.30 * UIParent:GetHeight()
     local function centre(b)
@@ -22040,6 +22208,13 @@ if gamemenuPass then (function()
     press(card("options"))
     frame()
     beside("gamemenu beside medallion")
+    -- the filter over the whole screen: the vignette as docked; even, two
+    -- fifths of its strength
+    filter("gamemenu filter medallion")
+    ns.db.gameMenuFilterShape = "even"
+    M.Arrange()
+    filter("gamemenu filter medallion even")
+    ns.db.gameMenuFilterShape = nil
     SettingsPanel:Close(true)
     ns.db.gameMenu = "docked"
 end)() end

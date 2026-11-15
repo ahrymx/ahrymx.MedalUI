@@ -232,6 +232,14 @@ def glyph(kind, x, y):
         return P("M2,15 L10,7 L18,15 L18,10.5 L10,2.5 L2,10.5 Z")
     if kind == "chevron-double":  # >> turned down: a group's fold (the talents' plans)
         return P("M3,2 L10,8.5 L17,2 L17,5.6 L10,12.1 L3,5.6 Z M3,8.9 L10,15.4 L17,8.9 L17,12.5 L10,19 L3,12.5 Z")
+    if kind == "sound":         # a speaker, two waves out of it (the game menu's sound panel)
+        return P("M2,7 L6,7 L11,3 L11,17 L6,13 L2,13 Z"
+                 "M13,7 C14.6,8.3 14.6,11.7 13,13 L14.2,14.2 C16.4,12.3 16.4,7.7 14.2,5.8 Z"
+                 "M15.4,4.6 C18.6,7.2 18.6,12.8 15.4,15.4 L16.6,16.6 C20.4,13.4 20.4,6.6 16.6,3.4 Z")
+    if kind == "sound-off":     # the speaker, a cross where its waves were (a channel turned off)
+        return P("M2,7 L6,7 L11,3 L11,17 L6,13 L2,13 Z"
+                 "M13,8.4 L14.4,7 L16,8.6 L17.6,7 L19,8.4 L17.4,10 L19,11.6 L17.6,13 "
+                 "L16,11.4 L14.4,13 L13,11.6 L14.6,10 Z")
     if kind == "close":         # a cross of two bars
         bar = '<rect x="8.4" y="1" width="3.2" height="18" rx="0.6" transform="rotate({} 10 10)"/>'
         return f'<g transform="translate({x},{y}) scale({s})" {f}>{bar.format(45)}{bar.format(-45)}</g>'
@@ -508,7 +516,7 @@ TABS = ["character", "reputation", "currency", "skills", "pvp", "statistics",
         "chevron-down", "chevron-up", "chevron-double", "close", "questlog", "sort", "view-minimal", "view-full",
         "view-bags", "view-grid", "view-groups", "track", "track-off",
         "chat-tools", "chat", "channels", "log", "side-auras", "side-meter", "side-loot", "side-zone", "waypoint", "mouse", "edit",
-        "role-tank", "role-healer", "role-damage"]
+        "role-tank", "role-healer", "role-damage", "sound", "sound-off"]
 
 
 def part(name, inner, size=32):
