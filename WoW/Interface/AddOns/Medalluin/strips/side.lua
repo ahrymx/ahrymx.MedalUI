@@ -303,6 +303,42 @@ local function Build()
     -- out of its alpha, which nothing else above them sets (the game menu's
     -- Clear takes every such frame back in while it clears)
     row:SetIgnoreParentAlpha(true)
+    -- the margin's rest, over the backpack's medallion, stays whole with
+    -- them: its own ink (the dress's, its gradient carried on), trim and
+    -- rule over the dress's, out of the panel's alpha the same way
+    local well = CreateFrame("Frame", nil, panel)
+    well:SetPoint("BOTTOMRIGHT")
+    well:SetSize(breakAt, margin + 1)
+    well:SetIgnoreParentAlpha(true)
+    local tint = ns.colors.ink
+    local wellInk = well:CreateTexture(nil, "BACKGROUND", nil, 1)
+    wellInk:SetPoint("TOPLEFT", 0, 0)
+    wellInk:SetPoint("BOTTOMRIGHT", -1, 1)
+    if wellInk.SetGradient and CreateColor then
+        local from = 0.10 + 0.90 * (width - breakAt - 1) / (width - 2)
+        wellInk:SetColorTexture(1, 1, 1, 1)
+        wellInk:SetGradient("HORIZONTAL", CreateColor(tint[1], tint[2], tint[3], from),
+            CreateColor(tint[1], tint[2], tint[3], 1))
+    else
+        wellInk:SetColorTexture(tint[1], tint[2], tint[3], 0.55)
+    end
+    for _, edge in ipairs({ { "BOTTOMLEFT", "BOTTOMRIGHT", "SetHeight", 0 },
+        { "TOPRIGHT", "BOTTOMRIGHT", "SetWidth", 0 } }) do
+        local t = well:CreateTexture(nil, "BACKGROUND", nil, 2)
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        t:SetPoint(edge[1])
+        t:SetPoint(edge[2])
+        t[edge[3]](t, 1)
+    end
+    local wellRule = well:CreateTexture(nil, "ARTWORK")
+    wellRule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    wellRule:SetHeight(1)
+    wellRule:SetPoint("TOPLEFT")
+    -- to the edge, closing the corner on the trim: the dress's stops short,
+    -- which the panel's solid ink hides only while it is whole
+    wellRule:SetPoint("TOPRIGHT")
+    well.rule = wellRule
+    ns.side.well = well
 
     -- the divider between the body and the button column, edge to edge:
     -- from the box's top edge down to the margin's rule, the buttons' inner edge

@@ -7581,9 +7581,14 @@ if sidePass then
         end
         local tab = ns.side.views[1].tab
         local function at(tag)
-            print("side immersion " .. tag, string.format("alpha=%.2f body=%.2f tabs=%.2f", p:GetAlpha(),
-                shows(ns.side.area), shows(tab)))
+            print("side immersion " .. tag, string.format("alpha=%.2f body=%.2f tabs=%.2f well=%.2f", p:GetAlpha(),
+                shows(ns.side.area), shows(tab), shows(ns.side.well)))
         end
+        -- the medallion's corner: its rule meets the trim at the edge, the
+        -- corner closed while the panel above it is faded
+        print("side immersion well", string.format("rule %.1f..%.1f, edge %.1f; top %.1f, rule top %.1f",
+            ns.side.well.rule:GetLeft(), ns.side.well.rule:GetRight(), p:GetRight(),
+            ns.side.well:GetTop(), ns.side.well.rule:GetTop()))
         -- health in plain numbers (a secret says nothing either way)
         local health, most, wasTarget = UnitHealth, UnitHealthMax, hasTarget
         local function hurt() return 82 end
