@@ -178,6 +178,7 @@ local UpdateUnitStatus
 -- true while Layout runs: the shows and hides it makes are not news to it
 local laying = false
 local UpdateOverhead
+local TintRow       -- the bottom row's alpha on its icons and deck (its visibility, below)
 
 local function CreateCell(unit, kind, chip)
     local b = CreateFrame("Button", "MedalluinUnit_" .. unit, overhead, "SecureUnitButtonTemplate")
@@ -826,6 +827,8 @@ local function CombatPlates()
             decks[slot]:Clear()
         end
     end
+    -- the tray may be in another slot now
+    TintRow()
 end
 
 -- ------------------------------------------------------------ detached cells
@@ -1119,6 +1122,107 @@ for _, b in ipairs(unitCells) do
     ns.OnSetting("detach" .. b.detach, function() UpdateOverhead() end)
 end
 
+-- ------------------------------------------------------------ the bottom row's visibility
+-- The command row (stances, the pet bar, the totems) and the tray deck it
+-- sits in fade as an action bar does (bars/bar.lua), on Overhead > Visibility
+-- > Bottom row; the decks above keep the overhead's opacity. Alpha only,
+-- which is free in combat: faded, its keys still press and its icons still
+-- click. Whole while binding keys, with a spell on the cursor, a totem's
+-- choices open or the console's movers out. The pet bar docked under a
+-- detached pet is off the row, and stays whole.
+local rowArea = CreateFrame("Frame", nil, overhead)    -- the tray's rectangle, for the pointer
+ns.overheadRowArea = rowArea
+rowArea:Hide()
+local rowAlpha = 1
+local function TrayDeck()
+    for _, d in ipairs(decks) do
+        if d.shown and d.kind == "tray" then return d end
+    end
+end
+function TintRow()
+    local tray = TrayDeck()
+    for _, d in ipairs(decks) do
+        local a = d == tray and rowAlpha or 1
+        d.left:SetAlpha(a); d.right:SetAlpha(a); d.mid:SetAlpha(a); d.channel:SetAlpha(a)
+    end
+    if tray then
+        rowArea:ClearAllPoints()
+        rowArea:SetPoint("TOPLEFT", overhead, "TOP", -tray.half, -tray.y)
+        rowArea:SetSize(2 * tray.half, A.deck.tray)
+        rowArea:Show()
+    else
+        rowArea:Hide()
+    end
+    local onRow = {}
+    for _, btn in ipairs(ns.overheadRow or {}) do onRow[btn] = true end
+    local function Tint(btn) btn:SetAlpha(onRow[btn] and rowAlpha or 1) end
+    for _, btn in ipairs(stanceButtons) do Tint(btn) end
+    for _, btn in ipairs(petButtons) do Tint(btn) end
+    for btn in pairs(totems) do Tint(btn) end
+end
+
+local function RowOver()
+    if rowArea:IsShown() and rowArea:IsMouseOver() then return true end
+    for _, btn in ipairs(ns.overheadRow or {}) do
+        if btn:IsVisible() and btn:IsMouseOver() then return true end
+    end
+    return false
+end
+
+local rowCombat = InCombatLockdown()
+function ns.OverheadRowWanted()
+    local V = ns.VISIBILITY
+    local mode = tonumber(ns.db.overheadRowVis) or V.ALWAYS
+    if mode == V.ALWAYS or ns.keybinding or (GetCursorInfo and GetCursorInfo())
+        or (ns.ConsoleMoversShown and ns.ConsoleMoversShown()) then
+        return true
+    end
+    local flyout = MultiCastFlyoutFrame
+    if flyout and flyout:IsShown() and totems[flyout.parent] then return true end
+    if mode == V.COMBAT then return rowCombat end
+    local over = RowOver()
+    if mode == V.MOUSEOVER then return over end
+    return rowCombat or over
+end
+
+local function RowNum(key, lo, hi)
+    local v = tonumber(ns.db[key])
+    if v == nil then v = tonumber(ns.OptionBase(key)) or lo end
+    return math.max(lo, math.min(hi, v))
+end
+local function RowGoal()
+    return ns.OverheadRowWanted() and 1 or RowNum("overheadRowFaded", 0, 1)
+end
+local rowWatch = CreateFrame("Frame", nil, UIParent)
+ns.overheadRowWatch = rowWatch
+-- asleep while the row is always whole (a choice of Always snaps it there):
+-- nothing to watch
+local function Always() return (tonumber(ns.db.overheadRowVis) or ns.VISIBILITY.ALWAYS) == ns.VISIBILITY.ALWAYS end
+rowWatch:SetScript("OnUpdate", function(_, dt)
+    local goal = RowGoal()
+    if rowAlpha == goal then return end
+    local time = RowNum("overheadRowFadeTime", 0, 10)
+    if time <= 0 then
+        rowAlpha = goal
+    else
+        local step = dt / time
+        rowAlpha = goal > rowAlpha and math.min(goal, rowAlpha + step) or math.max(goal, rowAlpha - step)
+    end
+    TintRow()
+end)
+ns.On("PLAYER_REGEN_DISABLED", function() rowCombat = true end)
+ns.On("PLAYER_REGEN_ENABLED", function() rowCombat = false end)
+-- a choice made shows at once, as it will be
+for _, key in ipairs({ "overheadRowVis", "overheadRowFaded" }) do
+    ns.OnSetting(key, function()
+        rowAlpha = RowGoal()
+        TintRow()
+        rowWatch:SetShown(not Always())
+    end)
+end
+ns.On("PLAYER_LOGIN", function() rowWatch:SetShown(not Always()) end)
+function ns.OverheadRowAlpha() return rowAlpha end
+
 local finishing = false     -- the pass after a fade out, that clears and hides
 local function Layout()
     if ns.db and ns.db.overhead == false then
@@ -1242,6 +1346,7 @@ local function Layout()
         if not wasShown then ns.OverheadSettle(false) end
         ns.OverheadFadeIn()
     end
+    TintRow()
     laying = false
 end
 

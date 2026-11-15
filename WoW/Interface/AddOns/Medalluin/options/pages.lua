@@ -652,7 +652,8 @@ local function Shared(list)
                         "consoleAlpha", "consoleFadeIn", "consoleFadeOut", "consoleMinimal", "consoleMinimalUnits",
                         "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt", "consoleMinimalGroup",
                         "consoleMinimalMouse" }),
-                    Mirror("Overhead", { "overheadAlpha", "overheadFadeIn", "overheadFadeOut" }),
+                    Mirror("Overhead", { "overheadAlpha", "overheadFadeIn", "overheadFadeOut", "overheadRowVis",
+                        "overheadRowFaded", "overheadRowFadeTime" }),
                     Mirror("Action bars", { "visibility", "extraVisibility" }),
                     Mirror("Quest tracker, full view", { "questsFullMouseover", "questsFullCombat" }),
                     Mirror("Quest tracker, minimal view", { "questsMinimalMouseover", "questsMinimalCombat" }),
@@ -982,6 +983,14 @@ function ns.OptionPages()
                                 .. "whenever it holds a frame or a bar."),
                             Seconds("overheadFadeIn", "Fade in", "How long it takes to appear."),
                             Seconds("overheadFadeOut", "Fade out", "How long it takes to go once it is empty.")),
+                        Group("Bottom row",
+                            Choice("overheadRowVis", "Visibility", Visibility("it comes", "it"),
+                                "The stance, pet and totem bars and the tier they sit on. Faded, it is only "
+                                .. "see-through: its keys still press and its icons still click. Whole while a "
+                                .. "totem's choices are open."),
+                            Opacity("overheadRowFaded", "Faded opacity", "How see-through it is when faded: 0% "
+                                .. "is gone."),
+                            Seconds("overheadRowFadeTime", "Fade time", "How long a fade in or out takes.")),
                     })),
                 },
                 {

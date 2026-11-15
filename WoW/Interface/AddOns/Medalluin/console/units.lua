@@ -1105,7 +1105,7 @@ ns.On("PLAYER_ENTERING_WORLD", UpdatePartyFrames)
 ns.On("ADDON_LOADED", UpdatePartyFrames)
 ns.On("PLAYER_ROLES_ASSIGNED", UpdatePartyFrames)
 ns.On("ROLE_CHANGED_INFORM", UpdatePartyFrames)
-ns.On("UNIT_PET", function(unit)
+ns.On("UNIT_PET", function(_, unit)
     if unit and unit:match("^party%d$") then
         local b = ns.units[unit]
         if b and b.pet then UpdatePartyPet(b.pet) end
@@ -1132,6 +1132,7 @@ local function SetCheckStatus(b, status)
         return
     end
     b.isChecking = true
+    b.checkStatus = status
     local coords = CHECK_COORDS[status] or CHECK_COORDS.waiting
     b.statusWidget.icon:SetTexCoord(unpack(coords))
     b.statusWidget:Show()
@@ -1149,6 +1150,7 @@ end
 
 local checkHideTime = nil
 local checkTimerFrame = CreateFrame("Frame")
+ns.checkTimerFrame = checkTimerFrame
 checkTimerFrame:SetScript("OnUpdate", function(_, elapsed)
     if checkHideTime then
         checkHideTime = checkHideTime - elapsed
@@ -1161,8 +1163,11 @@ checkTimerFrame:SetScript("OnUpdate", function(_, elapsed)
     end
 end)
 
+local polling = false       -- a role check under way (its answers, below)
+
 local function OnReadyCheck()
     checkHideTime = nil
+    polling = false
     for _, pb in ipairs(PartyCheckButtons()) do
         local u = pb.unit
         if UnitExists(u) or pb.stub then
@@ -1172,7 +1177,7 @@ local function OnReadyCheck()
     end
 end
 
-local function OnReadyCheckConfirm(unit, isReady)
+local function OnReadyCheckConfirm(_, unit, isReady)
     local pb = unit == "player" and (ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget and ns.partyWidgetPlayer)
         or ns.units[unit]
     if pb then
@@ -1190,13 +1195,27 @@ local function OnReadyCheckFinished()
     checkHideTime = 3.0
 end
 
+-- A role check has no end of its own: its marks go a moment after everyone
+-- has answered, or after ROLE_POLL_WAIT seconds for one who never does.
+local ROLE_POLL_WAIT = 60
+
 local function OnRolePollBegin()
-    checkHideTime = nil
+    polling = true
+    checkHideTime = ROLE_POLL_WAIT
     for _, pb in ipairs(PartyCheckButtons()) do
         if UnitExists(pb.unit) or pb.stub then
             SetCheckStatus(pb, "waiting")
         end
     end
+end
+
+local function Answered()
+    for _, pb in ipairs(PartyCheckButtons()) do
+        -- (a preview's member never answers: only the real are waited for)
+        if pb.isChecking and pb.checkStatus == "waiting" and UnitExists(pb.unit) then return end
+    end
+    polling = false
+    checkHideTime = 3.0
 end
 
 local function OnRolePollUpdate()
@@ -1208,10 +1227,30 @@ local function OnRolePollUpdate()
             end
         end
     end
+    Answered()
+end
+
+-- An answer as it comes (2026-11-15: the marks stayed waiting on Forever,
+-- which has no ROLE_POLL_UPDATE): ROLE_CHANGED_INFORM names who chose,
+-- with their realm when it is not the player's.
+local function Named(name)
+    if type(name) ~= "string" or ns.IsSecret(name) then return nil end
+    local short = Ambiguate and Ambiguate(name, "short") or name:match("^[^-]+")
+    for _, pb in ipairs(PartyCheckButtons()) do
+        local u = pb.unit
+        if UnitExists(u) and (name == UnitName(u) or short == UnitName(u)) then return pb end
+    end
+end
+local function OnRoleChosen(_, name)
+    if not polling then return end
+    local pb = Named(name)
+    if pb and pb.isChecking then SetCheckStatus(pb, "ready") end
+    Answered()
 end
 
 local function ClearCheckStatus()
     checkHideTime = nil
+    polling = false
     for _, pb in ipairs(PartyCheckButtons()) do
         if pb.isChecking then
             SetCheckStatus(pb, nil)
@@ -1234,4 +1273,5 @@ for _, e in ipairs({ "PARTY_LEADER_CHANGED", "GROUP_ROSTER_UPDATE" }) do
 end
 ns.On("ROLE_POLL_BEGIN", OnRolePollBegin)
 ns.On("ROLE_POLL_UPDATE", OnRolePollUpdate)
+ns.On("ROLE_CHANGED_INFORM", OnRoleChosen)
 ns.On("PLAYER_REGEN_DISABLED", ClearCheckStatus)

@@ -211,16 +211,25 @@ local function Fade(t, c, a)
 end
 
 -- the filter on the shade, over the world it covers (wide: docked, fading
--- out across)
+-- out across). The vignette's strength is the shade's own alpha, times
+-- the slide's (t.slide): the game left a vertex alpha unseen on it, the
+-- vignette as strong at every strength
 local function Paint(t, wide)
     t:SetShown(FilterOn())
     local c, a = Tint(), Strength()
     if ns.db.gameMenuFilterShape ~= "even" then
         t:SetTexture(VIGNETTE)
-        t:SetVertexColor(c[1], c[2], c[3], math.min(1, a * 1.5))
+        if t.SetGradient and CreateColor then  -- the even shape's gradient gone
+            t:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], 1), CreateColor(c[1], c[2], c[3], 1))
+        end
+        t:SetVertexColor(c[1], c[2], c[3], 1)
+        t.level = math.min(1, a * 1.5)
+        t:SetAlpha(t.level * (t.slide or 1))
         return
     end
     t:SetVertexColor(1, 1, 1, 1)
+    t.level = 1
+    t:SetAlpha(t.slide or 1)
     if wide then Fade(t, c, a) else t:SetColorTexture(c[1], c[2], c[3], a * 0.4) end
 end
 
@@ -1495,7 +1504,8 @@ local function FoldDraw()
     docked:ClearAllPoints()
     docked:SetPoint("TOPLEFT", UIParent, "TOPLEFT", x, 0)
     docked:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, 0)
-    shade:SetAlpha(1 - e)
+    shade.slide = 1 - e
+    shade:SetAlpha(shade.slide * (shade.level or 1))
     local rail = fold.rail
     if not rail then return end
     local a = 1
@@ -2599,7 +2609,7 @@ local function Medallion(sections, leave, back)
         fold.p, fold.want = 0, false
         fold.rail:Hide()
     end
-    shade:SetAlpha(1)
+    shade.slide = 1
     shade:ClearAllPoints()
     shade:SetAllPoints(UIParent)
     Paint(shade, false)

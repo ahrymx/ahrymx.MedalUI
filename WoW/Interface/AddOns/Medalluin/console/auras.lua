@@ -165,14 +165,9 @@ local function OnTimerUpdate(self, elapsed)
     end
 end
 
--- A glow round a frame's edges, behind the stone console art, pulsing: a
--- debuff the player dispels, in its type's colour, or the unit's aggro.
--- The canvas's copies draw theirs with it too (options/canvas.lua).
-local function CreateDispelGlow(btn, side, window)
-    local f = CreateFrame("Frame", nil, btn)
-    f:SetAllPoints(btn)
-    f:SetFrameStrata(btn:GetFrameStrata())
-    f:SetFrameLevel(ns.levels.art - 1)
+-- The glow's edges on f, a frame the unit's size (h high): its four sides,
+-- and the window's cut where it has one; the edges and the cut.
+local function GlowEdges(f, h, side, window)
     local t = 3
     local top = f:CreateTexture(nil, "OVERLAY")
     top:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
@@ -203,9 +198,8 @@ local function CreateDispelGlow(btn, side, window)
     -- 45-degree diagonal cut on the inner end of the window, built for the
     -- windows that have one in the medallion's art and shown only while the
     -- layout says the window is cut (ns.ShapeDispelGlows)
-    f.window = window
+    local cut
     if window == "party1" or window == "unit" then
-        local h = btn:GetHeight()
         if f.CreateLine then
             local line = f:CreateLine(nil, "OVERLAY")
             if side == -1 then
@@ -218,7 +212,7 @@ local function CreateDispelGlow(btn, side, window)
             line:SetThickness(t)
             line:SetBlendMode("ADD")
             table.insert(edges, line)
-            f.cut = line
+            cut = line
         else
             local diag = f:CreateTexture(nil, "OVERLAY")
             local len = math.ceil(math.sqrt(h * h + h * h))
@@ -232,20 +226,35 @@ local function CreateDispelGlow(btn, side, window)
             end
             diag:SetBlendMode("ADD")
             table.insert(edges, diag)
-            f.cut = diag
+            cut = diag
         end
     end
-
     for _, e in ipairs(edges) do e:SetColorTexture(1, 1, 1, 1) end
+    return edges, cut
+end
+
+-- Its brightness as it pulses, from its running time.
+local function Pulse(at) return 0.65 + 0.35 * math.abs(math.sin(at * 3)) end
+
+-- A glow round a frame's edges, behind the stone console art, pulsing: a
+-- debuff the player dispels, in its type's colour, or the unit's aggro.
+-- The canvas's copies draw theirs with it too (options/canvas.lua).
+local function CreateDispelGlow(btn, side, window)
+    local f = CreateFrame("Frame", nil, btn)
+    f:SetAllPoints(btn)
+    f:SetFrameStrata(btn:GetFrameStrata())
+    f:SetFrameLevel(ns.levels.art - 1)
+    f.window, f.side = window, side
+    local edges, cut = GlowEdges(f, btn:GetHeight(), side, window)
+    f.cut = cut
 
     function f:SetGlowColor(r, g, b, a)
         for _, e in ipairs(edges) do e:SetVertexColor(r, g, b, a or 0.85) end
     end
 
     f:SetScript("OnUpdate", function(self, elapsed)
-        self.pulse = (self.pulse or 0) + elapsed * 3
-        local alpha = 0.65 + 0.35 * math.abs(math.sin(self.pulse))
-        self:SetAlpha(alpha)
+        self.pulse = (self.pulse or 0) + elapsed
+        self:SetAlpha(Pulse(self.pulse))
     end)
     f:Hide()
     return f
@@ -837,8 +846,120 @@ local function Live(b, row, on, filter, max, timeless)
     return true
 end
 
+-- ------------------------------------------------------------ the live dispel glow
+-- In combat the client refuses this addon every aura read (2026-11-13), so
+-- the dispel glow went dark there (2026-11-15: poison and curse glows not
+-- updating in combat, aggro still did). There it is drawn by a container of
+-- the client's instead: one aura frame the unit frame's size, holding the
+-- first debuff the player can dispel (LIVE_GLOW_FILTER), its edges coloured
+-- by the client from that debuff's type through the glow's colours; a type
+-- not glowing (switched off, or one the player does not dispel) is clear
+-- in that map. Nothing reads it back: its frame's every state is secret.
+-- Out of combat the glow is read here as before, which also knows which
+-- type comes first when several are on.
+local LIVE_GLOW_FILTER = "HARMFUL|RAID_PLAYER_DISPELLABLE"
+
+-- The colours the client paints the edges with, by dispel type.
+local function GlowColours()
+    local map = {}
+    if not CreateColor then return map end
+    for _, t in ipairs(DISPEL_PRIORITY) do
+        local r, g, bl = DispelColor(t)
+        map[t] = CreateColor(r, g, bl, Glows(t) and 0.85 or 0)
+    end
+    map.None = CreateColor(0, 0, 0, 0)
+    return map
+end
+
+-- Each edge handed to the client, with the colours as they are now.
+local function DressLiveGlow(lg)
+    local btn = lg.btn
+    if not btn then return end
+    local STYLE = Enum and Enum.CustomAuraButtonDispelTypeTextureStyle
+    local colours = GlowColours()
+    if btn.ClearDispelTypeTextures then pcall(btn.ClearDispelTypeTextures, btn) end
+    for _, e in ipairs(lg.edges) do
+        pcall(btn.AddDispelTypeTexture, btn, e, { style = STYLE and STYLE.PreserveAsset, showWhenHarmful = true,
+            customDispelColorMap = colours })
+    end
+end
+
+local liveGlows = {}        -- every live glow made, for a colour changed
+
+-- The frame's live glow, made the first time it is wanted: false where the
+-- client cannot make one. Over the frame's own glows (its aggro's too, which
+-- cannot know it is there), pulsing as they do.
+local function MakeLiveGlow(b)
+    local own = b.dispelGlow
+    local ok, c = pcall(CreateFrame, "AuraContainer", nil, b, LIVE)
+    if not ok or not c then return false end
+    local lg = { container = c, edges = {} }
+    c:SetFrameStrata(own:GetFrameStrata())
+    c:SetFrameLevel(own:GetFrameLevel() + 1)
+    c:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+    c:SetFlowLayoutAnchorPoint("TOPLEFT")
+    local w, h = b:GetWidth(), b:GetHeight()
+    local made = pcall(c.AddAuraGroup, c, "dispel", LIVE_GLOW_FILTER, {
+        maxFrameCount = 1,
+        layout = { elementWidth = w, elementHeight = h },
+        initializeFrame = function(btn)
+            btn:SetSize(w, h)
+            lg.btn = btn
+            lg.edges, lg.cut = GlowEdges(btn, h, own.side, own.window)
+            if lg.cut and own.cut then lg.cut:SetShown(own.cut:IsShown()) end
+            DressLiveGlow(lg)
+        end,
+    })
+    if not made then
+        c:Hide()
+        return false
+    end
+    lg.size = w .. "x" .. h
+    c:Hide()
+    local pulse = CreateFrame("Frame", nil, b)
+    pulse:Hide()
+    pulse:SetScript("OnUpdate", function(self, elapsed)
+        self.at = (self.at or 0) + elapsed
+        c:SetAlpha(Pulse(self.at))
+    end)
+    lg.pulse = pulse
+    liveGlows[#liveGlows + 1] = lg
+    return lg
+end
+
+-- The live glow shown (on) or hidden.
+local function LiveGlow(b, on)
+    if not on then
+        if b.liveGlow then
+            b.liveGlow.container:Hide()
+            b.liveGlow.pulse:Hide()
+        end
+        return
+    end
+    if b.liveGlow == nil then b.liveGlow = MakeLiveGlow(b) end
+    local lg = b.liveGlow
+    if not lg then return end
+    local c = lg.container
+    if lg.unit ~= b.unit then
+        c:SetUnit(b.unit)
+        lg.unit = b.unit
+    end
+    -- a frame laid out again at another size: the aura frame follows (out of
+    -- combat: in it the client keeps its frames from this addon)
+    local w, h = b:GetWidth(), b:GetHeight()
+    if lg.size ~= w .. "x" .. h and not InCombatLockdown() then
+        lg.size = w .. "x" .. h
+        c:SetAuraGroupLayout("dispel", { elementWidth = w, elementHeight = h })
+        if lg.btn then pcall(lg.btn.SetSize, lg.btn, w, h) end
+    end
+    c:UpdateAllAuras()
+    c:Show()
+    lg.pulse:Show()
+end
+
 -- Both rows' containers hidden: the preview's icons, or nothing, instead.
 local function HideLive(b)
+    LiveGlow(b, false)
     for _, row in ipairs({ b.buffWidgets or false, b.mineWidgets or false }) do
         if row and row.live then
             row.live:Hide()
@@ -885,14 +1006,17 @@ local function ScanUnitAuras(b)
     local unit = b.unit
     local isAlly = unit == "player" or (UnitIsFriend and UnitIsFriend("player", unit))
 
-    -- 1. Dispel Glow
-    local bestDispel = nil
-    if isAlly and b.dispelGlow and Shows(b, "glow") and Auras and Auras.GetAuraDataByIndex then
+    -- 1. Dispel Glow: read here where the client lets this addon, else the
+    -- client's (LiveGlow)
+    local bestDispel, unread = nil, false
+    local glowing = isAlly and b.dispelGlow and Shows(b, "glow")
+    if glowing and Auras and Auras.GetAuraDataByIndex then
         local i = 1
         while true do
             local aura = Read(unit, i, "HARMFUL")
             if not aura then break end
             local d = aura.dispelName
+            if ns.IsSecret(d) then unread = true end
             if d and not ns.IsSecret(d) and Glows(d) then
                 if not bestDispel then
                     bestDispel = d
@@ -906,6 +1030,10 @@ local function ScanUnitAuras(b)
             i = i + 1
         end
     end
+    -- (in combat every read is refused; where the client hands a debuff's
+    -- type over as a secret, it is unread. Only the reads above have run:
+    -- none while the frame does not glow)
+    local live = (refused or unread) and true or false
     if b.dispelGlow then
         if bestDispel then
             b.dispelGlow:SetGlowColor(DispelColor(bestDispel))
@@ -914,6 +1042,7 @@ local function ScanUnitAuras(b)
             b.dispelGlow:Hide()
         end
     end
+    LiveGlow(b, live)
 
     -- 2. Crowd Control (CC)
     local ccAura, ccIndex = nil, nil
@@ -1288,6 +1417,8 @@ function ns.ShapeDispelGlows()
         for _, g in ipairs({ b.dispelGlow, b.threatGlow }) do
             if g.cut then g.cut:SetShown(cuts[g.window] and not b.inWidget and true or false) end
         end
+        local lg = b.liveGlow
+        if lg and lg.cut then lg.cut:SetShown(b.dispelGlow.cut:IsShown()) end
     end
 end
 
@@ -1351,6 +1482,14 @@ end)
 ns.On("PLAYER_ENTERING_WORLD", UpdateAllAuras)
 ns.On("ADDON_LOADED", UpdateAllAuras)
 
+-- the glow passes to the client's as a fight starts, and back as it ends
+ns.On("PLAYER_REGEN_DISABLED", UpdateAllAuras)
+ns.On("PLAYER_REGEN_ENABLED", UpdateAllAuras)
+-- a live glow's colours are handed to the client once: again as they change
+local function RedressLiveGlows()
+    for _, lg in ipairs(liveGlows) do DressLiveGlow(lg) end
+end
+ns.On("SPELLS_CHANGED", RedressLiveGlows)
 ns.OnSetting("auraGlow", UpdateAllAuras)
 ns.OnSetting("auraCC", UpdateAllAuras)
 ns.OnSetting("auraBuffs", UpdateAllAuras)
@@ -1358,6 +1497,8 @@ ns.OnSetting("auraBoss", UpdateAllAuras)
 ns.OnSetting("auraThreat", UpdateAllAuras)
 ns.OnSetting("threatColor", UpdateAllAuras)
 for _, t in ipairs(DISPEL_PRIORITY) do
+    ns.OnSetting("dispel" .. t, RedressLiveGlows)
+    ns.OnSetting("dispelColor" .. t, RedressLiveGlows)
     ns.OnSetting("dispel" .. t, UpdateAllAuras)
     ns.OnSetting("dispelColor" .. t, UpdateAllAuras)
 end

@@ -1148,7 +1148,15 @@ function CreateFrame(kind, name, parent, template)
                     function btn:SetSpellName(fs) self.nameEl = fs end
                     function btn:SetDurationBar(bar, o) self.barEl, self.barOpts = bar, o end
                     function btn:SetDurationText(fs, o) self.timeEl, self.timeOpts = fs, o end
-                    function btn:AddDispelTypeTexture(tex, o) self.dispelEl, self.dispelOpts = tex, o end
+                    -- (each texture added is painted; the options copied as
+                    -- they are when added)
+                    btn.dispelEls = {}
+                    function btn:AddDispelTypeTexture(tex, o)
+                        local copy = {}
+                        for k, v in pairs(o or {}) do copy[k] = v end
+                        self.dispelEls[#self.dispelEls + 1] = { tex, copy }
+                    end
+                    function btn:ClearDispelTypeTextures() self.dispelEls = {} end
                     function btn:SetCancelAuraButtons(s) self.cancel = s end
                     function btn:SetTooltipAnchorPoint(p) self.tipAt = p end
                     -- (its every state secret to addons, whether it is
@@ -1176,9 +1184,15 @@ function CreateFrame(kind, name, parent, template)
                             local col = tc and left and tc.curve:Evaluate(left)
                             if col then btn.timeEl.textColor = col end
                         end
-                        if btn.dispelEl then
-                            local map = btn.dispelOpts and btn.dispelOpts.customDispelColorMap
-                            btn.dispelEl.vertex = map and map[a.dispelName or "None"] or nil
+                        -- (CustomAuraButton's ApplyDispelTypeTexture: shown
+                        -- for a harmful aura with a type, painted from the map)
+                        for _, el in ipairs(btn.dispelEls) do
+                            local tex, o = el[1], el[2]
+                            local show = (o.showWhenHarmful or not a.isHarmful)
+                                and (a.dispelName ~= nil or o.showWithoutDispelType)
+                            tex.shown = show and true or false
+                            local col = o.customDispelColorMap and o.customDispelColorMap[a.dispelName or "None"]
+                            if show and col then tex.vertex = col.GetRGBA and { col:GetRGBA() } or col end
                         end
                         g.shown[#g.shown + 1] = tostring(a.icon)
                     end
@@ -12066,6 +12080,140 @@ function FadePass()
     settleFades()
     mini("off again")
 
+    -- the overhead's bottom row: its own visibility, on its icons and its
+    -- deck; the decks above keep theirs, an icon off the row stays whole
+    ;(function()
+        shapeshiftForms, petBar = 3, true
+        for i = 1, 10 do _G["PetActionButton" .. i].shown = true end
+        local realExists = UnitExists
+        UnitExists = function(u) return u == "focus" or realExists(u) end
+        -- a shaman's totem bar on the row too
+        local totemBar, totemShown = MultiCastActionBarFrame, MultiCastActionBarFrame.shown
+        totemBar.shown = true
+        ns.UpdateOverhead()
+        local w = ns.overheadRowWatch
+        local function step(sec)
+            for _ = 1, math.floor(sec / 0.05 + 0.5) do
+                if w.shown then w.scripts.OnUpdate(w, 0.05) end
+            end
+        end
+        local function row(tag)
+            local r = ns.overheadRow or {}
+            local tray, others = nil, {}
+            for _, d in ipairs(ns.overheadDecks) do
+                if d.shown and d.kind == "tray" then tray = d end
+                if d.shown and d.kind ~= "tray" then
+                    table.insert(others, d.kind .. string.format("=%.2f", d.mid:GetAlpha()))
+                end
+            end
+            local onRow, off, totem = {}, nil, nil
+            for _, b in ipairs(r) do
+                onRow[b] = true
+                if not totem and b:GetName():find("^MultiCast") then totem = b end
+            end
+            for i = 1, 10 do
+                local b = _G["StanceButton" .. i]
+                if b and not onRow[b] and b.medalluinFrame then off = b end
+            end
+            print("fade row " .. tag, string.format("alpha=%.2f", ns.OverheadRowAlpha()), "icons=" .. #r,
+                r[1] and string.format("first=%.2f last=%.2f", r[1]:GetAlpha(), r[#r]:GetAlpha()) or "first=none",
+                tray and string.format("tray=%.2f,%.2f,%.2f,%.2f", tray.left:GetAlpha(), tray.right:GetAlpha(),
+                    tray.mid:GetAlpha(), tray.channel:GetAlpha()) or "tray=none",
+                "others=" .. table.concat(others, ","),
+                "offRow=" .. (off and string.format("%.2f", off:GetAlpha()) or "none"),
+                "totem=" .. (totem and string.format("%.2f", totem:GetAlpha()) or "none"),
+                "wanted=" .. tostring(ns.OverheadRowWanted()))
+        end
+        local V = ns.VISIBILITY
+        inCombat, mouseOver, cursor = false, false, nil
+        fire("PLAYER_REGEN_ENABLED")
+        row("always")
+        set("overheadRowVis", V.COMBAT)
+        row("in combat, idle")
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        step(0.1)
+        row("combat, 0.1s of 0.25s")
+        step(0.2)
+        row("combat, 0.3s")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        step(0.3)
+        row("combat over, 0.3s")
+        -- a spell on the cursor, the totem choices open: whole
+        cursor = { "spell", 1 }
+        step(0.3)
+        row("spell on the cursor")
+        cursor = nil
+        step(0.3)
+        local flyout = MultiCastFlyoutFrame
+        if flyout then
+            local was, wasParent = flyout.shown, flyout.parent
+            flyout.shown, flyout.parent = true, MultiCastActionButton1
+            print("fade row totem choices open", "wanted=" .. tostring(ns.OverheadRowWanted()))
+            flyout.shown, flyout.parent = was, wasParent
+        end
+        -- on mouseover: the pointer over an icon, over the tray between them,
+        -- elsewhere on the overhead
+        set("overheadRowVis", V.MOUSEOVER)
+        mouseOver = ns.overheadRow[2]
+        print("fade row over an icon", "wanted=" .. tostring(ns.OverheadRowWanted()))
+        mouseOver = ns.overheadRowArea
+        print("fade row over the tray", "wanted=" .. tostring(ns.OverheadRowWanted()))
+        mouseOver = ns.overheadDecks[1].mid.parent
+        print("fade row over the plate", "wanted=" .. tostring(ns.OverheadRowWanted()))
+        mouseOver = false
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        print("fade row mouseover in combat", "wanted=" .. tostring(ns.OverheadRowWanted()))
+        set("overheadRowVis", V.COMBAT_OR_MOUSEOVER)
+        print("fade row combat or mouseover in combat", "wanted=" .. tostring(ns.OverheadRowWanted()))
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        mouseOver = ns.overheadRowArea
+        print("fade row combat or mouseover over", "wanted=" .. tostring(ns.OverheadRowWanted()))
+        mouseOver = false
+        set("overheadRowFaded", 0.3)
+        row("faded at 30%")
+        set("overheadRowFadeTime", 0)
+        mouseOver = ns.overheadRow[1]
+        step(0.05)
+        row("fade time 0, over")
+        mouseOver = false
+        -- a relayout keeps the faded alpha on the row
+        step(0.05)
+        ns.UpdateOverhead()
+        row("relaid")
+        -- in combat the focus goes: only the plates are placed again, the
+        -- tray moves up a slot and keeps its alpha; the unit's slot is whole
+        -- (the lockdown alone, not the event: the row stays not wanted)
+        local unitSlot
+        for i, d in ipairs(ns.overheadDecks) do if d.kind == "unit" and d.shown then unitSlot = i end end
+        inCombat = true
+        UnitExists = realExists
+        watchTick()
+        ns.UpdateOverhead()
+        local d1 = ns.overheadDecks[unitSlot]
+        print("fade row combat plates", "slot" .. unitSlot .. "=" .. tostring(d1.kind),
+            string.format("alpha=%.2f", d1.mid:GetAlpha()), "shown=" .. tostring(d1.shown))
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        UnitExists = function(u) return u == "focus" or realExists(u) end
+        watchTick()
+        ns.UpdateOverhead()
+        row("combat plates, after")
+        for _, k in ipairs({ "overheadRowVis", "overheadRowFaded", "overheadRowFadeTime" }) do
+            set(k, ns.OptionBase(k))
+        end
+        row("back to always")
+        -- on Always, at whole, the watch sleeps
+        step(0.05)
+        print("fade row asleep on always", "watch=" .. tostring(w.shown))
+        UnitExists = realExists
+        totemBar.shown = totemShown
+        ns.UpdateOverhead()
+    end)()
+
     UnitHealth, UnitHealthMax = realHealth, realMax
     grouped = wasGrouped
     print("fade window stale=" .. optionsStale())
@@ -12437,6 +12585,73 @@ if savedSimParty then
     p3BuffsRestored = p3BuffsRestored + #harnessRowShows(p3.buffWidgets)
     print("readyCheck.cleared", "party1.status=" .. tostring(p1.statusWidget.shown),
         "p3Buffs=" .. p3BuffsRestored, "p2CC=" .. tostring(p2.ccWidget.shown))
+
+    -- a ready check's answers, and a role check's: Forever has no
+    -- ROLE_POLL_UPDATE, so each answer is ROLE_CHANGED_INFORM, by name
+    -- (2026-11-15: the marks stayed waiting); it has no end of its own
+    ;(function()
+        local function fire(e, ...) for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end end
+        local function marks(tag)
+            local o = {}
+            for _, u in ipairs({ "party1", "party2" }) do
+                local b = ns.units[u]
+                o[#o + 1] = u .. "=" .. (b.statusWidget.shown and tostring(b.checkStatus) or "none")
+            end
+            print("roleCheck " .. tag, table.concat(o, " "))
+        end
+        -- (real members here, not the preview's: an answer comes by name)
+        local exists = UnitExists
+        UnitExists = function(u) return u == "party1" or u == "party2" or exists(u) end
+        local timer = ns.checkTimerFrame
+        local function wait(sec)
+            for _ = 1, math.floor(sec / 0.5 + 0.5) do timer.scripts.OnUpdate(timer, 0.5) end
+        end
+        fire("READY_CHECK")
+        fire("READY_CHECK_CONFIRM", "party1", true)
+        fire("READY_CHECK_CONFIRM", "party2", false)
+        marks("ready check answered")
+        fire("PLAYER_REGEN_DISABLED")
+        fire("PLAYER_REGEN_ENABLED")
+        fire("ROLE_CHANGED_INFORM", "Thalric", "Okun", "NONE", "TANK")
+        marks("a role chosen, no check")
+        fire("ROLE_POLL_BEGIN")
+        marks("role check begun")
+        fire("ROLE_CHANGED_INFORM", "Thalric-Nordanaar", "Thalric", "DAMAGER", "TANK")
+        marks("party1 answered, with a realm")
+        wait(5)
+        marks("5s on, party2 still to answer")
+        fire("ROLE_CHANGED_INFORM", "Okun", "Okun", "HEALER", "HEALER")
+        marks("party2 answered")
+        wait(2.5)
+        marks("2.5s after the last")
+        wait(1)
+        marks("3.5s after the last")
+        -- one who never answers: the marks go after a minute
+        fire("ROLE_POLL_BEGIN")
+        fire("ROLE_CHANGED_INFORM", "Okun", "Okun", "HEALER", "HEALER")
+        wait(59)
+        marks("59s, party1 silent")
+        wait(1.5)
+        marks("60.5s")
+        -- a ready check over a role check: a role chosen now is not its answer
+        fire("ROLE_POLL_BEGIN")
+        fire("READY_CHECK")
+        fire("READY_CHECK_CONFIRM", "party2", false)
+        fire("ROLE_CHANGED_INFORM", "Okun", "Okun", "HEALER", "HEALER")
+        marks("a role chosen in a ready check")
+        fire("PLAYER_REGEN_DISABLED")
+        fire("PLAYER_REGEN_ENABLED")
+        -- a member's pet come: its frame, from UNIT_PET alone
+        local pet = ns.units.party1.pet
+        if pet then
+            local before = tostring(pet.watched) .. "/" .. tostring(pet.name.text)
+            UnitExists = function(u) return u == "party1" or u == "party2" or u == "partypet1" or exists(u) end
+            fire("UNIT_PET", "party1")
+            print("roleCheck party1's pet", "before=" .. before,
+                "after=" .. tostring(pet.watched) .. "/" .. tostring(pet.name.text))
+        end
+        UnitExists = exists
+    end)()
 
     -- 5. The overhead: decks hung from the screen's top, cells, the command row
     -- (a druid-like player with three forms and a pet: the row is real buttons)
@@ -14930,6 +15145,92 @@ if dispelPass then
     threatOf = nil
     fire("UNIT_THREAT_SITUATION_UPDATE", "player")
     print("dispel threat gone", "aggro=" .. tostring(b.threatGlow.shown))
+    -- in combat the client refuses this addon every aura read (2026-11-13):
+    -- the glow is the client's container's, holding the first debuff the
+    -- player dispels, its edges painted from the glow's colours
+    if modern then
+        ;(function()
+            local CUA = C_UnitAuras
+            local wasIdx, wasList = CUA.GetAuraDataByIndex, CUA.GetUnitAuras
+            local yours = { Poison = true, Disease = true }     -- as the client knows the shaman's
+            local hidden = false
+            CUA.GetUnitAuras = nil
+            CUA.GetAuraDataByIndex = function(unit, i, filter)
+                if inCombat and not harnessAuraSecure then
+                    error("Auras cannot be accessed when secret while tainted by 'Medalluin'")
+                end
+                if unit ~= "player" or i ~= 1 or not debuff or not filter:find("HARMFUL") then return end
+                if filter:find("RAID_PLAYER_DISPELLABLE") and not yours[debuff] then return end
+                -- (to this addon a type the client keeps secret: retail's)
+                local kind = (hidden and not harnessAuraSecure) and secret() or debuff
+                return { auraInstanceID = 710, icon = 136001, dispelName = kind, isHarmful = true, duration = 0,
+                    expirationTime = 0, name = debuff .. " debuff" }
+            end
+            local function live(tag)
+                local lg = b.liveGlow
+                local c = lg and lg.container
+                local lit, col = 0, "-"
+                -- (an edge lights on the aura frame the client shows, only
+                -- while it holds an aura)
+                local held = lg and lg.btn and lg.btn.shown
+                for _, e in ipairs(lg and lg.edges or {}) do
+                    if held and e.shown ~= false and e.vertex and (e.vertex[4] or 1) > 0 then
+                        lit = lit + 1
+                        col = string.format("%d,%d,%d,%.2f", e.vertex[1] * 255 + 0.5, e.vertex[2] * 255 + 0.5,
+                            e.vertex[3] * 255 + 0.5, e.vertex[4] or 1)
+                    end
+                end
+                local over = c and c.level and c.level > b.threatGlow.level
+                print("dispel live " .. tag, "own=" .. tostring(b.dispelGlow.shown),
+                    "live=" .. tostring(c and c.shown or false), "unit=" .. tostring(c and c.unit),
+                    "edges=" .. lit .. "/" .. #(lg and lg.edges or {}), "colour=" .. col,
+                    "pulse=" .. tostring(lg and lg.pulse.shown or false), "overAggro=" .. tostring(over))
+            end
+            local function aura(kind)
+                debuff = kind
+                fire("UNIT_AURA", "player")
+            end
+            aura("Poison")
+            live("poison, out of combat")
+            inCombat = true
+            fire("PLAYER_REGEN_DISABLED")
+            live("poison, combat")
+            aura("Curse")
+            live("curse (not yours), combat")
+            aura("Disease")
+            live("disease, combat")
+            aura(nil)
+            live("none, combat")
+            aura("Poison")
+            ns.SetOption("dispelColorPoison", "ff102030")
+            live("poison recoloured, combat")
+            ns.SetOption("dispelPoison", false)
+            live("poison off, combat")
+            ns.SetOption("dispelPoison", true)
+            ns.SetOption("dispelColorPoison", ns.OptionBase("dispelColorPoison"))
+            ns.SetOption("auraGlow", false)
+            live("glow option off, combat")
+            ns.SetOption("auraGlow", true)
+            live("glow option on, combat")
+            -- a ready check hides the frame's auras, the client's glow too
+            b.isChecking = true
+            ns.UpdateUnitAuras(b)
+            live("ready check, combat")
+            b.isChecking = nil
+            ns.UpdateUnitAuras(b)
+            inCombat = false
+            fire("PLAYER_REGEN_ENABLED")
+            live("poison, combat over")
+            hidden = true
+            aura("Poison")
+            live("poison's type secret, out of combat")
+            hidden = false
+            aura("Poison")
+            live("poison's type plain again")
+            aura(nil)
+            CUA.GetAuraDataByIndex, CUA.GetUnitAuras = wasIdx, wasList
+        end)()
+    end
     -- the rows' From: buffs yours by default, debuffs every one; the
     -- editor's From turns either (yours: the PLAYER filter)
     C_UnitAuras.GetAuraDataByIndex = function(unit, i, filter)
@@ -22285,6 +22586,9 @@ if gamemenuPass then (function()
     folded("gamemenu fold sliding")
     run(0.3)
     folded("gamemenu folded")
+    -- laid out again while folded: the shade stays away
+    M.Relayout()
+    folded("gamemenu folded, laid out again")
     run(5.5)
     folded("gamemenu fold rail at 5.5s")
     run(1)
@@ -22348,6 +22652,16 @@ if gamemenuPass then (function()
     M.holder:Show()
     run(1.5)
     folded("gamemenu fold reopened after 7s alone, 1.5s")
+    -- folded, then the Medallion ring: its shade over the world again
+    run(10)
+    folded("gamemenu fold before the ring")
+    local style = ns.db.gameMenu
+    ns.db.gameMenu = "medallion"
+    M.Arrange()
+    print("gamemenu fold the ring's shade", string.format("%.2f", M.shade:GetAlpha()))
+    ns.db.gameMenu = style
+    M.Arrange()
+    folded("gamemenu fold docked after the ring")
     -- the filter over the world (2026-11-15): a vignette by default, black
     -- at half strength (its corners 0.75); the Filter page: on or off,
     -- shape, strength, tint; even, the old shade fading out across
@@ -22357,7 +22671,8 @@ if gamemenuPass then (function()
         local g = t.gradient
         print(tag, "shown=" .. tostring(t.shown), "tex=" .. tostring(t.texture and t.texture:match("([^\\]+)$")),
             "vertex=" .. c4(t.vertex), "color=" .. c4(t.color),
-            "gradient=" .. (g and (g[1] .. " " .. c4(g[2]) .. ">" .. c4(g[3])) or "-"))
+            "gradient=" .. (g and (g[1] .. " " .. c4(g[2]) .. ">" .. c4(g[3])) or "-"),
+            string.format("alpha=%.2f", t:GetAlpha()))
     end
     filter("gamemenu filter default")
     click(M.cog)
@@ -22372,6 +22687,8 @@ if gamemenuPass then (function()
     end
     print("gamemenu filter swatches", table.concat(sw, " "))
     click(seg("Night"))
+    click(seg("20%"))
+    filter("gamemenu filter night 20%")
     click(seg("80%"))
     filter("gamemenu filter night 80%")
     click(seg("Even"))

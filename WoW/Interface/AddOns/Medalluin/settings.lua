@@ -58,6 +58,9 @@ local DEFAULTS = {
     consoleShowGroup = false, consoleShowMouse = true,
     consoleAlpha = 1, consoleFadedAlpha = 0, consoleFadeIn = 0.2, consoleFadeOut = 0.6,
     overheadAlpha = 1, overheadFadeIn = 0.2, overheadFadeOut = 0.2,
+    -- the overhead's bottom row (stances, pet bar, totems) and its deck: as an
+    -- action bar's visibility (ns.VISIBILITY), its faded opacity, its fade's length
+    overheadRowVis = 1, overheadRowFaded = 0, overheadRowFadeTime = 0.25,
     -- Minimal OoC Mode (the Reticule): out of combat the console at Rest, the
     -- player and target at Units; combat, and what is ticked, bring it back
     consoleMinimal = false, consoleMinimalUnits = 0.2, consoleMinimalRest = 0,
