@@ -640,7 +640,7 @@ local function Shared(list)
                             Group("Console: Minimal OoC Mode"))),
                     On("immersion", Mirror("Chat & side panel", { "chatImmersion", "chatBareCombat",
                         "sideImmersion", "sideFadedAlpha", "sideShowCombat", "sideShowTarget", "sideShowMouse" },
-                        "The chat bare when idle, its box back on use; the side panel faded when idle.")),
+                        "The chat bare when idle, its box back on use; the side panel's background faded when idle.")),
                 }, AllOn("advanced", {
                     Group("Every frame",
                         Check("moverHover", "Movers only on mouseover",
@@ -1217,9 +1217,11 @@ function ns.OptionPages()
                                 "Your share of looted money on each heading, and the currencies you loot as lines.")),
                     }),
                 Switched(Check("sideImmersion", "Faded when idle",
-                        "Left alone, the panel fades to its faded opacity, whole again on what is ticked here."),
+                        "Left alone, the panel's background fades to its faded opacity, whole again on what "
+                            .. "is ticked here. Its text, buttons and tabs stay as they are."),
                     "Immersion",
-                    Opacity("sideFadedAlpha", "Faded opacity", "How much of the panel shows while it is faded."),
+                    Opacity("sideFadedAlpha", "Faded opacity",
+                        "How much of the panel's background shows while it is faded."),
                     Check("sideShowCombat", "In combat", "Whole while you are in combat."),
                     Check("sideShowTarget", "With a target", "Whole while you have a target."),
                     Check("sideShowHurt", "Health not full", "Whole while your health is below its most."),

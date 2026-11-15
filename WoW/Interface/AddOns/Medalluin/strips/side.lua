@@ -331,17 +331,12 @@ local function Build()
     row = CreateFrame("Frame", nil, panel)
     row:SetPoint("BOTTOMRIGHT", -breakAt, 0)
     row:SetSize(width - breakAt, margin + 1)
-    -- the tabs stay whole while the panel fades when idle (Immersion Mode):
-    -- out of its alpha, which nothing else above them sets (the game menu's
-    -- Clear takes every such frame back in while it clears)
-    row:SetIgnoreParentAlpha(true)
-    -- the margin's rest, over the backpack's medallion, stays whole with
-    -- them: its own ink (the dress's, its gradient carried on), trim and
-    -- rule over the dress's, out of the panel's alpha the same way
+    -- the margin's rest, over the backpack's medallion, stays whole while
+    -- the box fades when idle (Immersion Mode): its own ink (the dress's,
+    -- its gradient carried on), trim and rule over the dress's
     local well = CreateFrame("Frame", nil, panel)
     well:SetPoint("BOTTOMRIGHT")
     well:SetSize(breakAt, margin + 1)
-    well:SetIgnoreParentAlpha(true)
     local tint = ns.colors.ink
     local wellInk = well:CreateTexture(nil, "BACKGROUND", nil, 1)
     wellInk:SetPoint("TOPLEFT", 0, 0)
@@ -374,7 +369,8 @@ local function Build()
 
     -- the divider between the body and the button column, edge to edge:
     -- from the box's top edge down to the margin's rule, the buttons' inner edge
-    local divider = panel:CreateTexture(nil, "ARTWORK")
+    -- (the box's: it fades with it)
+    local divider = dress:CreateTexture(nil, "ARTWORK")
     divider:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
     divider:SetWidth(1)
     divider:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -(COLUMN - 1), 0)
@@ -419,10 +415,11 @@ local function Build()
 end
 
 -- --------------------------------------------------------------- immersion
--- Faded when idle (Shared > Visibility & fading, Immersion Mode): the panel
--- at its faded opacity while none of what is ticked is so, whole again
--- when one is. Only its alpha: it still works faded, as the console does
--- (console/fade.lua). The minimap in the Zone view draws its pins past it.
+-- Faded when idle (Shared > Visibility & fading, Immersion Mode): the
+-- panel's box (the dress: its ink, trim, rules and the divider) at its faded
+-- opacity while none of what is ticked is so, whole again when one is. What
+-- stands in it (the views, their buttons and text, the scroll bar, the tabs
+-- and the corner over the medallion) stays whole throughout.
 local inCombat = false
 local fader, wanted
 
@@ -455,7 +452,7 @@ end
 ns.UpdateSideFade = Immerse
 
 local function Immersion()
-    fader = ns.Fader(panel)
+    fader = ns.Fader(ns.side.dress)
     ns.sideFader = fader
     -- the pointer has no event: the panel looks ten times a second
     local watch = CreateFrame("Frame", nil, UIParent)

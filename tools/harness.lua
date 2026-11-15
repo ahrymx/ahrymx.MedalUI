@@ -7560,7 +7560,8 @@ if sidePass then
         local function fire(e)
             for _, h in ipairs(events[e] or {}) do h.scripts.OnEvent(h, e) end
         end
-        local p, fader, watch = ns.side.panel, ns.sideFader, ns.sideFadeWatch
+        -- the box fades; the panel, and what stands in it, stays whole
+        local p, fader, watch = ns.side.dress, ns.sideFader, ns.sideFadeWatch
         p:Show()
         local function step(sec)
             for _ = 1, math.floor(sec * 10 + 0.5) do
@@ -7581,13 +7582,16 @@ if sidePass then
         end
         local tab = ns.side.views[1].tab
         local function at(tag)
-            print("side immersion " .. tag, string.format("alpha=%.2f body=%.2f tabs=%.2f well=%.2f", p:GetAlpha(),
-                shows(ns.side.area), shows(tab), shows(ns.side.well)))
+            local col = ns.side.views[1].column
+            print("side immersion " .. tag, string.format(
+                "box=%.2f divider=%.2f panel=%.2f body=%.2f buttons=%.2f tabs=%.2f well=%.2f", shows(p),
+                shows(ns.side.divider), shows(ns.side.panel), shows(ns.side.area), shows(col), shows(tab),
+                shows(ns.side.well)))
         end
         -- the medallion's corner: its rule meets the trim at the edge, the
         -- corner closed while the panel above it is faded
         print("side immersion well", string.format("rule %.1f..%.1f, edge %.1f; top %.1f, rule top %.1f",
-            ns.side.well.rule:GetLeft(), ns.side.well.rule:GetRight(), p:GetRight(),
+            ns.side.well.rule:GetLeft(), ns.side.well.rule:GetRight(), ns.side.panel:GetRight(),
             ns.side.well:GetTop(), ns.side.well.rule:GetTop()))
         -- health in plain numbers (a secret says nothing either way)
         local health, most, wasTarget = UnitHealth, UnitHealthMax, hasTarget
@@ -7625,7 +7629,7 @@ if sidePass then
             fire("PLAYER_REGEN_ENABLED")
         end)
         brings("target", "sideShowTarget", function() hasTarget = true end, function() hasTarget = false end)
-        brings("mouse", "sideShowMouse", function() mouseOver = p end, function() mouseOver = false end)
+        brings("mouse", "sideShowMouse", function() mouseOver = ns.side.panel end, function() mouseOver = false end)
         brings("hurt (unticked)", "sideShowHurt", function() UnitHealth = hurt end,
             function() UnitHealth = function() return 100 end end)
         ns.SetOption("sideShowHurt", true)
@@ -7640,7 +7644,7 @@ if sidePass then
         step(1)
         at("opacity 30%")
         ns.SetOption("sideFadeOut", 2)
-        mouseOver = p
+        mouseOver = ns.side.panel
         step(0.3)
         mouseOver = false
         step(1)
