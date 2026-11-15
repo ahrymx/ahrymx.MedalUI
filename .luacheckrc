@@ -78,7 +78,7 @@ read_globals = {
     "IsPlayerSpell", "IsSpellKnown", "ITEM_STARTS_QUEST",
     -- the player's role, the editor's canvas shows (options/canvas.lua)
     "GetSpecializationRole", "GetTalentGroupRole",
-    "issecurevariable", "debugstack", "GetMouseFoci", "GetMouseFocus", "GetNumBindings", "GetBinding", "C_CVar", "C_AddOns",
+    "issecurevariable", "debugstack", "KEYRING", "KEYRING_CONTAINER", "GetKeyRingSize", "PutKeyInKeyRing", "GetMouseFoci", "GetMouseFocus", "GetNumBindings", "GetBinding", "C_CVar", "C_AddOns",
     -- the Edit Mode clients' API: secret values, curves, duration objects
     "issecretvalue", "AnchorUtil", "issecrettable", "canaccesstable", "geterrorhandler", "GetBuildInfo", "C_ActionBar", "C_CurveUtil", "CurveConstants", "Enum", "UnitHealthPercent", "UnitPowerPercent",
     "UnitCastingDuration", "UnitChannelDuration", "ActionButton_UpdateCooldownNumberHidden",

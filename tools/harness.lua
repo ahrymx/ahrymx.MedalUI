@@ -2377,6 +2377,14 @@ if (bagsPass or bankPass) and modern then
         PickupContainerItem = function(bag, slot) table.insert(bagWorld.picked, bag .. ":" .. slot) end,
     }
     bagWorld.picked = {}
+    -- the key ring's own scripts (KeyRingMixin): its name in the tooltip, and
+    -- a click that toggles Blizzard's ring bag
+    bagWorld.ringToggles = 0
+    KeyRingButton.scripts.OnEnter = function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Key Ring")
+    end
+    KeyRingButton.scripts.OnClick = function() bagWorld.ringToggles = bagWorld.ringToggles + 1 end
     IsModifiedClick = IsModifiedClick or function() return false end
     function GameTooltip:SetBagItem(bag, slot) self.item = "bag" .. bag .. ":" .. slot end
     -- the item tooltips' post-calls (inventory/locks.lua's "Locked")
@@ -14209,6 +14217,107 @@ if bagsPass then
     title.scripts.OnClick(title)
     CloseAllBags()
     drawerState("bags.drawer with the window closed")
+
+    -- 16b. the key ring (Forever's): pressed, its keys shown on rows of their
+    -- own, as many slots as Blizzard's ring shows; pressed again, hidden. Its
+    -- slots made ahead, shown or not; a key on the cursor goes in instead.
+    ;(function()
+        KEYRING_CONTAINER = -2
+        W.sizes[-2] = 32
+        W.ITEMS[112] = { "Skeleton Key", 13, 1 }
+        W.put(-2, 1, 112); W.put(-2, 2, 112)
+        function GetKeyRingSize()           -- Blizzard's: rows of four past the last key
+            local last, n = 0, 0
+            for i = 1, W.sizes[-2] do
+                if W.items["-2:" .. i] then last, n = i, n + 1 end
+            end
+            local size = (last % 4 == 0 and n < last) and last or last + (4 - last % 4)
+            return math.min(size, W.sizes[-2])
+        end
+        local cursor, put = false, 0
+        CursorHasItem = function() return cursor end
+        PutKeyInKeyRing = function() put = put + 1 end
+        fire("BAG_UPDATE_DELAYED")
+        local ring = KeyRingButton
+        local function freeText()
+            for _, r in ipairs(w.all_) do
+                if r.kind == "FontString" and r.text and r.text:find("^Free") then return r.text end
+            end
+            return "?"
+        end
+        -- Blizzard's own tooltip (KeyRingMixin:BagSlotOnEnter), with ours hooked after it
+        local lines = {}
+        local addLine, show = GameTooltip.AddLine, GameTooltip.Show
+        function GameTooltip:AddLine(t) table.insert(lines, tostring(t)) end
+        function GameTooltip:Show() end
+        local function keys(tag)
+            local made, shown, first = 0, {}, nil
+            for i = 1, 32 do
+                local b = _G["MedalluinBagsItem-2_" .. i]
+                if b then
+                    made = made + 1
+                    if b.shown then
+                        table.insert(shown, i .. (b.hasItem and "*" or ""))
+                        first = first or at(b)
+                    end
+                end
+            end
+            print(tag, "made=" .. made, "shown=" .. (#shown > 0 and table.concat(shown, ",") or "none"),
+                "first=" .. tostring(first), "lit=" .. tostring(ring.medalluinLit and ring.medalluinLit.shown),
+                "free=" .. freeText())
+        end
+        ns.SetOption("bagsView", "grid")
+        OpenAllBags()
+        w.scripts.OnUpdate(w, 0.02)
+        keys("bags.keys hidden")
+        lines = {}
+        ring.scripts.OnEnter(ring)
+        print("bags.keys tip", "lines=" .. table.concat(lines, " / "))
+        lines = {}
+        ring.scripts.OnClick(ring, "LeftButton")
+        w.scripts.OnUpdate(w, 0.02)
+        keys("bags.keys shown")
+        print("bags.keys Blizzard's toggle", "ran=" .. W.ringToggles, "window shown=" .. tostring(w.shown))
+        print("bags.keys tip shown", "lines=" .. table.concat(lines, " / "))
+        local last0 = 0
+        for i = 1, 16 do if slot(5, i) and slot(5, i).shown then last0 = i end end
+        print("bags.keys under the reagents", "reagent last=" .. at(slot(5, last0)), "keys first=" .. at(_G["MedalluinBagsItem-2_1"]))
+        ns.SetOption("bagsView", "bags")
+        w.scripts.OnUpdate(w, 0.02)
+        local heads = {}
+        for _, r in ipairs(_G.MedalluinBagsBag0.parent.all_) do
+            if r.kind == "FontString" and r.shown and r.text then table.insert(heads, r.text) end
+        end
+        print("bags.keys by bag", table.concat(heads, ", "))
+        ns.SetOption("bagsView", "groups")
+        w.scripts.OnUpdate(w, 0.02)
+        local spares = {}
+        for bag, n in pairs({ [0] = 16, [5] = 8, [-2] = 32 }) do
+            for i = 1, n do
+                local b = slot(bag, i)
+                if b and b.shown and b.spare.text and b.spare.text ~= "" then
+                    table.insert(spares, bag .. ":" .. b.spare.text)
+                end
+            end
+        end
+        table.sort(spares)
+        print("bags.keys groups", "free=" .. table.concat(spares, " "))
+        ns.SetOption("bagsView", "grid")
+        -- a key on the cursor goes in, and the keys stay as they were
+        cursor = true
+        ring.scripts.OnClick(ring, "LeftButton")
+        cursor = false
+        w.scripts.OnUpdate(w, 0.02)
+        keys("bags.keys key put in (put=" .. put .. ")")
+        ring.scripts.OnClick(ring, "RightButton")
+        w.scripts.OnUpdate(w, 0.02)
+        keys("bags.keys hidden again")
+        CloseAllBags()
+        GameTooltip.AddLine, GameTooltip.Show = addLine, show
+        GameTooltip.owner = nil
+        KEYRING_CONTAINER, GetKeyRingSize, W.sizes[-2] = nil, nil, nil
+        for i = 1, 32 do W.items["-2:" .. i] = nil end
+    end)()
 
     -- 17. the corner: six dots; held, the window keeps its top-left and the
     -- columns follow the pointer

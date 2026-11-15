@@ -9,7 +9,12 @@
 --                         View() -> "grid" | "bags" | "groups",
 --                         Apart(bag) -> true: a container on rows of its
 --                         own in the grid, and free slots of its own kind in
---                         the groups (the reagent bag), Name(bag) }
+--                         the groups (the reagent bag; a string names the
+--                         kind, so two such containers count apart), Name(bag),
+--                         and two, optional: Size(bag) -> the slots shown
+--                         (the container's, when left out), All() -> every
+--                         container whose slots are made, shown or not
+--                         (Bags(), when left out) }
 --   set.Refresh() -> width, height (the body sized to them)
 --   set.Make()    every container's slots made, out of combat only
 --
@@ -251,6 +256,7 @@ function ns.Slots(spec)
     end
 
     local function Apart(bag) return spec.Apart and spec.Apart(bag) or false end
+    local function Size(bag) return spec.Size and spec.Size(bag) or Container.GetContainerNumSlots(bag) end
 
     -- Every slot of every container in order, one Apart on rows of its own.
     local function Grid(list)
@@ -291,7 +297,8 @@ function ns.Slots(spec)
         for _, g in ipairs(GROUPS) do into[g.key] = {} end
         local firstFree, spare = {}, {}
         for _, bag in ipairs(spec.Bags()) do
-            local kind = Apart(bag) and "apart" or "bags"
+            local apart = Apart(bag)
+            local kind = apart and (apart == true and "apart" or apart) or "bags"
             for _, s in ipairs(list[bag]) do
                 if s.info then
                     table.insert(into[Group(s.info, bag, s.slot)], s.button)
@@ -330,7 +337,7 @@ function ns.Slots(spec)
         local fight = InCombatLockdown()
         for _, bag in ipairs(spec.Bags()) do
             list[bag] = list[bag] or {}
-            for slot = 1, Container.GetContainerNumSlots(bag) do
+            for slot = 1, Size(bag) do
                 local b = slots[bag] and slots[bag][slot] or not fight and Slot(bag, slot)
                 if b then
                     local info = Container.GetContainerItemInfo(bag, slot)
@@ -357,7 +364,7 @@ function ns.Slots(spec)
 
     function set.Make()
         if InCombatLockdown() then return end
-        for _, bag in ipairs(spec.Bags()) do
+        for _, bag in ipairs((spec.All or spec.Bags)()) do
             for slot = 1, Container.GetContainerNumSlots(bag) do Slot(bag, slot) end
         end
     end

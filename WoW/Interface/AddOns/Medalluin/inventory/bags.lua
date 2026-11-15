@@ -60,19 +60,37 @@ local function ReagentBag()
     return Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag
 end
 
--- The bags shown, in order: the backpack, the equipped bags, the reagent bag.
-local function Bags()
+-- The key ring, Forever's only: its keys shown while its button in the
+-- drawer is pressed, for the session, as Blizzard's ring opens a bag of its own.
+local keysShown = false
+local function KeyRing()
+    return KeyRingButton and KEYRING_CONTAINER or nil
+end
+
+-- The bags shown, in order: the backpack, the equipped bags, the reagent bag,
+-- the key ring while its keys are shown (all: shown or not, for the slots made).
+local function Bags(all)
     local out = {}
     for bag = 0, NUM_BAG_SLOTS or 4 do table.insert(out, bag) end
     local reagent = ReagentBag()
     if reagent and Container.GetContainerNumSlots(reagent) > 0 then table.insert(out, reagent) end
+    local ring = KeyRing()
+    if ring and (keysShown or all) and Container.GetContainerNumSlots(ring) > 0 then table.insert(out, ring) end
     return out
+end
+
+-- The key ring's slots shown as Blizzard's ring shows them: rows of four,
+-- one more than the last key fills.
+local function Size(bag)
+    if bag == KeyRing() and GetKeyRingSize then return GetKeyRingSize() end
+    return Container.GetContainerNumSlots(bag)
 end
 
 -- A bag's name, as its tooltip gives it.
 local function BagName(bag)
     local name = Container.GetBagName and Container.GetBagName(bag)
     if name and name ~= "" then return name end
+    if bag == KeyRing() then return KEYRING or "Key ring" end
     if bag == 0 then return "Backpack" end
     if bag == ReagentBag() then return "Reagent bag" end
     return "Bag " .. bag
@@ -85,11 +103,15 @@ local function Money()
 end
 
 local function Free()
-    local reagent = ReagentBag()
+    local reagent, ring = ReagentBag(), KeyRing()
     local spare, total, rSpare, rTotal = 0, 0, 0, 0
     for _, bag in ipairs(Bags()) do
         local n, f = Container.GetContainerNumSlots(bag), Container.GetContainerNumFreeSlots(bag)
-        if bag == reagent then rSpare, rTotal = f, n else spare, total = spare + f, total + n end
+        if bag == reagent then
+            rSpare, rTotal = f, n
+        elseif bag ~= ring then         -- a key ring's room holds keys only
+            spare, total = spare + f, total + n
+        end
     end
     local text = string.format("Free %d / %d", spare, total)
     if rTotal > 0 then text = text .. string.format("   Reagents %d / %d", rSpare, rTotal) end
@@ -204,6 +226,32 @@ local function FitRing(ring)
     if ring.UpdateTextures then hooksecurefunc(ring, "UpdateTextures", Fit) end
 end
 
+-- Pressed, the ring shows its keys in the window, on rows of their own, and
+-- again hides them. Blizzard's click would open the ring's own bag (with the
+-- combined bags, it closes ours); a key held on the cursor still goes in.
+local function PressRing(ring)
+    local lit = ring:CreateTexture(nil, "OVERLAY", nil, 7)
+    lit:SetAllPoints()
+    lit:SetColorTexture(unpack(OVER.checked))
+    lit:Hide()
+    ring.medalluinLit = lit
+    ring:SetScript("OnClick", function()
+        if CursorHasItem and CursorHasItem() then
+            if PutKeyInKeyRing then PutKeyInKeyRing() end
+            return
+        end
+        keysShown = not keysShown
+        lit:SetShown(keysShown)
+        dirty = true
+        if GameTooltip:GetOwner() == ring then ring:GetScript("OnEnter")(ring) end
+    end)
+    ring:HookScript("OnEnter", function(self)
+        if GameTooltip:GetOwner() ~= self then return end
+        GameTooltip:AddLine(keysShown and "Hide your keys." or "Show your keys in your bags.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+end
+
 local function PlaceBagSlots()
     placing = true
     local x = DRAWER_PAD
@@ -243,7 +291,12 @@ local function Drawer()
         if b then
             b:SetParent(drawer.inner)
             b:SetFrameLevel(drawer:GetFrameLevel() + 2)
-            if b == KeyRingButton then FitRing(b) else StyleBagSlot(b) end
+            if b == KeyRingButton then
+                FitRing(b)
+                PressRing(b)
+            else
+                StyleBagSlot(b)
+            end
             -- Blizzard's collapsed bag bar would hide them
             if b.SetBarExpanded then hooksecurefunc(b, "SetBarExpanded", b.Show) end
             b:Show()
@@ -401,9 +454,13 @@ local function Build()
 
     body = CreateFrame("Frame", nil, window)
     body:SetPoint("TOPLEFT", PAD, -HEAD)
-    set = ns.Slots{ prefix = "MedalluinBags", body = body, Bags = Bags, Name = BagName,
+    set = ns.Slots{ prefix = "MedalluinBags", body = body, Bags = Bags, Name = BagName, Size = Size,
+        All = function() return Bags(true) end,
         Columns = function() return ns.db.bagsColumns end, View = function() return ns.db.bagsView end,
-        Apart = function(bag) return bag == ReagentBag() end }
+        Apart = function(bag)
+            if bag == KeyRing() then return "keys" end
+            return bag == ReagentBag()
+        end }
 
     money = ns.PlainText(window, 11)
     money:SetPoint("BOTTOMLEFT", PAD, PAD - 2)
