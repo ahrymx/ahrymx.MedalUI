@@ -88,7 +88,7 @@ A **plan** lays out a build by level. Each talent shows its levels, goal and pro
 
 ## Game menu
 
-Esc opens a game menu that also shows your character, Medalluin's shortcuts, and your friends and guild on two tabs of a Social window. A clock at the top of the screen shows the time, with your gold, session length and latency under it. The cog opens the menu's options.
+Esc opens a game menu that also shows your character, Medalluin's shortcuts, and your friends and guild on two tabs of a Social window. A clock at the top of the screen shows the time, with your gold, session length and latency under it. Left alone, the panel folds into a thin rail at the edge while the camera turns slowly around your character. The cog opens the menu's options.
 
 ![The game menu: the character, menu buttons, friends, guild and this session](showcase/game-menu.png)
 

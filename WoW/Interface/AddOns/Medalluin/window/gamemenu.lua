@@ -31,6 +31,11 @@
 --   +--------------------------------+
 --   On a short panel the cards go to a line each, then the guild's message
 --   is left out, till the people have three rows.
+--   A rail down its right edge, a chevron on it, folds it in at a click, as
+--   does being left alone a while: it slides out to the left, the rail left
+--   at the screen's edge (fading as the clock does), the camera turning
+--   slowly around you till the mouse resting on the rail, or a click,
+--   brings it back.
 --
 --   At the screen's top centre, the clock, and under it gold, the session
 --   and latency; it fades a while after the menu opens, and the mouse over
@@ -90,6 +95,9 @@ local ROW_H, ROW_LOW, ROW_GAP = 38, 26, 5   -- a card a row: its words and a lin
 local COG = 28                  -- the panel's cog, at its top right
 local SETUP_W, SETUP_H, SETUP_NAV = 560, 400, 150   -- the cog's window; its pages' column
 local FADE_AFTER, FADE_FOR, FADE_TO = 5, 1, 0.15    -- the clock: still, fading, faded
+local RAIL_W = 24                           -- the rail on the panel's right edge, open or folded
+local FOLD_IDLE, FOLD_FOR, DWELL = 8, 0.35, 0.25    -- folds after, slides for; the rail opens under the mouse after
+local SPIN = 0.035                          -- the camera's turn while folded (MoveViewLeftStart)
 local MEDAL, BACK_MEDAL = 48, 58           -- a medallion's size; Return to Game's
 local REACH = 0.30                          -- the ring's radius, of the screen's height
 local ARCH_FROM, ARCH_TO = 160, 20          -- the arch's ends, in degrees, for six
@@ -888,6 +896,7 @@ local function Build()
     ring:SetSize(1, 1)
     ring:SetPoint("CENTER", UIParent, "CENTER")
     menu.holder, menu.docked, menu.ring, menu.bars, menu.cog = holder, docked, ring, bars, cog
+    menu.shade = shade
 end
 
 -- who you are, at the docked panel's top
@@ -1409,6 +1418,141 @@ local function Clock()
     return clock
 end
 
+-- ------------------------------------------------------------ the fold
+-- The docked panel folds in (2026-11-15): a rail down its right edge, a
+-- chevron between two diamonds, slides with it. A click on it, or
+-- FOLD_IDLE seconds with the mouse off it and the panel (nothing beside,
+-- no options open), slides the panel out to the left, the world undimmed,
+-- the rail left at the screen's edge, its chevron turned out. The rail
+-- fades as the clock does, open or folded, but always: the clock's Fade
+-- option is the clock's alone. Folded, the mouse resting on
+-- it, or a click, slides the panel back. While folded the
+-- camera turns slowly around you (gameMenuSpin), stopped as it opens or
+-- the menu closes. Each opening of the menu starts it unfolded.
+local fold = { p = 0, want = false, idle = 0, rest = 0, dwell = 0, spinning = false }
+menu.fold = fold
+
+local function Chevron(parent, size, turn)
+    local t = parent:CreateTexture(nil, "ARTWORK")
+    t:SetSize(size, size)
+    t:SetTexture(ns.media .. "strips\\chevron-up")
+    if t.SetRotation then t:SetRotation(turn) end
+    return t
+end
+
+local function Spin(on)
+    on = on and ns.db.gameMenuSpin ~= false and MoveViewLeftStart ~= nil
+    if on == fold.spinning then return end
+    fold.spinning = on
+    if on then MoveViewLeftStart(SPIN) elseif MoveViewLeftStop then MoveViewLeftStop() end
+end
+
+-- where the slide stands: the panel out by its part, the shade with it,
+-- the rail coming in (and faded once it has rested)
+local function FoldDraw()
+    local t = fold.p
+    local e = t * t * (3 - 2 * t)
+    local x = -math.floor(DOCK_W * e + 0.5)
+    docked:ClearAllPoints()
+    docked:SetPoint("TOPLEFT", UIParent, "TOPLEFT", x, 0)
+    docked:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, 0)
+    shade:SetAlpha(1 - e)
+    local rail = fold.rail
+    if not rail then return end
+    local a = 1
+    if not rail.over and (t <= 0 or t >= 1) then
+        local past = fold.rest - FADE_AFTER
+        if past > 0 then a = 1 - (1 - FADE_TO) * math.min(1, past / FADE_FOR) end
+    end
+    rail:SetAlpha(a)
+    if rail.chevron.SetRotation then rail.chevron:SetRotation(fold.want and -math.pi / 2 or math.pi / 2) end
+end
+
+local function Fold(on)
+    fold.want, fold.idle, fold.rest, fold.dwell = on, 0, 0, 0
+    if on then
+        Setup.Close()
+        if GameTooltip_Hide then GameTooltip_Hide() end
+    end
+    Spin(on)
+end
+menu.Fold = Fold
+
+-- the menu's first open: the rail and the clock of the slide
+local function Folding()
+    if fold.rail then return fold end
+    local rail = CreateFrame("Button", nil, holder)
+    rail:SetWidth(RAIL_W)
+    rail:SetPoint("TOPLEFT", docked, "TOPRIGHT")
+    rail:SetPoint("BOTTOMLEFT", docked, "BOTTOMRIGHT")
+    rail:SetFrameLevel(docked:GetFrameLevel() + 5)
+    rail:RegisterForClicks("LeftButtonUp")
+    local ink = rail:CreateTexture(nil, "BACKGROUND")
+    ink:SetAllPoints()
+    ink:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.9)
+    local edge = rail:CreateTexture(nil, "BORDER")
+    edge:SetPoint("TOPRIGHT")
+    edge:SetPoint("BOTTOMRIGHT")
+    edge:SetWidth(1)
+    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    rail.chevron = Chevron(rail, 14, math.pi / 2)
+    rail.chevron:SetPoint("CENTER")
+    rail.chevron:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+    local up, down = Diamond(rail), Diamond(rail)
+    up:SetPoint("CENTER", 0, 22)
+    down:SetPoint("CENTER", 0, -22)
+    rail:SetScript("OnClick", function() Fold(not fold.want) end)
+    rail:SetScript("OnEnter", function(self)
+        self.over, fold.dwell = true, 0
+        if not fold.want then
+            ns.Tip(self, "ANCHOR_RIGHT", { title = "Fold the menu", { "hint", "It folds by itself when left alone." } })
+        end
+    end)
+    rail:SetScript("OnLeave", function(self)
+        self.over, fold.rest = false, 0
+        if GameTooltip_Hide then GameTooltip_Hide() end
+    end)
+    fold.rail = rail
+    -- the slide's clock, while the menu is open
+    local drive = CreateFrame("Frame", nil, holder)
+    drive:SetScript("OnUpdate", function(_, elapsed)
+        if Style() ~= "docked" then return end
+        if not fold.want then
+            local busy = ns.db.gameMenuFoldIdle == false or Setup.shown or open ~= nil or want ~= nil
+                or docked:IsMouseOver() or rail.over or rail:IsMouseOver()
+            fold.idle = busy and 0 or fold.idle + elapsed
+            if not rail.over then fold.rest = fold.rest + elapsed end
+            if fold.idle >= FOLD_IDLE then Fold(true) end
+        elseif fold.p >= 1 then
+            if rail.over then
+                fold.dwell = fold.dwell + elapsed
+                if fold.dwell >= DWELL then Fold(false) end
+            else
+                fold.rest = fold.rest + elapsed
+            end
+        end
+        local to = fold.want and 1 or 0
+        if fold.p ~= to then
+            local step = elapsed / FOLD_FOR
+            fold.p = to > fold.p and math.min(1, fold.p + step) or math.max(0, fold.p - step)
+        end
+        FoldDraw()
+    end)
+    fold.drive = drive
+    -- each opening: unfolded, still; each closing: the camera stopped
+    holder:HookScript("OnShow", function()
+        fold.p = 0
+        Fold(false)
+        FoldDraw()
+    end)
+    holder:HookScript("OnHide", function()
+        Spin(false)
+        fold.p, fold.want = 0, false
+        FoldDraw()
+    end)
+    return fold
+end
+
 local function Social()
     if social.motd then return social end
     -- over the guild's window
@@ -1632,7 +1776,11 @@ local function Fill(page)
                 asides[key])
         end
         Line("rule")
-        Line("label", "Untick one to leave it out")
+        Line("label", "When left alone")
+        Line("check", "Fold the panel in", ns.db.gameMenuFoldIdle ~= false,
+            function() Flip("gameMenuFoldIdle"); Again() end, 0, format("after %d s", FOLD_IDLE))
+        Line("check", "Turn the camera while folded", ns.db.gameMenuSpin ~= false,
+            function() Flip("gameMenuSpin"); Again() end)
     elseif page == "friends" then
         local filter = ns.db.gameMenuFriends or "online"
         Line("label", "Show")
@@ -2030,6 +2178,11 @@ local function Docked(sections, leave, back)
     for i = used + 1, #rows do rows[i]:Hide() end
     for i = n + 1, #heads do heads[i]:Hide() end
 
+    -- the fold: its rail, the panel where the slide has it
+    Folding()
+    fold.rail:Show()
+    FoldDraw()
+
     -- the clock at the screen's top centre, the session under it
     local c = Clock()
     c:SetShown(not Hidden("clock"))
@@ -2149,6 +2302,12 @@ local function Medallion(sections, leave, back)
     for i = used + 1, #bars do bars[i]:Hide() end
     if clock then clock:Hide() end
     Setup.Close()
+    if fold.rail then
+        Spin(false)
+        fold.p, fold.want = 0, false
+        fold.rail:Hide()
+    end
+    shade:SetAlpha(1)
     shade:ClearAllPoints()
     shade:SetAllPoints(UIParent)
     shade:SetColorTexture(0, 0, 0, 0.2)

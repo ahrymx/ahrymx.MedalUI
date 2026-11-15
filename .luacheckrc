@@ -155,7 +155,7 @@ read_globals = {
     "C_LFGList", "PVEFrame", "GroupFinderFrame", "LFGParentFrame", "WhoFrame", "FriendsFrame", "ChatFrame_SendTell",
     -- the game menu's friends, guild and session (window/gamemenu.lua)
     "LOCALIZED_CLASS_NAMES_MALE", "LOCALIZED_CLASS_NAMES_FEMALE", "ChatFrame_SendBNetTell", "BNGetNumFriends",
-    "C_BattleNet", "BNET_CLIENT_WOW", "GetNetStats", "GetGameTime", "ToggleClickBindingFrame", "BACKPACK_TOOLTIP", "CHARACTER_BUTTON", "FRIENDS", "ToggleFriendsFrame",
+    "C_BattleNet", "BNET_CLIENT_WOW", "GetNetStats", "GetGameTime", "MoveViewLeftStart", "MoveViewLeftStop", "ToggleClickBindingFrame", "BACKPACK_TOOLTIP", "CHARACTER_BUTTON", "FRIENDS", "ToggleFriendsFrame",
     "GUILD", "ToggleGuildFrame", "IsInGuild", "GetGuildRosterMOTD", "C_GuildInfo", "GuildRoster",
     "Ambiguate",
     "C_PartyInfo", "InviteUnit", "GetQuestDifficultyColor", "GetZoneText",

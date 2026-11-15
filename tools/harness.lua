@@ -21731,6 +21731,110 @@ if gamemenuPass then (function()
     pop("gamemenu escaped")
     M.holder:Show()
     docked("gamemenu clock reopened")
+    -- the fold (2026-11-15): left alone 8 s the panel slides out over
+    -- 0.35 s, the world undimmed, the camera turning; the rail fades as the
+    -- clock does; the mouse resting on it (0.25 s) or a click brings the
+    -- panel back, the camera stopped. The rail is the same open (on the
+    -- panel's right edge, its chevron in): a click folds it, the mouse on
+    -- it does not; the options, the mouse on the panel, or the option off
+    -- keep it out
+    local spins = {}
+    function MoveViewLeftStart(v) table.insert(spins, "start" .. v) end
+    function MoveViewLeftStop() table.insert(spins, "stop") end
+    local F = M.fold
+    local function run(dt) F.drive.scripts.OnUpdate(F.drive, dt) end
+    local function folded(tag)
+        local q = M.docked.points.TOPLEFT
+        local turn = F.rail.chevron.rotation or 0
+        print(tag, string.format("p=%.2f want=%s x=%d shade=%.2f rail=%s/%.2f@%s chevron=%s spin=%s", F.p,
+            tostring(F.want), q[3], M.shade.alpha or 1, tostring(F.rail.shown), F.rail.alpha or 1,
+            tostring(F.rail.points.TOPLEFT[1] == M.docked and F.rail.points.TOPLEFT[2]),
+            turn > 0 and "in" or turn < 0 and "out" or "?", table.concat(spins, ",")))
+        spins = {}
+    end
+    folded("gamemenu fold open")
+    run(5.5)
+    folded("gamemenu fold open rail at 5.5s")
+    F.rail.scripts.OnEnter(F.rail)
+    run(10)
+    folded("gamemenu fold open rail under the mouse, 10s")
+    F.rail.scripts.OnLeave(F.rail)
+    run(7.9)
+    folded("gamemenu fold at 7.9s")
+    local wasOver = mouseOver
+    mouseOver = M.docked
+    run(10)
+    folded("gamemenu fold mouse on the panel, 10s")
+    mouseOver = wasOver
+    run(7.9)
+    run(0.1)
+    folded("gamemenu fold sliding")
+    run(0.3)
+    folded("gamemenu folded")
+    run(5.5)
+    folded("gamemenu fold rail at 5.5s")
+    run(1)
+    folded("gamemenu fold rail at 6.5s")
+    F.rail.scripts.OnEnter(F.rail)
+    run(0.1)
+    folded("gamemenu fold rail under the mouse")
+    run(0.2)
+    folded("gamemenu fold rail rested on")
+    F.rail.scripts.OnLeave(F.rail)
+    run(0.5)
+    folded("gamemenu fold opened")
+    click(F.rail)
+    run(0.4)
+    folded("gamemenu fold rail clicked open")
+    click(F.rail)
+    run(0.4)
+    folded("gamemenu fold rail clicked")
+    ns.db.gameMenuSpin = false
+    click(F.rail)
+    run(0.4)
+    folded("gamemenu fold no spin")
+    ns.db.gameMenuSpin = nil
+    click(F.rail)
+    run(0.4)
+    ns.db.gameMenuFoldIdle = false
+    run(20)
+    folded("gamemenu fold idle off, 20s")
+    ns.db.gameMenuFoldIdle = nil
+    -- the clock's Fade off: the clock stays, the rail fades still
+    ns.db.gameMenuClockFade = false
+    click(F.rail)
+    run(0.4)
+    run(6.5)
+    folded("gamemenu fold rail, clock fade off, 6.5s")
+    M.clock.scripts.OnUpdate(M.clock, 6.5)
+    print("gamemenu fold clock, clock fade off", string.format("%.2f", M.clock.alpha or 1))
+    ns.db.gameMenuClockFade = nil
+    click(F.rail)
+    run(0.4)
+    click(M.cog)
+    run(20)
+    folded("gamemenu fold options open, 20s")
+    page("sections")
+    click(line("Fold the panel in"))
+    click(line("Turn the camera while folded"))
+    pop("gamemenu fold options")
+    print("gamemenu fold saved", tostring(ns.db.gameMenuFoldIdle), tostring(ns.db.gameMenuSpin))
+    click(line("Fold the panel in"))
+    click(line("Turn the camera while folded"))
+    click(F.rail)
+    pop("gamemenu fold shuts the options")
+    run(0.4)
+    M.holder:Hide()
+    folded("gamemenu fold menu closed")
+    M.holder:Show()
+    folded("gamemenu fold reopened")
+    -- left alone 7 s, closed and opened again: the wait starts over
+    run(7)
+    M.holder:Hide()
+    M.holder:Show()
+    run(1.5)
+    folded("gamemenu fold reopened after 7s alone, 1.5s")
+    MoveViewLeftStart, MoveViewLeftStop = nil, nil
     -- a row under the mouse: whisper and invite; a click on it whispers
     for _, c in ipairs(M.docked.all_ or {}) do
         if c.shown and c.person and c.person.name == "Thalen" then
@@ -21886,6 +21990,9 @@ if gamemenuPass then (function()
     beside("gamemenu beside options")
     frame()
     beside("gamemenu beside options, a frame on")
+    -- a window beside the menu keeps the panel out, left alone or not
+    M.fold.drive.scripts.OnUpdate(M.fold.drive, 20)
+    print("gamemenu beside fold", string.format("p=%.2f want=%s", M.fold.p, tostring(M.fold.want)))
     -- Escape, or its own close: the game's way back to the menu
     SettingsPanel:Close()
     EventRegistry:TriggerEvent("MenuProxy.OnHide", proxy)
