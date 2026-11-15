@@ -465,6 +465,70 @@ function Q.Untrack(quest)
     end
 end
 
+-- ---------------------------------------------------------------- clicks
+-- One set of clicks on a quest, in the tracker, the quest log and the side
+-- panel's Zone tab alike (2026-11-15):
+--   click          its page (quests/page.lua; the game's log while ours is off)
+--   Shift-click    a link to it in chat
+--   Ctrl-click     the waypoint to it, or cleared (while there is one to set)
+--   Alt-click      focused, with Questie's arrow (with Questie)
+--   right click    tracked, or no longer
+--   middle click   the world map at it
+-- Q.Keys gives them as the tooltips' key lines (core.lua's "key" part).
+function Q.Page(quest)
+    if ns.questPage and ns.questLog and ns.questLog.On() then
+        ns.questPage.Toggle(quest.id)
+    else
+        Q.Show(quest)
+    end
+end
+
+local function Linking()
+    if IsModifiedClick then return IsModifiedClick("CHATLINK") end
+    return IsShiftKeyDown()
+end
+
+-- tracked: the field the log's quests carry, or asked (the tracker's, from Read)
+local function IsTracked(quest)
+    if quest.tracked ~= nil then return quest.tracked end
+    return Tracked(quest.id) and true or false
+end
+
+-- what a click did: "track" when it tracked or stopped tracking, so a list
+-- may draw again at once
+function Q.Click(quest, mouse)
+    local WP = ns.waypoint
+    if mouse == "MiddleButton" then
+        Q.ShowOnMap(quest)
+    elseif mouse == "RightButton" then
+        if IsTracked(quest) then Q.Untrack(quest) else Q.Track(quest) end
+        return "track"
+    elseif Linking() and GetQuestLink and ChatEdit_InsertLink then
+        ChatEdit_InsertLink(GetQuestLink(quest.id))
+    elseif IsControlKeyDown() and WP and WP.Has() then
+        WP.Toggle(quest)
+    elseif IsAltKeyDown() and Q.Focus(quest) then
+        return
+    else
+        Q.Page(quest)
+    end
+end
+
+function Q.Keys(quest)
+    local WP = ns.waypoint
+    -- a word each, in the tooltip's grid of two by three, each in its place:
+    -- one that does nothing here leaves its slot empty ({ "key" })
+    local none = { "key" }
+    return {
+        { "key", "left", nil, "Page" },
+        { "key", "left", "Shift", "Link" },
+        WP and WP.Has() and { "key", "left", "Ctrl", "Waypoint" } or none,
+        Questie() and { "key", "left", "Alt", "Focus" } or none,
+        { "key", "right", nil, IsTracked(quest) and "Untrack" or "Track" },
+        Q.CanMap(quest) and { "key", "middle", nil, "Map" } or none,
+    }
+end
+
 -- -------------------------------------------------------------- changes
 -- fn() whenever what Read returns may have changed: the game's quest
 -- events, and Questie's own updates (its tracked set lives in Questie).

@@ -49,6 +49,14 @@ local function barSection(part, style)
         end }
 end
 
+-- a key part's cell: the modifier, the mouse with its button lit, what it
+-- does; an empty slot of the grid (a key that does nothing here) blank
+local function keyCell(part)
+    if not part[2] then return "" end
+    return (part[3] and (part[3] .. " + ") or "") .. "|TInterface\\AddOns\\Medalluin\\media\\strips\\mouse-"
+        .. tostring(part[2]) .. ":16:16:0:0:32:32:5:27:5:27|t " .. tostring(part[4])
+end
+
 local function specView(spec)
     local detail = ui.styleOf("objectDetails")
     local header, sections, hints = {}, {}, {}
@@ -67,6 +75,7 @@ local function specView(spec)
         end
         return last.rows
     end
+    local lastRole
     for _, part in ipairs(spec) do
         local role = part and part[1]
         if role == "body" then
@@ -86,7 +95,21 @@ local function specView(spec)
             sections[#sections + 1] = barSection(part, detail)
         elseif role == "hint" then
             hints[#hints + 1] = { left = part[2], right = "" }
+        elseif role == "key" then
+            -- a shortcut, "Shift + (mouse) Link": neighbouring ones two to a row, a grid
+            local last = hints[#hints]
+            if last and last.keys == 1 and lastRole == "key" then
+                last.right, last.keys = keyCell(part), 2
+            else
+                hints[#hints + 1] = { left = keyCell(part), right = "", keys = 1 }
+            end
         end
+        if part then lastRole = role end
+    end
+    -- a grid row whose two slots are both empty is left out
+    for index = #hints, 1, -1 do
+        local row = hints[index]
+        if row.keys and row.left == "" and (row.right or "") == "" then table.remove(hints, index) end
     end
     -- Sections after the first stand a little apart.
     for index = 2, #sections do sections[index].separator = { space = 4 } end

@@ -7048,9 +7048,10 @@ if sidePass then
             print("zone head " .. tag, tostring(list.all_[1].text), tostring(list.all_[2].text))
             for _, r in ipairs(list.all_) do
                 if r.kind == "Button" and r.shown then
-                    print("", string.format("%s%s%s|%s|%s%s%s h=%d", r.fold.text or "", r.line.objective and "  " or "",
+                    print("", string.format("%s%s%s%s|%s|%s%s%s h=%d", r.rule.shown and "~ " or "",
+                        r.fold.text or "", r.line.objective and "  " or "",
                         r.sword and r.sword.shown and "(sword)" or "",
-                        tostring(r.text.text), tostring(r.count.text), r.eye.shown and " eye" or "",
+                        tostring(r.text.text), tostring(r.count.text), r.stripes.shown and " striped" or "",
                         r.tick.shown and " tick" or "", r.h))
                 end
             end
@@ -7088,20 +7089,54 @@ if sidePass then
             fire("PLAYER_REGEN_ENABLED")
             where("console's turn")
         end
-        -- a click opens a quest's objectives; again, closes them
-        row(1).scripts.OnClick(row(1), "LeftButton")
+        -- the + or -, a button of its own, opens a quest's objectives; again,
+        -- closes them (and says which in its tooltip)
+        local function fold(i)
+            local f = row(i).folder
+            f.scripts.OnClick(f, "LeftButton")
+        end
+        local f1 = row(1).folder
+        f1.scripts.OnEnter(f1)
+        print("zone fold", "shown=" .. tostring(f1.shown), "width=" .. tostring(f1.w), "tip=" .. tostring(GameTooltip.text))
+        fold(1)
         rows("opened")
-        row(1).scripts.OnClick(row(1), "LeftButton")
-        -- a right click tracks; shift-click opens its page, again closes it
+        print("zone fold open", "tip=" .. tostring(GameTooltip.text))
+        f1.scripts.OnLeave(f1)
+        fold(1)
+        -- the quest's tooltip: its clicks, a mouse glyph each, as the log's and the tracker's
+        local function keys(r)
+            r.scripts.OnEnter(r)
+            local spec, out = Medalluin_TooltipSpec and Medalluin_TooltipSpec(GameTooltip), {}
+            for _, k in ipairs(spec or {}) do
+                if k and k[1] == "key" then
+                    table.insert(out, k[2] and k[2] .. (k[3] and "+" .. k[3] or "") .. "=" .. k[4] or "_")
+                end
+            end
+            r.scripts.OnLeave(r)
+            return table.concat(out, ", ")
+        end
+        print("zone keys", keys(row(2)))
+        -- a right click tracks; a click opens its page, again closes it;
+        -- shift-click links it
         row(2).scripts.OnClick(row(2), "RightButton")
         rows("right click")
-        modsDown.SHIFT = true
+        print("zone keys tracked", keys(row(2)))
         row(2).scripts.OnClick(row(2), "LeftButton")
-        print("zone shift-click", "page=" .. tostring(ns.questPage and ns.questPage.Current()),
+        print("zone click", "page=" .. tostring(ns.questPage and ns.questPage.Current()),
             "id=" .. tostring(row(2).line and row(2).line.quest and row(2).line.quest.id))
         row(2).scripts.OnClick(row(2), "LeftButton")
-        modsDown.SHIFT = false
-        print("zone shift-click again", "page=" .. tostring(ns.questPage and ns.questPage.Current()))
+        print("zone click again", "page=" .. tostring(ns.questPage and ns.questPage.Current()))
+        ;(function()
+            local linked, insert, link = {}, ChatEdit_InsertLink, GetQuestLink
+            ChatEdit_InsertLink = function(l) table.insert(linked, tostring(l)) return true end
+            GetQuestLink = function(id) return "quest:" .. id end
+            modsDown.SHIFT = true
+            row(2).scripts.OnClick(row(2), "LeftButton")
+            modsDown.SHIFT = false
+            print("zone shift-click", "linked=" .. table.concat(linked, ","),
+                "page=" .. tostring(ns.questPage and ns.questPage.Current()))
+            ChatEdit_InsertLink, GetQuestLink = insert, link
+        end)()
         -- Ctrl-click: the waypoint, the quest's lines washed, its distance after
         -- its title; again, cleared
         local function washed(tag)
@@ -7123,16 +7158,16 @@ if sidePass then
         washed("zone waypoint cleared")
         -- a kill's line: a sword for "slain"; too long, the name's first word
         -- an initial (a short one keeps its words)
-        row(2).scripts.OnClick(row(2), "LeftButton")
+        fold(2)
         local fiend = log[5].objectives[1].text
         log[5].objectives[1].text = "Dragonmaw Shadowcaster Infiltrator Commander slain: 4/15"
         z.Refresh()
         rows("long objective")
         log[5].objectives[1].text = fiend
-        row(2).scripts.OnClick(row(2), "LeftButton")
+        fold(2)
         -- its item ends its open objectives, a secure button over the line;
         -- hidden in combat; the quest closed, the button away
-        row(2).scripts.OnClick(row(2), "LeftButton")
+        fold(2)
         rows("item")
         local use = _G.MedalluinZoneItem1
         print("zone item button", "shown=" .. tostring(use and use.shown),
@@ -7145,7 +7180,7 @@ if sidePass then
         harnessHolds.combat = nil
         stateTick()
         print("zone item after combat", "layer=" .. tostring(_G.MedalluinZoneItems.shown))
-        row(2).scripts.OnClick(row(2), "LeftButton")
+        fold(2)
         print("zone item closed", "shown=" .. tostring(use and use.shown),
             "layer=" .. tostring(_G.MedalluinZoneItems and _G.MedalluinZoneItems.shown))
         -- the column: zoom in twice, out once; the foot tracks the zone, then untracks it
@@ -19229,6 +19264,22 @@ if questPass and not questLogPass then
         calls("quests.middle")
         C_Map, MapUtil, OpenWorldMap, Enum.UIMapType, WorldMapFrame = was[1], was[2], was[3], was[4], was[5]
     end
+    -- the quest's tooltip: its clicks as key lines, a mouse glyph each (the log's and the Zone tab's)
+    ;(function()
+        local keys, two = {}, GameTooltip.AddDoubleLine
+        GameTooltip.AddDoubleLine = function(_, l, r)
+            table.insert(keys, (tostring(l):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")) .. " || " .. (tostring(r):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")))
+        end
+        for _, r in ipairs(list.rows) do
+            if r.shown and r.label.text:find("The Defias Brotherhood", 1, true) then
+                r.scripts.OnEnter(r)
+                if r.scripts.OnLeave then r.scripts.OnLeave(r) end
+                break
+            end
+        end
+        GameTooltip.AddDoubleLine = two
+        print("quests.keys", table.concat(keys, " | "))
+    end)()
     row("The Defias Brotherhood", "RightButton")
     calls("quests.right")
     -- Questie's untrack leaves the game's watches alone: only its own update says so
@@ -19900,10 +19951,14 @@ if questLogPass then (function()
     end
     local function c3(c) return c and string.format("%.2f,%.2f,%.2f", c[1], c[2], c[3]) or "-" end
     local function tipOf(b)
-        local lines, add = {}, GameTooltip.AddLine
+        local lines, add, two = {}, GameTooltip.AddLine, GameTooltip.AddDoubleLine
         GameTooltip.AddLine = function(_, t) table.insert(lines, t) end
+        -- a key line: its mouse glyph as [left], [right] or [middle]
+        GameTooltip.AddDoubleLine = function(_, l, r)
+            table.insert(lines, (tostring(l):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")) .. " || " .. (tostring(r):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")))
+        end
         b.scripts.OnEnter(b)
-        GameTooltip.AddLine = add
+        GameTooltip.AddLine, GameTooltip.AddDoubleLine = add, two
         local t = tostring(GameTooltip.text) .. (#lines > 0 and (" / " .. table.concat(lines, " / ")) or "")
         if b.scripts.OnLeave then b.scripts.OnLeave(b) end
         return t
@@ -20520,6 +20575,36 @@ if questLogPass then (function()
     for _, title in ipairs({ "The Defias Brotherhood", "Seek Out the Ashtongue" }) do
         r = row(title)
         print("questlog middle tip " .. title, tipOf(r))
+        if title == "Seek Out the Ashtongue" then
+            -- a lone key before another kind of line keeps its place: written
+            -- alone first, never paired across the line
+            local got, add, two = {}, GameTooltip.AddLine, GameTooltip.AddDoubleLine
+            GameTooltip.AddLine = function(_, t) table.insert(got, tostring(t)) end
+            GameTooltip.AddDoubleLine = function(_, l, rr)
+                table.insert(got, (tostring(l):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")) .. " || "
+                    .. (tostring(rr):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")))
+            end
+            ns.Tip(r, "ANCHOR_RIGHT", { title = "t", { "key", "left", nil, "Page" }, { "body", "between" },
+                { "key", "right", "Alt", "Track" } })
+            print("questlog keys around a line", table.concat(got, " / "))
+            -- the grid's empty slots: a row of two is left out, as is a lone
+            -- one at the end; the rest keep their places
+            got = {}
+            ns.Tip(r, "ANCHOR_RIGHT", { title = "t", { "key", "left", nil, "Page" }, { "key", "left", "Shift", "Link" },
+                { "key" }, { "key" }, { "key", "right", nil, "Track" }, { "key" } })
+            print("questlog keys empty slots", table.concat(got, " / "))
+            got = {}
+            ns.Tip(r, "ANCHOR_RIGHT", { title = "t", { "key", "left", nil, "Page" }, { "key", "right", nil, "Track" },
+                { "key" } })
+            print("questlog keys lone empty slot", table.concat(got, " / "))
+            GameTooltip.AddLine, GameTooltip.AddDoubleLine = add, two
+            -- Ctrl's word is the same with the waypoint set: one word a cell
+            local WP, has, is = ns.waypoint, ns.waypoint.Has, ns.waypoint.Is
+            WP.Has, WP.Is = function() return true end, function() return true end
+            local k = ns.questSource.Keys(r.quest or { id = 1 })
+            WP.Has, WP.Is = has, is
+            print("questlog keys waypoint set", tostring(k[3] and k[3][4]))
+        end
         r.scripts.OnClick(r, "MiddleButton")
         calls("questlog middle click " .. title)
     end

@@ -11,15 +11,16 @@
 -- stand. Then a row a quest: those the log files under this zone, and on
 -- retail those the game marks on this map too. A row is the quest's title,
 -- its progress over all its objectives ("13/30", the counts read from
--- them) and a tick once it is complete; an eye before the count while it
--- is tracked. An objective's line is shortened to fit: a kill's "slain"
+-- them) and a tick once it is complete; one not tracked is striped, as the
+-- quest log stripes it (quests/log.lua), and a gold hairline above each
+-- quest but the first parts it from the objectives over it. An objective's line is shortened to fit: a kill's "slain"
 -- becomes a sword before it, and a name too long gives its first word as
--- an initial ("D. Reclaimer"). The quest log's clicks (quests/log.lua), but for two: a
--- click opens its objectives under it or closes them, and shift-click its
--- page (quests/page.lua). Ctrl-click sets the waypoint to it or clears it
--- (quests/waypoint.lua: its lines washed blue, its distance after its
--- title). A right click tracks it or stops, a middle click opens the world
--- map at it.
+-- an initial ("D. Reclaimer"). A quest clicks as in the quest log and the
+-- tracker (Q.Click, quests/source.lua; its tooltip's key lines say how):
+-- its page, Shift a link, Ctrl the waypoint (its lines washed blue, its
+-- distance after its title), Alt Questie's focus, right click tracked or
+-- not, middle click the map. Its + or - on the left, a button of its own,
+-- opens its objectives under it or closes them.
 --
 -- A quest with a usable item (quests/source.lua's q.item, as the tracker's)
 -- ends its open objectives with it: its icon, its name and how many you
@@ -38,6 +39,7 @@ local SWORD = "Interface\\CURSOR\\Attack"    -- the game's attack cursor
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local DIM = { 0.70, 0.66, 0.55 }
+local STRIPES, RULE = 0.3, 0.6      -- an untracked quest's stripes (the quest log's); the hairline's alpha
 
 local body, well, hold, list, title, place, empty
 local rows, quests, lines = {}, {}, {}
@@ -205,14 +207,11 @@ local function Tip(r)
         return
     end
     local state = q.state == 1 and "Complete." or q.state == -1 and "Failed." or nil
-    ns.Tip(r, ns.side.Beside, { title = q.title,
+    local spec = { title = q.title,
         { "body", "Level " .. q.level .. (state and ("  \194\183  " .. state) or "") },
-        { "body", q.tracked and "Tracked." or "Not tracked." },
-        { "hint", "Click: its objectives. Shift-click: its page. Right click: "
-            .. (q.tracked and "stop tracking it." or "track it.")
-            .. (ns.questSource.CanMap(q) and " Middle click: the map at it." or "")
-            .. (ns.waypoint.Has() and (ns.waypoint.Is(q.id) and " Ctrl-click: clear the waypoint."
-                or " Ctrl-click: the waypoint.") or "") } })
+        { "body", q.tracked and "Tracked." or "Not tracked." } }
+    for _, k in ipairs(ns.questSource.Keys(q)) do table.insert(spec, k) end
+    ns.Tip(r, ns.side.Beside, spec)
 end
 
 local Refresh
@@ -224,15 +223,50 @@ local function Row()
     r.fold = ns.Text(r, 11)
     r.fold:SetPoint("LEFT", 3, 0)
     r.fold:SetTextColor(unpack(GOLD_D))
+    -- the + or -: its own button, opening the quest's objectives or closing them
+    r.folder = CreateFrame("Button", nil, r)
+    r.folder:SetPoint("TOPLEFT")
+    r.folder:SetPoint("BOTTOMLEFT")
+    r.folder:SetWidth(13)
+    r.folder:SetScript("OnClick", function()
+        local q = r.line and r.line.quest
+        if not q then return end
+        open[q.id] = not open[q.id] or nil
+        Refresh()
+        if GameTooltip:GetOwner() == r.folder then r.folder:GetScript("OnEnter")(r.folder) end
+    end)
+    r.folder:SetScript("OnEnter", function(self)
+        local q = r.line and r.line.quest
+        if not q then return end
+        r.fold:SetTextColor(unpack(GOLD))
+        ns.Tip(self, ns.side.Beside, { title = open[q.id] and "Hide its objectives." or "Show its objectives.",
+            color = ns.colors.white, wrap = true })
+    end)
+    r.folder:SetScript("OnLeave", function()
+        r.fold:SetTextColor(unpack(GOLD_D))
+        GameTooltip:Hide()
+    end)
+    ns.side.PassWheel(r.folder)
     r.count = ns.Text(r, 11)
     r.count:SetPoint("RIGHT", -3, 0)
     r.tick = r:CreateTexture(nil, "ARTWORK")
     r.tick:SetSize(12, 12)
     r.tick:SetPoint("RIGHT", -3, 0)
     r.tick:SetTexture(TICK)
-    r.eye = r:CreateTexture(nil, "ARTWORK")
-    r.eye:SetSize(14, 14)
-    r.eye:SetTexture(PARTS .. "track")
+    -- an untracked quest: striped, as the quest log stripes it
+    r.stripes = r:CreateTexture(nil, "BACKGROUND", nil, 3)
+    r.stripes:SetAllPoints()
+    r.stripes:SetTexture(PARTS .. "stripes", "REPEAT", "REPEAT")
+    r.stripes:SetHorizTile(true)
+    r.stripes:SetVertTile(true)
+    r.stripes:SetVertexColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3])
+    r.stripes:SetAlpha(STRIPES)
+    -- above a quest but the first: a hairline, in the gap over it
+    r.rule = r:CreateTexture(nil, "BORDER")
+    r.rule:SetPoint("BOTTOMLEFT", r, "TOPLEFT", 0, 0)
+    r.rule:SetPoint("BOTTOMRIGHT", r, "TOPRIGHT", 0, 0)
+    r.rule:SetHeight(1)
+    r.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], RULE)
     -- a kill objective's sword, before the line's indent
     r.sword = r:CreateTexture(nil, "ARTWORK")
     r.sword:SetSize(12, 12)
@@ -251,20 +285,8 @@ local function Row()
     r:SetScript("OnClick", function(self, mouse)
         local q = self.line and self.line.quest
         if not q or self.line.item then return end
-        if mouse == "MiddleButton" then
-            ns.questSource.ShowOnMap(q)
-            return
-        elseif mouse == "RightButton" then
-            if q.tracked then ns.questSource.Untrack(q) else ns.questSource.Track(q) end
-        elseif IsShiftKeyDown and IsShiftKeyDown() then
-            if ns.questPage then ns.questPage.Toggle(q.id) end
-            return
-        elseif IsControlKeyDown and IsControlKeyDown() and ns.waypoint.Has() then
-            ns.waypoint.Toggle(q)       -- (drawn again by its change)
-            return
-        else
-            open[q.id] = not open[q.id] or nil
-        end
+        -- (a waypoint is drawn again by its change)
+        if ns.questSource.Click(q, mouse) ~= "track" then return end
         Refresh()
         if GameTooltip:IsOwned(self) then Tip(self) end
     end)
@@ -283,8 +305,11 @@ local function Wash(r, q)
 end
 
 -- A quest's row, or one of its objectives under it.
-local function Fill(r, line, odd)
+local function Fill(r, line, odd, top)
     r.line = line
+    r.stripes:Hide()
+    r.rule:Hide()
+    r.folder:Hide()
     local q, o, item = line.quest, line.objective, line.item
     r.text:ClearAllPoints()
     r.far = nil
@@ -295,7 +320,6 @@ local function Fill(r, line, odd)
         r:SetHeight(ROW)
         r.stripe:Hide()
         r.fold:SetText("")
-        r.eye:Hide()
         r.tick:Hide()
         r.icon:SetTexture(ItemIcon(item))
         r.icon:SetDesaturated(n == 0)
@@ -312,7 +336,6 @@ local function Fill(r, line, odd)
         r:SetHeight(LINE)
         r.stripe:Hide()
         r.fold:SetText("")
-        r.eye:Hide()
         r.tick:Hide()
         r.text:SetPoint("LEFT", 20, 0)
         r.text:SetPoint("RIGHT", r.count, "LEFT", -6, 0)
@@ -331,15 +354,16 @@ local function Fill(r, line, odd)
         r:SetHeight(ROW)
         r.stripe:SetColorTexture(odd and 0 or 0.102, odd and 0 or 0.078, odd and 0 or 0.039, 0.45)
         r.stripe:Show()
-        r.fold:SetText((#q.objectives > 0 or q.item) and (open[q.id] and "-" or "+") or "")
+        local folds = (#q.objectives > 0 or q.item) and true or false
+        r.fold:SetText(folds and (open[q.id] and "-" or "+") or "")
+        r.folder:SetShown(folds)
         r.tick:SetShown(done)
         r.count:SetText(done and "" or need > 0 and (have .. "/" .. need) or "")
         r.count:SetTextColor(unpack(q.state == -1 and { 0.8, 0.3, 0.25 } or GOLD))
-        r.eye:SetShown(q.tracked and true or false)
-        r.eye:ClearAllPoints()
-        r.eye:SetPoint("RIGHT", done and r.tick or r.count, "LEFT", -3, 0)
+        r.stripes:SetShown(not q.tracked)
+        r.rule:SetShown(not top)
         r.text:SetPoint("LEFT", 14, 0)
-        r.text:SetPoint("RIGHT", q.tracked and r.eye or done and r.tick or r.count, "LEFT", -4, 0)
+        r.text:SetPoint("RIGHT", done and r.tick or r.count, "LEFT", -4, 0)
         r.text:SetText(q.title)
         r.text:SetTextColor(unpack(done and DIM or ns.colors.text))
         r:EnableMouse(true)
@@ -388,7 +412,7 @@ function Refresh()
         r:SetPoint("TOPLEFT", 0, -y)
         r:SetPoint("TOPRIGHT", 0, -y)
         if not (l.objective or l.item) then odd = not odd end
-        Fill(r, l, odd)
+        Fill(r, l, odd, n == 1)
         y = y + h
         shown = shown + 1
     end

@@ -50,11 +50,13 @@
 -- font and size (questsTitleFont, questsTitleSize, and the objectives');
 -- every row is as tall as the larger needs.
 --
--- A quest: a click opens its page (quests/page.lua; Blizzard's quest log
--- while Medalluin's is off), Shift links it, Ctrl sets the waypoint to it
--- or clears it (quests/waypoint.lua: its rows washed blue, its distance
--- after its title), Alt focuses it with Questie's arrow, a right click stops tracking it, a middle click
--- opens the world map at it (Q.ShowOnMap, as the quest log's).
+-- A quest clicks as in the quest log and the Zone tab (Q.Click,
+-- quests/source.lua), its tooltip's key lines saying how: a click opens its
+-- page (quests/page.lua; Blizzard's quest log while Medalluin's is off),
+-- Shift links it, Ctrl sets the waypoint to it or clears it
+-- (quests/waypoint.lua: its rows washed blue, its distance after its
+-- title), Alt focuses it with Questie's arrow, a right click stops tracking
+-- it, a middle click opens the world map at it.
 --
 -- A quest's usable item is a secure button in a column on the right, in a
 -- layer on the strip, and it works in combat. So in combat the rows keep
@@ -201,29 +203,11 @@ local function Tip(row, q)
         GameTooltip:SetText(q.title, GOLD[1], GOLD[2], GOLD[3])
         for _, o in ipairs(q.objectives) do GameTooltip:AddLine(o.text, 1, 1, 1) end
     end
-    GameTooltip:AddLine("Click: quest log.  Shift: link.  Right-click: stop tracking.", 0.7, 0.66, 0.55, true)
-    if WP.Has() then
-        GameTooltip:AddLine(WP.Is(q.id) and "Ctrl-click: clear the waypoint." or "Ctrl-click: the waypoint.",
-            0.7, 0.66, 0.55, true)
-    end
-    if Q.Questie() then GameTooltip:AddLine("Alt-click: focus, with Questie's arrow.", 0.7, 0.66, 0.55, true) end
-    if Q.CanMap(q) then GameTooltip:AddLine("Middle-click: the map at it.", 0.7, 0.66, 0.55, true) end
+    ns.TipKeys(Q.Keys(q))       -- the clicks, as the log's and the Zone tab's (quests/source.lua)
     GameTooltip:Show()
 end
 
-local function Click(q, button)
-    if button == "RightButton" then
-        Q.Untrack(q)
-    elseif IsModifiedClick("CHATLINK") and GetQuestLink then
-        ChatEdit_InsertLink(GetQuestLink(q.id))
-    elseif IsControlKeyDown() and WP.Has() then
-        WP.Toggle(q)
-    elseif IsAltKeyDown() and Q.Focus(q) then
-        return
-    else
-        Q.Show(q)
-    end
-end
+local function Click(q, button) Q.Click(q, button) end
 
 -- A long objective as the lines it takes, a row each, broken between words
 -- (a word longer than a line keeps its own, cut).

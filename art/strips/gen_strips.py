@@ -249,6 +249,21 @@ def glyph(kind, x, y):
                  "M10,2.9 C12.8,2.9 14.1,4.7 14.1,7.2 L14.1,12.8 C14.1,15.3 12.8,17.1 10,17.1"
                  " C7.2,17.1 5.9,15.3 5.9,12.8 L5.9,7.2 C5.9,4.7 7.2,2.9 10,2.9 Z"
                  "M5.9,8.3 L14.1,8.3 L14.1,9.9 L5.9,9.9 Z M9.2,2.9 L10.8,2.9 L10.8,8.3 L9.2,8.3 Z", "evenodd")
+    # the quest tooltips' shortcuts: the mouse, the button pressed filled in pale
+    # (the middle one a wheel where the buttons part)
+    if kind in ("mouse-left", "mouse-right", "mouse-middle"):
+        body = ("M10,1 C13.9,1 16,3.5 16,7 L16,13 C16,16.5 13.9,19 10,19 C6.1,19 4,16.5 4,13 L4,7"
+                " C4,3.5 6.1,1 10,1 Z"
+                "M10,2.9 C12.8,2.9 14.1,4.7 14.1,7.2 L14.1,12.8 C14.1,15.3 12.8,17.1 10,17.1"
+                " C7.2,17.1 5.9,15.3 5.9,12.8 L5.9,7.2 C5.9,4.7 7.2,2.9 10,2.9 Z"
+                "M5.9,8.3 L14.1,8.3 L14.1,9.9 L5.9,9.9 Z")
+        part_ = {"mouse-left": "M9.2,2.95 C7.0,3.1 5.9,4.9 5.9,7.2 L5.9,8.3 L9.2,8.3 Z",
+                 "mouse-right": "M10.8,2.95 C13,3.1 14.1,4.9 14.1,7.2 L14.1,8.3 L10.8,8.3 Z",
+                 "mouse-middle": "M8.7,4 C8.7,3.3 11.3,3.3 11.3,4 L11.3,7 C11.3,7.7 8.7,7.7 8.7,7 Z"}[kind]
+        divider = "" if kind == "mouse-middle" else "M9.2,2.9 L10.8,2.9 L10.8,8.3 L9.2,8.3 Z"
+        lit = (f'<path transform="translate({x},{y}) scale({s})" d="{part_}" fill="#fff4cf" '
+               f'stroke="#2a1e08" stroke-width="0.4"/>')
+        return P(body + divider, "evenodd") + lit
     if kind == "edit":          # a pencil, its tip down to the left: cap, band, body, point
         pencil = ("M7.6,1 L12.4,1 L12.4,3.6 L7.6,3.6 Z M7.6,4.8 L12.4,4.8 L12.4,14.6 L7.6,14.6 Z "
                   "M7.6,15.6 L12.4,15.6 L10,19.6 Z")
@@ -516,6 +531,7 @@ TABS = ["character", "reputation", "currency", "skills", "pvp", "statistics",
         "chevron-down", "chevron-up", "chevron-double", "close", "questlog", "sort", "view-minimal", "view-full",
         "view-bags", "view-grid", "view-groups", "track", "track-off",
         "chat-tools", "chat", "channels", "log", "side-auras", "side-meter", "side-loot", "side-zone", "waypoint", "mouse", "edit",
+        "mouse-left", "mouse-right", "mouse-middle",
         "role-tank", "role-healer", "role-damage", "sound", "sound-off"]
 
 

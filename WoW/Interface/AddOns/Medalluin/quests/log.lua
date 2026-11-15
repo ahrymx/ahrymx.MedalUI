@@ -24,11 +24,12 @@
 -- dungeon's: the tracker's); an untracked one's row is striped and its
 -- title a little darker.
 -- Item: a tick when it gives an item (or a choice of them), a cross when
--- not. A click opens its page (quests/page.lua), Shift links it, Ctrl sets
--- the waypoint to it or clears it (quests/waypoint.lua: its row washed
--- blue, its distance after its title), a right click tracks it or stops, a
--- middle click opens the world map at it (Q.ShowOnMap, as the page's View
--- on map). The search keeps the quests whose title has
+-- not. A quest's clicks are the tracker's and the Zone tab's (Q.Click,
+-- quests/source.lua), its tooltip's key lines saying them: a click opens its
+-- page, Shift links it, Ctrl sets the waypoint to it or clears it
+-- (quests/waypoint.lua: its row washed blue, its distance after its title),
+-- Alt focuses it with Questie's arrow, a right click tracks it or stops, a
+-- middle click opens the world map at it. The search keeps the quests whose title has
 -- the words, folded zones too. Track all stops at the game's limit.
 -- Drop opens the window that abandons quests (quests/drop.lua).
 -- The columns' headings sort (2026-11-11): a click sorts each zone's
@@ -501,17 +502,8 @@ local function Row()
         local d = self.data
         if d.zone then
             Fold(d.zone.name)
-        elseif mouse == "MiddleButton" then
-            Q.ShowOnMap(d.quest)
-        elseif mouse == "RightButton" then
-            if d.quest.tracked then Q.Untrack(d.quest) else Q.Track(d.quest) end
+        elseif Q.Click(d.quest, mouse) == "track" then
             log.Refresh()
-        elseif IsShiftKeyDown() and GetQuestLink and ChatEdit_InsertLink then
-            ChatEdit_InsertLink(GetQuestLink(d.quest.id))
-        elseif IsControlKeyDown() and WP.Has() then
-            WP.Toggle(d.quest)
-        elseif ns.questPage then
-            ns.questPage.Toggle(d.quest.id)
         end
     end)
     r:SetScript("OnEnter", function(self)
@@ -521,10 +513,7 @@ local function Row()
         for _, o in ipairs(q.objectives) do
             table.insert(spec, { "body", (o.done and "|cff808080" or "") .. o.text .. (o.done and "|r" or "") })
         end
-        table.insert(spec, { "hint", "Click: its page. Right click: " .. (q.tracked and "stop tracking it."
-            or "track it.") .. (Q.CanMap(q) and " Middle click: the map at it." or "")
-            .. (WP.Has() and (WP.Is(q.id) and " Ctrl-click: clear the waypoint." or " Ctrl-click: the waypoint.")
-                or "") })
+        for _, k in ipairs(Q.Keys(q)) do table.insert(spec, k) end
         Tip(self, spec)
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)

@@ -496,6 +496,11 @@ end
 --     { "bar", value, max, text, color },  -- the text here; a bar in the panel
 --     { "item", icon, text, right },    -- "text  right"; an icon row in the panel
 --     { "hint", text },                 -- dim; the panel's footer
+--     { "key", button, modifier, does }, -- a shortcut, "Shift + (mouse) Link":
+--                                       -- the modifier (or nil), a mouse glyph
+--                                       -- ("left", "right", "middle"), what it
+--                                       -- does in a word; neighbouring ones two
+--                                       -- to a line, a grid; the footer too
 --     { "warn", text } }                -- red
 -- A part may be false, for one left out.
 local WHITE, HINT, WARN = ns.colors.white, ns.colors.dim, { 1, 0.3, 0.25 }
@@ -514,17 +519,61 @@ local fill = {
     bar = function(p) Line(p[4]) end,
     item = function(p) Line(p[4] and format("%s  %s", p[3], p[4]) or p[3]) end,
     hint = function(p) Line(p[2], HINT) end,
+    -- (key parts are written by Keys, two to a line)
     warn = function(p) Line(p[2], WARN, true) end,
 }
+
+-- a mouse with its button lit (media/strips/mouse-<button>), as text: the
+-- glyph's 20 px box of its 32
+function ns.MouseGlyph(button, size)
+    size = size or 16
+    return ("|T%sstrips\\mouse-%s:%d:%d:0:0:32:32:5:27:5:27|t"):format(ns.media, button, size, size)
+end
+-- a key part as its cell: "Shift + (mouse) Link"
+function ns.KeyCell(p)
+    if not p[2] then return "" end      -- an empty slot of the grid
+    return (p[3] and (p[3] .. " + ") or "") .. ns.MouseGlyph(p[2]) .. " " .. p[4]
+end
+
+-- the parts written in order, neighbouring keys two to a line
+local function Write(parts)
+    local held
+    local function Flush()
+        if held and ns.KeyCell(held) ~= "" then
+            GameTooltip:AddDoubleLine(ns.KeyCell(held), "", HINT[1], HINT[2], HINT[3])
+        end
+        held = nil
+    end
+    for _, p in ipairs(parts) do
+        if p and p[1] == "key" then
+            if held then
+                local a, b = ns.KeyCell(held), ns.KeyCell(p)
+                -- two cells side by side (mdlui_Tooltips lines them up as a grid);
+                -- a row of two empty slots left out
+                if a ~= "" or b ~= "" then
+                    GameTooltip:AddDoubleLine(a, b, HINT[1], HINT[2], HINT[3], HINT[1], HINT[2], HINT[3])
+                end
+                held = nil
+            else
+                held = p
+            end
+        elseif p then
+            Flush()
+            fill[p[1]](p)
+        end
+    end
+    Flush()
+end
+
+-- a tooltip's key lines, for one written outside a spec (the tracker's)
+function ns.TipKeys(keys) Write(keys) end
 
 -- anchor: SetOwner's, or a function that owns and places it (w.Beside)
 function ns.Tip(owner, anchor, spec)
     if type(anchor) == "function" then anchor(owner) else GameTooltip:SetOwner(owner, anchor) end
     local c = spec.color
     GameTooltip:SetText(spec.title, c and c[1], c and c[2], c and c[3], c and 1, spec.wrap)
-    for _, p in ipairs(spec) do
-        if p then fill[p[1]](p) end
-    end
+    Write(spec)
     spec.owner = owner
     live[GameTooltip] = spec
     GameTooltip:Show()

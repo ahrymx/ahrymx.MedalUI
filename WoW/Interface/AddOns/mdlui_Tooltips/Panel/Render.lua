@@ -124,6 +124,7 @@ local function fitWidth(panel, view)
         elseif section.kind == "custom" then
             if section.measure then consider(section.measure(panel)) end
         elseif section.kind == "rows" then
+            ui.keyGrid(panel, section.rows, section.style)
             for _, row in ipairs(section.rows) do
                 local width = ui.rowWidth(panel, row, section.style)
                 if section.wrap and (not row.right or row.right == "") then width = math.min(width, ui.PROSE_WIDTH) end
@@ -133,6 +134,7 @@ local function fitWidth(panel, view)
     end
     local footer = view.footer
     if footer and footer.measure then consider(footer.measure(panel)) end
+    if footer and footer.rows then ui.keyGrid(panel, footer.rows, footer.style) end
     for _, row in ipairs(footer and footer.rows or {}) do
         consider(ui.rowWidth(panel, row, footer.style))
     end

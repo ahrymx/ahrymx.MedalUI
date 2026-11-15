@@ -603,9 +603,67 @@ local function measureStyled(panel, text, style)
     return measure(panel, text, style.size, style.font, style.flags)
 end
 
+-- Medalluin's key lines (its quest tooltips' clicks, "Shift + (mouse) Link"),
+-- two cells to a row: rows with its mouse glyph in them, as a grid, the
+-- second column starting where the widest first cell ends. keyGrid marks a
+-- list's key rows with their columns (grid); drawRow and rowWidth follow it.
+local function isKeyRow(row)
+    if row.blank then return false end
+    local mark = "strips\\mouse-"
+    return ((row.left or ""):find(mark, 1, true) or (row.right or ""):find(mark, 1, true)) and true or false
+end
+
+-- a cell as its modifier ("Shift + ") and the rest (the glyph and its word)
+local function keySplit(cell)
+    local mod, rest = (cell or ""):match("^(.-)(|T.*)$")
+    if not rest then return "", cell or "" end
+    return mod, rest
+end
+
+-- Each column is two: the modifiers, set right against the glyphs, then the
+-- glyphs with their words, so every glyph of a column stands in one line.
+-- row.grid = { first column's modifiers' width, where the second column
+-- starts, its modifiers' width }.
+local function keyGrid(panel, rows, style)
+    style = asStyle(style)
+    local modL, restL, modR, any = 0, 0, 0, false
+    for _, row in ipairs(rows) do
+        if isKeyRow(row) then
+            any = true
+            local m, r = keySplit(row.left)
+            modL = math.max(modL, measureStyled(panel, m, style))
+            restL = math.max(restL, measureStyled(panel, r, style))
+            modR = math.max(modR, measureStyled(panel, (keySplit(row.right)), style))
+        end
+    end
+    if not any then return end
+    for _, row in ipairs(rows) do
+        if isKeyRow(row) then
+            row.grid = { modL, modL + restL + 2 * COLUMN_GAP, modR }
+        end
+    end
+end
+
+-- one cell of the grid at x: its modifier right against the glyph, then the rest
+local function keyCellAt(panel, cell, x, y, modWidth, width, style, color)
+    local mod, rest = keySplit(cell)
+    local height = 0
+    if mod ~= "" then
+        height = styledAt(panel, mod, x, y, modWidth, style, color, "RIGHT")
+    end
+    if rest ~= "" then
+        height = math.max(height, styledAt(panel, rest, x + modWidth, y, math.max(1, width - modWidth), style, color))
+    end
+    return height
+end
+
 local function rowWidth(panel, row, style)
     if row.blank then return 0 end
     style = asStyle(style)
+    if row.grid then
+        local _, rest = keySplit(row.right)
+        return row.grid[2] + row.grid[3] + measureStyled(panel, rest, style) + 2
+    end
     local width = measureStyled(panel, row.left, style)
     if row.right and row.right ~= "" then
         -- The 2 matches the slack drawRow gives the right column.
@@ -632,6 +690,14 @@ local function drawRow(panel, row, y, style, color, indent, gap, rightIndent)
     -- A blank row, as another addon's between its sections: one empty line.
     if row.blank then return y + lineHeight + gap end
     local w = panel.width - 2 * pad() - indent - rightIndent
+    if row.grid then
+        -- a key row: both cells from the left, the second at the grid's column
+        local x, grid = pad() + indent, row.grid
+        local leftHeight = keyCellAt(panel, left, x, y, grid[1], grid[2], style, leftColor)
+        local rightHeight = keyCellAt(panel, right, x + grid[2], y, grid[3],
+            math.max(1, w - grid[2]), style, row.rightColor or leftColor)
+        return y + math.max(leftHeight, rightHeight) + gap
+    end
     if right and right ~= "" then
         local rightWidth = math.min(measureStyled(panel, right, style) + 2,
             math.max(w * .5, w - measureStyled(panel, left, style) - COLUMN_GAP))
@@ -1023,6 +1089,7 @@ ns.ui = {
     FLAVOR_GOLD = FLAVOR_GOLD,
     clearPool = clearPool,
     rowWidth = rowWidth,
+    keyGrid = keyGrid,
     drawRow = drawRow,
     drawGroup = drawGroup,
     headerInsets = headerInsets,
