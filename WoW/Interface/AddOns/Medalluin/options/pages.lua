@@ -988,7 +988,7 @@ function ns.OptionPages()
                                 .. "whenever it holds a frame or a bar."),
                             Seconds("overheadFadeIn", "Fade in", "How long it takes to appear."),
                             Seconds("overheadFadeOut", "Fade out", "How long it takes to go once it is empty.")),
-                        Group("Bottom row",
+                        Group("Action-bar row",
                             Choice("overheadRowVis", "Visibility", Visibility("it comes", "it"),
                                 "The stance, pet and totem bars and the tier they sit on. Faded, its keys still "
                                 .. "press and its icons still click, unless In combat fades it to 0%. Whole while a "

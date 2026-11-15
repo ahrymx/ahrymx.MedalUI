@@ -1204,7 +1204,7 @@ rowTouch = ns.Untouchable(function() return ns.overheadRow end, function()
         and rowAlpha == 0 and RowGoal() == 0
 end)
 ns.overheadRowTouch = rowTouch
-rowTouch.name = "bottom row"
+rowTouch.name = "action-bar row"
 local rowWatch = CreateFrame("Frame", nil, UIParent)
 ns.overheadRowWatch = rowWatch
 -- asleep while the row is always whole (a choice of Always snaps it there):
