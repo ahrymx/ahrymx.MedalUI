@@ -8389,8 +8389,23 @@ if stripsPass then
                     ChatFrame1.ScrollBar:GetAlpha(), ChatFrame2Tab:GetAlpha()),
                     "bands=" .. shown .. (#alphas > 0 and " @" .. table.concat(alphas, ",") or ""),
                     g and string.format("ink %.2f>%.2f", g[2][4], g[3][4]) or "",
-                    "frame2 bands=" .. tostring(ns.chatBands[ChatFrame2.visibleLines[1]] ~= nil))
+                    "frame2 bands=" .. tostring(ns.chatBands[ChatFrame2.visibleLines[1]] ~= nil),
+                    string.format("well=%s@%.2f", tostring(chat.well:IsVisible()), (function()
+                        local x, f = 1, chat.well
+                        while f do x = x * (f.alpha or 1); f = f.parent end
+                        return x
+                    end)()))
             end
+            -- the medallion's corner: from the box's edge to the edit box,
+            -- its rule meeting the trim at the edge, beside the box (not in it)
+            local w = chat.well
+            print("chat bare well", string.format("%.1f..%.1f (box %.1f, edit %.1f), top %.1f, rule %.1f..%.1f",
+                w:GetLeft(), w:GetRight(), chat.box:GetLeft(), chat.edit:GetLeft(), w:GetTop(),
+                w.rule:GetLeft(), w.rule:GetRight()), "in the box=" .. tostring(w:GetParent() == chat.box))
+            chat.box:Hide()
+            local hidden = tostring(w:IsShown())
+            chat.box:Show()
+            print("chat bare well with the box", "hidden=" .. hidden, "shown=" .. tostring(w:IsShown()))
             mouseOver = false
             bare("off")
             step(6)

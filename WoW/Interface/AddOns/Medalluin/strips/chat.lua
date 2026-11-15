@@ -657,7 +657,50 @@ local function Build()
     line:SetHeight(1)
     line:SetPoint("BOTTOMLEFT")
     line:SetPoint("BOTTOMRIGHT")
-    ns.chat = { box = chatBox, dress = dress, panel = panel, area = area, edit = edit, head = head, top = top }
+    -- the margin's start, over the character's medallion, stays whole while
+    -- the box fades when idle (Immersion Mode), as the side panel's corner
+    -- over the backpack's (strips/side.lua): its own ink (the dress's, its
+    -- gradient carried on), trim and rule. The whole box fades, so it stands
+    -- beside it on the strip, shown with it, one level up.
+    local breakAt = ns.stripCells.from
+    local width = L.chatLeft + L.chatWidth
+    local well = CreateFrame("Frame", nil, strip)
+    well:SetFrameStrata("BACKGROUND")
+    well:SetFrameLevel(chatBox:GetFrameLevel() + 1)
+    well:SetPoint("BOTTOMLEFT", chatBox, "BOTTOMLEFT")
+    well:SetSize(breakAt, margin + 1)
+    local tint = ns.colors.ink
+    local wellInk = well:CreateTexture(nil, "BACKGROUND", nil, 1)
+    wellInk:SetPoint("TOPLEFT", 1, 0)
+    wellInk:SetPoint("BOTTOMRIGHT", 0, 1)
+    if wellInk.SetGradient and CreateColor then
+        local to = 1 - 0.90 * (breakAt - 1) / (width - 2)
+        wellInk:SetColorTexture(1, 1, 1, 1)
+        wellInk:SetGradient("HORIZONTAL", CreateColor(tint[1], tint[2], tint[3], 1),
+            CreateColor(tint[1], tint[2], tint[3], to))
+    else
+        wellInk:SetColorTexture(tint[1], tint[2], tint[3], 0.55)
+    end
+    for _, edge in ipairs({ { "BOTTOMLEFT", "BOTTOMRIGHT", "SetHeight" },
+        { "TOPLEFT", "BOTTOMLEFT", "SetWidth" } }) do
+        local t = well:CreateTexture(nil, "BACKGROUND", nil, 2)
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        t:SetPoint(edge[1])
+        t:SetPoint(edge[2])
+        t[edge[3]](t, 1)
+    end
+    -- from the edge, closing the corner on the trim: the dress's starts in
+    local wellRule = well:CreateTexture(nil, "ARTWORK")
+    wellRule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    wellRule:SetHeight(1)
+    wellRule:SetPoint("TOPLEFT")
+    wellRule:SetPoint("TOPRIGHT")
+    well.rule = wellRule
+    well:SetShown(chatBox:IsShown())
+    chatBox:HookScript("OnShow", function() well:Show() end)
+    chatBox:HookScript("OnHide", function() well:Hide() end)
+    ns.chat = { box = chatBox, dress = dress, panel = panel, area = area, edit = edit, head = head, top = top,
+        well = well }
 
     chatBox:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", 0, L.stripHeight)
     chatBox:SetHeight(top)
