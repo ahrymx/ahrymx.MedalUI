@@ -799,10 +799,10 @@ function ns.OptionPages()
             tabs = {
                 {
                     id = "general", name = "General",
-                    intro = "Each profile keeps its Console, console party, overhead bosses, skills and keys.",
-                    more = "That is everything under Console, the console's party and the overhead's bosses under "
-                        .. "Unit Frames, its skills on the bars and their keys. The widgets, Chat, Side panel and "
-                        .. "Bags are shared. What the frames show is under Unit Frames.",
+                    intro = "Each profile keeps its Console, console party, skills and keys.",
+                    more = "That is everything under Console but the Overhead, the console's party under Unit "
+                        .. "Frames, its skills on the bars and their keys. The overhead, the widgets, Chat, Side "
+                        .. "panel and Bags are shared. What the frames show is under Unit Frames.",
                     groups = Concat(AllOn("general", {
                         Group("Profile",
                             Choice("consoleProfile", "Console profile", ns.PROFILE_NAMES,
@@ -812,9 +812,9 @@ function ns.OptionPages()
                                 .. "put down, and their icons flash on the cursor. Then it asks to reload the "
                                 .. "interface, which builds the console (switched in combat, once combat ends)."),
                             Button("Reset profile", function() StaticPopup_Show("MEDALLUIN_RESET_PROFILE") end,
-                                "This profile's options under Console, and its console party and overhead bosses under "
-                                .. "Unit Frames, back to its own. The widgets, Chat, Side panel and Bags are left as "
-                                .. "they are.")),
+                                "This profile's options under Console but the Overhead, and its console party under "
+                                .. "Unit Frames, back to its own. The overhead, the widgets, Chat, Side panel and Bags "
+                                .. "are left as they are.")),
                         Group("Cast bars",
                             Check("xpCast", "Player casts on the experience bar",
                                 "The experience bar under your portrait becomes your cast bar while you cast, and "
@@ -852,8 +852,8 @@ function ns.OptionPages()
                             Opacity("consoleMinimalUnits", "Player and target opacity",
                                 "How much of your player and target frames shows out of combat."),
                             Opacity("consoleMinimalRest", "Everything else",
-                                "How much of the rest of the console, its bars, its party row and the overhead "
-                                .. "shows out of combat."),
+                                "How much of the rest of the console, its bars and its party row shows out of "
+                                .. "combat. The overhead keeps its own."),
                             { kind = "check", key = "consoleMinimalTarget", label = "Back with a target",
                                 tip = "Whole again while you have a target." },
                             { kind = "check", key = "consoleMinimalHurt", label = "Back when health is not full",
@@ -875,7 +875,7 @@ function ns.OptionPages()
                     groups = Concat(
                         ForConsole("reticule", Group("Party frames", PartyLayout("reticule"))),
                         ForConsole("arena", Group("Party frames", PartyLayout("arena"))),
-                        { Group("Boss frames",
+                        { Group("Boss frames (shared by every profile)",
                             Choice("bossFrames", "Boss frames", {
                                 { "overhead", "Overhead", "On the overhead's top tier, dividing into 1, 2 or 3 "
                                     .. "columns." },
@@ -945,7 +945,7 @@ function ns.OptionPages()
                     groups = paging,
                 },
                 {
-                    id = "overhead", name = "Overhead", intro = "Kept per profile.",
+                    id = "overhead", name = "Overhead", intro = "Shared by every profile.",
                     master = Check("overhead", "Overhead console",
                         "Top-of-screen cascading trapezoid structure for boss frames, pet, focus, target of target, "
                         .. "and action bars.", true),
@@ -1114,10 +1114,10 @@ function ns.OptionPages()
                 },
                 {
                     id = "boss", name = "Boss",
-                    intro = "Where the boss frames show is Console > Layout > Boss frames.",
+                    intro = "Shared by every profile. Where the boss frames show is Console > Layout > Boss frames.",
                     groups = {
-                        Group("Overhead (per profile)", Mine("bossMine", "a boss")),
-                        Group("Widget (shared by every profile)", Mine("bossWidgetMine", "a boss"),
+                        Group("Overhead", Mine("bossMine", "a boss")),
+                        Group("Widget", Mine("bossWidgetMine", "a boss"),
                             Movers("bossMoverHover", "Boss")),
                         Group("Editor", Editor("boss", "Edit the Boss widget")),
                     },

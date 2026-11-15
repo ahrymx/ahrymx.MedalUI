@@ -339,35 +339,40 @@ local OLD_IDS = { default = "arena", light = "reticule" }
 -- player's own choices on top. Only a choice that differs from the profile
 -- is saved.
 --
--- What shapes the console (every page under Console; under Unit Frames the
--- console's party and the overhead's bosses; the editor's player, target and console party) is
--- remembered per profile, in MedalluinDB.profiles[name]:
+-- What shapes the console (every page under Console but the Overhead; under
+-- Unit Frames the console's party; the editor's player, target and console
+-- party) is remembered per profile, in MedalluinDB.profiles[name]:
 -- each profile keeps its own choices, so a switch brings back the ones made
--- on the profile switched to. Everything else (the group widgets, the chat,
--- the side panel, the bags, where windows were left, the party preview) has
--- nothing to do with the console and is one set, MedalluinDB.global.
+-- on the profile switched to. Everything else (the overhead and its bosses,
+-- the group widgets, the chat, the side panel, the bags, where windows were
+-- left, the party preview) has nothing to do with the console and is one
+-- set, MedalluinDB.global.
 -- Reset profile clears the current profile's choices and nothing else.
 local PER_PROFILE = {}
+-- the overhead's: shared by every profile since 2026-11-15 (Migrate moves
+-- what a profile held)
+local OVERHEAD_KEYS = {
+    "overhead", "overheadScale", "overheadX", "overheadY", "overheadAlpha", "overheadFadeIn", "overheadFadeOut",
+    "topPet", "topFocus", "topToT", "topPetBar", "topStances", "topTotems", "overheadFlyoutTips",
+    "detachPet", "detachFocus", "detachToT", "detachPetX", "detachPetY", "detachFocusX", "detachFocusY",
+    "detachToTX", "detachToTY", "bossFrames", "bossMine",
+}
+ns.OVERHEAD_KEYS = OVERHEAD_KEYS
 for _, key in ipairs({
     "actionBar", "rows", "bareIcons", "artColor", "hideEmpty", "barLowRow", "visibility", "extraVisibility", "drawer",
     "hotkeySize", "cooldownText", "cooldownTextSize", "cooldownSwipe", "cooldownEdge", "cooldownBling",
-    "consoleScale", "consoleX", "consoleY", "overheadScale", "overheadX", "overheadY",
+    "consoleScale", "consoleX", "consoleY",
     "minimapAuto", "minimapAutoCombat", "minimapAutoTarget", "minimapAutoSkyriding",
     "minimapScale", "minimapX", "minimapY", "minimapAreaTime", "minimapStart", "minimapMoverHover",
     "consoleFade", "consoleShowCombat", "consoleShowTarget", "consoleShowHurt", "consoleShowGroup",
     "consoleShowMouse", "consoleAlpha", "consoleFadedAlpha", "consoleFadeIn", "consoleFadeOut",
-    "overheadAlpha", "overheadFadeIn", "overheadFadeOut",
     "consoleMinimal", "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt",
     "consoleMinimalGroup", "consoleMinimalMouse",
     "bar1Paging", "bar1PagingCustom", "row2Paging", "row2PagingCustom", "row3Paging", "row3PagingCustom",
     "gridPaging", "gridPagingCustom",
-    "partyPets", "partyLayout", "partyRange", "auraGlow", "auraThreat", "auraCC", "auraBuffs", "auraBoss", "bossMine",
+    "partyPets", "partyLayout", "partyRange", "auraGlow", "auraThreat", "auraCC", "auraBuffs", "auraBoss",
     "auraDebuffs",
     "editUnit", "editParty",
-    "overhead", "bossFrames", "topPet", "topFocus", "topToT", "topPetBar", "topStances", "topTotems",
-    "overheadFlyoutTips",
-    "detachPet", "detachFocus", "detachToT", "detachPetX", "detachPetY", "detachFocusX", "detachFocusY",
-    "detachToTX", "detachToTY",
     "xpCast", "repCast",
 }) do PER_PROFILE[key] = true end
 -- the Cooldown Manager's viewers: placed and dressed per profile, as the console is
@@ -647,6 +652,17 @@ local function Migrate(fresh)
             if db.global[key] == nil then db.global[key] = here[src] end
         end
         db.widgetsShared = true
+    end
+    -- The overhead became shared by every profile (2026-11-15): its options,
+    -- its frames' places and its bosses', kept per profile until then, come
+    -- from the profile in use. Once, as the widgets' move was.
+    if not db.overheadShared then
+        local here = db.profiles[Profile()]
+        for _, key in ipairs(OVERHEAD_KEYS) do
+            if db.global[key] == nil then db.global[key] = here[key] end
+            for name in pairs(PROFILES) do db.profiles[name][key] = nil end
+        end
+        db.overheadShared = true
     end
 end
 

@@ -8,7 +8,8 @@
 --                  "everything else" opacity but the player and target
 --                  frames, lifted out of the console's alpha to their own
 --                  (20%); combat, and what is ticked there, bring it back.
---                  It takes over from fading when idle while it is on
+--                  It takes over from fading when idle while it is on. The
+--                  overhead is not the console's: it keeps its own opacity
 --   the overhead   Console > Overhead > Opacity: it shows whenever it holds
 --                  anything (console/overhead.lua), so it only fades in as it
 --                  appears and out as it empties
@@ -165,7 +166,6 @@ local function Update(now)
     local time = (not now) and Num(want and "consoleFadeIn" or "consoleFadeOut", 0, 10) or 0
     fader:Go(goal, time)
     units:Go(unitGoal, time)
-    if ns.OverheadRegoal then ns.OverheadRegoal(time) end
 end
 ns.UpdateConsoleFade = Update
 
@@ -231,11 +231,9 @@ end)
 local top = ns.Fader(overhead)
 ns.overheadFader = top
 
--- Its opacity: no more than the console's rest while that is minimal
+-- Its opacity, its own: the console's fading and Minimal OoC Mode leave it be
 local function OverheadGoal()
-    local a = Num("overheadAlpha", 0, 1)
-    if Minimal() and not wanted then a = math.min(a, Num("consoleMinimalRest", 0, 1)) end
-    return a
+    return Num("overheadAlpha", 0, 1)
 end
 
 -- As it appears: from nothing, or from wherever a fade out had got to.
@@ -256,8 +254,7 @@ end
 function ns.OverheadSettle(shown)
     top:Go(shown and OverheadGoal() or 0, 0)
 end
--- the console gone minimal or whole: the overhead with it, while it shows
--- and is not on its way out
+-- its opacity changed: there at once, while it shows and is not on its way out
 function ns.OverheadRegoal(time)
     if overhead:IsShown() and not (top:Moving() and top.goal == 0) then
         local goal = OverheadGoal()

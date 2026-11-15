@@ -2223,7 +2223,11 @@ SlashCmdList = {}
 function ReloadUI() end
 function StaticPopup_Show() end
 MedalluinDB = profilesPass and args[3] == "saved" and { consoleProfile = "light",
-        profiles = { default = { drawer = 2, topBoss = true }, light = { rows = 2, topBoss = false, partyRange = 30,
+        -- the overhead's options, per profile until 2026-11-15: the profile in
+        -- use (light, now reticule) gives the shared ones; arena's are dropped
+        profiles = { default = { drawer = 2, topBoss = true, overheadAlpha = 0.3, topFocus = false },
+            light = { rows = 2, topBoss = false, partyRange = 30, overheadAlpha = 0.7, detachPet = true,
+            bossMine = false,
             partyWidgetPoint = { "TOPLEFT", "TOPLEFT", 50, -60 } } },
         global = { lootMoney = false } }
     or profilesPass and { consoleProfile = "light", rows = 3, actionBar = true, bareIcons = true,
@@ -8571,6 +8575,8 @@ if profilesPass then
         layoutCards())
     ns.SetOption("drawer", 2)
     ns.db.sideTab = "auras"
+    -- the overhead's are shared: set on arena, kept through switches and resets
+    ns.SetOption("topToT", false)
     state("own controls on arena")
     S.consoleProfile:Set("reticule")
     state("back to reticule")
@@ -8582,6 +8588,9 @@ if profilesPass then
     state("arena again")
     ns.ResetProfile()
     state("arena reset")
+    print("profiles overhead after the resets", "topToT=" .. tostring(ns.db.topToT),
+        "overheadAlpha=" .. tostring(ns.db.overheadAlpha), "detachPet=" .. tostring(ns.db.detachPet),
+        "bossFrames=" .. tostring(ns.db.bossFrames), "bossMine=" .. tostring(ns.db.bossMine), "shared once=" .. tostring(MedalluinDB.overheadShared))
     if args[3] == "saved" then
         -- the widgets' options came from the profile in use once (see
         -- "migrated"): with the party's saved in it and the raid's back to
@@ -11929,7 +11938,8 @@ function FadePass()
 
     -- Minimal OoC Mode (2026-11-15, the Reticule only): out of combat the
     -- console at its rest (0%), the player and target lifted out of its
-    -- alpha at their own (20%), the overhead with the rest; combat, and what
+    -- alpha at their own (20%), the overhead at its own (not the console's,
+    -- the user's call, 2026-11-15); combat, and what
     -- is ticked, bring it back; it takes over from fading when idle; the
     -- lift waits for combat to end. On the Arena: no card, no effect
     local pl, tg = ns.units.player, ns.units.target
@@ -15038,6 +15048,8 @@ if movePass then
     page.settings.overheadScale:Set(0.8)
     page.settings.overheadY:Set(-30)
     state("page")
+    -- the console's place is the profile's, the overhead's shared by every
+    -- profile (2026-11-15): switching moves the console only
     local other = ns.db.consoleProfile == "reticule" and "arena" or "reticule"
     local here = ns.db.consoleProfile
     page.settings.consoleProfile:Set(other)
