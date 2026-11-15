@@ -299,6 +299,10 @@ local function Build()
     row = CreateFrame("Frame", nil, panel)
     row:SetPoint("BOTTOMRIGHT", -breakAt, 0)
     row:SetSize(width - breakAt, margin + 1)
+    -- the tabs stay whole while the panel fades when idle (Immersion Mode):
+    -- out of its alpha, which nothing else above them sets (the game menu's
+    -- Clear takes every such frame back in while it clears)
+    row:SetIgnoreParentAlpha(true)
 
     -- the divider between the body and the button column, edge to edge:
     -- from the box's top edge down to the margin's rule, the buttons' inner edge

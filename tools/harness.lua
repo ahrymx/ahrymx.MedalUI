@@ -7568,7 +7568,22 @@ if sidePass then
                 if fader.driver.shown then fader.driver.scripts.OnUpdate(fader.driver, 0.1) end
             end
         end
-        local function at(tag) print("side immersion " .. tag, string.format("alpha=%.2f", p:GetAlpha())) end
+        -- what a frame shows: its alpha times its parents', up to one that
+        -- ignores theirs; the tabs stay whole while the body fades
+        local function shows(f)
+            local a = 1
+            while f do
+                a = a * f:GetAlpha()
+                if f.ignoreParentAlpha then break end
+                f = f.parent
+            end
+            return a
+        end
+        local tab = ns.side.views[1].tab
+        local function at(tag)
+            print("side immersion " .. tag, string.format("alpha=%.2f body=%.2f tabs=%.2f", p:GetAlpha(),
+                shows(ns.side.area), shows(tab)))
+        end
         -- health in plain numbers (a secret says nothing either way)
         local health, most, wasTarget = UnitHealth, UnitHealthMax, hasTarget
         local function hurt() return 82 end
