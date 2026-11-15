@@ -5840,8 +5840,18 @@ if barPass then
                             .. (r.dot and (r.dot.on and "(on)" or "(off)") or ""))
                     end
                 end
-                table.insert(o, h.cat.name .. (h.open and "" or ("+" .. h.sign.text)) .. ": "
-                    .. table.concat(items, ", "))
+                if h.single then
+                    -- one page of its own name: the heading alone, lit while
+                    -- its page shows, its dot beside it, no count
+                    local dot = h.rows[1].dot
+                    table.insert(o, (h.open and "*" or "") .. h.cat.name .. " (heading"
+                        .. (dot and (dot.parent == h and (dot.on and ", on" or ", off") or ", dot lost") or "")
+                        .. (h.pill.shown ~= false and ", pill" or "") .. ")"
+                        .. (#items > 0 and (": " .. table.concat(items, ", ")) or ""))
+                else
+                    table.insert(o, h.cat.name .. (h.open and "" or ("+" .. h.sign.text)) .. ": "
+                        .. table.concat(items, ", "))
+                end
             end
             print("options.sidebar " .. label, ns.OptionsShown(), "height=" .. win.nav.scrollChild.h,
                 table.concat(o, " | "))
@@ -5865,6 +5875,12 @@ if barPass then
         -- one never shown opens on its first
         head("Extensions").scripts.OnClick(head("Extensions"))
         sidebar("extensions clicked")
+        -- the Overhead's heading is its page: it opens it, lit, no row under
+        head("Overhead").scripts.OnClick(head("Overhead"))
+        sidebar("overhead clicked")
+        page.settings.overhead:Set(false)
+        sidebar("overhead off")
+        page.settings.overhead:Set(true)
         -- Modules: a card a part, under its category
         ns.OpenOptions("modules")
         local mods = ns.optionPages.modules

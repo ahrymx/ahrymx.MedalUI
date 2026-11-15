@@ -81,6 +81,12 @@ local function ItemName(item)
     return tab and tab.name or page.name
 end
 
+-- A category of one page named as it is (the Overhead): its heading opens
+-- the page, no row under it, and the crumb says the name once.
+local function Single(cat)
+    return #cat.items == 1 and ItemName(cat.items[1]) == cat.name
+end
+
 -- A tab's parent (a tab `under` another, as Paging under Action Bars): its
 -- name, for the crumb, or nil.
 local function Parent(item)
@@ -106,6 +112,7 @@ local function Where(path, title, sheet)
     local at = place[path]
     local up = at and Parent(at.item)
     local w = at and (at.cat.name .. " > " .. (up and (up .. " > ") or "") .. ItemName(at.item)) or path
+    if at and Single(at.cat) then w = at.cat.name end
     if sheet then w = w .. " > " .. sheet end
     return title and (w .. " > " .. title) or w
 end
@@ -232,8 +239,10 @@ local function Header(f, content, path, page, tab)
     local parts = {}
     if at then
         table.insert(parts, at.cat.name)
-        table.insert(parts, Parent(at.item))
-        table.insert(parts, ItemName(at.item))
+        if not Single(at.cat) then
+            table.insert(parts, Parent(at.item))
+            table.insert(parts, ItemName(at.item))
+        end
     end
     head.scope = content.scope or at and at.cat.scope
     head.crumbBase = table.concat(parts, "  >  ")
@@ -845,14 +854,14 @@ local function Nav()
         h.open = here
         h.sign:SetText(h.open and "" or tostring(#h.rows))
         h.pill:SetWidth(math.max(18, math.ceil(h.sign:GetStringWidth()) + 10))
-        h.pill:SetShown(not h.open)
+        h.pill:SetShown(not h.open and not h.single)
         h:Paint(false)
         h:SetPoint("TOPLEFT", 0, y)
         h:SetPoint("TOPRIGHT", 0, y)
         h:Show()
         y = y - CAT_H
         for _, r in ipairs(h.rows) do
-            if h.open then
+            if h.open and not h.single then
                 r:SetPoint("TOPLEFT", 6, y)
                 r:SetPoint("TOPRIGHT", -6, y)
                 r:Show()
@@ -1320,6 +1329,15 @@ local function Sidebar()
                 table.insert(h.rows, r)
                 table.insert(side.rows, r)
             end
+        end
+        -- one page of its own name: the heading is its row, lit (gold) while
+        -- it shows, its dot beside the name where the count would be
+        h.single = Single(cat)
+        if h.single and h.rows[1].dot then
+            local dot = h.rows[1].dot
+            dot:SetParent(h)
+            dot:ClearAllPoints()
+            dot:SetPoint("RIGHT", -14, -3)
         end
         table.insert(side.heads, h)
     end

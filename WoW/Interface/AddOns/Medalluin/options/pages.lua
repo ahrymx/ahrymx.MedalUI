@@ -1481,8 +1481,10 @@ function ns.OptionCategories()
         { name = "Shared", glyph = "channels", scope = "Every part's, in one place",
             items = { "shared/visibility", "shared/auras", "shared/look", "shared/tools" } },
         { name = "Console", glyph = "skills", scope = "Kept per profile",
-            items = { "console/general", "console/layout", "console/bar", "console/paging", "console/overhead",
-                "console/minimap" } },
+            items = { "console/general", "console/layout", "console/bar", "console/paging", "console/minimap" } },
+        -- shared by every profile, unlike the console (2026-11-15): its own
+        -- heading, its one page opened by it (window.lua's Single)
+        { name = "Overhead", glyph = "chevron-up", scope = "Shared by every profile", items = { "console/overhead" } },
         { name = "Cooldowns", glyph = "side-timeless", scope = "Kept per profile",
             items = { "cooldowns/essential", "cooldowns/utility", "cooldowns/buffs", "cooldowns/bars" } },
         { name = "Unit frames", glyph = "character",
