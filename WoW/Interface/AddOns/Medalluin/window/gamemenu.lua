@@ -193,9 +193,18 @@ local function Tint()
     return TINTS[1][3]
 end
 
+-- The medallion menu is being built (WIP: its choice off in Options), so a
+-- profile that chose it, or the ribbon before it, is moved to the docked
+-- one, and its options show that. menu.wipOpen (the harness's, testing
+-- the ring as it stands) lets it through.
+local WIP = { medallion = true, ribbon = true }
 local function Style()
     local style = ns.db.gameMenu or "docked"
-    if style == "ribbon" then return "medallion" end
+    if style == "ribbon" then style = "medallion" end
+    if WIP[style] and not menu.wipOpen then
+        style = "docked"
+        ns.db.gameMenu = style
+    end
     return style
 end
 menu.Style = Style

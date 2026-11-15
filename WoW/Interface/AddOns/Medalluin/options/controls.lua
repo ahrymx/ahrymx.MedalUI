@@ -470,7 +470,7 @@ local function Row(i)
     row.text:SetPoint("RIGHT", -6, 0)
     row.text:SetJustifyH("LEFT")
     row:SetScript("OnEnter", function(self)
-        self.lit:Show()
+        self.lit:SetShown(not self.wip)
         if self.tip then UI.Tip(self, self.label, self.tip) end
     end)
     row:SetScript("OnLeave", function(self)
@@ -478,6 +478,7 @@ local function Row(i)
         Untip()
     end)
     row:SetScript("OnClick", function(self)
+        if self.wip then return end         -- a choice not ready to be picked
         local spec, value = menu.spec, self.value
         -- a list of several picks stays open, each click toggling one
         if spec.multi then
@@ -512,14 +513,15 @@ function UI.MarkMenu()
         if row:IsShown() then
             local on = Chosen(menu.spec, row.value)
             row.mark:SetShown(on)
-            local c = on and C.goldBright or C.text
+            local c = row.wip and C.dim or on and C.goldBright or C.text
             row.text:SetTextColor(c[1], c[2], c[3])
         end
     end
 end
 
 -- The list of a dropdown's choices under it; again on the same dropdown
--- closes it. spec: { choices = { { value, label, tip, font } }, key or
+-- closes it (a choice with wip = true dimmed and not picked). spec:
+-- { choices = { { value, label, tip, font, wip = } }, key or
 -- get/set; multi (several picks: on(value) says which, set(value) toggles
 -- one, and the list stays open) }.
 function UI.OpenMenu(owner, spec)
@@ -537,13 +539,13 @@ function UI.OpenMenu(owner, spec)
         -- a tip may be a function: what the choice does can depend on the profile
         local tip = choice[3]
         if type(tip) == "function" then tip = tip() end
-        row.value, row.label, row.tip = choice[1], choice[2], tip
+        row.value, row.label, row.tip, row.wip = choice[1], choice[2], tip, choice.wip and true or nil
         -- a font's choice drawn in that font
         row.text:SetFont(choice[4] or menu.font[1], menu.font[2], menu.font[3])
         row.text:SetText(choice[2])
         local on = Chosen(spec, choice[1])
         row.mark:SetShown(on)
-        local c = on and C.goldBright or C.text
+        local c = row.wip and C.dim or on and C.goldBright or C.text
         row.text:SetTextColor(c[1], c[2], c[3])
         width = math.max(width, math.ceil(row.text:GetStringWidth()) + 40)
         row:Show()
@@ -704,7 +706,7 @@ function UI.Segment(parent, spec, width)
         local b = CreateFrame("Button", nil, box)
         b:SetSize(widths[i], UI.SEG_H)
         b:SetPoint("TOPLEFT", x, 0)
-        b.value, b.name = choice[1], choice[2]
+        b.value, b.name, b.wip = choice[1], choice[2], choice.wip and true or nil
         b.lit = Fill(b, "ARTWORK", C.lit, 1)
         b.lift = Fill(b, "ARTWORK", C.lift, 0)
         b.lift:SetPoint("TOPLEFT", 1, -1)
@@ -725,9 +727,9 @@ function UI.Segment(parent, spec, width)
         b.text = UI.Plain(b, 12)
         b.text:SetPoint("CENTER", 0, 0)
         b.text:SetText(choice[2])
-        b:SetScript("OnClick", function(self) Set(spec, self.value) end)
+        b:SetScript("OnClick", function(self) if not self.wip then Set(spec, self.value) end end)
         b:SetScript("OnEnter", function(self)
-            if not self.chosen then
+            if not self.chosen and not self.wip then
                 self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
                 self.lift:Show()
             end
@@ -751,6 +753,7 @@ function UI.Segment(parent, spec, width)
         for _, b in ipairs(self.buttons) do
             local c = b.chosen and C.goldBright or C.dim
             b.text:SetTextColor(c[1], c[2], c[3])
+            b.text:SetAlpha(b.wip and 0.5 or 1)
         end
     end
     -- the answer chosen, in words

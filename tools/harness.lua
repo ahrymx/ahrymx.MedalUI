@@ -6275,6 +6275,41 @@ if barPass then
     fonts("menu fonts plain")
     page.settings.partyRange:Set(40)
     partyLayoutMenu("medallion")
+    -- the Game menu's medallion choice, being built: "(WIP)", dimmed, its
+    -- click picks nothing (a segment or the dropdown, whichever it drew)
+    ;(function()
+        for _, path in ipairs({ "overview/general", "general" }) do
+            ns.OpenOptions(path)
+            if ns.optionControls.gameMenu then break end
+        end
+        local c = ns.optionControls.gameMenu
+        if not c then print("menu gameMenu", "no control") return end
+        local was = ns.db.gameMenu
+        local out = {}
+        if c.buttons then
+            for _, b in ipairs(c.buttons) do
+                if b.value == "medallion" then
+                    b.scripts.OnClick(b)
+                    table.insert(out, "segment " .. b.text.text .. " alpha=" .. tostring(b.text.alpha or 1))
+                end
+            end
+        else
+            c.button.scripts.OnClick(c.button)
+            for _, row in ipairs(menu.rows) do
+                if row.shown and row.value == "medallion" then
+                    local tc = row.text.textColor
+                    table.insert(out, "row " .. row.text.text .. " colour=" .. (tc and string.format("%.2f,%.2f,%.2f", tc[1], tc[2], tc[3]) or "-"))
+                    row.scripts.OnEnter(row)
+                    table.insert(out, "lit=" .. tostring(row.lit.shown))
+                    row.scripts.OnLeave(row)
+                    row.scripts.OnClick(row)
+                end
+            end
+            table.insert(out, "menu still open=" .. tostring(menu.shown))
+            if menu.shown then ns.OptionsUI.CloseMenu() end
+        end
+        print("menu gameMenu wip", table.concat(out, " "), "gameMenu=" .. tostring(ns.db.gameMenu), "was=" .. tostring(was))
+    end)()
     -- the colour swatch: the game's picker, turned, then cancelled
     local art = ns.optionControls.artColor
     art.scripts.OnClick(art)
@@ -22793,6 +22828,19 @@ if gamemenuPass then (function()
     local M = ns.gameMenu
     local f = GameMenuFrame
     print("gamemenu", "style=" .. M.Style(), "holder=" .. tostring(M.holder ~= nil))
+    -- the medallion menu is being built: a profile that chose it, or the
+    -- ribbon before it, gets the docked one, and is moved there; the rest
+    -- of this pass opens it (menu.wipOpen) to test the ring as it stands
+    ;(function()
+        local was, got = ns.db.gameMenu, {}
+        for _, s in ipairs({ "medallion", "ribbon", "game", "docked" }) do
+            ns.db.gameMenu = s
+            table.insert(got, s .. ">" .. M.Style() .. "/" .. tostring(ns.db.gameMenu))
+        end
+        ns.db.gameMenu = was
+        print("gamemenu wip", table.concat(got, " "))
+    end)()
+    M.wipOpen = true
     local function rect(f2)
         local ok, q = pcall(resolve, f2)
         return ok and q and q[4] and string.format("%.0f,%.0f-%.0f,%.0f", q[1], q[2], q[3], q[4]) or "unresolved"
