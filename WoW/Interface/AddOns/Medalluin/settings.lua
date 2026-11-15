@@ -802,6 +802,11 @@ local function OpenSettings(arg)
         ns.TaintReport()
         return
     end
+    -- /mdlui mouse: what holds a frame's clicks (diag.lua)
+    if arg == "mouse" and ns.TouchReport then
+        ns.TouchReport()
+        return
+    end
     -- /mdlui probe: what the client hands this addon of the auras
     if arg == "probe" and ns.AuraProbe then
         ns.AuraProbe()

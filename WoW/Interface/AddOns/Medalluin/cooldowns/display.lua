@@ -72,6 +72,7 @@ local deco = {}                 -- our dress, by the game's frame
 local viewers = {}              -- ours, by key: the game's viewer frames
 local holders = {}              -- ours, by key: where each stands
 local sims = {}                 -- ours, by key: the simulation's icons and their frame (cooldowns/simulate.lua)
+local touches = {}              -- by the frame faded: out of the pointer's way at nothing (core.lua)
 local LETTER, DEFAULT_SIZE = {}, {}
 local placing, started = false, false
 display.viewers, display.holders, display.sims = viewers, holders, sims
@@ -473,9 +474,16 @@ local function ArrangeBars(key, h, items)
     h:SetSize(math.max(w, s.width), math.max(ht, s.size))
 end
 
+-- icons come and go: one faded to nothing is out of the pointer's way too
+local function Retouch(key)
+    for _, f in ipairs({ viewers[key] or false, sims[key] and sims[key].root or false }) do
+        if f and touches[f] then touches[f]:Refresh() end
+    end
+end
 function Arrange(key)
     local h, items = holders[key], List(key)
     if not items or arranging[key] then return end
+    Retouch(key)
     arranging[key] = true
     if key == BARS then
         ArrangeBars(key, h, items)
@@ -566,6 +574,7 @@ display.Place = Place
 -- Cooldown Manager or Edit Mode is open, so it can be seen to be set. The
 -- alpha alone, so it is allowed in combat.
 local faders, goals = {}, {}   -- by the frame faded: a viewer, or the simulation's
+display.faders = faders
 local inCombat = false
 display.simCombat = false       -- the simulation playing a fight, for Visibility
 
@@ -588,6 +597,15 @@ local function Fader(f)
     faders[f] = faders[f] or ns.Fader(f)
     return faders[f]
 end
+-- at nothing on In combat, out of the pointer's way: no tooltips, as the
+-- pointer cannot wake it; back the moment it is wanted, before it fades in
+local function Touch(key, f)
+    touches[f] = touches[f] or ns.Untouchable(f, function()
+        return Num(key, "Vis") == ns.VISIBILITY.COMBAT and goals[f] == 0 and Fader(f).alpha == 0
+    end)
+    touches[f].name = touches[f].name or ("cdm " .. tostring(key))
+    return touches[f]
+end
 local function Fade(key, now)
     local v, sim = viewers[key], sims[key]
     local f = sim and sim.root or v
@@ -595,11 +613,14 @@ local function Fade(key, now)
     if sim and v and now then
         Fader(v):Go(0, 0)
         goals[v] = 0
+        Touch(key, v):Update()
     end
     local goal = Wanted(key) and 1 or math.max(0, math.min(1, Num(key, "Faded")))
     if goals[f] == goal and not now then return end
     goals[f] = goal
-    Fader(f):Go(goal, not now and Num(key, "FadeTime") or 0)
+    local touch = Touch(key, f)
+    Fader(f):Go(goal, not now and Num(key, "FadeTime") or 0, function() touch:Update() end)
+    touch:Update()
 end
 display.Fade = Fade
 

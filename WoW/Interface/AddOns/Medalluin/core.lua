@@ -50,6 +50,208 @@ ns.On("PLAYER_REGEN_ENABLED", function()
     wipe(queued)
 end)
 
+-- A part faded to nothing that the pointer cannot wake (no mouseover in its
+-- visibility) is out of the pointer's way: no tooltips under it, no clicks
+-- (2026-11-15). Its keys still press, as Bar 7's do.
+--
+-- ns.Untouchable(frames, Off, CanWake): frames, a frame or a function
+-- returning a list of them, each walked with its descendants (a subtree
+-- that keeps its own alpha skipped: it is judged on its own). Off(): whether
+-- the part is off now. o:Update() asks Off() again; o:Refresh() walks again
+-- (frames built since). Only a frame taking the mouse when taken is ours to
+-- give back; one held by two parts comes back when both let it go. A
+-- protected frame changes out of combat only: a change asked in combat
+-- waits for it to end, the last ask deciding. At PLAYER_REGEN_DISABLED,
+-- before the lockdown, each part decides once for the fight: off only if
+-- nothing can wake it in combat (CanWake(); a part that shows in combat
+-- leaves it out), so a part that may show in the fight is never seen
+-- unclickable.
+local holds = setmetatable({}, { __mode = "k" })   -- by frame: the parts holding it off
+local touches = {}
+local function Locked(f)
+    return f.IsProtected and f:IsProtected() and InCombatLockdown()
+end
+local function OwnedBy(tip, f)
+    local owner = tip and tip:IsShown() and tip:GetOwner()
+    while owner do
+        if owner == f then return true end
+        owner = owner.GetParent and owner:GetParent()
+    end
+    return false
+end
+-- What a frame took, the clicks and the pointer each, to give back as it
+-- was: a frame can take one without the other (Blizzard's aura buttons
+-- take the pointer for their tooltips and let clicks through to the frame
+-- under them; the live dispel glow lies over a whole unit frame), and
+-- EnableMouse(true) would give it both (2026-11-15: the player and target
+-- frames stopped taking right clicks once faded out and back).
+-- Read as they come, never tested: Blizzard's aura buttons answer with
+-- secrets (and testing one is an error), so a secret is kept as it is and
+-- handed back to the game as it was.
+local took = setmetatable({}, { __mode = "k" })
+local function Takes(f)
+    if f.IsMouseClickEnabled and f.IsMouseMotionEnabled then
+        return f:IsMouseClickEnabled(), f:IsMouseMotionEnabled()
+    end
+    local on = f.IsMouseEnabled and f:IsMouseEnabled()
+    return on, on
+end
+-- takes the mouse at all: a secret answer may, so it is taken too
+local function Any(v) return ns.IsSecret(v) or (v and true or false) end
+-- what the parts did last, for /mdlui mouse (diag.lua)
+local trail = {}
+ns.touchTrail = trail
+local function Note(o, text)
+    local t = GetTime and GetTime() or 0
+    trail[#trail + 1] = string.format("%.1f %s%s: %s", t, o.name or "?",
+        InCombatLockdown() and " [combat]" or "", text)
+    if #trail > 30 then table.remove(trail, 1) end
+end
+local function Take(f, o)
+    local h = holds[f]
+    if h then
+        if not h[o] then h[o] = true; o.held = o.held + 1 end
+        return true
+    end
+    local click, motion = Takes(f)
+    if not (Any(click) or Any(motion)) then return true end   -- never ours
+    if Locked(f) then return false end
+    if OwnedBy(GameTooltip, f) then GameTooltip:Hide() end
+    f:EnableMouse(false)
+    holds[f] = { [o] = true }
+    took[f] = { click, motion }
+    o.held = o.held + 1
+    return true
+end
+local function Release(f, o)
+    local h = holds[f]
+    if not (h and h[o]) then return true end
+    local others = false
+    for k in pairs(h) do if k ~= o then others = true end end
+    if others then h[o] = nil; o.held = o.held - 1; return true end
+    if Locked(f) then return false end
+    holds[f] = nil
+    o.held = o.held - 1
+    local was = took[f] or { true, true }
+    took[f] = nil
+    if f.SetMouseClickEnabled and f.SetMouseMotionEnabled then
+        -- a secret handed back as it was; refused, the pointer comes back
+        -- and the clicks do not, as an aura button has them (its tooltip,
+        -- the clicks let through): never a button eating clicks it did not
+        if not pcall(f.SetMouseClickEnabled, f, was[1]) then f:SetMouseClickEnabled(false) end
+        if not pcall(f.SetMouseMotionEnabled, f, was[2]) then f:SetMouseMotionEnabled(true) end
+    else
+        f:EnableMouse(true)
+    end
+    return true
+end
+-- Not walked: a forbidden frame, and Blizzard's aura containers (the live
+-- auras and dispel glow, console/auras.lua): the game's frames, refused to
+-- an addon while auras are secret, their mouse the game's to set.
+local function Kept(f)
+    local ok, kept = pcall(function()
+        if f.IsForbidden and f:IsForbidden() then return true end
+        return f.GetObjectType and f:GetObjectType() == "AuraContainer" or false
+    end)
+    return not ok or kept
+end
+local function Walk(f, seen)
+    if Kept(f) then return end
+    seen[f] = true
+    local ok, kids = pcall(function() return { f:GetChildren() } end)
+    -- its answer tested inside the pcall: a frame with Blizzard's secret
+    -- aspects (the live auras' container, console/auras.lua) answers with
+    -- a secret, and testing one outside ended every walk with an error
+    -- (2026-11-15: the player and target held for good). A secret counts
+    -- as fading with its parent, as the container does: its auras are the
+    -- player's, and skipping it left them under the pointer at nothing.
+    for _, c in ipairs(ok and kids or {}) do
+        local own, lifted = pcall(function()
+            local v = c.IsIgnoringParentAlpha and c:IsIgnoringParentAlpha()
+            if ns.IsSecret(v) then return false end
+            return v and true or false
+        end)
+        if own and not lifted then Walk(c, seen) end
+    end
+end
+-- One frame that refuses (an error) is left as it is, never the end of the
+-- walk: frames after it would stay out of the pointer's way for good
+-- (2026-11-15: the player frame's right click and auras' tooltips gone).
+local function Safely(Do, f, o)
+    local ok, done = pcall(Do, f, o)
+    if ok then return done end
+    Note(o, "a frame refused: " .. tostring(done))
+    for k in pairs(holds[f] or {}) do k.held = k.held - 1 end
+    holds[f], took[f] = nil, nil
+    return true
+end
+function ns.Untouchable(frames, Off, CanWake)
+    local o = { want = false, held = 0 }
+    local function Roots()
+        if type(frames) == "function" then return frames() or {} end
+        return { frames }
+    end
+    local Apply
+    local function ApplyNow()
+        local seen, pending, before = {}, false, o.held
+        for _, r in ipairs(Roots()) do Walk(r, seen) end
+        for f in pairs(seen) do
+            if not Safely(o.want and Take or Release, f, o) then pending = true end
+        end
+        -- held but no longer part of it: given back
+        local gone = {}
+        for f, h in pairs(holds) do
+            if h[o] and not seen[f] then gone[#gone + 1] = f end
+        end
+        for _, f in ipairs(gone) do
+            if not Safely(Release, f, o) then pending = true end
+        end
+        Note(o, string.format("%s, held %d -> %d%s", o.want and "take" or "give back", before, o.held,
+            pending and ", the rest after combat" or ""))
+        if pending and not o.waiting then
+            o.waiting = true
+            ns.OutOfCombat(function() o.waiting = false; Apply() end)
+        end
+    end
+    -- an error in the walk noted with where, never lost (/mdlui mouse)
+    function Apply()
+        local ok, err = xpcall(ApplyNow, function(e)
+            local where = debugstack and debugstack(2, 2, 0) or ""
+            return tostring(e) .. " " .. where:gsub("\n", " ")
+        end)
+        if not ok then Note(o, "error: " .. tostring(err)) end
+    end
+    -- Off and still holding frames (none should be): given back again, once
+    -- nothing waits for combat to end (2026-11-15: the player frame kept
+    -- without its clicks, the part off).
+    function o:Set(off)
+        off = off and true or false
+        if off == self.want then
+            if off or self.held <= 0 or self.waiting then return end
+            if self.noted ~= self.held then Note(self, "off, yet holding " .. self.held) end
+            self.noted = self.held
+        end
+        self.want = off
+        Apply()
+    end
+    function o:Update() self:Set(Off()) end
+    function o:Refresh() if self.want then Apply() end end
+    o.CanWake = CanWake or function() return true end
+    o.Off = Off
+    table.insert(touches, o)
+    return o
+end
+-- for /mdlui mouse (diag.lua): every part, and who holds a frame
+ns.untouchables = touches
+function ns.TouchHeld(f) return holds[f], took[f] end
+ns.On("PLAYER_REGEN_DISABLED", function()
+    for _, o in ipairs(touches) do o:Set(o.Off() and not o.CanWake()) end
+end)
+-- the fight over: each asks again (a part at rest has no change to ask on)
+ns.On("PLAYER_REGEN_ENABLED", function()
+    for _, o in ipairs(touches) do o:Update() end
+end)
+
 -- A state driver whose states reach the frame only from the game's secure
 -- update, never from Medalluin's own code. RegisterStateDriver applies the
 -- conditional's state at once, inside the caller, and an addon's execution

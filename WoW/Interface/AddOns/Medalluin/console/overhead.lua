@@ -1134,6 +1134,7 @@ local rowArea = CreateFrame("Frame", nil, overhead)    -- the tray's rectangle, 
 ns.overheadRowArea = rowArea
 rowArea:Hide()
 local rowAlpha = 1
+local rowTouch                  -- out of the pointer's way at nothing (below)
 local function TrayDeck()
     for _, d in ipairs(decks) do
         if d.shown and d.kind == "tray" then return d end
@@ -1159,6 +1160,10 @@ function TintRow()
     for _, btn in ipairs(stanceButtons) do Tint(btn) end
     for _, btn in ipairs(petButtons) do Tint(btn) end
     for btn in pairs(totems) do Tint(btn) end
+    if rowTouch then
+        rowTouch:Update()
+        rowTouch:Refresh()     -- the row's buttons may have changed
+    end
 end
 
 local function RowOver()
@@ -1193,6 +1198,13 @@ end
 local function RowGoal()
     return ns.OverheadRowWanted() and 1 or RowNum("overheadRowFaded", 0, 1)
 end
+-- at nothing on In combat, out of the pointer's way (core.lua)
+rowTouch = ns.Untouchable(function() return ns.overheadRow end, function()
+    return (tonumber(ns.db.overheadRowVis) or ns.VISIBILITY.ALWAYS) == ns.VISIBILITY.COMBAT
+        and rowAlpha == 0 and RowGoal() == 0
+end)
+ns.overheadRowTouch = rowTouch
+rowTouch.name = "bottom row"
 local rowWatch = CreateFrame("Frame", nil, UIParent)
 ns.overheadRowWatch = rowWatch
 -- asleep while the row is always whole (a choice of Always snaps it there):

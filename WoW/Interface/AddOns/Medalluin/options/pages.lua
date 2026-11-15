@@ -259,7 +259,8 @@ local function Visibility(it, them)
     local V = ns.VISIBILITY
     return {
         { V.ALWAYS, "Always" },
-        { V.COMBAT, "In combat", "Faded out of combat; " .. it .. " back while you drag a spell onto " .. them .. "." },
+        { V.COMBAT, "In combat", "Faded out of combat; " .. it .. " back while you drag a spell onto " .. them .. ". "
+            .. "Faded to 0%, no clicks or tooltips; keys still press." },
         { V.MOUSEOVER, "On mouseover", "Faded until the pointer is over " .. them .. ", or a spell is being dragged." },
         { V.COMBAT_OR_MOUSEOVER, "In combat or on mouseover" },
     }
@@ -298,10 +299,11 @@ local function CdmVisibility(K)
     return On("visibility", Group("Visibility",
         Choice(K("Vis"), "Visibility", {
             { V.ALWAYS, "Always" },
-            { V.COMBAT, "In combat", "Faded out of combat." },
+            { V.COMBAT, "In combat", "Faded out of combat. Faded to 0%, no tooltips." },
             { V.MOUSEOVER, "On mouseover", "Faded until the pointer is over it." },
             { V.COMBAT_OR_MOUSEOVER, "In combat or on mouseover" },
-        }, "Faded, it is only see-through: it still tracks everything. Whole while the Cooldown Manager or "
+        }, "Faded, it is only see-through: it still tracks everything (on In combat at 0%, without "
+            .. "its tooltips). Whole while the Cooldown Manager or "
             .. "Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides it outright."),
         Opacity(K("Faded"), "Faded opacity", "How see-through it is when faded: 0% is gone."),
         Seconds(K("FadeTime"), "Fade time", "How long a fade in or out takes.")))
@@ -827,7 +829,8 @@ function ns.OptionPages()
                         "Or open Edit Mode: drag a console anywhere, and click it for its scale. Without Edit "
                         .. "Mode, /mdlui move. The corner strips keep their own size and place.")),
                     AllOn("visibility", Concat({
-                        Tip("A faded console still works: its buttons click and its keys press. Binding keys, "
+                        Tip("A faded console still works: its keys press, and its buttons click unless it is faded to "
+                            .. "0% with On mouseover unticked. Binding keys, "
                             .. "a spell on the pointer, Edit Mode and Simulate party frames bring it back.",
                         Switched(Check("consoleFade", "Fade when idle",
                                     "Fade the console while none of what is ticked here is so."), "Visibility",
@@ -842,7 +845,8 @@ function ns.OptionPages()
                                 { kind = "check", key = "consoleShowGroup", label = "In a group",
                                     tip = "While you are in a party or a raid.", needs = "consoleFade" },
                                 { kind = "check", key = "consoleShowMouse", label = "On mouseover",
-                                    tip = "While the pointer is over the console, its bars or its party.",
+                                    tip = "While the pointer is over the console, its bars or its party. "
+                                        .. "Unticked, at 0% it takes no clicks or tooltips.",
                                     needs = "consoleFade" })),
                     }, ForConsole("reticule", Tip("Out of combat, the console fades away but for your player "
                             .. "and target frames. While it is on, it takes over from Fade when idle. The corner "
@@ -862,7 +866,8 @@ function ns.OptionPages()
                             { kind = "check", key = "consoleMinimalGroup", label = "Back in a group",
                                 tip = "Whole again while you are in a party or a raid." },
                             { kind = "check", key = "consoleMinimalMouse", label = "Back on mouseover",
-                                tip = "Whole again while the pointer is over the console, its bars or its party." }))),
+                                tip = "Whole again while the pointer is over the console, its bars or its party. "
+                                    .. "Unticked, what is at 0% takes no clicks or tooltips." }))),
                     { Group("Opacity",
                         Opacity("consoleAlpha", "Opacity", "How much of the console shows while it is not "
                             .. "faded. The corner strips and the corner minimap keep their own."),
@@ -985,8 +990,8 @@ function ns.OptionPages()
                             Seconds("overheadFadeOut", "Fade out", "How long it takes to go once it is empty.")),
                         Group("Bottom row",
                             Choice("overheadRowVis", "Visibility", Visibility("it comes", "it"),
-                                "The stance, pet and totem bars and the tier they sit on. Faded, it is only "
-                                .. "see-through: its keys still press and its icons still click. Whole while a "
+                                "The stance, pet and totem bars and the tier they sit on. Faded, its keys still "
+                                .. "press and its icons still click, unless In combat fades it to 0%. Whole while a "
                                 .. "totem's choices are open."),
                             Opacity("overheadRowFaded", "Faded opacity", "How see-through it is when faded: 0% "
                                 .. "is gone."),

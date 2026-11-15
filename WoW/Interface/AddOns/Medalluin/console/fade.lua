@@ -16,7 +16,8 @@
 --
 -- Only the alpha changes, which is allowed in combat, so a faded console
 -- keeps working: its buttons still click and its keys still press, as a faded
--- action bar's do (bars/bar.lua). The corner strips and the corner minimap
+-- action bar's do (bars/bar.lua). Faded to nothing with the pointer not among
+-- what wakes it, it takes no mouse instead (ns.Untouchable, core.lua). The corner strips and the corner minimap
 -- are the console's children but not its body, so they keep their own alpha.
 local _, ns = ...
 
@@ -154,6 +155,39 @@ local units = ns.Fader({
 })
 ns.unitsFader = units
 
+-- Out of the pointer's way at nothing (ns.Untouchable): the console when
+-- the pointer is not among what wakes it and its faded opacity is 0; the
+-- lifted player and target the same at their own 0. Combat, or what is
+-- ticked that can come in a fight, may wake it.
+local function NoMouse()
+    local db = ns.db
+    if Minimal() then return not db.consoleMinimalMouse end
+    return db.consoleFade and not db.consoleShowMouse or false
+end
+local touch = ns.Untouchable(console, function()
+    return NoMouse() and fader.goal == 0 and fader.alpha == 0
+end, function()
+    local db = ns.db
+    return Minimal() or db.consoleShowCombat or db.consoleShowTarget or db.consoleShowHurt
+        or db.consoleShowGroup or false
+end)
+ns.consoleTouch = touch
+touch.name = "console"
+local unitTouch = ns.Untouchable(function()
+    local list = {}
+    for _, u in ipairs(UNITS) do
+        local b = ns.units and ns.units[u]
+        if b then table.insert(list, b) end
+    end
+    return list
+end, function()
+    return lifted and Minimal() and not ns.db.consoleMinimalMouse and units.goal == 0 and units.alpha == 0
+end)
+ns.unitsTouch = unitTouch
+unitTouch.name = "player and target"
+local function Touched() touch:Update() end
+local function UnitsTouched() unitTouch:Update() end
+
 local wanted
 -- now: a setting changed, so go there at once rather than fade
 local function Update(now)
@@ -164,8 +198,10 @@ local function Update(now)
     if not now and want == wanted and goal == fader.goal and unitGoal == units.goal then return end
     wanted = want
     local time = (not now) and Num(want and "consoleFadeIn" or "consoleFadeOut", 0, 10) or 0
-    fader:Go(goal, time)
-    units:Go(unitGoal, time)
+    fader:Go(goal, time, Touched)
+    units:Go(unitGoal, time, UnitsTouched)
+    touch:Update()
+    unitTouch:Update()
 end
 ns.UpdateConsoleFade = Update
 
@@ -180,6 +216,9 @@ local function Lift()
                 if b and b.SetIgnoreParentAlpha then b:SetIgnoreParentAlpha(on) end
             end
             lifted = on
+            -- the console may already be out of the pointer's way: the
+            -- lifted are their own now, given back (or taken, dropped)
+            touch:Refresh()
         end
         Update(true)
     end)
@@ -193,6 +232,9 @@ watch:SetScript("OnUpdate", function(_, dt)
     if since < 0.1 then return end
     since = 0
     Update()
+    -- each look, so a part off and still holding frames gives them back
+    touch:Update()
+    unitTouch:Update()
 end)
 ns.consoleFadeWatch = watch
 

@@ -295,6 +295,7 @@ function Region:SetSize(w, h) moved(); self.w, self.h = w, h end
 function Region:SetHitRectInsets(l, r, t, b) self.hitInsets = { l, r, t, b } end
 function Region:SetMaskTexture(path) self.mask = path end
 function Region:SetIgnoreParentAlpha(on) self.ignoreParentAlpha = on end
+function Region:IsIgnoringParentAlpha() return self.ignoreParentAlpha == true end
 function Region:SetScale(s) moved(); self.scale = s end
 function Region:GetScale() return self.scale or 1 end
 -- against the screen: every scale up the parents (UIParent's counts as 1)
@@ -318,7 +319,16 @@ function Region:SetID(id) self.idOf = id end
 function Region:GetID() return self.idOf end
 function Region:GetFrameStrata() return self.strata or "LOW" end
 function Region:SetFrameStrata(s) self.strata = s end
-function Region:SetParent(p) self.parent = p end
+-- a frame's children are frames, as the game's GetChildren gives them:
+-- those made under it and those moved in, while it is still their parent
+HARNESS_REGION_KINDS = { Texture = true, FontString = true, MaskTexture = true, Line = true }
+function Region:SetParent(p)
+    if p and p ~= self.parent and not HARNESS_REGION_KINDS[self.kind] then
+        p.moved_ = p.moved_ or {}
+        table.insert(p.moved_, self)
+    end
+    self.parent = p
+end
 function Region:SetClipsChildren(on) self.clipsChildren = on end
 function Region:Show()
     self.shown = true
@@ -401,8 +411,15 @@ for _, state in ipairs({ "Normal", "Pushed", "Highlight", "Checked", "Disabled" 
     end
 end
 function Region:GetChildren()
-    local out = {}
-    for _, f in ipairs(self.all_ or {}) do table.insert(out, f) end
+    local out, seen = {}, {}
+    for _, list in ipairs({ self.all_ or {}, self.moved_ or {} }) do
+        for _, f in ipairs(list) do
+            if not seen[f] and not HARNESS_REGION_KINDS[f.kind] and f.parent == self then
+                seen[f] = true
+                table.insert(out, f)
+            end
+        end
+    end
     return unpack(out)
 end
 function Region:GetButtonState() return self.state or "NORMAL" end
@@ -1337,9 +1354,31 @@ function GetBuildInfo() return "1.0.0", "0", "Nov 13 2026", 16001 end
 -- protected frame in WoW)
 function Region:EnableMouse(on)
     self.mouse = on and true or false
+    self.click_, self.motion_ = nil, nil
     if inCombat then self.mouseInCombat = true end
 end
-function Region:IsMouseEnabled() return self.mouse ~= false end
+-- the clicks and the pointer each, as the game has them: EnableMouse sets both
+function Region:IsMouseClickEnabled()
+    if self.click_ ~= nil then return self.click_ end
+    return self.mouse ~= false
+end
+function Region:IsMouseMotionEnabled()
+    if self.motion_ ~= nil then return self.motion_ end
+    return self.mouse ~= false
+end
+function Region:SetMouseClickEnabled(on)
+    self.motion_ = self:IsMouseMotionEnabled()
+    self.click_ = on and true or false
+    self.mouse = self.click_ or self.motion_
+    if inCombat then self.mouseInCombat = true end
+end
+function Region:SetMouseMotionEnabled(on)
+    self.click_ = self:IsMouseClickEnabled()
+    self.motion_ = on and true or false
+    self.mouse = self.click_ or self.motion_
+    if inCombat then self.mouseInCombat = true end
+end
+function Region:IsMouseEnabled() return self:IsMouseClickEnabled() or self:IsMouseMotionEnabled() end
 function Region:EnableMouseWheel(on) self.wheel = on and true or false end
 -- A secure wrap: the snippet runs before the frame's own script, with the
 -- frame as self and the header as owner, in the restricted environment's
@@ -6592,7 +6631,7 @@ if barPass then
         end
         local function drawerState(tag)
             local names = {}
-            for _, f in ipairs({ Minimap:GetChildren() }) do
+            for _, f in ipairs(Minimap.all_ or {}) do      -- made there, wherever they are now
                 if f.parent == drawer then table.insert(names, f.name) end
             end
             print(tag, "glyph=" .. glyph(), "open=" .. tostring(drawer.shown), "taken=" .. table.concat(names, ","))
@@ -6657,6 +6696,69 @@ if barPass then
         end
         table.insert(out, string.format("out again %.2f", ns.actionBar.alpha or 1))
         print("bar1 driving", table.concat(out, " | "))
+        -- faded to nothing on In combat: out of the pointer's way, its
+        -- tooltip gone; back the moment it is wanted, before it fades in
+        ;(function()
+            local b1 = ns.actionButtons[1]
+            local never = CreateFrame("Frame", nil, ns.actionBar)
+            never:EnableMouse(false)
+            local function tick(n) for _ = 1, n or 20 do ns.barFade.scripts.OnUpdate(ns.barFade, 0.05) end end
+            local function untouch(tag)
+                print(tag, string.format("alpha=%.2f", ns.actionBar.alpha or 1), "button=" .. tostring(b1:IsMouseEnabled()),
+                    "never=" .. tostring(never:IsMouseEnabled()), "tip=" .. tostring(GameTooltip.shown))
+            end
+            page.settings.visibility:Set(1)
+            tick()
+            page.settings.visibility:Set(2)
+            tick(1)
+            GameTooltip:SetOwner(b1, "ANCHOR_RIGHT")
+            GameTooltip:Show()
+            untouch("bar1 untouchable fading, its tooltip up")
+            tick()
+            untouch("bar1 untouchable idle")
+            for _, f in ipairs(events.PLAYER_REGEN_DISABLED or {}) do f.scripts.OnEvent(f, "PLAYER_REGEN_DISABLED") end
+            untouch("bar1 untouchable combat starts")
+            inCombat = true
+            tick()
+            untouch("bar1 untouchable in combat")
+            inCombat = false
+            for _, f in ipairs(events.PLAYER_REGEN_ENABLED or {}) do f.scripts.OnEvent(f, "PLAYER_REGEN_ENABLED") end
+            tick(1)
+            untouch("bar1 untouchable combat over, fading")
+            tick()
+            untouch("bar1 untouchable combat over")
+            local cursor = GetCursorInfo
+            GetCursorInfo = function() return "spell", 1 end
+            tick(1)
+            untouch("bar1 untouchable spell on the cursor")
+            GetCursorInfo = cursor
+            tick()
+            ns.keybinding = true
+            tick(1)
+            untouch("bar1 untouchable binding keys")
+            ns.keybinding = nil
+            tick()
+            page.settings.visibility:Set(3)
+            tick()
+            untouch("bar1 untouchable on mouseover")
+            -- a protected button: a change asked in combat waits for its end
+            page.settings.visibility:Set(2)
+            tick()
+            b1.IsProtected = function() return true end
+            b1.mouseInCombat = nil
+            inCombat = true
+            page.settings.visibility:Set(3)
+            tick()
+            untouch("bar1 untouchable protected, asked in combat")
+            inCombat = false
+            for _, f in ipairs(events.PLAYER_REGEN_ENABLED or {}) do f.scripts.OnEvent(f, "PLAYER_REGEN_ENABLED") end
+            untouch("bar1 untouchable protected, combat over")
+            print("bar1 untouchable protected set in combat", tostring(b1.mouseInCombat == true))
+            b1.IsProtected = nil
+            never:Hide()
+            never:SetParent(UIParent)
+            GameTooltip:Hide()
+        end)()
         page.settings.visibility:Set(1)
         for _ = 1, 20 do ns.barFade.scripts.OnUpdate(ns.barFade, 0.05) end
         BagnonMinimapButton:Show()
@@ -6804,11 +6906,14 @@ if barPass then
     end
     S.visibility:Set(1)
     settle()
+    S.extraStandIn = CreateFrame("Button", nil, ns.extraBars)     -- a button on the extra bars
     for mode = 1, 4 do
         S.extraVisibility:Set(mode)
         local line = {}
         mouseOver, cursor = false, nil
         table.insert(line, "idle=" .. settleExtra() .. "(bar1=" .. settle() .. ")")
+        -- at nothing on In combat, out of the pointer's way (core.lua)
+        table.insert(line, "mouse=" .. tostring(S.extraStandIn:IsMouseEnabled()))
         mouseOver = true
         table.insert(line, "hover=" .. settleExtra())
         mouseOver = false
@@ -11844,6 +11949,209 @@ function FadePass()
     print("fade tick group, ticked", "shows=" .. tostring(ns.ConsoleWanted()))
     set("consoleShowGroup", false)
     grouped = false
+    -- faded to nothing, the pointer not among what wakes it: out of the
+    -- pointer's way (core.lua), the strips judged on their own; combat
+    -- decides once, at its start, whether it could show in the fight
+    ;(function()
+        local probe = CreateFrame("Button", nil, con)
+        local strip = CreateFrame("Button", nil, con)
+        strip:SetIgnoreParentAlpha(true)
+        local function m(tag)
+            run(0.1)
+            print("fade untouchable " .. tag, string.format("alpha=%.2f", con:GetAlpha()),
+                "console=" .. tostring(probe:IsMouseEnabled()), "strip=" .. tostring(strip:IsMouseEnabled()),
+                "set in combat=" .. tostring(probe.mouseInCombat == true))
+        end
+        m("mouse ticked, idle")
+        set("consoleShowMouse", false)
+        m("mouse unticked, idle")
+        set("consoleFadedAlpha", 0.3)
+        m("mouse unticked, faded 30%")
+        set("consoleFadedAlpha", 0)
+        hasTarget = true
+        fire("PLAYER_TARGET_CHANGED")
+        m("mouse unticked, a target")
+        hasTarget = false
+        fire("PLAYER_TARGET_CHANGED")
+        -- a fade that takes time: back as it starts in, away once it is out
+        set("consoleFadeIn", 0.2)
+        set("consoleFadeOut", 0.2)
+        m("fades of 0.2s, idle")
+        hasTarget = true
+        fire("PLAYER_TARGET_CHANGED")
+        m("a target, 0.1s into its fade in")
+        hasTarget = false
+        fire("PLAYER_TARGET_CHANGED")
+        m("the target gone, 0.1s into its fade out")
+        m("the target gone, faded out")
+        -- what took the pointer and not the clicks (an aura button's
+        -- tooltip, over a whole unit frame) comes back as it was, the
+        -- clicks still let through to the frame under it
+        ;(function()
+            local glow = CreateFrame("Button", nil, probe)
+            glow:EnableMouse(true)
+            glow:SetMouseClickEnabled(false)
+            local function g(tag)
+                print("fade untouchable hover only, " .. tag, "click=" .. tostring(glow:IsMouseClickEnabled()),
+                    "pointer=" .. tostring(glow:IsMouseMotionEnabled()))
+            end
+            hasTarget = true
+            fire("PLAYER_TARGET_CHANGED")
+            run(0.5)
+            g("shown")
+            hasTarget = false
+            fire("PLAYER_TARGET_CHANGED")
+            run(1)
+            g("faded out")
+            hasTarget = true
+            fire("PLAYER_TARGET_CHANGED")
+            run(0.5)
+            g("back")
+            hasTarget = false
+            fire("PLAYER_TARGET_CHANGED")
+            run(1)
+            glow:SetParent(UIParent)
+        end)()
+        -- Blizzard's aura container, the game's (refused to addons while
+        -- auras are secret), and a frame that refuses: neither ends the
+        -- walk; what comes after them comes back
+        ;(function()
+            local box = CreateFrame("Frame", nil, probe)
+            box.GetObjectType = function() return "AuraContainer" end
+            local inBox = CreateFrame("Button", nil, box)
+            local refuses = CreateFrame("Button", nil, probe)
+            refuses.EnableMouse = function() error("denied") end
+            refuses.SetMouseClickEnabled = refuses.EnableMouse
+            refuses.GetChildren = refuses.EnableMouse
+            local after = {}
+            for i = 1, 6 do after[i] = CreateFrame("Button", nil, probe) end
+            local function g(tag)
+                local n = 0
+                for _, b in ipairs(after) do if b:IsMouseEnabled() then n = n + 1 end end
+                print("fade untouchable refused, " .. tag, "container=" .. tostring(inBox:IsMouseEnabled()),
+                    "others=" .. n .. "/" .. #after)
+            end
+            run(1)
+            ns.consoleTouch:Refresh()
+            g("faded out")
+            hasTarget = true
+            fire("PLAYER_TARGET_CHANGED")
+            run(0.5)
+            g("back")
+            hasTarget = false
+            fire("PLAYER_TARGET_CHANGED")
+            run(1)
+            for _, f in ipairs({ box, refuses, unpack(after) }) do f:SetParent(UIParent) end
+        end)()
+        -- a frame whose answer is secret (the live auras' container) fades
+        -- with its parent: walked, its auras out of the pointer's way too
+        ;(function()
+            local s = modern and UnitHealthPercent and UnitHealthPercent("player")
+            local box = CreateFrame("Frame", nil, probe)
+            box.IsIgnoringParentAlpha = function() return s end
+            local aura = CreateFrame("Button", nil, box)
+            -- an aura button of Blizzard's: whether it takes clicks is a
+            -- secret, and it will not be handed one back (the worst case)
+            local secretClick = CreateFrame("Button", nil, box)
+            local realSet = secretClick.SetMouseClickEnabled
+            secretClick.IsMouseClickEnabled = function(self) return s or self.click_ end
+            secretClick.SetMouseClickEnabled = function(self, on)
+                if ns.IsSecret(on) then error("secret") end
+                realSet(self, on)
+                secretClick.IsMouseClickEnabled = nil
+            end
+            local function state(b)
+                return tostring(Region.IsMouseClickEnabled(b)) .. "/" .. tostring(b:IsMouseMotionEnabled())
+            end
+            run(1)
+            ns.consoleTouch:Refresh()
+            print("fade untouchable secret answer, faded out", "secret=" .. tostring(ns.IsSecret(s)),
+                "aura=" .. tostring(aura:IsMouseEnabled()), "secret click=" .. state(secretClick))
+            hasTarget = true
+            fire("PLAYER_TARGET_CHANGED")
+            run(0.5)
+            print("fade untouchable secret answer, back", "aura=" .. tostring(aura:IsMouseEnabled()),
+                "secret click=" .. state(secretClick))
+            hasTarget = false
+            fire("PLAYER_TARGET_CHANGED")
+            run(1)
+            box:SetParent(UIParent)
+        end)()
+        -- a frame taking no mouse when the console went is not ours: its own
+        -- code turning it on meanwhile (Bar 7's grid) stands after
+        ;(function()
+            local grid = CreateFrame("Button", nil, probe)
+            grid:EnableMouse(false)
+            run(1)
+            ns.consoleTouch:Refresh()
+            grid:EnableMouse(true)
+            hasTarget = true
+            fire("PLAYER_TARGET_CHANGED")
+            run(0.5)
+            print("fade untouchable not ours, turned on meanwhile", "mouse=" .. tostring(grid:IsMouseEnabled()))
+            hasTarget = false
+            fire("PLAYER_TARGET_CHANGED")
+            run(1)
+            grid:SetParent(UIParent)
+        end)()
+        set("consoleFadeIn", 0)
+        set("consoleFadeOut", 0)
+        -- Bar 1 on In combat holds its buttons too: the console back does
+        -- not give them back while the bar is still at nothing
+        local bf = ns.barFade
+        if bf then
+            local b1 = CreateFrame("Button", nil, ns.actionBar)
+            set("consoleShowMouse", true)       -- the console takes it as it goes again
+            set("consoleShowMouse", false)
+            run(0.1)
+            print("fade untouchable bar 1 button, the console's", tostring(b1:IsMouseEnabled()))
+            local was = ns.db.visibility
+            ns.db.visibility = ns.VISIBILITY.COMBAT
+            for _ = 1, 20 do bf.scripts.OnUpdate(bf, 0.05) end
+            hasTarget = true
+            fire("PLAYER_TARGET_CHANGED")
+            m("a target, Bar 1 at nothing")
+            print("fade untouchable bar 1 button, held by both then the bar", tostring(b1:IsMouseEnabled()))
+            ns.db.visibility = was
+            for _ = 1, 20 do bf.scripts.OnUpdate(bf, 0.05) end
+            print("fade untouchable bar 1 button, the bar back", tostring(b1:IsMouseEnabled()))
+            hasTarget = false
+            fire("PLAYER_TARGET_CHANGED")
+            run(0.1)
+            b1:SetParent(UIParent)
+        end
+        probe.IsProtected = function() return true end
+        local function fight(tag)
+            fire("PLAYER_REGEN_DISABLED")
+            inCombat = true
+            m(tag)
+            inCombat = false
+            fire("PLAYER_REGEN_ENABLED")
+        end
+        fight("combat ticked, the fight starts")
+        m("combat over")
+        local keys = { "consoleShowCombat", "consoleShowTarget", "consoleShowHurt", "consoleShowGroup" }
+        local was = {}
+        for _, k in ipairs(keys) do was[k] = ns.db[k]; set(k, false) end
+        fight("nothing that wakes it, the fight starts")
+        set("consoleShowTarget", true)
+        fight("a target ticked, the fight starts")
+        m("a target ticked, combat over")
+        -- a change asked in the fight waits for its end
+        set("consoleShowTarget", false)
+        fire("PLAYER_REGEN_DISABLED")
+        inCombat = true
+        probe.mouseInCombat = nil
+        set("consoleShowMouse", true)
+        m("mouse ticked in the fight")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        m("mouse ticked in the fight, over")
+        for _, k in ipairs(keys) do set(k, was[k]) end
+        probe.IsProtected = nil
+        probe:SetParent(UIParent)
+        strip:SetParent(UIParent)
+    end)()
     -- a secret health says nothing (only a client with secrets has them)
     if issecretvalue then
         health = 82
@@ -12025,6 +12333,42 @@ function FadePass()
         set("consoleMinimalUnits", 0.35)
         set("consoleMinimalRest", 0.1)
         mini("35% and 10%")
+        -- at nothing, the pointer unticked: out of its way; the lifted
+        -- player and target at their own opacity, judged on their own
+        ;(function()
+            local probe = CreateFrame("Button", nil, con)
+            local function m(tag)
+                run(0.7)
+                print("fade minimal untouchable " .. tag, string.format("console=%.2f player=%.2f", con:GetAlpha(),
+                    pl:GetAlpha()), "mouse=" .. tostring(probe:IsMouseEnabled()) .. "," .. tostring(pl:IsMouseEnabled()))
+            end
+            set("consoleMinimalRest", 0)
+            m("rest 0, mouse ticked")
+            set("consoleMinimalMouse", false)
+            m("rest 0, mouse unticked")
+            -- turned on with the rest at nothing: the console out of the
+            -- pointer's way before the lift, the player given back after it
+            set("consoleMinimal", false)
+            run(0.7)
+            set("consoleMinimal", true)
+            m("turned on again, mouse unticked")
+            set("consoleMinimalUnits", 0)
+            m("units 0 too")
+            -- off yet still holding (as seen in game, 2026-11-15): the next
+            -- look gives them back
+            ns.unitsTouch.want = false
+            ns.db.consoleMinimalUnits = 0.35
+            print("fade minimal untouchable off yet holding", "held=" .. ns.unitsTouch.held,
+                "mouse=" .. tostring(pl:IsMouseEnabled()))
+            run(0.1)
+            print("fade minimal untouchable the next look", "held=" .. ns.unitsTouch.held,
+                "mouse=" .. tostring(pl:IsMouseEnabled()))
+            set("consoleMinimalUnits", 0)
+            run(0.7)
+            set("consoleMinimalMouse", true)
+            m("mouse ticked again")
+            probe:SetParent(UIParent)
+        end)()
         set("consoleMinimalUnits", ns.OptionBase("consoleMinimalUnits"))
         set("consoleMinimalRest", ns.OptionBase("consoleMinimalRest"))
         -- fading when idle ticked too: with a target it would show; minimal's rule stands
@@ -12122,7 +12466,10 @@ function FadePass()
                 "others=" .. table.concat(others, ","),
                 "offRow=" .. (off and string.format("%.2f", off:GetAlpha()) or "none"),
                 "totem=" .. (totem and string.format("%.2f", totem:GetAlpha()) or "none"),
-                "wanted=" .. tostring(ns.OverheadRowWanted()))
+                "wanted=" .. tostring(ns.OverheadRowWanted()),
+                -- the pointer's: off at nothing on In combat (core.lua); the off-row's never
+                "mouse=" .. tostring(r[1] and r[1]:IsMouseEnabled()) .. "," .. tostring(totem and totem:IsMouseEnabled())
+                    .. ",offRow:" .. tostring(off and off:IsMouseEnabled()))
         end
         local V = ns.VISIBILITY
         inCombat, mouseOver, cursor = false, false, nil
@@ -12140,6 +12487,28 @@ function FadePass()
         fire("PLAYER_REGEN_ENABLED")
         step(0.3)
         row("combat over, 0.3s")
+        -- faded to a fifth: still seen, so still the pointer's
+        set("overheadRowFaded", 0.2)
+        row("in combat, faded 20%")
+        set("overheadRowFaded", 0)
+        set("overheadRowVis", V.MOUSEOVER)
+        step(0.3)
+        row("on mouseover, idle")
+        set("overheadRowVis", V.COMBAT)
+        step(0.3)
+        -- a stance gone from the row while it is out of the pointer's way: its own again
+        ;(function()
+            local s3, forms = StanceButton3, GetNumShapeshiftForms
+            GetNumShapeshiftForms = function() return 2 end
+            ns.UpdateOverhead()
+            step(0.3)
+            print("fade row a stance gone, faded", "row=" .. #(ns.overheadRow or {}),
+                "gone=" .. tostring(s3 and s3:IsMouseEnabled()))
+            GetNumShapeshiftForms = forms
+            ns.UpdateOverhead()
+            step(0.3)
+            print("fade row the stance back", "row=" .. #(ns.overheadRow or {}), "back=" .. tostring(s3 and s3:IsMouseEnabled()))
+        end)()
         -- a spell on the cursor, the totem choices open: whole
         cursor = { "spell", 1 }
         step(0.3)
@@ -23620,6 +23989,58 @@ if cdmPass then (function()
     f:Show()
     print("cdm fade while /cdm open", "alpha=" .. n1(e:GetAlpha()))
     f:Hide()
+    -- faded to nothing on In combat: out of the pointer's way, its tooltip
+    -- gone; an icon come since too; back while /cdm is open, or seen at all
+    ;(function()
+        local function m(tag)
+            print("cdm untouchable " .. tag, "alpha=" .. n1(e:GetAlpha()), "icon=" .. tostring(it:IsMouseEnabled()),
+                "tip=" .. tostring(GameTooltip.shown))
+        end
+        ns.SetOption("cdmEVis", V.ALWAYS)
+        ns.SetOption("cdmEFaded", 0)
+        GameTooltip:SetOwner(it, "ANCHOR_RIGHT")
+        GameTooltip:Show()
+        ns.SetOption("cdmEVis", V.COMBAT)
+        m("idle")
+        local late = CreateFrame("Frame", nil, e)
+        D.Arrange("essential")
+        print("cdm untouchable a new icon", tostring(late:IsMouseEnabled()))
+        late:SetParent(UIParent)
+        inCombat = true
+        for _, fr in ipairs(events.PLAYER_REGEN_DISABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_DISABLED") end
+        m("in combat")
+        inCombat = false
+        for _, fr in ipairs(events.PLAYER_REGEN_ENABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_ENABLED") end
+        m("combat over")
+        f:Show()
+        D.Fade("essential")
+        m("/cdm open")
+        f:Hide()
+        D.Fade("essential")
+        ns.SetOption("cdmEFaded", 0.3)
+        m("faded 30%")
+        ns.SetOption("cdmEFaded", 0)
+        ns.SetOption("cdmEVis", V.MOUSEOVER)
+        m("on mouseover")
+        -- a fade that takes time: back as it starts in, away once it is out
+        ns.SetOption("cdmEFadeTime", 0.2)
+        ns.SetOption("cdmEVis", V.COMBAT)
+        local d = D.faders[e].driver
+        local function step(n) for _ = 1, n do if d.shown then d.scripts.OnUpdate(d, 0.05) end end end
+        inCombat = true
+        for _, fr in ipairs(events.PLAYER_REGEN_DISABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_DISABLED") end
+        step(1)
+        m("fading in, 0.05s of 0.2s")
+        step(4)
+        inCombat = false
+        for _, fr in ipairs(events.PLAYER_REGEN_ENABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_ENABLED") end
+        step(2)
+        m("fading out, 0.1s of 0.2s")
+        step(3)
+        m("faded out")
+        ns.SetOption("cdmEFadeTime", 0)
+        ns.SetOption("cdmEFaded", 0.2)
+    end)()
     ns.SetOption("cdmEVis", V.ALWAYS)
     -- its movers: placed, not scaled; the page's sliders
     local mv = {}

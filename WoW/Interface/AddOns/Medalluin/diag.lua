@@ -200,3 +200,92 @@ ns.On("ADDON_ACTION_FORBIDDEN", function(_, addon, func)
     Say("blocked: " .. tostring(func) .. ", profile " .. tostring(ns.db and ns.db.consoleProfile))
     ns.TaintReport()
 end)
+
+-- ---------------------------------------------------------------- the mouse
+-- /mdlui mouse: why a frame takes no click, for a screenshot. Each part that
+-- takes the mouse away at nothing (ns.Untouchable, core.lua), and whether it
+-- is off; the frames under the pointer, top first, with their ancestors; the
+-- player and target frames and everything under them that is held or takes
+-- no click.
+local function Named(f)
+    if not f then return "nil" end
+    local ok, s = pcall(function()
+        local n = f.GetName and f:GetName()
+        if n then return n end
+        local kind = f.GetObjectType and f:GetObjectType() or "?"
+        local p = f.GetParent and f:GetParent()
+        local pn = p and p.GetName and p:GetName()
+        return kind .. (pn and (" in " .. pn) or "")
+    end)
+    return ok and s or "(refused)"
+end
+-- a secret said as such: never tested, never joined to text
+local function Word(v)
+    if ns.IsSecret(v) then return "secret" end
+    return tostring(v)
+end
+local function Mouse(f)
+    local ok, s = pcall(function()
+        local c = f.IsMouseClickEnabled and f:IsMouseClickEnabled()
+        local m = f.IsMouseMotionEnabled and f:IsMouseMotionEnabled()
+        if f.IsMouseClickEnabled == nil then c = f:IsMouseEnabled(); m = c end
+        return "click=" .. Word(c) .. " pointer=" .. Word(m)
+    end)
+    return ok and s or "(refused)"
+end
+local function Held(f)
+    local h, took = ns.TouchHeld(f)
+    if not h then return "" end
+    local who = {}
+    for o in pairs(h) do who[#who + 1] = o.name or "?" end
+    table.sort(who)
+    local was = took and (" was " .. Word(took[1]) .. "/" .. Word(took[2])) or ""
+    return " HELD by " .. table.concat(who, ",") .. was
+end
+function ns.TouchReport()
+    local function Line(text) print("|cffe0b84aMedalluin mouse|r " .. text) end
+    Line("combat=" .. tostring(InCombatLockdown()))
+    for _, o in ipairs(ns.untouchables or {}) do
+        local okOff, off = pcall(o.Off)
+        local okWake, wake = pcall(o.CanWake)
+        Line(string.format("part %s: off=%s asks=%s wakes=%s waiting=%s", o.name or "?", tostring(o.want),
+            okOff and tostring(off) or "ERR " .. tostring(off), okWake and tostring(wake) or "ERR",
+            tostring(o.waiting or false)))
+    end
+    local trail = ns.touchTrail or {}
+    for i = math.max(1, #trail - 14), #trail do Line("trail " .. trail[i]) end
+    local foci = GetMouseFoci and GetMouseFoci() or { GetMouseFocus and GetMouseFocus() }
+    for i, f in ipairs(foci) do
+        local chain, p, n = {}, f, 0
+        while p and n < 6 do chain[#chain + 1] = Named(p); p = p.GetParent and p:GetParent(); n = n + 1 end
+        Line("under the pointer " .. i .. ": " .. table.concat(chain, " < ") .. " " .. Mouse(f) .. Held(f))
+    end
+    for _, u in ipairs({ "player", "target" }) do
+        local b = ns.units and ns.units[u]
+        if b then
+            local okA, a = pcall(b.GetEffectiveAlpha, b)
+            if not (okA and type(a) == "number") then a = nil end
+            Line(u .. ": " .. Mouse(b) .. Held(b) .. " shown=" .. tostring(b:IsVisible()) .. " alpha="
+                .. (a and string.format("%.2f", a) or "?") .. " lifted=" .. Word(b.IsIgnoringParentAlpha
+                and b:IsIgnoringParentAlpha()))
+            local n = 0
+            local function Walk(f, depth)
+                local ok, kids = pcall(function() return { f:GetChildren() } end)
+                for _, c in ipairs(ok and kids or {}) do
+                    local held = Held(c)
+                    local okC, click = pcall(function()
+                        local v = c:IsMouseEnabled()
+                        return ns.IsSecret(v) or (v and true or false)
+                    end)
+                    if held ~= "" or (okC and click) then
+                        n = n + 1
+                        if n <= 12 then Line("  " .. string.rep(". ", depth) .. Named(c) .. " " .. Mouse(c) .. held) end
+                    end
+                    if depth < 4 then Walk(c, depth + 1) end
+                end
+            end
+            Walk(b, 0)
+            if n > 12 then Line("  ... " .. (n - 12) .. " more") end
+        end
+    end
+end

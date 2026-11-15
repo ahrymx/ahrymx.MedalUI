@@ -105,14 +105,23 @@ local function MakeFade(frame, settingKey, isOver, forced)
     end
     local alpha = Wanted() and 1 or FADED
     frame:SetAlpha(alpha)
+    -- at nothing on In combat, out of the pointer's way (core.lua):
+    -- back the moment it is wanted, before it fades in
+    local goal = alpha
+    local touch = ns.Untouchable(frame, function()
+        return (ns.db[settingKey] or V.ALWAYS) == V.COMBAT and goal == FADED and alpha == FADED
+    end)
+    touch.name = settingKey
     local watcher = CreateFrame("Frame", nil, frame)
     watcher:SetScript("OnUpdate", function(_, dt)
-        local goal = Wanted() and 1 or FADED
+        goal = Wanted() and 1 or FADED
+        touch:Update()
         if alpha == goal then return end
         local step = dt / FADE_TIME
         alpha = goal > alpha and math.min(goal, alpha + step) or math.max(goal, alpha - step)
         frame:SetAlpha(alpha)
     end)
+    watcher.touch = touch
     ns.On("PLAYER_REGEN_DISABLED", function() inCombat = true end)
     ns.On("PLAYER_REGEN_ENABLED", function() inCombat = false end)
     return watcher
