@@ -3,6 +3,12 @@
 --   the console    Console > General > Visibility and Opacity: while it is
 --                  idle (nothing ticked there is so) it fades to its faded
 --                  opacity, and back to its opacity when something is
+--   minimal        Console > General > Visibility, Minimal OoC Mode (the
+--                  Reticule only): out of combat everything fades to its
+--                  "everything else" opacity but the player and target
+--                  frames, lifted out of the console's alpha to their own
+--                  (20%); combat, and what is ticked there, bring it back.
+--                  It takes over from fading when idle while it is on
 --   the overhead   Console > Overhead > Opacity: it shows whenever it holds
 --                  anything (console/overhead.lua), so it only fades in as it
 --                  appears and out as it empties
@@ -83,15 +89,30 @@ local function Over()
     return ns.drawer and ns.drawer:IsShown() and ns.drawer:IsMouseOver() or false
 end
 
+-- Minimal OoC Mode: on, and on the console it was made for
+local function Minimal()
+    return ns.db.consoleMinimal and ns.consoleBuilt == "reticule" and true or false
+end
+ns.ConsoleMinimal = Minimal
+
 -- Whether the console shows at its full opacity now. Binding keys, a spell
 -- or item on the cursor, Edit Mode's movers and the party preview always
 -- want it whole: they are about what is on it.
 function ns.ConsoleWanted()
     local db = ns.db
-    if not db.consoleFade then return true end
+    local minimal = Minimal()
+    if not (db.consoleFade or minimal) then return true end
     if ns.keybinding or (GetCursorInfo and GetCursorInfo()) or db.simParty
         or (ns.ConsoleMoversShown and ns.ConsoleMoversShown()) then
         return true
+    end
+    if minimal then
+        return inCombat
+            or (db.consoleMinimalTarget and UnitExists("target"))
+            or (db.consoleMinimalHurt and Hurt())
+            or (db.consoleMinimalGroup and IsInGroup())
+            or (db.consoleMinimalMouse and Over())
+            or false
     end
     return (db.consoleShowCombat and inCombat)
         or (db.consoleShowTarget and UnitExists("target"))
@@ -101,16 +122,54 @@ function ns.ConsoleWanted()
         or false
 end
 
+-- The player and target frames while minimal: out of the console's alpha
+-- (set only out of combat: they are secure buttons), their own eased as
+-- one by the units' fader. Lifted, they follow the console's goal when it
+-- is whole, their own opacity when it is minimal.
+local UNITS = { "player", "target" }
+local lifted = false
+local units = ns.Fader({
+    GetAlpha = function() return 1 end,
+    SetAlpha = function(_, a)
+        for _, u in ipairs(UNITS) do
+            local b = ns.units and ns.units[u]
+            if b then b:SetAlpha(a) end
+        end
+    end,
+})
+ns.unitsFader = units
+
 local wanted
 -- now: a setting changed, so go there at once rather than fade
 local function Update(now)
-    local want = ns.ConsoleWanted()
-    local goal = want and Num("consoleAlpha", 0, 1) or Num("consoleFadedAlpha", 0, 1)
-    if not now and want == wanted and goal == fader.goal then return end
+    local want, minimal = ns.ConsoleWanted(), Minimal()
+    local goal = want and Num("consoleAlpha", 0, 1)
+        or minimal and Num("consoleMinimalRest", 0, 1) or Num("consoleFadedAlpha", 0, 1)
+    local unitGoal = lifted and (want and Num("consoleAlpha", 0, 1) or Num("consoleMinimalUnits", 0, 1)) or 1
+    if not now and want == wanted and goal == fader.goal and unitGoal == units.goal then return end
     wanted = want
-    fader:Go(goal, (not now) and Num(want and "consoleFadeIn" or "consoleFadeOut", 0, 10) or 0)
+    local time = (not now) and Num(want and "consoleFadeIn" or "consoleFadeOut", 0, 10) or 0
+    fader:Go(goal, time)
+    units:Go(unitGoal, time)
+    if ns.OverheadRegoal then ns.OverheadRegoal(time) end
 end
 ns.UpdateConsoleFade = Update
+
+-- the player and target lifted out of the console's alpha while minimal,
+-- back in it after; a change in combat waits for it to end
+local function Lift()
+    ns.OutOfCombat(function()
+        local on = Minimal()
+        if on ~= lifted then
+            for _, u in ipairs(UNITS) do
+                local b = ns.units and ns.units[u]
+                if b and b.SetIgnoreParentAlpha then b:SetIgnoreParentAlpha(on) end
+            end
+            lifted = on
+        end
+        Update(true)
+    end)
+end
 
 -- The pointer has no event, so the console looks ten times a second.
 local watch = CreateFrame("Frame", nil, UIParent)
@@ -135,6 +194,14 @@ for _, key in ipairs({ "consoleFade", "consoleShowCombat", "consoleShowTarget", 
     "consoleShowGroup", "consoleShowMouse", "consoleAlpha", "consoleFadedAlpha", "simParty" }) do
     ns.OnSetting(key, function() Update(true) end)
 end
+for _, key in ipairs({ "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt",
+    "consoleMinimalGroup", "consoleMinimalMouse" }) do
+    ns.OnSetting(key, function() Update(true) end)
+end
+ns.OnSetting("consoleMinimal", function()
+    Update(true)
+    Lift()
+end)
 
 -- The strips keep their own alpha (the minimap in the corner sets its own:
 -- console/minimap.lua).
@@ -143,15 +210,23 @@ ns.On("PLAYER_LOGIN", function()
         if strip.SetIgnoreParentAlpha then strip:SetIgnoreParentAlpha(true) end
     end
     Update(true)
+    Lift()
 end)
 
 -- ------------------------------------------------------------ the overhead
 local top = ns.Fader(overhead)
 ns.overheadFader = top
 
+-- Its opacity: no more than the console's rest while that is minimal
+local function OverheadGoal()
+    local a = Num("overheadAlpha", 0, 1)
+    if Minimal() and not wanted then a = math.min(a, Num("consoleMinimalRest", 0, 1)) end
+    return a
+end
+
 -- As it appears: from nothing, or from wherever a fade out had got to.
 function ns.OverheadFadeIn()
-    local goal = Num("overheadAlpha", 0, 1)
+    local goal = OverheadGoal()
     if not top:Moving() and top.alpha == goal then return end
     top:Go(goal, Num("overheadFadeIn", 0, 10))
 end
@@ -165,8 +240,14 @@ function ns.OverheadFadeOut(done)
 end
 -- Shown at once: before it ever appears, and when it is turned off
 function ns.OverheadSettle(shown)
-    top:Go(shown and Num("overheadAlpha", 0, 1) or 0, 0)
+    top:Go(shown and OverheadGoal() or 0, 0)
 end
-ns.OnSetting("overheadAlpha", function()
-    if overhead:IsShown() and not (top:Moving() and top.goal == 0) then top:Go(Num("overheadAlpha", 0, 1), 0) end
-end)
+-- the console gone minimal or whole: the overhead with it, while it shows
+-- and is not on its way out
+function ns.OverheadRegoal(time)
+    if overhead:IsShown() and not (top:Moving() and top.goal == 0) then
+        local goal = OverheadGoal()
+        if goal ~= top.goal or top.alpha ~= goal then top:Go(goal, time) end
+    end
+end
+ns.OnSetting("overheadAlpha", function() ns.OverheadRegoal(0) end)

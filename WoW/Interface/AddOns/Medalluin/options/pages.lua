@@ -633,7 +633,9 @@ local function Shared(list)
                         Range("rangeFade", "group")),
                     Mirror("Console", { "consoleFade", "consoleFadedAlpha", "consoleShowCombat",
                         "consoleShowTarget", "consoleShowHurt", "consoleShowGroup", "consoleShowMouse",
-                        "consoleAlpha", "consoleFadeIn", "consoleFadeOut" }),
+                        "consoleAlpha", "consoleFadeIn", "consoleFadeOut", "consoleMinimal", "consoleMinimalUnits",
+                        "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt", "consoleMinimalGroup",
+                        "consoleMinimalMouse" }),
                     Mirror("Overhead", { "overheadAlpha", "overheadFadeIn", "overheadFadeOut" }),
                     Mirror("Action bars", { "visibility", "extraVisibility" }),
                     Mirror("Quest tracker, full view", { "questsFullMouseover", "questsFullCombat" }),
@@ -804,7 +806,7 @@ function ns.OptionPages()
                     }), AllOn("position", Placed("console", "Position",
                         "Or open Edit Mode: drag a console anywhere, and click it for its scale. Without Edit "
                         .. "Mode, /mdlui move. The corner strips keep their own size and place.")),
-                    AllOn("visibility", {
+                    AllOn("visibility", Concat({
                         Tip("A faded console still works: its buttons click and its keys press. Binding keys, "
                             .. "a spell on the pointer, Edit Mode and Simulate party frames bring it back.",
                         Switched(Check("consoleFade", "Fade when idle",
@@ -822,12 +824,30 @@ function ns.OptionPages()
                                 { kind = "check", key = "consoleShowMouse", label = "On mouseover",
                                     tip = "While the pointer is over the console, its bars or its party.",
                                     needs = "consoleFade" })),
-                        Group("Opacity",
-                            Opacity("consoleAlpha", "Opacity", "How much of the console shows while it is not "
-                                .. "faded. The corner strips and the corner minimap keep their own."),
-                            Seconds("consoleFadeIn", "Fade in", "How long it takes to come back."),
-                            Seconds("consoleFadeOut", "Fade out", "How long it takes to fade.")),
-                    })),
+                    }, ForConsole("reticule", Tip("Out of combat, the console fades away but for your player "
+                            .. "and target frames. While it is on, it takes over from Fade when idle. The corner "
+                            .. "strips and the corner minimap keep their own.",
+                        Switched(Check("consoleMinimal", "Minimal OoC Mode",
+                                "Out of combat, fade the console away but for your player and target frames. "
+                                .. "Combat always brings it back."), "Minimal OoC Mode",
+                            Opacity("consoleMinimalUnits", "Player and target opacity",
+                                "How much of your player and target frames shows out of combat."),
+                            Opacity("consoleMinimalRest", "Everything else",
+                                "How much of the rest of the console, its bars, its party row and the overhead "
+                                .. "shows out of combat."),
+                            { kind = "check", key = "consoleMinimalTarget", label = "Back with a target",
+                                tip = "Whole again while you have a target." },
+                            { kind = "check", key = "consoleMinimalHurt", label = "Back when health is not full",
+                                tip = "Whole again while your health is below its most." },
+                            { kind = "check", key = "consoleMinimalGroup", label = "Back in a group",
+                                tip = "Whole again while you are in a party or a raid." },
+                            { kind = "check", key = "consoleMinimalMouse", label = "Back on mouseover",
+                                tip = "Whole again while the pointer is over the console, its bars or its party." }))),
+                    { Group("Opacity",
+                        Opacity("consoleAlpha", "Opacity", "How much of the console shows while it is not "
+                            .. "faded. The corner strips and the corner minimap keep their own."),
+                        Seconds("consoleFadeIn", "Fade in", "How long it takes to come back."),
+                        Seconds("consoleFadeOut", "Fade out", "How long it takes to fade.")) }))),
                 },
                 {
                     -- where the console's parts sit: the console's own card,

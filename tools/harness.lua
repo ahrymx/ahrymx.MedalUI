@@ -11388,7 +11388,7 @@ end
 function settleFades()
     for _ = 1, 400 do
         local moving = false
-        for _, f in ipairs({ ns.consoleFader, ns.overheadFader }) do
+        for _, f in ipairs({ ns.consoleFader, ns.overheadFader, ns.unitsFader }) do
             if f and f:Moving() then
                 moving = true
                 f.driver.scripts.OnUpdate(f.driver, 0.05)
@@ -11410,7 +11410,7 @@ function FadePass()
     local function run(sec)
         for _ = 1, math.floor(sec / 0.05 + 0.5) do
             ns.consoleFadeWatch.scripts.OnUpdate(ns.consoleFadeWatch, 0.05)
-            for _, d in ipairs({ cf.driver, of.driver }) do
+            for _, d in ipairs({ cf.driver, of.driver, ns.unitsFader.driver }) do
                 if d.shown then d.scripts.OnUpdate(d, 0.05) end
             end
         end
@@ -11583,6 +11583,119 @@ function FadePass()
     for _, key in ipairs({ "overheadAlpha", "overheadFadeIn", "overheadFadeOut" }) do
         set(key, ns.OptionBase(key))
     end
+
+    -- Minimal OoC Mode (2026-11-15, the Reticule only): out of combat the
+    -- console at its rest (0%), the player and target lifted out of its
+    -- alpha at their own (20%), the overhead with the rest; combat, and what
+    -- is ticked, bring it back; it takes over from fading when idle; the
+    -- lift waits for combat to end. On the Arena: no card, no effect
+    local pl, tg = ns.units.player, ns.units.target
+    local function mini(tag)
+        print("fade minimal " .. tag, string.format("console=%.2f player=%.2f target=%.2f overhead=%.2f",
+            con:GetAlpha(), pl:GetAlpha(), tg:GetAlpha(), top:GetAlpha()),
+            "lifted=" .. tostring(pl.ignoreParentAlpha) .. "," .. tostring(tg.ignoreParentAlpha),
+            "wanted=" .. tostring(ns.ConsoleWanted()))
+    end
+    local card = page.settings.consoleMinimal ~= nil
+    print("fade minimal card", "built=" .. tostring(ns.consoleBuilt), "card=" .. tostring(card))
+    local function mset(k, v) if card then set(k, v) else ns.SetOption(k, v) end end
+    settleFades()
+    mini("off")
+    mset("consoleMinimal", true)
+    mini("on, idle")
+    if card then
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        run(0.1)
+        mini("combat, 0.1s of a 0.2s fade in")
+        run(0.1)
+        mini("combat, 0.2s")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        run(0.3)
+        mini("out of combat, 0.3s of a 0.6s fade out")
+        run(0.3)
+        mini("out of combat, 0.6s")
+        hasTarget = true
+        fire("PLAYER_TARGET_CHANGED")
+        run(0.7)
+        mini("a target, not ticked")
+        set("consoleMinimalTarget", true)
+        mini("a target, ticked")
+        set("consoleMinimalTarget", false)
+        hasTarget = false
+        fire("PLAYER_TARGET_CHANGED")
+        mouseOver = ns.actionBar
+        run(0.3)
+        mini("mouse over the bar")
+        set("consoleMinimalMouse", false)
+        mini("mouse over the bar, unticked")
+        set("consoleMinimalMouse", true)
+        mouseOver = false
+        run(0.7)
+        health = 82
+        set("consoleMinimalHurt", true)
+        mini("hurt, ticked")
+        set("consoleMinimalHurt", false)
+        mini("hurt, unticked")
+        health = 100
+        set("consoleMinimalUnits", 0.35)
+        set("consoleMinimalRest", 0.1)
+        mini("35% and 10%")
+        set("consoleMinimalUnits", ns.OptionBase("consoleMinimalUnits"))
+        set("consoleMinimalRest", ns.OptionBase("consoleMinimalRest"))
+        -- fading when idle ticked too: with a target it would show; minimal's rule stands
+        set("consoleFade", true)
+        set("consoleFadedAlpha", 0.6)
+        hasTarget = true
+        fire("PLAYER_TARGET_CHANGED")
+        run(0.7)
+        mini("Fade when idle on, a target")
+        hasTarget = false
+        fire("PLAYER_TARGET_CHANGED")
+        set("consoleFadedAlpha", ns.OptionBase("consoleFadedAlpha"))
+        set("consoleFade", ns.OptionBase("consoleFade"))
+        -- the overhead: with the rest, whole in combat
+        shapeshiftForms = 2
+        fire("UPDATE_SHAPESHIFT_FORMS")
+        run(0.3)
+        mini("overhead shown")
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        run(0.3)
+        mini("overhead shown, combat")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        run(0.7)
+        mini("overhead shown, combat over")
+        shapeshiftForms = 0
+        fire("UPDATE_SHAPESHIFT_FORMS")
+        run(0.3)
+        -- turned off in combat: the lift stays till combat ends
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        run(0.3)
+        set("consoleMinimal", false)
+        run(0.3)
+        mini("off in combat")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        run(0.7)
+        mini("off, combat over")
+        -- and on in combat: lifted once it ends
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        set("consoleMinimal", true)
+        run(0.3)
+        mini("on in combat")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        run(0.7)
+        mini("on, combat over")
+    end
+    mset("consoleMinimal", false)
+    settleFades()
+    mini("off again")
 
     UnitHealth, UnitHealthMax = realHealth, realMax
     grouped = wasGrouped
