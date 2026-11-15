@@ -4411,6 +4411,11 @@ if gamemenuPass then (function()
         "Return to Game"
     MAINMENU_BUTTON = "Game Menu"
     if args[3] == "game" then MedalluinDB = MedalluinDB or {}; MedalluinDB.gameMenu = "game" end
+    -- the docked menu's This session section, as an earlier one kept it:
+    -- shown again from its chip (false), migrated to the clock's key
+    MedalluinDB = MedalluinDB or { consoleProfile = "arena" }
+    MedalluinDB.global = MedalluinDB.global or {}
+    MedalluinDB.global.gameMenuHidden = { session = false }
     function Region:GetObjectType() return self.kind end
     function Region:IsIgnoringParentAlpha() return self.ignoreParentAlpha end
     -- every frame under UIParent, in turn, as the game's EnumerateFrames
@@ -21400,10 +21405,9 @@ if gamemenuPass then (function()
         end
     end
     print("gamemenu shortcuts docked", table.concat(rows, " "))
-    -- the docked panel as mockup E2 draws it: windows (word, note, gear,
-    -- where, the scroll), the XP bar, the friends' rows, the guild, the
-    -- session, the hidden sections' chips; the panel's children and the
-    -- layer over the windows
+    -- the docked panel as mockup E2 draws it, redrawn 2026-11-14: windows
+    -- (word or tabs, note, where, the scroll), the friends' rows, the guild,
+    -- the clock; the panel's children and the layer over the windows
     local function under(f)
         local out = {}
         for _, c in ipairs(f.all_ or {}) do
@@ -21414,62 +21418,101 @@ if gamemenuPass then (function()
         end
         return out
     end
+    local function title(c)
+        local t = {}
+        for _, b in ipairs(c.tabs) do
+            if b.shown then table.insert(t, b.word.text .. " " .. b.count.text .. (b.on and "*" or "")) end
+        end
+        return (c.word.shown and c.word.text or "") .. (#t > 0 and ("{" .. table.concat(t, " | ") .. "}") or "")
+    end
+    -- the Social window's strip (each tab: where, how wide, its ring, lit:
+    -- wash and bar) and the honeycomb behind its list (where, its crop,
+    -- its fade top to foot)
+    local function strip(c)
+        local t = {}
+        for _, b in ipairs(c.tabs) do
+            if b.shown then
+                local q = b.points.TOPLEFT
+                table.insert(t, string.format("%s@%d,%d %dx%d ring=%d%s", b.key, q[3], q[4], b.w, b.h, b.ring.w,
+                    (b.wash.shown and "+wash" or "") .. (b.bar.shown and "+bar" or "")))
+            end
+        end
+        local m, comb = c.comb, "-"
+        if m.shown then
+            local q, g = m.points.TOPLEFT, m.gradient
+            local tc = m.coords or {}
+            comb = string.format("@%d,%d %dx%d uv=%.3f,%.3f", q[3], q[4], m.w, m.h, tc[2] or -1, tc[4] or -1)
+                .. (g and string.format(" %s %.2f>%.2f", g[1], g[3][4] or -1, g[2][4] or -1) or "")
+        end
+        return table.concat(t, " ") .. " sep=" .. tostring(c.sep.shown) .. " rule=" .. tostring(c.rule.shown)
+            .. " comb=" .. comb
+    end
+    local function clockOf()
+        local c = M.clock
+        if not c then return "none" end
+        return "shown=" .. tostring(c.shown) .. " alpha=" .. string.format("%.2f", c.alpha or 1) .. " time="
+            .. tostring(c.time.text) .. " line=" .. (c.line.shown and tostring(c.line.text) or "-")
+    end
     local function docked(tag)
         local heads = {}
         for _, c in ipairs(M.docked.all_ or {}) do
             if c.word and c.track and c.shown then
-                table.insert(heads, c.word.text .. (c.note.shown and ("(" .. tostring(c.note.text) .. ")") or "")
-                    .. (c.gear.shown and "#" or "") .. "[" .. rect(c) .. "]"
-                    .. (c.thumb.shown and string.format("~%.0f@%.0f", c.thumb.h, -c.thumb.points.TOPRIGHT[4]) or ""))
+                table.insert(heads, title(c) .. (c.note.shown and ("(" .. tostring(c.note.text) .. ")") or "")
+                    .. "[" .. rect(c) .. "]"
+                    .. (c.thumb.shown and string.format("~%.0f@%.0f", c.thumb.h, -c.thumb.points.TOPRIGHT[4]) or "")
+                    .. (c.comb.shown and "+comb" or ""))
             end
         end
         print(tag .. " windows", table.concat(heads, ", "))
-        local people, chips, cards, misc = {}, {}, {}, {}
+        for _, c in ipairs(M.docked.all_ or {}) do
+            if c.word and c.track and c.shown and c.rule.shown then print(tag .. " social", strip(c)) end
+        end
+        local people, misc = {}, {}
         for _, c in ipairs(under(M.docked)) do
             if c.shown and c.person then
                 local p = c.person
                 table.insert(people, p.more or (p.name .. "/" .. tostring(p.level) .. "/" .. tostring(p.status) .. "/"
                     .. tostring(p.class) .. "@" .. tostring(p.where) .. (p.rank and ("/" .. p.rank) or "")))
-            elseif c.shown and c.key and c.word and c.edge and not c.track then
-                table.insert(chips, "[" .. tostring(c.word.text) .. "]")
-            elseif c.shown and c.value and c.label then
-                table.insert(cards, tostring(c.label.text) .. "=" .. tostring(c.value.text))
-            elseif c.shown and c.kind == "FontString" and c.text and c.text:sub(1, 1) == "<" then
-                table.insert(misc, "guild " .. c.text)
             elseif c.shown and c.text and c.label and c.label.text == "Message of the day" then
                 table.insert(misc, "motd " .. tostring(c.text.text) .. " h=" .. tostring(c.h))
             end
         end
         print(tag .. " people", #people, table.concat(people, " "))
-        print(tag .. " hidden", table.concat(chips, " "), "cards", table.concat(cards, " "), table.concat(misc, " | "))
+        print(tag .. " clock", clockOf(), table.concat(misc, " | "))
     end
-    -- a section's options, as they are open: their lines and marks
-    local P = M.Popover
+    -- the cog's window, as it is open: its page, its lines and marks
+    local P = M.Setup
     local function pop(tag)
-        if not (P.frame and P.frame.shown) then return print(tag .. " options", "shut") end
+        if not (P.frame and P.frame.shown) then
+            return print(tag .. " options", "shut", "catcher=" .. tostring(P.catcher and P.catcher.shown),
+                "cog=" .. tostring(M.cog.held))
+        end
         local out = {}
         for _, l in ipairs(P.lines) do
             if l.shown then
                 local w = l.word.shown and l.word.text or ""
-                table.insert(out, l.kind == "label" and (w .. ":") or l.kind == "rule" and "|"
+                table.insert(out, (l.kind == "label" and (w .. ":") or l.kind == "rule" and "|"
                     or (l.kind == "radio" or l.kind == "check") and ((l.on and "(x)" or "( )") .. w) or w)
+                    .. (l.aside.shown and ("<" .. l.aside.text .. ">") or ""))
             end
         end
         local segs = {}
         for _, k in ipairs(P.segs) do
             if k.shown then table.insert(segs, k.word.text .. (k.held and "*" or "")) end
         end
-        print(tag .. " options", tostring(P.key), "h=" .. tostring(P.frame.h), table.concat(out, " "),
-            "sort=" .. table.concat(segs, "/"), "catcher=" .. tostring(P.catcher.shown))
+        local pages = {}
+        for _, k in ipairs(P.keys) do table.insert(pages, k.word.text .. (k.on and "*" or "")) end
+        local q = P.frame.points.CENTER
+        print(tag .. " options", tostring(P.page), table.concat(pages, "/"), table.concat(out, " "),
+            "sort=" .. table.concat(segs, "/"), "catcher=" .. tostring(P.catcher.shown), "cog=" .. tostring(M.cog.held),
+            "at=" .. tostring(q and q[1] == UIParent and q[2]) .. string.format("%dx%d", P.frame.w, P.frame.h))
     end
-    -- a window by its title, or by its section's key (the guild's is
-    -- titled by the guild's name)
+    -- a window by its title, or by its section's key (the people's by its tab)
     local function win(word)
         for _, c in ipairs(M.docked.all_ or {}) do
             if c.word and c.track and c.shown and (c.word.text == word or c.key == word:lower()) then return c end
         end
     end
-    local function gear(word) return win(word).gear end
     local function line(word)
         for _, l in ipairs(P.lines or {}) do
             if l.shown and l.word.text == word then return l end
@@ -21481,10 +21524,34 @@ if gamemenuPass then (function()
         end
     end
     local function click(b) b.scripts.OnClick(b) end
+    local function page(name)
+        for _, k in ipairs(P.keys) do if k.page == name then return click(k) end end
+    end
+    -- a tab of the people's window, by its key
+    local function tab(key)
+        for _, c in ipairs(M.docked.all_ or {}) do
+            if c.tabs and c.shown then
+                for _, b in ipairs(c.tabs) do if b.shown and b.key == key then return click(b) end end
+            end
+        end
+    end
+    print("gamemenu migrate", "clock=" .. tostring(ns.db.gameMenuHidden and ns.db.gameMenuHidden.clock),
+        "session=" .. tostring(ns.db.gameMenuHidden and ns.db.gameMenuHidden.session))
     -- a 1080p screen's panel (the harness's is 768)
     local tall = M.docked.GetHeight
     M.docked.GetHeight = function() return 1100 end
     M.Relayout()
+    docked("gamemenu friends tab")
+    -- a list taller than the honeycomb: it is scaled up evenly, its cells
+    -- kept their shape (both crops alike)
+    M.docked.GetHeight = function() return 1600 end
+    M.Relayout()
+    docked("gamemenu tall comb")
+    M.docked.GetHeight = function() return 1100 end
+    M.Relayout()
+    -- the guild's tab: its list, its message; saved
+    tab("guild")
+    print("gamemenu tab saved", tostring(ns.db.gameMenuTab))
     docked("gamemenu no motd yet")
     -- no GUILD_MOTD yet: the guild's community's broadcast stands for it
     C_Club = { GetGuildClubId = function() return 7 end,
@@ -21504,13 +21571,16 @@ if gamemenuPass then (function()
     fire("GUILD_MOTD", secret())
     docked("gamemenu secret motd")
     fire("GUILD_MOTD", "MC Friday 8pm server")
-    -- the guild's options, from its gear: all of them; then picked, a
-    -- check each, the top ranks ticked until one is toggled (Sorrel's
-    -- Member added, the Raid Officer taken off); sorted by rank; the
-    -- message of the day left out, then back
+    -- the cog: its window at the screen's centre, on Sections
     pop("gamemenu before")
-    click(gear("Guild"))
-    pop("gamemenu guild gear")
+    click(M.cog)
+    pop("gamemenu cog")
+    -- the guild's page: all of them; then picked, a check each, the top
+    -- ranks ticked until one is toggled (Sorrel's Member added, the Raid
+    -- Officer taken off); sorted by rank; the message of the day left out,
+    -- then back; the tab's count follows what it lists
+    page("guild")
+    pop("gamemenu guild page")
     click(line("All"))
     docked("gamemenu guild all")
     pop("gamemenu guild all")
@@ -21530,12 +21600,27 @@ if gamemenuPass then (function()
     click(line("Message of the day"))
     click(line("Name as title"))
     click(seg("Name"))
-    -- the gear again shuts them; the catcher too
-    click(gear("Guild"))
-    pop("gamemenu gear again")
-    click(gear("Guild"))
+    -- the cog again shuts it; the catcher (a click outside) too; Done; its close
+    click(M.cog)
+    pop("gamemenu cog again")
+    click(M.cog)
     click(P.catcher)
     pop("gamemenu catcher")
+    click(M.cog)
+    click(P.done)
+    pop("gamemenu done")
+    click(M.cog)
+    click(P.close)
+    pop("gamemenu close")
+    -- Escape: the window shut, the key kept from the game (the menu stays);
+    -- another key goes on
+    click(M.cog)
+    P.frame.scripts.OnKeyDown(P.frame, "W")
+    local passW = P.frame.propagate
+    P.frame.scripts.OnKeyDown(P.frame, "ESCAPE")
+    pop("gamemenu escape")
+    print("gamemenu escape keys", "W=" .. tostring(passW), "ESCAPE=" .. tostring(P.frame.propagate),
+        "menu=" .. tostring(f.shown) .. "/" .. tostring(M.holder.shown))
     print("gamemenu guild saved", tostring(ns.db.gameMenuGuild), (function()
         local out = {}
         for k in pairs(ns.db.gameMenuGuildRanks or {}) do table.insert(out, k) end
@@ -21549,19 +21634,29 @@ if gamemenuPass then (function()
     local xp = nil
     for _, c in ipairs(M.docked.all_ or {}) do if c.fill and c.rest and c.left then xp = c end end
     print("gamemenu xp", xp and tostring(xp.shown), xp and xp.left.text, xp and xp.right.text)
-    -- the cards: the game's buttons, their words and the line under them
+    -- the cards: the game's buttons and ours, a card a row: look, words,
+    -- the line under, the hint, where
     local cardsOf = {}
-    for _, b in ipairs(f.buttons) do
+    local function cardOf(b, kind)
         local d = M.Deco(b)
         if d and d.look then
-            table.insert(cardsOf, M.Kind(b, f.closeButton) .. ":" .. d.look .. "=" .. tostring(d.label.text)
-                .. (d.sub.shown and ("/" .. tostring(d.sub.text)) or "") .. (d.dot.shown and "*" or ""))
+            table.insert(cardsOf, kind .. ":" .. d.look .. "=" .. tostring(d.label.text)
+                .. (d.desc.shown and ("/" .. tostring(d.desc.text)) or "") .. (d.sub.shown and ("/" .. tostring(d.sub.text)) or "")
+                .. (d.hint.shown and ("<" .. tostring(d.hint.text) .. ">") or "") .. (d.dot.shown and "*" or "")
+                .. "[" .. rect(b) .. "]")
         end
     end
+    for _, b in ipairs(f.buttons) do cardOf(b, M.Kind(b, f.closeButton)) end
+    for _, c in ipairs(M.holder.all_ or {}) do
+        if c.kind == "Button" and c.parent == M.docked and c.shown and M.Command(c) then cardOf(c, "shortcut") end
+    end
     print("gamemenu cards", table.concat(cardsOf, " "))
-    -- the friends' options: all, by level, then Battle.net
-    click(gear("Friends"))
-    pop("gamemenu friends gear")
+    -- the friends' tab and page: all (the offline one listed, not counted),
+    -- by level, then Battle.net
+    tab("friends")
+    click(M.cog)
+    page("friends")
+    pop("gamemenu friends page")
     click(line("All"))
     docked("gamemenu all friends")
     click(seg("Level"))
@@ -21573,28 +21668,69 @@ if gamemenuPass then (function()
     docked("gamemenu bnet")
     pop("gamemenu bnet")
     click(line("Online"))
-    -- hidden: the friends gone, a chip over Leave; the chip brings them back
-    click(line("Hide Friends"))
+    -- Sections: Friends unticked, its tab gone (the guild's shown); the
+    -- guild too, the window gone; the game's menu; the clock
+    page("sections")
+    click(line("Friends"))
     pop("gamemenu hid friends")
     docked("gamemenu friends hidden")
-    print("gamemenu hidden saved", tostring(type(ns.db.gameMenuHidden) == "table" and ns.db.gameMenuHidden.friends))
-    click(gear("Game menu"))
-    pop("gamemenu menu gear")
-    click(line("Hide Game menu"))
+    click(line("Guild"))
+    docked("gamemenu people hidden")
+    click(line("Game menu"))
+    click(line("Clock & session"))
     docked("gamemenu menu hidden")
-    for _, c in ipairs(M.docked.all_ or {}) do
-        if c.shown and c.key and c.word and c.edge and not c.chev then click(c) end
-    end
-    for _, c in ipairs(M.docked.all_ or {}) do
-        if c.shown and c.key and c.word and c.edge and not c.chev then click(c) end
-    end
+    pop("gamemenu menu hidden")
+    print("gamemenu hidden saved", (function()
+        local out = {}
+        for k, v in pairs(ns.db.gameMenuHidden or {}) do if v then table.insert(out, k) end end
+        table.sort(out)
+        return table.concat(out, ",")
+    end)())
+    for _, w in ipairs({ "Friends", "Guild", "Game menu", "Clock & session" }) do click(line(w)) end
+    tab("friends")
     docked("gamemenu shown again")
-    -- the menu shut with the options open: they shut too
-    click(gear("This session"))
-    pop("gamemenu session gear")
+    -- the clock's page: 12 hours, the realm's time, the session line off;
+    -- the fade
+    page("clock")
+    pop("gamemenu clock page")
+    click(seg("12-hour"))
+    docked("gamemenu clock 12h")
+    function GetGameTime() return 7, 5 end
+    click(line("Realm time"))
+    docked("gamemenu clock realm")
+    pop("gamemenu clock realm")
+    click(line("Local time"))
+    click(seg("24-hour"))
+    click(line("Gold, session and latency"))
+    docked("gamemenu clock no session")
+    click(line("Gold, session and latency"))
+    click(P.close)
+    local c = M.clock
+    c.scripts.OnUpdate(c, 4)
+    docked("gamemenu clock at 4s")
+    c.scripts.OnUpdate(c, 1.5)
+    docked("gamemenu clock at 5.5s")
+    c.scripts.OnUpdate(c, 1)
+    docked("gamemenu clock at 6.5s")
+    c.scripts.OnEnter(c)
+    docked("gamemenu clock under the mouse")
+    c.scripts.OnUpdate(c, 10)
+    docked("gamemenu clock under the mouse, 10s")
+    c.scripts.OnLeave(c)
+    c.scripts.OnUpdate(c, 6)
+    docked("gamemenu clock left")
+    ns.db.gameMenuClockFade = false
+    c.scripts.OnUpdate(c, 6)
+    docked("gamemenu clock no fade")
+    ns.db.gameMenuClockFade = nil
+    c.scripts.OnUpdate(c, 0.1)
+    -- the menu shut with the options open: they shut too; opened again the
+    -- clock is full
+    click(M.cog)
     M.holder:Hide()
     pop("gamemenu escaped")
     M.holder:Show()
+    docked("gamemenu clock reopened")
     -- a row under the mouse: whisper and invite; a click on it whispers
     for _, c in ipairs(M.docked.all_ or {}) do
         if c.shown and c.person and c.person.name == "Thalen" then

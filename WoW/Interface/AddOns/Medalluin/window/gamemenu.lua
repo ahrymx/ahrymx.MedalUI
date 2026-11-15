@@ -4,34 +4,40 @@
 -- ways to stand (gameMenu):
 --
 --   docked (the default): a panel down the left edge, as the windows stand
---   (mockup E2, 2026-11-11: /workspace/gamemenu-mock-E2.png)
+--   (mockup E2, 2026-11-11; redrawn 2026-11-14: one cog, a card a row,
+--   friends and the guild as tabs, the session under a clock; 2026-11-15:
+--   the two tabs a strip in a window called Social)
 --   +--------------------------------+
---   | (portrait)  Ahrymx             |   who you are: name in class colour,
+--   | (portrait)  Ahrymx         [*] |   who you are: name in class colour,
 --   |             Level 24 Gnome Mage|   level, race, class; zone, guild;
---   |             Westfall · <Guild> |   the XP bar short of the last level
---   | [=========-----   ]  62% to 25 |
---   | +-* Game menu *------- 6 [*]-+ |   a window each, always open: its word
---   | | [   (o)    ] [   (o)    ]  | |   in the top border, its note and gear
---   | | [ Options  ] [   Shop   ]  | |   (its options) at the border's end
---   | | [  AddOns  ] [Edit Mode ]  | |   the game's buttons as cards, two to
---   | | [ Support  ] [  Macros  ]  | |   a row: glyph, words, a line under
---   | +------------------------------+ |   (a line each on a short panel)
---   | +-* Medalluin *------- 3 [*]-+ |
---   | | [* Medalluin][Cooldowns][..]| |   ours apart, worded
---   | +-* Friends *-- 3 online [*]-+ |   friends and the guild share the
---   | |  . Thalen 60     Shattrath  | |   height left, down to the session;
---   | +-* Guild *-- Officers · 12/87-+ |   each scrolls under the wheel when
---   | | <Guild>  [message of day]  :| |   its people overflow it
---   | |  . Aldren 60 Officer      : | |
---   | +-* This session *------ [*]-+ |   gold, session, latency
---   | | [Gold] [Session] [Latency] | |
---   | HIDDEN [Friends]               |   a hidden section's chip shows it
---   | -------------------------------|   again
+--   |             Westfall · <Guild> |   the XP bar short of the last level;
+--   | [=========-----   ]  62% to 25 |   the cog: the menu's own options
+--   | +-* Game menu *----------- 6-+ |   a window each, always open: its word
+--   | | [o| Options          new ] | |   in the top border, its note at the
+--   | | [o| AddOns     42 loaded ] | |   border's end; the game's buttons a
+--   | | [o| Edit Mode           ]  | |   card a row: glyph, words, a line
+--   | +------------------------------+ |   under (none on a short panel), hint
+--   | +-* Shortcuts *----------- 3-+ |
+--   | | [o| Medalluin        /mui ] | |   ours apart, the same, their command
+--   | +-* Social *------- Online-+ |   friends and the guild, one window:
+--   | | Friends (3) | Guild (5)   | |   a tab each in a strip inside it, how
+--   | | ==========                 | |   many it lists online in a ring, the
+--   | | [message of the day]      :| |   lit one barred in gold; it takes the
+--   | |  . Aldren 60 Officer      : | |   height left, its list scrolled by the
+--   | +------------------------------+ |   wheel, a honeycomb behind it fading
+--   | -------------------------------|   out down it (media/gamemenu-honeycomb)
 --   | [ v  ] [ Return to Game ] [ x ]|   Log Out, Return (Esc), Exit Game
 --   | [Log ] [      Esc       ] [Exit]
 --   +--------------------------------+
---   On a short panel the cards go to a line each, then the guild's name and
---   message are left out, till friends and the guild have a row each.
+--   On a short panel the cards go to a line each, then the guild's message
+--   is left out, till the people have three rows.
+--
+--   At the screen's top centre, the clock, and under it gold, the session
+--   and latency; it fades a while after the menu opens, and the mouse over
+--   it brings it back. The cog opens a window at the screen's centre, in the
+--   game's Options' shape: its pages down the left (Sections, Friends,
+--   Guild, Clock), their choices beside, each saved as it is made. Escape,
+--   or a click outside it, closes it before the menu.
 --
 --   medallion: a ring of medallions around your character, at the screen's
 --   centre: the menu's buttons an arch over it, two chains of dumbbells
@@ -77,13 +83,13 @@ local RED = { 0.86, 0.27, 0.22 }
 local BLUE = { 0.47, 0.75, 1 }
 local DOCK_W, PAD = 360, 18
 local MOTD_TOP = 20             -- the message under its heading
-local GEAR = 22                 -- a window's gear, on its border
 local WIN_TOP, WIN_PAD, WIN_GAP = 16, 12, 22   -- a window's body under its title, its sides; apart
-local CARD_H, CARD_GAP = 64, 10                -- the game's buttons, as cards two to a row
-local CARD_LOW = 44                            -- a card on a short panel: its glyph beside its words
+local CARD_H = 64                              -- a card (the old look): its glyph over its words
 local FOOT_H, SQUARE_W = 86, 76                -- the foot: Return to Game, Log Out and Exit either side
-local POP_W = 220               -- a section's options (the gear's popover)
-local HIDDEN_H = 26             -- the hidden sections' line, over the foot
+local ROW_H, ROW_LOW, ROW_GAP = 38, 26, 5   -- a card a row: its words and a line under; a line alone
+local COG = 28                  -- the panel's cog, at its top right
+local SETUP_W, SETUP_H, SETUP_NAV = 560, 400, 150   -- the cog's window; its pages' column
+local FADE_AFTER, FADE_FOR, FADE_TO = 5, 1, 0.15    -- the clock: still, fading, faded
 local MEDAL, BACK_MEDAL = 48, 58           -- a medallion's size; Return to Game's
 local REACH = 0.30                          -- the ring's radius, of the screen's height
 local ARCH_FROM, ARCH_TO = 160, 20          -- the arch's ends, in degrees, for six
@@ -92,9 +98,11 @@ local LEAVE_AT = { logout = 225, exit = 315 }
 local BAR_W = 5                             -- a chain bar's thickness
 local ROUND = ns.media .. "strips\\round"
 local BAR = ns.media .. "gamemenu-bar"
+local COMB, COMB_PX = ns.media .. "gamemenu-honeycomb", 512   -- behind the Social lists
 local KEY_TOP, KEY_FOOT = { 0.341, 0.286, 0.165 }, { 0.141, 0.114, 0.055 }   -- a key's well, as the strips'
-local WIDE_H, KEY_GAP = 32, 6               -- the shortcuts' worded keys, apart
 local PERSON = 26                           -- a friend's or a guild member's row
+local STRIP_TOP, STRIP_H, STRIP_LOW, STRIP_GAP = 12, 28, 24, 8   -- Social's tabs, inside it under its word
+local SEAM = { 0.231, 0.196, 0.125 }        -- the strip's rules, a dark gold
 
 local menu = {}
 ns.gameMenu = menu
@@ -125,9 +133,16 @@ menu.Kind = Kind
 -- game's function opening it where no command answers
 -- (and the few words on its key)
 local SHORTCUTS = {
-    { "/mui", "Medalluin", "achievement", nil, nil, "Medalluin" },
-    { "/cdm", "Cooldown Manager", "legacy", nil, nil, "Cooldowns" },
-    { "/cc", "Click Casting", "spellbook", nil, "ToggleClickBindingFrame", "Click Cast" },
+    { "/mui", "Medalluin", "achievement", nil, nil, "Medalluin", "Settings for every part" },
+    { "/cdm", "Cooldown Manager", "legacy", nil, nil, "Cooldowns", "The game's cooldown viewers" },
+    { "/cc", "Click Casting", "spellbook", nil, "ToggleClickBindingFrame", "Click Cast", "Spells on a frame's click" },
+}
+
+-- a card's line under its words (docked), by kind: what it opens
+local LINES = {
+    options = "Graphics, sound and controls", shop = "The in-game store", addons = "Turn addons on or off",
+    edit = "Move the game's frames", support = "Help and bug reports", macros = "Write and keep macros",
+    event = "This season's event", rewards = "Rewards to claim", news = "What is new", ratings = "Rated play",
 }
 
 local holder, docked, ring, shade
@@ -241,15 +256,12 @@ local function Dress(b)
     d.glow:SetPoint("TOPLEFT", 1, -1)
     d.glow:SetPoint("BOTTOMRIGHT", -1, 1)
     d.glow:SetColorTexture(1, 1, 1, 0.1)
-    -- a row's light under the mouse: a gold wash fading right, a gold edge
-    d.wash = b:CreateTexture(nil, "HIGHLIGHT")
-    d.wash:SetAllPoints()
-    Fade(d.wash, GOLD_D, 0.42)
-    d.bar = b:CreateTexture(nil, "HIGHLIGHT")
-    d.bar:SetPoint("TOPLEFT")
-    d.bar:SetPoint("BOTTOMLEFT")
-    d.bar:SetWidth(2)
-    d.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    -- a row's glyph in its own well: the rule between it and the words, and
+    -- the line under the words
+    d.split = b:CreateTexture(nil, "ARTWORK")
+    d.split:SetWidth(1)
+    d.split:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.45)
+    d.desc = ns.PlainText(b, 11)
     -- a card's and the foot's (E2): a gold wash under the mouse; a card's
     -- rule fading both ways under its glyph, its line under its words;
     -- Return to Game's inner rule
@@ -296,7 +308,7 @@ local function Dress(b)
             d.edge:SetColorTexture(c[1], c[2], c[3], 1)
             return
         end
-        if d.look == "card" or d.look == "square" then
+        if d.look == "card" or d.look == "square" or d.look == "row" then
             local c, a = d.edgeC, d.edgeA
             if hot and b:IsEnabled() then c, a = GOLD, 1 end
             d.edge:SetColorTexture(c[1], c[2], c[3], a)
@@ -341,7 +353,9 @@ end
 
 -- a card's line under its words: what is new or loaded (Hint), what it
 -- opens, the macros held
--- One button drawn as a look: "row", "button", "primary", "key" (its glyph
+-- One button drawn as a look: "row" (a card a row: its glyph in a well, its
+-- words and the line under them, its hint at the end; the line left out
+-- under ROW_H), "button", "primary", "key" (its glyph
 -- alone, its words in its tooltip), "wide" (a key with its glyph and few
 -- words), "card" (its glyph over a rule and its words; what it says more is in
 -- its tooltip, 2026-11-11), "square"
@@ -354,20 +368,20 @@ local function Look(b, look, kind, glyph, size, primary)
     d.primary = look == "medal" and primary or false
     local on = b:IsEnabled()
     local keyed = look == "key" or look == "wide"
-    local card, square, ret = look == "card", look == "square", look == "return"
-    local gilt = card or square or ret
+    local card, square, ret, row = look == "card", look == "square", look == "return", look == "row"
+    local gilt = card or square or ret or row
     local boxed = look == "button" or look == "primary" or keyed or gilt
     d.edgeC, d.edgeA = GOLD_D, 1
     -- the card whose window stands beside the menu: lit, as Return to Game is
-    d.held = card and openKind ~= nil and kind == openKind
+    d.held = (card or row) and openKind ~= nil and kind == openKind
     if d.held then d.edgeC = GOLD
-    elseif card then d.edgeA = 0.7 elseif ret then d.edgeC = GOLD elseif square and kind == "exit" then
+    elseif card or row then d.edgeA = 0.7 elseif ret then d.edgeC = GOLD elseif square and kind == "exit" then
         d.edgeC = { 0.54, 0.2, 0.14 }
     end
     d.edge:SetShown(boxed)
     d.edge:SetColorTexture(d.edgeC[1], d.edgeC[2], d.edgeC[3], d.edgeA)
     d.well:SetShown(boxed and not keyed)
-    if card then d.well:SetColorTexture(0.082, 0.071, 0.043, 1)
+    if card or row then d.well:SetColorTexture(0.082, 0.071, 0.043, 1)
     else d.well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1) end
     d.key:SetShown(keyed)
     d.lip:SetShown(keyed)
@@ -380,9 +394,10 @@ local function Look(b, look, kind, glyph, size, primary)
     d.inside.Shown(ret)
     d.sub:Hide()
     d.sub:ClearAllPoints()
-    d.label:SetFont(ns.font, ret and 17 or square and 12 or 14, "")
-    d.wash:SetShown(look == "row")
-    d.bar:SetShown(look == "row")
+    d.label:SetFont(ns.font, ret and 17 or square and 12 or row and 13 or 14, "")
+    d.split:SetShown(row)
+    d.desc:Hide()
+    d.desc:ClearAllPoints()
     local medal = look == "medal"
     d.rim:SetShown(medal)
     d.inner:SetShown(medal)
@@ -438,11 +453,22 @@ local function Look(b, look, kind, glyph, size, primary)
         d.label:SetPoint("LEFT", 32, 0)
         d.label:SetPoint("RIGHT", -4, 0)
         d.label:SetJustifyH("LEFT")
-    elseif look == "row" then
-        d.glyph:SetSize(20, 20)
-        d.glyph:SetPoint("LEFT", 14, 0)
-        d.label:SetPoint("LEFT", 46, 0)
+    elseif row then
+        d.glyph:SetSize(18, 18)
+        d.glyph:SetPoint("CENTER", b, "LEFT", 18, 0)
+        d.split:ClearAllPoints()
+        d.split:SetPoint("TOPLEFT", 35, -1)
+        d.split:SetPoint("BOTTOMLEFT", 35, 1)
+        local under = size >= ROW_H and d.line
+        d.label:SetPoint("LEFT", 46, under and 7 or 0)
+        if under then
+            d.desc:SetText(under)
+            d.desc:SetTextColor(DIM[1], DIM[2], DIM[3])
+            d.desc:SetPoint("TOPLEFT", d.label, "BOTTOMLEFT", 0, -3)
+            d.desc:Show()
+        end
         local hint, hc = Hint(kind)
+        if not hint and d.cmd then hint, hc = d.cmd, GOLD_D end
         if hint then
             d.hint:SetText(hint)
             d.hint:SetTextColor(hc[1], hc[2], hc[3])
@@ -491,7 +517,7 @@ end
 local Relayout                  -- the docked panel laid out again, as last read
 
 -- Hidden sections (docked), by key (2026-11-11, mockup D2): left out
--- whole, heading and all, until shown again from the line over Leave
+-- whole, heading and all, until ticked again in the cog's Sections
 local function Hidden(key)
     local h = ns.db.gameMenuHidden
     return type(h) == "table" and h[key] == true
@@ -505,9 +531,10 @@ end
 menu.Hidden, menu.SetHidden = Hidden, SetHidden
 
 -- the sections' words, by key, in their order
-local TITLES = { menu = "Game menu", shortcuts = "Medalluin", friends = "Friends", guild = "Guild",
-    session = "This session" }
-local ORDER = { "menu", "shortcuts", "friends", "guild", "session" }
+local TITLES = { menu = "Game menu", shortcuts = "Shortcuts", friends = "Friends", guild = "Guild",
+    clock = "Clock & session" }
+local ORDER = { "menu", "shortcuts", "friends", "guild", "clock" }
+menu.TITLES, menu.ORDER = TITLES, ORDER
 
 -- A key's dress, as the strips' keys: its well lighter at the top, a dark
 -- gold edge (gold under the mouse, or while held), a lip along its top.
@@ -541,13 +568,13 @@ local function Keyed(b)
 end
 menu.Keyed = Keyed
 
-local Popover = {}              -- a section's options, from its gear (below)
+local Setup = {}                -- the cog's window, the menu's options (below)
 
 -- A section's window (mockup E2, 2026-11-11; were D2's bands): ink in a
 -- dark gold border, a fainter rule inside it; the section's word set in
--- the top border between two gold diamonds, its note and gear at the
--- border's right end, each on a patch of the panel's ink. Every section is
--- open: nothing folds. The wheel over a window scrolls its people when they
+-- the top border between two gold diamonds (or its tabs, the people's),
+-- its note at the border's right end, each on a patch of the panel's ink.
+-- Every section is open: nothing folds. The wheel over a window scrolls its people when they
 -- overflow it.
 local offset = {}               -- a window's people scrolled past, by key
 
@@ -564,6 +591,15 @@ local function Diamond(h)
     t:SetSize(6, 6)
     t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
     if t.SetRotation then t:SetRotation(math.pi / 4) end
+    return t
+end
+
+-- a disc of the strips' round, tinted (a ring: a smaller one of ink in it)
+local function Ring(l, size, c)
+    local t = l:CreateTexture(nil, "ARTWORK")
+    t:SetTexture(ROUND)
+    t:SetSize(size, size)
+    t:SetVertexColor(c[1], c[2], c[3])
     return t
 end
 
@@ -586,6 +622,10 @@ local function Window(i)
     ink:SetColorTexture(0.051, 0.043, 0.027, 0.88)
     Sides(h, 0, GOLD_D, 1)
     Sides(h, 3, GOLD_D, 0.35)
+    -- the honeycomb behind its people (the Social window's), fading down
+    h.comb = h:CreateTexture(nil, "BACKGROUND", nil, 2)
+    h.comb:SetTexture(COMB)
+    h.comb:Hide()
     -- the word between its diamonds, on the top border
     h.patch = Patch(h)
     h.patch:SetPoint("LEFT", h, "TOPLEFT", 12, 0)
@@ -595,36 +635,62 @@ local function Window(i)
     h.word:SetPoint("LEFT", h, "TOPLEFT", 30, 0)
     h.word:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
     h.right = Diamond(h)
-    -- the gear at the border's right end, the note before it
-    h.gear = CreateFrame("Button", nil, h)
-    h.gear:SetSize(GEAR, GEAR)
-    h.gear:SetPoint("CENTER", h, "TOPRIGHT", -22, 0)
-    h.gear:RegisterForClicks("LeftButtonUp")
-    h.gear.patch = Patch(h)
-    h.gear.patch:SetPoint("CENTER", h.gear)
-    h.gear.patch:SetWidth(GEAR + 4)
-    h.gear.glyph = h.gear:CreateTexture(nil, "ARTWORK")
-    h.gear.glyph:SetSize(16, 16)
-    h.gear.glyph:SetPoint("CENTER")
-    h.gear.glyph:SetTexture(ns.media .. "strips\\menu")
-    function h.gear.Lit(on)
-        if on or h.gear.held then
-            h.gear.glyph:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1)
+    -- the tabs (the Social window's, 2026-11-15): a strip just inside it,
+    -- under its word, a half each; a word and its count in a ring, the lit
+    -- one gold over a wash, a gold bar under it; a click shows its list
+    h.tabs = {}
+    for t = 1, 2 do
+        local b = CreateFrame("Button", nil, h)
+        b:RegisterForClicks("LeftButtonUp")
+        b.wash = b:CreateTexture(nil, "BACKGROUND")
+        b.wash:SetAllPoints()
+        if b.wash.SetGradient and CreateColor then
+            b.wash:SetColorTexture(1, 1, 1, 1)
+            b.wash:SetGradient("VERTICAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0),
+                CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.10))
         else
-            h.gear.glyph:SetVertexColor(1, 1, 1, 0.6)
+            b.wash:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.05)
         end
+        b.bar = b:CreateTexture(nil, "ARTWORK", nil, 2)
+        b.bar:SetHeight(2)
+        b.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        b.word = ns.Text(b, 14)
+        b.ring = Ring(b, 18, SEAM)
+        b.ring:SetPoint("LEFT", b.word, "RIGHT", 6, 0)
+        b.well = Ring(b, 16, ns.colors.ink)
+        b.well:SetDrawLayer("ARTWORK", 1)
+        b.well:SetPoint("CENTER", b.ring)
+        b.count = ns.PlainText(b, 10)
+        b.count:SetDrawLayer("OVERLAY")
+        b.count:SetPoint("CENTER", b.ring, "CENTER", 0, 0)
+        function b.Lit(hot)
+            local c = b.on and GOLD or hot and ns.colors.text or DIM
+            b.word:SetTextColor(c[1], c[2], c[3])
+            local cc = (b.on or hot) and ns.colors.text or DIM
+            b.count:SetTextColor(cc[1], cc[2], cc[3])
+            local rc = b.on and GOLD_D or SEAM
+            b.ring:SetVertexColor(rc[1], rc[2], rc[3])
+            b.wash:SetShown(b.on == true)
+            b.bar:SetShown(b.on == true)
+        end
+        b:SetScript("OnEnter", function(self) self.Lit(true) end)
+        b:SetScript("OnLeave", function(self) self.Lit(false) end)
+        b:SetScript("OnClick", function(self)
+            if self.on then return end
+            ns.db.gameMenuTab = self.key
+            if Relayout then Relayout() end
+        end)
+        h.tabs[t] = b
     end
-    h.gear:SetScript("OnClick", function() Popover.Toggle(h.key) end)
-    h.gear:SetScript("OnEnter", function(self)
-        self.Lit(true)
-        ns.Tip(self, "ANCHOR_RIGHT", { title = TITLES[h.key] or "", { "hint", "Its options." } })
-    end)
-    h.gear:SetScript("OnLeave", function(self)
-        self.Lit(false)
-        GameTooltip_Hide()
-    end)
+    -- the rule between the tabs, and the one under the strip
+    h.sep = h:CreateTexture(nil, "ARTWORK")
+    h.sep:SetWidth(1)
+    h.sep:SetColorTexture(SEAM[1], SEAM[2], SEAM[3], 1)
+    h.rule = h:CreateTexture(nil, "ARTWORK")
+    h.rule:SetHeight(1)
+    h.rule:SetColorTexture(SEAM[1], SEAM[2], SEAM[3], 1)
     h.note = ns.Text(h, 11)
-    h.note:SetPoint("RIGHT", h, "TOPRIGHT", -38, 0)
+    h.note:SetPoint("RIGHT", h, "TOPRIGHT", -14, 0)
     h.note:SetTextColor(DIM[1], DIM[2], DIM[3])
     h.note.patch = Patch(h)
     h.note.patch:SetPoint("RIGHT", h.note, "RIGHT", 4, 0)
@@ -657,16 +723,58 @@ local function Window(i)
 end
 
 -- a window set: where it stands (y from the panel's top) and how tall, its
--- word, note and key (its options, its scroll)
-local function Win(n, y, tall, word, note, key)
+-- word, note and key (its scroll); and tabs ({ key, word, count, on }
+-- each), a strip strip tall under the word (the Social window)
+local function Win(n, y, tall, word, note, key, tabs, strip)
     local h = Window(n)
     h:ClearAllPoints()
     h:SetPoint("TOPLEFT", docked, "TOPLEFT", PAD, y)
     h:SetPoint("TOPRIGHT", docked, "TOPRIGHT", -PAD, y)
     h:SetHeight(tall)
     h.key, h.most = key, 0
-    h.word:SetText(word)
+    h.word:SetText(word or "")
+    h.word:Show()
     local ww = math.ceil(h.word:GetStringWidth() or 0)
+    h.sep:Hide()
+    h.rule:SetShown(tabs ~= nil)
+    local across = DOCK_W - 2 * PAD - 8
+    local each = tabs and math.floor(across / #tabs) or 0
+    strip = strip or STRIP_H
+    for t, b in ipairs(h.tabs) do
+        local tab = tabs and tabs[t]
+        b:SetShown(tab ~= nil)
+        if tab then
+            b.key, b.on = tab[1], tab[4]
+            b.word:SetText(tab[2])
+            b.count:SetText(tostring(tab[3]))
+            local cw = math.ceil(b.count:GetStringWidth() or 0)
+            b.ring:SetWidth(math.max(18, cw + 8))
+            b.well:SetWidth(math.max(16, cw + 6))
+            local bw = math.ceil((b.word:GetStringWidth() or 0) + 6 + math.max(18, cw + 8))
+            local x = 4 + (t - 1) * each
+            local w = t == #tabs and across - (t - 1) * each or each
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", h, "TOPLEFT", x, -STRIP_TOP)
+            b:SetSize(w, strip)
+            b.word:ClearAllPoints()
+            b.word:SetPoint("LEFT", b, "LEFT", math.floor((w - bw) / 2), 0)
+            b.bar:ClearAllPoints()
+            b.bar:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", math.floor(w * 0.18), 0)
+            b.bar:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -math.floor(w * 0.18), 0)
+            b.Lit(false)
+            if t > 1 then
+                h.sep:ClearAllPoints()
+                h.sep:SetPoint("TOPLEFT", h, "TOPLEFT", x, -STRIP_TOP - 4)
+                h.sep:SetHeight(strip - 8)
+                h.sep:Show()
+            end
+        end
+    end
+    if tabs then
+        h.rule:ClearAllPoints()
+        h.rule:SetPoint("TOPLEFT", h, "TOPLEFT", 4, -STRIP_TOP - strip)
+        h.rule:SetPoint("TOPRIGHT", h, "TOPRIGHT", -4, -STRIP_TOP - strip)
+    end
     h.patch:SetWidth(ww + 34)
     h.right:ClearAllPoints()
     h.right:SetPoint("CENTER", h, "TOPLEFT", 40 + ww, 0)
@@ -674,11 +782,8 @@ local function Win(n, y, tall, word, note, key)
     h.note:SetShown(note ~= nil)
     h.note.patch:SetShown(note ~= nil)
     h.note.patch:SetWidth(math.ceil(h.note:GetStringWidth() or 0) + 8)
-    h.gear:SetShown(key ~= nil)
-    h.gear.patch:SetShown(key ~= nil)
-    h.gear.held = key ~= nil and Popover.key == key
-    h.gear.Lit(false)
     h.Scroll(0, 0, 0)
+    h.comb:Hide()
     h:Show()
     return h
 end
@@ -746,6 +851,34 @@ local function Build()
     xp.right:SetPoint("TOPRIGHT", xp, "BOTTOMRIGHT", 0, -4)
     xp.right:SetTextColor(0.48, 0.61, 0.88)
     who.xp = xp
+    -- the cog, at the panel's top right: the menu's options, centred
+    local cog = CreateFrame("Button", nil, docked)
+    cog:SetSize(COG, COG)
+    cog:SetPoint("TOPRIGHT", -PAD, -PAD - 4)
+    cog:SetFrameLevel(docked:GetFrameLevel() + 4)
+    cog:RegisterForClicks("LeftButtonUp")
+    Keyed(cog)
+    cog.glyph = cog:CreateTexture(nil, "ARTWORK")
+    cog.glyph:SetSize(16, 16)
+    cog.glyph:SetPoint("CENTER")
+    cog.glyph:SetTexture(ns.media .. "strips\\menu")
+    local lit = cog.Lit
+    function cog.Lit(on)
+        lit(on)
+        local c = (on or cog.held) and GOLD or { 1, 1, 1 }
+        cog.glyph:SetVertexColor(c[1], c[2], c[3], (on or cog.held) and 1 or 0.65)
+    end
+    cog.Lit(false)
+    cog:SetScript("OnClick", function() Setup.Toggle() end)
+    cog:SetScript("OnEnter", function(self)
+        self.Lit(true)
+        ns.Tip(self, "ANCHOR_RIGHT", { title = "Game menu options", { "hint", "Sections, friends, guild, clock." } })
+    end)
+    cog:SetScript("OnLeave", function(self)
+        self.Lit(false)
+        GameTooltip_Hide()
+    end)
+    who.cog = cog
     local foot = Hair(docked)
     foot:SetPoint("BOTTOMLEFT", PAD, PAD + FOOT_H + 12)
     foot:SetPoint("BOTTOMRIGHT", -PAD, PAD + FOOT_H + 12)
@@ -754,7 +887,7 @@ local function Build()
     ring = CreateFrame("Frame", nil, holder)
     ring:SetSize(1, 1)
     ring:SetPoint("CENTER", UIParent, "CENTER")
-    menu.holder, menu.docked, menu.ring, menu.bars = holder, docked, ring, bars
+    menu.holder, menu.docked, menu.ring, menu.bars, menu.cog = holder, docked, ring, bars, cog
 end
 
 -- who you are, at the docked panel's top
@@ -869,7 +1002,7 @@ local function Shortcuts(wanted)
             d.words, d.short, d.cmd = sc[2], sc[6], cmd
             d.tip = function() return { title = sc[2], { "hint", cmd } } end
             b:Show()
-            table.insert(out, { b = b, kind = "shortcut", glyph = sc[3], hint = cmd })
+            table.insert(out, { b = b, kind = "shortcut", glyph = sc[3], hint = cmd, line = sc[7] })
         elseif b then
             b:Hide()
         end
@@ -891,8 +1024,6 @@ end
 -- the name in its class's colour, the level (and rank), where they are;
 -- under the mouse, Whisper and Invite in where's place. A click whispers.
 local rows = {}                 -- pooled people rows
-local chips = {}                -- the hidden sections' chips, pooled
-local cards = {}                -- the session's cards, pooled
 local social = {}               -- the guild's name and its message box
 local STATUS = { online = { 0.25, 0.75, 0.31 }, afk = { 0.88, 0.69, 0.19 }, dnd = { 0.82, 0.25, 0.19 },
     offline = { 0.45, 0.43, 0.40 } }
@@ -1178,26 +1309,104 @@ local function Latency()
     return format("%d ms", home or 0)
 end
 
-local function Card(i)
-    local c = cards[i]
-    if c then return c end
-    c = CreateFrame("Frame", nil, docked)
-    c:SetHeight(42)
-    c:SetFrameLevel(docked:GetFrameLevel() + 3)
-    local e = c:CreateTexture(nil, "BACKGROUND", nil, 1)
-    e:SetAllPoints()
-    e:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
-    local ink = c:CreateTexture(nil, "BACKGROUND", nil, 2)
-    ink:SetPoint("TOPLEFT", 1, -1)
-    ink:SetPoint("BOTTOMRIGHT", -1, 1)
-    ink:SetColorTexture(0.051, 0.043, 0.027, 0.9)
-    c.label = ns.Text(c, 10)
-    c.label:SetPoint("TOPLEFT", 8, -6)
-    c.label:SetTextColor(DIM[1], DIM[2], DIM[3])
-    c.value = ns.PlainText(c, 13)
-    c.value:SetPoint("BOTTOMLEFT", 8, 6)
-    cards[i] = c
-    return c
+-- ------------------------------------------------------------- the clock
+-- The time at the screen's top centre (docked), and under it the session's
+-- numbers (gold, how long played, latency): full as the menu opens, faded
+-- FADE_AFTER seconds on, back while the mouse is over it.
+local clock
+
+-- the time as the clock shows it: this computer's (date), or the realm's
+local function Stamp()
+    local h, m
+    if ns.db.gameMenuClockRealm and GetGameTime then
+        h, m = GetGameTime()
+    else
+        local hh, mm = tostring(date and date("%H:%M") or ""):match("(%d+):(%d+)")
+        h, m = tonumber(hh) or 0, tonumber(mm) or 0
+    end
+    if ns.db.gameMenuClock24 ~= false then return format("%02d:%02d", h, m) end
+    return format("%d:%02d %s", h % 12 == 0 and 12 or h % 12, m, h < 12 and "am" or "pm")
+end
+menu.Stamp = Stamp
+
+local function SessionLine()
+    local dot = "|cff8a7034  \194\183  |r"
+    return "|cfff0d488" .. Money(GetMoney and GetMoney() or 0) .. "|r" .. dot .. "Session " .. Since() .. dot
+        .. Latency()
+end
+
+local function ClockDraw()
+    clock.time:SetText(Stamp())
+    local on = ns.db.gameMenuSession ~= false
+    clock.line:SetText(on and SessionLine() or "")
+    clock.line:SetShown(on)
+    clock.ruleL:SetShown(on)
+    clock.ruleR:SetShown(on)
+end
+
+-- its alpha, by how long it has stood still with the mouse off it
+local function ClockFade()
+    local a = 1
+    if ns.db.gameMenuClockFade ~= false and not clock.over then
+        local past = clock.idle - FADE_AFTER
+        if past > 0 then a = 1 - (1 - FADE_TO) * math.min(1, past / FADE_FOR) end
+    end
+    clock:SetAlpha(a)
+end
+
+local function Clock()
+    if clock then return clock end
+    clock = CreateFrame("Frame", nil, holder)
+    clock:SetSize(320, 74)
+    clock:SetPoint("TOP", UIParent, "TOP", 0, -24)
+    clock:SetFrameLevel(docked:GetFrameLevel() + 2)
+    clock:EnableMouse(true)
+    clock.time = ns.Text(clock, 30)
+    clock.time:SetPoint("TOP", 0, -4)
+    clock.time:SetTextColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3])
+    -- a short gold rule under the time, fading out both ways
+    clock.ruleL = clock:CreateTexture(nil, "ARTWORK")
+    clock.ruleL:SetSize(60, 1)
+    clock.ruleL:SetPoint("TOPRIGHT", clock.time, "BOTTOM", 0, -8)
+    clock.ruleR = clock:CreateTexture(nil, "ARTWORK")
+    clock.ruleR:SetSize(60, 1)
+    clock.ruleR:SetPoint("TOPLEFT", clock.time, "BOTTOM", 0, -8)
+    Fade(clock.ruleR, GOLD_D, 1)
+    if clock.ruleL.SetGradient and CreateColor then
+        clock.ruleL:SetColorTexture(1, 1, 1, 1)
+        clock.ruleL:SetGradient("HORIZONTAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.1),
+            CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1))
+    else
+        clock.ruleL:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.55)
+    end
+    clock.line = ns.PlainText(clock, 12)
+    clock.line:SetPoint("TOP", clock.time, "BOTTOM", 0, -16)
+    clock.line:SetTextColor(DIM[1], DIM[2], DIM[3])
+    clock.idle, clock.tick = 0, 0
+    clock:SetScript("OnUpdate", function(self, elapsed)
+        self.tick = self.tick + elapsed
+        if self.tick >= 1 then
+            self.tick = 0
+            ClockDraw()
+        end
+        self.idle = self.idle + elapsed
+        ClockFade()
+    end)
+    clock:SetScript("OnEnter", function(self)
+        self.over = true
+        ClockFade()
+    end)
+    clock:SetScript("OnLeave", function(self)
+        self.over, self.idle = false, 0
+        ClockFade()
+    end)
+    -- each time the menu opens: full again
+    holder:HookScript("OnShow", function()
+        clock.idle, clock.tick = 0, 0
+        ClockFade()
+    end)
+    menu.clock = clock
+    return clock
 end
 
 local function Social()
@@ -1271,28 +1480,24 @@ local guildMotd, clubMotd
 local lastRanks = {}            -- the guild's ranks, as the panel last read them (for its options)
 
 -- ------------------------------------------------------------ the options
--- A section's options (mockup D2, 2026-11-11): a panel floating under its
--- gear, over the list, in a gold edge with a shadow, a notch up to the
--- gear. Its lines are the section's choices: each is saved as it is
--- clicked and the panel laid out again, the options left open on their
--- new marks. A click anywhere else on the panel (on a catcher under the
--- options), the gear again, or the menu closing shuts them.
-local LINE, LABEL, RULE_H, SEG = 20, 16, 11, 22
+-- The menu's options (2026-11-14, were a popover under each window's
+-- gear): a window at the screen's centre in the game's Options' shape, over
+-- the world dimmed further. Its head (the title, a close), its pages down
+-- the left, their choices to the right, a foot (Done). Each choice is saved
+-- as it is clicked and the panel behind laid out again, the window left
+-- open on its new marks. Escape, a click outside it, its close or Done, or
+-- the menu closing shuts it.
+local LINE, LABEL, RULE_H, SEG = 22, 18, 13, 24
 local POP_INK = { 0.078, 0.067, 0.047 }
+local PAGES = { { "sections", "Sections" }, { "friends", "Friends" }, { "guild", "Guild" }, { "clock", "Clock" } }
+local PANE_W = SETUP_W - SETUP_NAV - 40
 
-local function Ring(l, size, c)
-    local t = l:CreateTexture(nil, "ARTWORK")
-    t:SetTexture(ROUND)
-    t:SetSize(size, size)
-    t:SetVertexColor(c[1], c[2], c[3])
-    return t
-end
 
 -- a line of the options, any kind: its parts all made, the kind's shown
 local function PopLine(i)
-    local l = Popover.lines[i]
+    local l = Setup.lines[i]
     if l then return l end
-    l = CreateFrame("Button", nil, Popover.frame)
+    l = CreateFrame("Button", nil, Setup.pane)
     l:RegisterForClicks("LeftButtonUp")
     l:SetScript("OnClick", function(self)
         if self.run then self.run() end
@@ -1317,49 +1522,53 @@ local function PopLine(i)
     l.tick:SetPoint("CENTER", l.box, "CENTER", 1, 0)
     l.tick:SetText(ns.Tick(GOLD))
     l.tick:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    l.eye = l:CreateTexture(nil, "ARTWORK")           -- hide: the struck eye
-    l.eye:SetSize(16, 16)
-    l.eye:SetPoint("LEFT", 0, 0)
-    l.eye:SetTexture(ns.media .. "strips\\track-off")
     l.word = ns.Text(l, 12)
     l.word:SetPoint("LEFT", 20, 0)
+    l.aside = ns.PlainText(l, 11)                   -- what it is, at the line's end
+    l.aside:SetPoint("RIGHT", -4, 0)
+    l.aside:SetTextColor(GOLD_D[1], GOLD_D[2], GOLD_D[3])
     l.rule = l:CreateTexture(nil, "ARTWORK")
     l.rule:SetHeight(1)
     l.rule:SetPoint("LEFT")
     l.rule:SetPoint("RIGHT")
     l.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
-    Popover.lines[i] = l
+    Setup.lines[i] = l
     return l
 end
 
--- a key of a joined row (the sorts)
+-- a key of a joined row (the sorts, the clock's hours)
 local function PopSeg(i)
-    local k = Popover.segs[i]
+    local k = Setup.segs[i]
     if k then return k end
-    k = CreateFrame("Button", nil, Popover.frame)
+    k = CreateFrame("Button", nil, Setup.pane)
     k:RegisterForClicks("LeftButtonUp")
     Keyed(k)
     k.word = ns.Text(k, 11)
     k.word:SetPoint("CENTER")
     k:SetScript("OnClick", function(self) if self.run then self.run() end end)
-    Popover.segs[i] = k
+    Setup.segs[i] = k
     return k
 end
 
--- What a section offers, laid out in its options: a choice saved, the
--- panel laid out again.
-local function Fill(key)
-    local f = Popover.frame
-    local w = POP_W - 24
-    local y, nl, nk = -10, 0, 0
-    local function Again() if Relayout then Relayout() end end
-    local function Line(kind, word, on, run, indent)
+local function Flip(key) ns.db[key] = ns.db[key] == false end
+
+-- What a page offers, laid out in the pane: a choice saved, the panel
+-- (and the clock) laid out again.
+local function Fill(page)
+    local w = PANE_W
+    local y, nl, nk = 0, 0, 0
+    local function Again()
+        if clock then ClockDraw(); ClockFade() end
+        if Relayout then Relayout() end
+        Setup.Refresh()
+    end
+    local function Line(kind, word, on, run, indent, aside)
         nl = nl + 1
         local l = PopLine(nl)
         indent = indent or 0
         local tall = kind == "label" and LABEL or kind == "rule" and RULE_H or LINE
         l:ClearAllPoints()
-        l:SetPoint("TOPLEFT", 12 + indent, y)
+        l:SetPoint("TOPLEFT", indent, y)
         l:SetSize(w - indent, tall)
         l.kind, l.run, l.on = kind, run, on
         l:EnableMouse(run ~= nil)
@@ -1371,10 +1580,11 @@ local function Fill(key)
         l.box:SetColorTexture(c[1], c[2], c[3], 1)
         l.ring:SetVertexColor(c[1], c[2], c[3])
         l.tick:SetShown(kind == "check" and on)
-        l.eye:SetShown(kind == "eye")
         l.rule:SetShown(kind == "rule")
         l.word:SetShown(word ~= nil)
         l.word:ClearAllPoints()
+        l.aside:SetText(aside or "")
+        l.aside:SetShown(aside ~= nil)
         if kind == "label" then
             l.word:SetPoint("LEFT", 0, 0)
             l.word:SetFont(ns.font, 9, "")
@@ -1382,9 +1592,9 @@ local function Fill(key)
             l.word:SetTextColor(DIM[1], DIM[2], DIM[3])
         else
             l.word:SetPoint("LEFT", 20, 0)
-            l.word:SetFont(ns.font, 12, "")
+            l.word:SetFont(ns.font, 13, "")
             l.word:SetText(word or "")
-            local t = (on or kind == "eye") and ns.colors.text or DIM
+            local t = on and ns.colors.text or DIM
             l.word:SetTextColor(t[1], t[2], t[3])
         end
         l:Show()
@@ -1397,7 +1607,7 @@ local function Fill(key)
             local k = PopSeg(nk)
             local x0, x1 = math.floor((i - 1) * w / n), math.floor(i * w / n)
             k:ClearAllPoints()
-            k:SetPoint("TOPLEFT", 12 + x0, y)
+            k:SetPoint("TOPLEFT", x0, y - 2)
             k:SetSize(x1 - x0 + (i < n and 1 or 0), SEG)
             k.value = it[1]
             k.held = current == it[1]
@@ -1408,9 +1618,22 @@ local function Fill(key)
             k.run = function() save(it[1]); Again() end
             k:Show()
         end
-        y = y - SEG - 4
+        y = y - SEG - 8
     end
-    if key == "friends" then
+    if page == "sections" then
+        -- a tick each: unticked, the section is left out
+        local counts = Setup.counts or {}
+        local asides = { menu = format("%d cards", counts.menu or 0),
+            shortcuts = format("%d cards", counts.shortcuts or 0), friends = "a tab", guild = "a tab",
+            clock = "top of the screen" }
+        Line("label", "Shown in the menu")
+        for _, key in ipairs(ORDER) do
+            Line("check", TITLES[key], not Hidden(key), function() SetHidden(key, not Hidden(key)); Again() end, 0,
+                asides[key])
+        end
+        Line("rule")
+        Line("label", "Untick one to leave it out")
+    elseif page == "friends" then
         local filter = ns.db.gameMenuFriends or "online"
         Line("label", "Show")
         local kinds = { { "online", "Online" }, { "all", "All" } }
@@ -1422,8 +1645,7 @@ local function Fill(key)
         Line("label", "Sort")
         Seg({ { "name", "Name" }, { "level", "Level" }, { "zone", "Zone" } }, ns.db.gameMenuFriendsSort or "name",
             function(v) ns.db.gameMenuFriendsSort = v end)
-        Line("rule")
-    elseif key == "guild" then
+    elseif page == "guild" then
         local mode = ns.db.gameMenuGuild or "officers"
         Line("label", "Show")
         for _, k in ipairs({ { "officers", "Officers" }, { "all", "All" }, { "ranks", "Ranks" } }) do
@@ -1431,7 +1653,7 @@ local function Fill(key)
             -- picking ranks: a check each under it, ticked when listed
             if k[1] == "ranks" and mode == "ranks" then
                 for _, r in ipairs(lastRanks) do
-                    Line("check", r.name, Picked(r.name, r.index), function() Pick(r, lastRanks); Again() end, 18)
+                    Line("check", r.name, Picked(r.name, r.index), function() Pick(r, lastRanks); Again() end, 22)
                 end
             end
         end
@@ -1439,132 +1661,209 @@ local function Fill(key)
         Line("label", "Sort")
         Seg({ { "name", "Name" }, { "level", "Level" }, { "rank", "Rank" }, { "zone", "Zone" } },
             ns.db.gameMenuGuildSort or "name", function(v) ns.db.gameMenuGuildSort = v end)
-        Line("rule")
         Line("label", "Show also")
         Line("check", "Name as title", ns.db.gameMenuGuildName ~= false,
-            function() ns.db.gameMenuGuildName = ns.db.gameMenuGuildName == false; Again() end)
+            function() Flip("gameMenuGuildName"); Again() end)
         Line("check", "Message of the day", ns.db.gameMenuMotd ~= false,
-            function() ns.db.gameMenuMotd = ns.db.gameMenuMotd == false; Again() end)
+            function() Flip("gameMenuMotd"); Again() end)
+    elseif page == "clock" then
+        Line("label", "Time")
+        Seg({ { true, "24-hour" }, { false, "12-hour" } }, ns.db.gameMenuClock24 ~= false,
+            function(v) ns.db.gameMenuClock24 = v end)
+        Line("radio", "Local time", not ns.db.gameMenuClockRealm,
+            function() ns.db.gameMenuClockRealm = false; Again() end, 0, "this computer's")
+        Line("radio", "Realm time", ns.db.gameMenuClockRealm == true,
+            function() ns.db.gameMenuClockRealm = true; Again() end, 0, "the server's")
         Line("rule")
+        Line("label", "Under it")
+        Line("check", "Gold, session and latency", ns.db.gameMenuSession ~= false,
+            function() Flip("gameMenuSession"); Again() end)
+        Line("check", "Fade after 5 seconds", ns.db.gameMenuClockFade ~= false,
+            function() Flip("gameMenuClockFade"); Again() end)
     end
-    Line("eye", "Hide " .. (TITLES[key] or key), false, function()
-        Popover.Close()
-        SetHidden(key, true)
-    end)
-    for i = nl + 1, #Popover.lines do Popover.lines[i]:Hide() end
-    for i = nk + 1, #Popover.segs do Popover.segs[i]:Hide() end
-    f:SetHeight(-y + 8)
+    for i = nl + 1, #Setup.lines do Setup.lines[i]:Hide() end
+    for i = nk + 1, #Setup.segs do Setup.segs[i]:Hide() end
+end
+
+-- a page's key in the column down the left: gold, a bar at its side, when on
+local function PageKey(i, page, words)
+    local k = CreateFrame("Button", nil, Setup.frame)
+    k:SetSize(SETUP_NAV, 28)
+    k:SetPoint("TOPLEFT", 1, -41 - 10 - (i - 1) * 28)
+    k:RegisterForClicks("LeftButtonUp")
+    k.page = page
+    k.wash = k:CreateTexture(nil, "BACKGROUND")
+    k.wash:SetAllPoints()
+    k.wash:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.09)
+    k.bar = k:CreateTexture(nil, "ARTWORK")
+    k.bar:SetPoint("TOPLEFT", 0, -4)
+    k.bar:SetPoint("BOTTOMLEFT", 0, 4)
+    k.bar:SetWidth(2)
+    k.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    local glow = k:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetAllPoints()
+    glow:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.05)
+    k.word = ns.Text(k, 13)
+    k.word:SetPoint("LEFT", 16, 0)
+    k.word:SetText(words)
+    function k.Lit(on)
+        k.on = on
+        k.wash:SetShown(on)
+        k.bar:SetShown(on)
+        local c = on and GOLD or DIM
+        k.word:SetTextColor(c[1], c[2], c[3])
+    end
+    k:SetScript("OnClick", function(self) Setup.Open(self.page) end)
+    return k
 end
 
 local function Make()
-    if Popover.frame then return end
+    if Setup.frame then return end
+    -- under it, over the panel and the world: a click there shuts it
     local catcher = CreateFrame("Button", nil, holder)
-    catcher:SetAllPoints(docked)
+    catcher:SetAllPoints(holder)
     catcher:SetFrameLevel(docked:GetFrameLevel() + 30)
     catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    catcher:SetScript("OnClick", function() Popover.Close() end)
+    catcher:SetScript("OnClick", function() Setup.Close() end)
+    local dim = catcher:CreateTexture(nil, "BACKGROUND")
+    dim:SetAllPoints()
+    dim:SetColorTexture(0, 0, 0, 0.45)
     catcher:Hide()
     local f = CreateFrame("Frame", nil, holder)
-    f:SetWidth(POP_W)
+    f:SetSize(SETUP_W, SETUP_H)
+    f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameLevel(docked:GetFrameLevel() + 35)
     f:EnableMouse(true)
+    -- Escape shuts it, not the menu; any other key goes on to the game
+    f:EnableKeyboard(true)
+    f:SetScript("OnKeyDown", function(self, key)
+        local esc = key == "ESCAPE"
+        if not InCombatLockdown() then self:SetPropagateKeyboardInput(not esc) end
+        if esc then Setup.Close() end
+    end)
     f:Hide()
     local shadow = f:CreateTexture(nil, "BACKGROUND", nil, -8)
-    shadow:SetPoint("TOPLEFT", 4, -6)
-    shadow:SetPoint("BOTTOMRIGHT", 4, -6)
-    shadow:SetColorTexture(0, 0, 0, 0.55)
+    shadow:SetPoint("TOPLEFT", 6, -10)
+    shadow:SetPoint("BOTTOMRIGHT", 6, -10)
+    shadow:SetColorTexture(0, 0, 0, 0.6)
     local edge = f:CreateTexture(nil, "BACKGROUND", nil, 1)
     edge:SetAllPoints()
-    edge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
     local ink = f:CreateTexture(nil, "BACKGROUND", nil, 3)
     ink:SetPoint("TOPLEFT", 1, -1)
     ink:SetPoint("BOTTOMRIGHT", -1, 1)
-    ink:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
-    -- the notch, up to the gear's middle: a gold diamond, its lower half
-    -- the options' ink
-    local x = -(4 + GEAR / 2)
-    local notch = f:CreateTexture(nil, "BACKGROUND", nil, 2)
-    notch:SetSize(9, 9)
-    notch:SetPoint("CENTER", f, "TOPRIGHT", x, 0)
-    notch:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-    local fill = f:CreateTexture(nil, "BACKGROUND", nil, 4)
-    fill:SetSize(7, 7)
-    fill:SetPoint("CENTER", f, "TOPRIGHT", x, -1)
-    fill:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
-    if notch.SetRotation then
-        notch:SetRotation(math.pi / 4)
-        fill:SetRotation(math.pi / 4)
+    ink:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.98)
+    -- the head: the title between its diamonds, "options", the close
+    local left = Diamond(f)
+    left:SetPoint("CENTER", f, "TOPLEFT", 20, -20)
+    local title = ns.Text(f, 16)
+    title:SetPoint("LEFT", f, "TOPLEFT", 30, -20)
+    title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    title:SetText("Game menu")
+    local right = Diamond(f)
+    right:SetPoint("LEFT", title, "RIGHT", 7, 0)
+    local sub = ns.PlainText(f, 12)
+    sub:SetPoint("LEFT", right, "RIGHT", 10, 0)
+    sub:SetTextColor(DIM[1], DIM[2], DIM[3])
+    sub:SetText("options")
+    local close = CreateFrame("Button", nil, f)
+    close:SetSize(40, 39)
+    close:SetPoint("TOPRIGHT", -1, -1)
+    close:RegisterForClicks("LeftButtonUp")
+    local red = close:CreateTexture(nil, "HIGHLIGHT")
+    red:SetAllPoints()
+    red:SetColorTexture(0.47, 0.09, 0.08, 1)
+    local x = close:CreateTexture(nil, "ARTWORK")
+    x:SetSize(14, 14)
+    x:SetPoint("CENTER")
+    x:SetTexture(ns.media .. "strips\\close")
+    x:SetVertexColor(DIM[1], DIM[2], DIM[3])
+    close:SetScript("OnClick", function() Setup.Close() end)
+    local function Rule(r, a)
+        local t = f:CreateTexture(nil, "BORDER")
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], a or 0.45)
+        r(t)
+        return t
     end
-    Popover.frame, Popover.catcher, Popover.lines, Popover.segs = f, catcher, {}, {}
-    holder:HookScript("OnHide", function() Popover.Close() end)
-end
-
--- the gear of the shown heading for key
-local function Gear(key)
-    for _, h in ipairs(heads) do
-        if h:IsShown() and h.key == key and h.gear:IsShown() then return h.gear end
-    end
-end
-
-function Popover.Close()
-    Popover.key = nil
-    if not Popover.frame then return end
-    Popover.frame:Hide()
-    Popover.catcher:Hide()
-    for _, h in ipairs(heads) do
-        h.gear.held = false
-        h.gear.Lit(false)
-    end
-end
-
--- after a layout: under its gear again, its marks as they now are; shut
--- when its section has gone
-function Popover.Refresh()
-    local key = Popover.key
-    if not key or not Popover.frame then return end
-    local g = Gear(key)
-    if not g then return Popover.Close() end
-    local f = Popover.frame
-    f:ClearAllPoints()
-    f:SetPoint("TOPRIGHT", g, "BOTTOMRIGHT", 4, -8)
-    g.held = true
-    g.Lit(false)
-    Fill(key)
-    f:Show()
-    Popover.catcher:Show()
-end
-
-function Popover.Open(key)
-    Make()
-    Popover.Close()
-    Popover.key = key
-    Popover.Refresh()
-end
-
-function Popover.Toggle(key)
-    if Popover.key == key then Popover.Close() else Popover.Open(key) end
-end
-menu.Popover = Popover
-
--- a hidden section's chip, on the line over Leave: a click shows it again
-local function Chip(i)
-    local c = chips[i]
-    if c then return c end
-    c = CreateFrame("Button", nil, docked)
-    c:SetHeight(20)
-    c:SetFrameLevel(docked:GetFrameLevel() + 3)
-    c:RegisterForClicks("LeftButtonUp")
-    Keyed(c)
-    c.word = ns.Text(c, 11)
-    c.word:SetPoint("CENTER")
-    c:SetScript("OnClick", function(self) SetHidden(self.key, false) end)
-    c:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_RIGHT", { title = TITLES[self.key] or "", { "hint", "Click: show it again." } })
+    Rule(function(t) t:SetPoint("TOPLEFT", 1, -40); t:SetPoint("TOPRIGHT", -1, -40); t:SetHeight(1) end)
+    Rule(function(t)
+        t:SetPoint("TOPRIGHT", close, "TOPLEFT")
+        t:SetPoint("BOTTOMRIGHT", close, "BOTTOMLEFT")
+        t:SetWidth(1)
     end)
-    c:SetScript("OnLeave", GameTooltip_Hide)
-    chips[i] = c
-    return c
+    Rule(function(t) t:SetPoint("BOTTOMLEFT", 1, 44); t:SetPoint("BOTTOMRIGHT", -1, 44); t:SetHeight(1) end)
+    Rule(function(t)
+        t:SetPoint("TOPLEFT", SETUP_NAV + 1, -41)
+        t:SetPoint("BOTTOMLEFT", SETUP_NAV + 1, 45)
+        t:SetWidth(1)
+    end)
+    -- the pages' column, a shade darker
+    local nav = f:CreateTexture(nil, "BACKGROUND", nil, 4)
+    nav:SetPoint("TOPLEFT", 1, -41)
+    nav:SetPoint("BOTTOMLEFT", 1, 45)
+    nav:SetWidth(SETUP_NAV)
+    nav:SetColorTexture(0, 0, 0, 0.25)
+    -- the foot: a word on saving, Done
+    local saved = ns.PlainText(f, 12)
+    saved:SetPoint("BOTTOMLEFT", 16, 16)
+    saved:SetTextColor(DIM[1], DIM[2], DIM[3])
+    saved:SetText("Each choice is saved as you make it.")
+    local done = CreateFrame("Button", nil, f)
+    done:SetSize(84, 26)
+    done:SetPoint("BOTTOMRIGHT", -12, 9)
+    done:RegisterForClicks("LeftButtonUp")
+    Keyed(done)
+    done.word = ns.Text(done, 12)
+    done.word:SetPoint("CENTER")
+    done.word:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    done.word:SetText("Done")
+    done:SetScript("OnClick", function() Setup.Close() end)
+    local pane = CreateFrame("Frame", nil, f)
+    pane:SetPoint("TOPLEFT", SETUP_NAV + 21, -41 - 14)
+    pane:SetSize(PANE_W, SETUP_H - 41 - 45 - 28)
+    Setup.frame, Setup.catcher, Setup.pane, Setup.close, Setup.done = f, catcher, pane, close, done
+    Setup.lines, Setup.segs, Setup.keys = {}, {}, {}
+    for i, p in ipairs(PAGES) do Setup.keys[i] = PageKey(i, p[1], p[2]) end
+    holder:HookScript("OnHide", function() Setup.Close() end)
 end
+
+local function Cog(on)
+    local cog = who.cog
+    if not cog then return end
+    cog.held = on
+    cog.Lit(false)
+end
+
+function Setup.Close()
+    Setup.shown = false
+    if not Setup.frame then return end
+    Setup.frame:Hide()
+    Setup.catcher:Hide()
+    Cog(false)
+end
+
+-- after a layout: its page's marks as they now are
+function Setup.Refresh()
+    if not (Setup.shown and Setup.frame) then return end
+    for _, k in ipairs(Setup.keys) do k.Lit(k.page == Setup.page) end
+    Fill(Setup.page)
+end
+
+function Setup.Open(page)
+    Make()
+    Setup.page = page or Setup.page or "sections"
+    Setup.shown = true
+    if not InCombatLockdown() then Setup.frame:SetPropagateKeyboardInput(true) end
+    Setup.frame:Show()
+    Setup.catcher:Show()
+    Cog(true)
+    Setup.Refresh()
+end
+
+function Setup.Toggle()
+    if Setup.shown then Setup.Close() else Setup.Open() end
+end
+menu.Setup = Setup
 
 local function Docked(sections, leave, back)
     last = { sections, leave, back }
@@ -1578,117 +1877,126 @@ local function Docked(sections, leave, back)
     for _, section in ipairs(sections) do
         for _, it in ipairs(section) do table.insert(it.kind == "shortcut" and ours or items, it) end
     end
+    Setup.counts = { menu = #items, shortcuts = #ours }
     local function Hide(list) for _, it in ipairs(list) do it.b:Hide() end end
-    -- keys in a window's body: per to a row, tall each, look
-    local function Keys(list, top, per, tall, gap, look)
-        local kw = (inner - (per - 1) * gap) / per
+    -- a card a row in a window's body, tall each
+    local function Rows(list, top, tall)
         for i, it in ipairs(list) do
-            local col, line = (i - 1) % per, math.floor((i - 1) / per)
             Take(it.b, docked)
-            it.b:SetPoint("TOPLEFT", PAD + WIN_PAD + col * (kw + gap), top - line * (tall + gap))
-            it.b:SetSize(kw, tall)
+            it.b:SetPoint("TOPLEFT", PAD + WIN_PAD, top - (i - 1) * (tall + ROW_GAP))
+            it.b:SetSize(inner, tall)
             it.b:SetFrameLevel(over)
             local d = Dress(it.b)
-            if not d.tip then
-                local kind = it.kind
-                d.tip = function()
-                    local hint = Hint(kind)
-                    return { title = d.label:GetText() or "", hint and { "hint", hint } or false }
-                end
-            end
-            Look(it.b, look, it.kind, it.glyph, tall)
+            d.line = it.line or LINES[it.kind]
+            Look(it.b, "row", it.kind, it.glyph, tall)
             it.b:Show()
         end
-        local rowsOf = math.ceil(#list / per)
-        return rowsOf * (tall + gap) - gap
     end
-    -- the hidden sections, a line over the foot
-    local hidden = {}
-    for _, key in ipairs(ORDER) do
-        if Hidden(key) then table.insert(hidden, key) end
-    end
+    local function Tall(count, rowH) return WIN_TOP + count * (rowH + ROW_GAP) - ROW_GAP + WIN_PAD end
     -- the foot's rule, from the bottom; the windows stop over it
     local rule = PAD + FOOT_H + 12
     local panel = docked:GetHeight() or 0
     if panel <= 0 then panel = UIParent:GetHeight() or 768 end
-    local floor = -(panel - rule - 10 - (#hidden > 0 and HIDDEN_H or 0))
-    -- this session, at the bottom, over the foot
-    local showS = not Hidden("session")
-    local sessionTall = WIN_TOP + 42 + WIN_PAD
-    local sessionTop = floor + sessionTall
-    -- friends and the guild: the height left between, shared
+    local floor = -(panel - rule - 10)
+    -- the people: a tab each for friends and the guild, the one shown listed
     local showF = not Hidden("friends")
     local filter = ns.db.gameMenuFriends or "online"
     if filter == "bnet" and not BNGetNumFriends then filter = "online" end
-    local friends, online = {}, 0
-    if showF then friends, online = Friends(filter) end
+    local friends = {}
+    if showF then friends = Friends(filter) end
     local inGuild = (not IsInGuild or IsInGuild()) and GetGuildInfo and GetGuildInfo("player")
     if Hidden("guild") then inGuild = nil end
     local guildMode = ns.db.gameMenuGuild or "officers"
     local members, total, guildOn, ranks = {}, 0, 0, {}
     if inGuild then members, total, guildOn, ranks = Guild(guildMode) end
     lastRanks = ranks
-    -- the guild's name its window's title (unless its option is off)
+    -- a tab's count: the online among those it lists
+    local function Online(list)
+        local c = 0
+        for _, p in ipairs(list) do if p.status ~= "offline" then c = c + 1 end end
+        return c
+    end
+    local tabs = {}
+    if showF then table.insert(tabs, { "friends", "Friends", Online(friends), false }) end
+    -- the guild's name its tab's word (unless its option is off)
     local showName = ns.db.gameMenuGuildName ~= false and not ns.IsSecret(inGuild)
-    local motd = inGuild and ns.db.gameMenuMotd ~= false and (guildMotd or clubMotd) or nil
+    if inGuild then table.insert(tabs, { "guild", showName and inGuild or "Guild", Online(members), false }) end
+    local tab = tabs[1]
+    for _, t in ipairs(tabs) do if t[1] == ns.db.gameMenuTab then tab = t end end
+    if tab then tab[4] = true end
+    local onGuild = tab ~= nil and tab[1] == "guild"
+    local motd = onGuild and ns.db.gameMenuMotd ~= false and (guildMotd or clubMotd) or nil
     if motd ~= nil and not ns.IsSecret(motd) and motd == "" then motd = nil end
     local motdTall = motd and Motd(motd) or 0
-    local fixF = WIN_TOP + WIN_PAD
-    local fixG = WIN_TOP + (motd and motdTall + 8 or 0) + WIN_PAD
+    -- the people's body under the Social window's strip (and the message)
+    local function Fix(strip, withMotd)
+        return STRIP_TOP + strip + STRIP_GAP + WIN_PAD + (withMotd and motdTall + 8 or 0)
+    end
+    local strip = STRIP_H
+    local fix = Fix(strip, motd ~= nil)
     -- a short panel: the cards a line each, then the guild's message left
-    -- out, till friends and the guild have a row each
+    -- out, till the people have three rows
     local showMenu, showOurs = not Hidden("menu") and #items > 0, not Hidden("shortcuts") and #ours > 0
-    local function Above(cardH)
+    local function Above(rowH)
         local t = 0
-        if showMenu then t = t + WIN_TOP + math.ceil(#items / 2) * (cardH + CARD_GAP) - CARD_GAP + WIN_PAD + WIN_GAP end
-        if showOurs then t = t + WIN_TOP + math.ceil(#ours / 3) * (WIDE_H + KEY_GAP) - KEY_GAP + WIN_PAD + WIN_GAP end
+        if showMenu then t = t + Tall(#items, rowH) + WIN_GAP end
+        if showOurs then t = t + Tall(#ours, rowH) + WIN_GAP end
         return t
     end
-    local bottom = showS and sessionTop + WIN_GAP or floor
-    local function Least(g)
-        return (showF and fixF + PERSON + WIN_GAP or 0) + (inGuild and g + PERSON + WIN_GAP or 0)
+    local function Least(f) return tab and f + 3 * PERSON or 0 end
+    local rowH = ROW_H
+    if y - Above(rowH) - floor < Least(fix) then
+        rowH, strip = ROW_LOW, STRIP_LOW
+        fix = Fix(strip, motd ~= nil)
     end
-    local cardH = CARD_H
-    if y - Above(cardH) - bottom < Least(fixG) then cardH = CARD_LOW end
-    if y - Above(cardH) - bottom < Least(fixG) then
+    if y - Above(rowH) - floor < Least(fix) then
         motd = nil
-        fixG = WIN_TOP + WIN_PAD
+        fix = Fix(strip, false)
     end
-    local needF = fixF + math.max(1, #friends) * PERSON
-    local needG = fixG + math.max(1, #members) * PERSON
-    -- the game's menu: cards, two to a row
+    -- the game's menu, a card a row
     if not showMenu then Hide(items) else
-        local tall = WIN_TOP + (math.ceil(#items / 2) * (cardH + CARD_GAP) - CARD_GAP) + WIN_PAD
+        local tall = Tall(#items, rowH)
         n = n + 1
         Win(n, y, tall, "Game menu", tostring(#items), "menu")
-        Keys(items, y - WIN_TOP, 2, cardH, CARD_GAP, "card")
+        Rows(items, y - WIN_TOP, rowH)
         y = y - tall - WIN_GAP
     end
-    -- Medalluin's shortcuts: worded keys, three to a row
+    -- our shortcuts, the same
     if not showOurs then Hide(ours) else
-        local tall = WIN_TOP + (math.ceil(#ours / 3) * (WIDE_H + KEY_GAP) - KEY_GAP) + WIN_PAD
+        local tall = Tall(#ours, rowH)
         n = n + 1
-        Win(n, y, tall, "Medalluin", tostring(#ours), "shortcuts")
-        Keys(ours, y - WIN_TOP, 3, WIDE_H, KEY_GAP, "wide")
+        Win(n, y, tall, "Shortcuts", tostring(#ours), "shortcuts")
+        Rows(ours, y - WIN_TOP, rowH)
         y = y - tall - WIN_GAP
     end
 
-    local both = showF and inGuild
-    local room = y - bottom - (both and WIN_GAP or 0)
-    local tallF, tallG = room, room
-    if both then
-        if needF + needG <= room then
-            -- room to spare: each its own, the rest shared, the guild more
-            tallF = needF + math.floor((room - needF - needG) * 0.36)
-        else
-            tallF = math.min(needF, math.max(math.floor(room * 0.36), room - needG))
-        end
-        tallF = math.max(tallF, fixF + PERSON)
-        tallG = room - tallF
-    end
+    -- the people's window: the height left; its list from its scroll on,
+    -- the rows its body holds
     local used = 0
-    -- a window's people, from its scroll on: the rows its body holds
-    local function People(h, list, top, body, none)
+    local soc = Social()
+    soc.motd:Hide()
+    if tab then
+        local tall = y - floor
+        n = n + 1
+        local note
+        if onGuild then
+            local word = ({ officers = "Officers", all = "All", ranks = "Ranks" })[guildMode] or "Officers"
+            note = format("%s  \194\183  %d / %d", word, guildOn, total)
+        else
+            note = ({ online = "Online", all = "All", bnet = "Battle.net" })[filter]
+        end
+        local h = Win(n, y, tall, "Social", note, tab[1], tabs, strip)
+        local top = y - STRIP_TOP - strip - STRIP_GAP
+        if motd then
+            soc.motd:ClearAllPoints()
+            soc.motd:SetPoint("TOPLEFT", PAD + WIN_PAD, top)
+            soc.motd:SetPoint("TOPRIGHT", -PAD - WIN_PAD, top)
+            soc.motd:Show()
+            top = top - motdTall - 8
+        end
+        local list = onGuild and members or friends
+        local none = onGuild and "No one to show" or filter == "online" and "No friends online" or "No friends"
+        local body = tall - fix
         local fit = math.max(1, math.floor(body / PERSON))
         h.most = math.max(0, #list - fit)
         local first = math.min(offset[h.key] or 0, h.most)
@@ -1702,82 +2010,31 @@ local function Docked(sections, leave, back)
             Person(used, top - (i - first - 1) * PERSON, list[i], h)
         end
         h.Scroll(first, fit, #list, y - top, body)
-    end
-
-    -- friends
-    if showF then
-        n = n + 1
-        local h = Win(n, y, tallF, "Friends", format("%d online", online), "friends")
-        People(h, friends, y - WIN_TOP, tallF - fixF, filter == "online" and "No friends online" or "No friends")
-        y = y - tallF - WIN_GAP
-    end
-
-    -- the guild: its name (the title), its message, its people
-    local soc = Social()
-    soc.motd:Hide()
-    if inGuild then
-        n = n + 1
-        local word = ({ officers = "Officers", all = "All", ranks = "Ranks" })[guildMode] or "Officers"
-        local note = format("%s  \194\183  %d / %d", word, guildOn, total)
-        local h = Win(n, y, tallG, showName and inGuild or "Guild", note, "guild")
-        local top = y - WIN_TOP
-        if motd then
-            soc.motd:ClearAllPoints()
-            soc.motd:SetPoint("TOPLEFT", PAD + WIN_PAD, top)
-            soc.motd:SetPoint("TOPRIGHT", -PAD - WIN_PAD, top)
-            soc.motd:Show()
-            top = top - motdTall - 8
+        -- the honeycomb from the list's top to the window's foot, a texel
+        -- a point (cells keep their shape), gold fading out downward
+        local cw, ch = DOCK_W - 2 * PAD - 6, math.max(1, top - (y - tall) - 3)
+        local k = math.max(1, cw / COMB_PX, ch / COMB_PX)
+        h.comb:ClearAllPoints()
+        h.comb:SetPoint("TOPLEFT", h, "TOPLEFT", 3, top - y)
+        h.comb:SetSize(cw, ch)
+        h.comb:SetTexCoord(0, cw / (COMB_PX * k), 0, ch / (COMB_PX * k))
+        if h.comb.SetGradient and CreateColor then
+            h.comb:SetVertexColor(1, 1, 1, 1)
+            h.comb:SetGradient("VERTICAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0),
+                CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.13))
+        else
+            h.comb:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 0.06)
         end
-        People(h, members, top, tallG - fixG, "No one to show")
-        y = y - tallG - WIN_GAP
+        h.comb:Show()
     end
     for i = used + 1, #rows do rows[i]:Hide() end
-
-    -- this session: gold, the session, latency
-    local nc = 0
-    if showS then
-        n = n + 1
-        Win(n, sessionTop, sessionTall, "This session", nil, "session")
-        local list = { { "Gold", Money(GetMoney and GetMoney() or 0), GOLD }, { "Session", Since() },
-            { "Latency", Latency() } }
-        local cw = (inner - 2 * 8) / 3
-        for i, it in ipairs(list) do
-            local c = Card(i)
-            nc = i
-            c:ClearAllPoints()
-            c:SetPoint("TOPLEFT", PAD + WIN_PAD + (i - 1) * (cw + 8), sessionTop - WIN_TOP)
-            c:SetWidth(cw)
-            c.label:SetText(it[1])
-            c.value:SetText(it[2])
-            c.value:SetTextColor(unpack(it[3] or ns.colors.text))
-            c:Show()
-        end
-    end
-    for i = nc + 1, #cards do cards[i]:Hide() end
     for i = n + 1, #heads do heads[i]:Hide() end
 
-    -- the hidden ones: "Hidden" and a chip each, a click shows it again
-    local line = rule + 8
-    if not social.hidden then
-        social.hidden = ns.Text(docked, 10)
-        social.hidden:SetTextColor(DIM[1], DIM[2], DIM[3])
-        social.hidden:SetText("HIDDEN")
-    end
-    social.hidden:ClearAllPoints()
-    social.hidden:SetPoint("BOTTOMLEFT", docked, "BOTTOMLEFT", PAD, line + 5)
-    social.hidden:SetShown(#hidden > 0)
-    local x = PAD + 58
-    for i, key in ipairs(hidden) do
-        local c = Chip(i)
-        c.key = key
-        c.word:SetText(TITLES[key])
-        c:SetWidth(math.ceil(c.word:GetStringWidth()) + 18)
-        c:ClearAllPoints()
-        c:SetPoint("BOTTOMLEFT", docked, "BOTTOMLEFT", x, line)
-        c:Show()
-        x = x + c:GetWidth() + 6
-    end
-    for i = #hidden + 1, #chips do chips[i]:Hide() end
+    -- the clock at the screen's top centre, the session under it
+    local c = Clock()
+    c:SetShown(not Hidden("clock"))
+    ClockDraw()
+    ClockFade()
 
     -- the foot (E2): Log Out and Exit squared either side, Return to Game
     -- wide between; a third Leave (a client's own) takes the next side
@@ -1806,7 +2063,7 @@ local function Docked(sections, leave, back)
     shade:SetPoint("TOPLEFT", docked, "TOPRIGHT")
     shade:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT")
     Fade(shade, { 0, 0, 0 }, 0.5)
-    Popover.Refresh()
+    Setup.Refresh()
 end
 
 Relayout = function()
@@ -1890,6 +2147,8 @@ local function Medallion(sections, leave, back)
         px, py = x, y
     end
     for i = used + 1, #bars do bars[i]:Hide() end
+    if clock then clock:Hide() end
+    Setup.Close()
     shade:ClearAllPoints()
     shade:SetAllPoints(UIParent)
     shade:SetColorTexture(0, 0, 0, 0.2)

@@ -144,6 +144,11 @@ local DEFAULTS = {
     gameMenuGuildName = true, -- the guild's name as its window's title (else "Guild")
     gameMenuMotd = true, -- the guild's message of the day over its list
     gameMenuHidden = false, -- the docked game menu's hidden sections, by key (a table once one is)
+    gameMenuTab = "friends", -- the people window's tab shown: "friends" or "guild"
+    gameMenuClock24 = true, -- the menu's clock in 24 hours (else 12, with am and pm)
+    gameMenuClockRealm = false, -- the clock on the realm's time (else this computer's)
+    gameMenuSession = true, -- gold, the session and latency under the clock
+    gameMenuClockFade = true, -- the clock fades a while after the menu opens
     npcWindows = true,      -- gossip, the quest pages and the vendor in a box on the chat box (npc/window.lua)
     npcSpace = true,        -- Space presses a quest page's Accept, Continue or Complete Quest
     npcQuestItems = true,   -- an item that begins a quest, got, opens the box on it (npc/questitem.lua)
@@ -594,6 +599,13 @@ local function Migrate(fresh)
             if v ~= Base(key) then Store(key)[key] = v end
             db[key] = nil
         end
+    end
+    -- the docked game menu's This session became the clock's line: hidden,
+    -- the clock is
+    local hid = db.global.gameMenuHidden
+    if type(hid) == "table" and hid.session ~= nil then
+        if hid.clock == nil then hid.clock = hid.session end
+        hid.session = nil
     end
     -- The widgets became shared by every profile, the console's party staying
     -- per profile. A widget's place, kept per profile until then, comes from
