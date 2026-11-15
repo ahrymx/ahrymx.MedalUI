@@ -687,6 +687,12 @@ local function Build()
             Draw(wanted[1], wanted[2])
         end
     end
+    -- something standing on the chat box: a window held there (an NPC's,
+    -- the flight map, the LFG window, one of the reskinned ones), or the
+    -- quest tracker's full view in the reach, while it shows at all
+    function ns.chat.Stood()
+        return held or (wanted[1] and (wanted[2] or 1) > 0) and true or false
+    end
     ns.chat.reach = reach
     ns.chat.Reach(false)
     -- the timeless buffs along the margin, beside the medallion; the edit
@@ -763,7 +769,8 @@ end
 -- alone, the chat's chrome (the box, its tabs, the cog, the scroll bar)
 -- fades out and each message stands on a band of its own over the world;
 -- the chrome comes back while it is typed in, pointed at, scrolled up, its
--- drawer open, or (ticked) in combat, and goes again chatBareDelay seconds
+-- drawer open, something stands on it (a window docked above it, the quest
+-- tracker's full view), or (ticked) in combat, and goes again chatBareDelay seconds
 -- after. A band is anchored to its line's points, never measured (a line's
 -- text may be secret), and follows its line's alpha, so Blizzard's own
 -- chat fade takes the band with the line. Docked windows only: one torn
@@ -847,6 +854,8 @@ end
 function ns.ChatWanted()
     if not Immersed() then return true end
     if open or (ns.db.chatBareCombat and inCombat) then return true end
+    -- a window docked on it, or the tracker over it: the box under them
+    if ns.chat.Stood() then return true end
     if chatBox:IsMouseOver() then return true end
     for _, frame in ipairs(Docked()) do
         local box = frame.editBox

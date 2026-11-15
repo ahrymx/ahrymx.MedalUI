@@ -8167,6 +8167,24 @@ if stripsPass then
             brings("scrolled up", function() ChatFrame3.scrolledUp = true end, function() ChatFrame3.scrolledUp = nil end)
             brings("drawer open", function() chat.cog.scripts.OnClick(chat.cog) end,
                 function() chat.cog.scripts.OnClick(chat.cog) end)
+            -- something standing on the box: a window docked above it, the
+            -- tracker's full view over it (not one faded to nothing)
+            print("chat bare stood before", tostring(ns.chat.Stood()))
+            brings("tracker over it", function() ns.chat.Reach(true, 1) end, function() ns.chat.Reach(false) end)
+            ns.chat.Reach(true, 0)
+            step(0.3)
+            bare("tracker faded to nothing")
+            ns.chat.Reach(false)
+            brings("npc window", function() ns.chat.Hold(true) end, function() ns.chat.Hold(false) end)
+            brings("lfg window", function() ns.chat.Hold(true, "lfg") end, function() ns.chat.Hold(false, "lfg") end)
+            -- two at once: shown till the last goes
+            ns.chat.Hold(true)
+            ns.chat.Hold(true, "lfg")
+            ns.chat.Hold(false)
+            step(5)
+            bare("npc gone, lfg still up")
+            ns.chat.Hold(false, "lfg")
+            step(5)
             inCombat = true
             fire("PLAYER_REGEN_DISABLED")
             step(0.3)
