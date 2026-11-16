@@ -8446,7 +8446,7 @@ if stripsPass then
                         local x, f = 1, chat.well
                         while f do x = x * (f.alpha or 1); f = f.parent end
                         return x
-                    end)()))
+                    end)()), string.format("well edge=%.2f", chat.well.edge:GetAlpha()))
             end
             -- the medallion's corner: from the box's edge to the edit box,
             -- its rule meeting the trim at the edge, beside the box (not in it)
@@ -8468,6 +8468,18 @@ if stripsPass then
             bare("idle 3.5s")
             step(0.8)
             bare("idle 4.3s")
+            -- faded, the well's right side closes, unless a timeless buff stands there
+            do
+                local width = ns.BuffRowWidth
+                for _, w in ipairs({ 0, 28 }) do
+                    ns.BuffRowWidth = function() return w end
+                    ns.chat.BuffsChanged()
+                    print("chat bare well edge, buff row " .. w, string.format("box=%.2f edge=%.2f",
+                        chat.box:GetAlpha(), chat.well.edge:GetAlpha()))
+                end
+                ns.BuffRowWidth = width
+                ns.chat.BuffsChanged()
+            end
             step(0.5)
             bare("idle 4.8s")
             -- Blizzard's tab fade and its own tab update write past us
@@ -8806,6 +8818,10 @@ if stripsPass then
             updatedAuraInstanceIDs = { 17 } })
         table.remove(buffs, 1)
         buffState("buffs in combat")
+        -- a full read in combat: the buffs sorted already keep their place
+        -- (the game will not sort them again), the new one still waits
+        aura({ isFullUpdate = true })
+        buffState("buffs in combat, read again")
         ns.buffs[1].scripts.OnClick(ns.buffs[1], "RightButton")
         print("cancel in combat", #cancelled)
         inCombat = false

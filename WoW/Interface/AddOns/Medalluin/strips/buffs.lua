@@ -49,7 +49,9 @@ local function Count(aura)
     return n
 end
 
-local function Add(aura)
+-- before: what a full read knew already, so a buff it cannot sort now (in
+-- combat) keeps what it was
+local function Add(aura, before)
     local id = aura.auraInstanceID
     if ns.IsSecret(id) then
         unsorted = true
@@ -57,7 +59,13 @@ local function Add(aura)
     end
     local timeless = Timeless(aura)
     if timeless == nil then
-        unsorted = true
+        local was = before and before[id]
+        if was ~= nil then
+            known[id] = was
+            if was then was.count = Count(aura) end
+        else
+            unsorted = true
+        end
     elseif timeless then
         known[id] = { icon = aura.icon, count = Count(aura) }
     else
@@ -145,18 +153,30 @@ function ns.BuffRow(spec)
     Layout()
 end
 
+-- The whole list read again. In combat a buff already sorted keeps its
+-- place (the game will not say again whether it runs out), and one gone is
+-- gone; a read cut short (a secret buff, a refused call) cannot say what is
+-- gone, so what it did not see stays too.
 local function Scan()
-    wipe(known)
+    local before = known
+    known = {}
     unsorted = false
+    local whole = true
     local i = 1
     while true do
         local ok, aura = pcall(Auras.GetAuraDataByIndex, "player", i, "HELPFUL")
         if not ok or not aura then
-            if not ok then unsorted = true end
+            if not ok then unsorted, whole = true, false end
             break
         end
-        Add(aura)
+        if ns.IsSecret(aura.auraInstanceID) then whole = false end
+        Add(aura, before)
         i = i + 1
+    end
+    if not whole then
+        for id, buff in pairs(before) do
+            if known[id] == nil then known[id] = buff end
+        end
     end
     Layout()
 end

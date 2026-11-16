@@ -696,6 +696,17 @@ local function Build()
     wellRule:SetPoint("TOPLEFT")
     wellRule:SetPoint("TOPRIGHT")
     well.rule = wellRule
+    -- its right side, closed while it stands alone: as the box fades out
+    -- (the margin's row beside it goes) and no timeless buff stands there
+    -- (the first one's rim closes it); with the box whole it would split
+    -- the margin's row
+    local wellEdge = well:CreateTexture(nil, "BACKGROUND", nil, 2)
+    wellEdge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    wellEdge:SetPoint("TOPRIGHT")
+    wellEdge:SetPoint("BOTTOMRIGHT")
+    wellEdge:SetWidth(1)
+    wellEdge:SetAlpha(0)
+    well.edge = wellEdge
     well:SetShown(chatBox:IsShown())
     chatBox:HookScript("OnShow", function() well:Show() end)
     chatBox:HookScript("OnHide", function() well:Hide() end)
@@ -747,10 +758,16 @@ local function Build()
     ns.chat.Reach(false)
     -- the timeless buffs along the margin, beside the medallion; the edit
     -- boxes clear of them as they come and go
+    function ns.chat.WellEdge()
+        local box = ns.chatChrome and ns.chatChrome.alpha or 1
+        local buffs = ns.BuffRowWidth and ns.BuffRowWidth() or 0
+        well.edge:SetAlpha(buffs > 0 and 0 or 1 - box)
+    end
     function ns.chat.BuffsChanged()
         for frame in pairs(dressed) do
             if frame.editBox then Lit(frame.editBox) end
         end
+        ns.chat.WellEdge()
     end
     ns.BuffRow({ x = ns.stripCells.from, y = ns.stripArt.height - L.stripHeight - (margin + 1) / 2 })
 
@@ -916,6 +933,7 @@ end
 -- bars and tabs; the bands the other way
 local function Chrome(a)
     if chatBox then chatBox:SetAlpha(a) end
+    if ns.chat and ns.chat.WellEdge then ns.chat.WellEdge() end
     for _, frame in ipairs(Docked()) do
         for _, part in ipairs({ frame.ScrollBar, frame.ScrollToBottomButton, frame.buttonFrame }) do
             if part and part.SetAlpha then part:SetAlpha(a) end
