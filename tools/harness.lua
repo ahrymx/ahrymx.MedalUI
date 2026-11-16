@@ -7202,6 +7202,17 @@ if sidePass then
             modsDown.SHIFT = false
             print("zone shift-click", "linked=" .. table.concat(linked, ","),
                 "page=" .. tostring(ns.questPage and ns.questPage.Current()))
+            -- no box typed in (the game's insert says so): the chat opened
+            -- with it, no Enter first (2026-11-16)
+            local opened, open, util = {}, ChatFrame_OpenChat, ChatFrameUtil
+            ChatEdit_InsertLink = function() return false end
+            ChatFrameUtil = nil
+            ChatFrame_OpenChat = function(l) table.insert(opened, tostring(l)) end
+            modsDown.SHIFT = true
+            row(2).scripts.OnClick(row(2), "LeftButton")
+            modsDown.SHIFT = false
+            print("zone shift-click, no box open", "opened=" .. table.concat(opened, ","))
+            ChatFrame_OpenChat, ChatFrameUtil = open, util
             ChatEdit_InsertLink, GetQuestLink = insert, link
         end)()
         -- Ctrl-click: the waypoint, the quest's lines washed, its distance after
@@ -20852,6 +20863,20 @@ if questLogPass then (function()
         tab.scripts.OnClick(tab, "LeftButton")
         charWorld.modified = false
         calls("questlog page head shift")
+        -- no box open: the chat opened with the link
+        ChatEdit_InsertLink = function() return false end
+        local openHead, utilHead = ChatFrame_OpenChat, ChatFrameUtil
+        ChatFrameUtil = nil
+        ChatFrame_OpenChat = function(link) table.insert(W.calls, "open " .. tostring(link)) end
+        charWorld.modified = true
+        tab.scripts.OnClick(tab, "LeftButton")
+        charWorld.modified = false
+        calls("questlog page head shift, no box open")
+        ChatFrame_OpenChat, ChatFrameUtil = openHead, utilHead
+        ChatEdit_InsertLink = function(link)
+            table.insert(W.calls, "link " .. tostring(link))
+            return true
+        end
         print("questlog page head tip", tipOf(tab))
         -- an objective's bubble: its line into the chat box (open: inserted;
         -- none open: the chat opened with it)

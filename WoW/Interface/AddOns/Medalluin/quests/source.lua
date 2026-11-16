@@ -488,6 +488,15 @@ local function Linking()
     return IsShiftKeyDown()
 end
 
+-- A link put into chat: into the box being typed in, else the chat opened
+-- with it (as the game's quest log does), no Enter needed first.
+function Q.LinkInChat(link)
+    if not link then return end
+    if ChatEdit_InsertLink and ChatEdit_InsertLink(link) then return end
+    local open = ChatFrameUtil and ChatFrameUtil.OpenChat or ChatFrame_OpenChat
+    if open then open(link) end
+end
+
 -- tracked: the field the log's quests carry, or asked (the tracker's, from Read)
 local function IsTracked(quest)
     if quest.tracked ~= nil then return quest.tracked end
@@ -503,8 +512,8 @@ function Q.Click(quest, mouse)
     elseif mouse == "RightButton" then
         if IsTracked(quest) then Q.Untrack(quest) else Q.Track(quest) end
         return "track"
-    elseif Linking() and GetQuestLink and ChatEdit_InsertLink then
-        ChatEdit_InsertLink(GetQuestLink(quest.id))
+    elseif Linking() and GetQuestLink then
+        Q.LinkInChat(GetQuestLink(quest.id))
     elseif IsControlKeyDown() and WP and WP.Has() then
         WP.Toggle(quest)
     elseif IsAltKeyDown() and Q.Focus(quest) then

@@ -144,9 +144,7 @@ local function Take(kind)
         p:SetScript("OnClick", function(self)
             local line = self.line
             if not line then return end
-            if ChatEdit_InsertLink and ChatEdit_InsertLink(line) then return end
-            local open = ChatFrameUtil and ChatFrameUtil.OpenChat or ChatFrame_OpenChat
-            if open then open(line) end
+            Q.LinkInChat(line)
         end)
     elseif kind == "step" then
         -- a chain's step: its box on the rail, its title, its level
@@ -624,8 +622,8 @@ local function Window()
             end,
             Click = function()
                 local q = qp.quest
-                if q and IsModifiedClick("CHATLINK") and GetQuestLink and ChatEdit_InsertLink then
-                    ChatEdit_InsertLink(GetQuestLink(q.id))
+                if q and IsModifiedClick("CHATLINK") and GetQuestLink then
+                    Q.LinkInChat(GetQuestLink(q.id))
                 end
             end,
             tip = function() return "Shift-click: link it in chat. Drag: move the window." end,
