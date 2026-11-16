@@ -52,6 +52,18 @@ done
 case $level in "" | patch | minor | major | none) ;; *) die "level '$level': patch, minor, major or none" ;; esac
 cd "$ROOT"
 
+# ------------------------------------------------------------ READMEs
+# The READMEs are read on GitHub, on CurseForge (pasted as they are) and in the
+# installed addon folder, so every link and image is a full URL: a relative
+# path works on GitHub only. #anchors may stay.
+relativeLinks=$(find . -name README.md -not -path './.git/*' -print0 | xargs -0 perl -ne '
+    for my $p (/\]\(\s*<?([^)\s>]+)/g, /<img\b[^>]*?\bsrc=["\x27]([^"\x27]+)/gi) {
+        print "$ARGV:$.: $p\n" unless $p =~ m{^(?:[a-z][a-z0-9+.-]*:|//|#)}i;
+    }
+    close ARGV if eof;')
+[[ -z $relativeLinks ]] || die "relative links in a README (use full GitHub URLs):
+$relativeLinks"
+
 # ------------------------------------------------------------ the change
 # name-status lines; with --all, the working tree against HEAD and the
 # untracked files as added

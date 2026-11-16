@@ -1,30 +1,10 @@
 # mdlui_Tooltips
 
-> **An ornamented tooltip reskin and companion addon for [Medalluin](../../../../README.md), supporting both WoW Forever (`16001`) and Retail WoW (`120105`).**
+> **An ornamented tooltip reskin for [Medalluin](https://github.com/ahrymx/ahrymx.medalluin/blob/main/README.md), for WoW Forever (`16001`) and Retail WoW (`120105`).**
 >
-> Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by **FallenShard**, distributed under the [MIT License](LICENSE).
+> Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by **FallenShard**, distributed under the [MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE).
 
 `mdlui_Tooltips` replaces the game's tooltip with a compact, ornamented panel: the icon and name up front, the details in short colored rows grouped by kind, and the fine print gathered in a footer. Hold **ALT** (or the key you choose) at any time to see the game's own tooltip.
-
----
-
-## ✨ What `mdlui_Tooltips` Adds Over Upstream
-
-- **Medalluin Integration**: Categorized under **Medalluin** in the game's AddOn List and directly accessible from Medalluin's **Tooltips (ext)** settings page (`/mdlui`). Works both alongside Medalluin and standalone.
-- **Retail WoW (`12.5` / `120105`) Support**:
-  - Parses modern secondary and tertiary stats (**Mastery**, **Versatility**, **Speed**, **Avoidance**, **Leech**).
-  - Supports modern class resources (**Fury**, **Pain**, **Astral Power**, **Insanity**, **Maelstrom**, **Essence**, **Holy Power**, **Soul Shards**, **Arcane Charges**, **Chi**).
-  - Recognizes **Warbound** / **Warband** and **Accountbound** bindings, passing unrecognized Retail item lines cleanly to the footer/extras block.
-  - Guards Classic-only static lookup tables (disenchant tables, spell coefficients, and Classic herb/ore/skinning drop tables) on Retail clients.
-  - Protects native tooltip parking and unparking during combat lockdown (`InCombatLockdown()`) to prevent secret-value taint on Retail 12.x.
-- **Medalluin's Look**: Every panel is restyled in Medalluin's gold and ink, whichever **Panel style** is picked:
-  - **Bars** (aura time left, durability, the health bar, Medalluin's own XP bar) sit in a recessed well, with a lit fill and a bright tip. Under **All Tooltips** in the style editor, one set of options covers them all: **Bar style** (**Well**, or **Plain** for a flat track), **Bar height** (4–16), and **Bar texture** (Flat, or a game or LibSharedMedia status bar, which the game's health bar takes too while a panel shows it). Each bar keeps its own color, which says what it is for: reaction for health, dispel type for auras, wear for durability.
-  - **Badges** are boxed chips in capitals, tinted by what they mark, wrapping onto a second row when the header runs out of room.
-  - **Icons** get a double frame (the quality line, then an ink gap and a dark-gold ring), and the item level sits on a gold-edged plate.
-  - **Stats** line up: values right-aligned in one column, names starting together after them.
-  - **Text**: names and section captions in Marcellus SC (with Medalluin installed), and a larger damage per second.
-  - **The spell strip** (cost, cast time, cooldown, range) is a sunken well, and section dividers fade out at both ends.
-- **Gilded and Slate Panel Styles**: **Gilded**, the default, has a warm ink body, a dark-gold frame with ink and a quality-tinted ring outside it, a glow in the header's corner above a gold rule, and a sunken footer band. **Slate** is quieter: a flat dark body washed with the tint at the top, a thin tinted border, a drop shadow, and a hairline over the footer. **Blizzard border**, **Flat**, and **DialogueUI** remain as choices.
 
 ---
 
@@ -125,12 +105,37 @@ Herbs, ore, chests, and quest objects get a panel too. On **WoW Forever**, a Cla
 - With **DialogueUI** installed, its dark tooltip backdrop can be picked as the **Panel style** in the style editor; without it, that choice falls back to Gilded. Text uses the game's own tooltip fonts, so a UI addon that changes the default font is followed; with **EllesmereUI** installed, names use its Expressway font. Both are used from those addons' own folders; nothing of theirs is bundled.
 - Whenever a tooltip cannot be read safely, such as spell details or secret values restricted during combat, the game's own tooltip is shown instead.
 
-## Style editor & Options
+---
 
-Type `/mdltip` (or `/mdltooltips`), open **Medalluin** (`/mdlui` -> **Tooltips (ext)**), or open the game's options under **AddOns > mdlui_Tooltips** (`/mdltip options`).
+## What changed from upstream
 
-- **Style Editor (`/mdltip`)**: Switch between **Items**, **Spells**, **Objects**, **Units**, **Buffs**, and **Quests**. Click any part of the live sample tooltip to customize its font, size, color, and outline, or adjust **Global scale** (50%–150%), **Panel style**, **School colors**, and per-category details.
-- **Options (`/mdltip options`)**: Choose **Layout Style** (`mdlui_Tooltips` or `Blizzard`), toggle **Restyle** and **Follow cursor** per tooltip category, and set the **Default Tooltip Modifier** (`ALT`, `CTRL`, or `Never`).
+- **Medalluin:** listed under **Medalluin** in the AddOn List, and opens from Medalluin's **Tooltips (ext)** settings page (`/mdlui`). Works alongside Medalluin or on its own.
+- **Retail WoW (`12.5` / `120105`):**
+  - Reads modern secondary and tertiary stats (**Mastery**, **Versatility**, **Speed**, **Avoidance**, **Leech**).
+  - Knows modern class resources (**Fury**, **Pain**, **Astral Power**, **Insanity**, **Maelstrom**, **Essence**, **Holy Power**, **Soul Shards**, **Arcane Charges**, **Chi**).
+  - Recognizes **Warbound** / **Warband** and **Accountbound** bindings. Item lines it does not recognize go to the footer.
+  - Leaves out the Classic-only tables (disenchanting, spell coefficients, and the classic herb, ore and skinning drops).
+  - Parks and unparks the game's tooltip safely during combat lockdown (`InCombatLockdown()`), to avoid secret-value taint on Retail 12.x.
+- **Medalluin's look:** every panel is restyled in Medalluin's gold and ink, whichever **Panel style** is picked.
+  - **Bars** (aura time left, durability, the health bar, Medalluin's own XP bar) sit in a recessed well, with a lit fill and a bright tip. Under **All Tooltips** in the style editor, one set of options covers them all: **Bar style** (**Well**, or **Plain** for a flat track), **Bar height** (4–16), and **Bar texture** (Flat, or a game or LibSharedMedia status bar, which the game's health bar takes too while a panel shows it). Each bar keeps its own color, which says what it is for: reaction for health, dispel type for auras, wear for durability.
+  - **Badges** are boxed chips in capitals, tinted by what they mark, wrapping onto a second row when the header runs out of room.
+  - **Icons** get a double frame (the quality line, then an ink gap and a dark-gold ring), and the item level sits on a gold-edged plate.
+  - **Stats** line up: values right-aligned in one column, names starting together after them.
+  - **Text:** names and section captions in Marcellus SC (with Medalluin installed), and a larger damage per second.
+  - **The spell strip** (cost, cast time, cooldown, range) is a sunken well, and section dividers fade out at both ends.
+- **Gilded and Slate panel styles:** **Gilded**, the default, has a warm ink body, a dark-gold frame with ink and a quality-tinted ring outside it, a glow in the header's corner above a gold rule, and a sunken footer band. **Slate** is quieter: a flat dark body washed with the tint at the top, a thin tinted border, a drop shadow, and a hairline over the footer. **Blizzard border**, **Flat** and **DialogueUI** remain as choices.
+
+## Commands and settings
+
+| Command | What it does |
+|:---|:---|
+| `/mdltip` or `/mdltooltips` | Opens the style editor |
+| `/mdltip options` | Opens the options in the game's AddOns settings |
+
+- **Style editor:** switch between **Items**, **Spells**, **Objects**, **Units**, **Buffs** and **Quests**. Click any part of the live sample tooltip to set its font, size, color and outline, or set **Global scale** (50%–150%), **Panel style**, **School colors**, and each category's details.
+- **Options:** choose **Layout Style** (`mdlui_Tooltips` or `Blizzard`), turn **Restyle** and **Follow cursor** on or off per tooltip category, and set the **Default Tooltip Modifier** (`ALT`, `CTRL` or `Never`).
+
+Both also open from Medalluin's **Tooltips (ext)** page (`/mdlui`), and the options from the game's **AddOns > mdlui_Tooltips**.
 
 ## Install
 
@@ -163,9 +168,9 @@ Each report opens in a window with its findings selected, under a line naming th
 
 ---
 
-## 📜 Credits & License
+## Credits and license
 
-`mdlui_Tooltips` is licensed under the **[MIT License](LICENSE)**.
+`mdlui_Tooltips` is licensed under the **[MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE)**.
 
-- **Original Addon**: [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) — Copyright © 2026 **FallenShard**
-- **Medalluin Companion Adaptation & Retail Port**: **AhryMX** ([Medalluin](https://github.com/ahrymx/ahrymx.medalluin))
+- **Original addon:** [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) — Copyright © 2026 **FallenShard**
+- **Medalluin companion adaptation and Retail port:** **AhryMX** ([Medalluin](https://github.com/ahrymx/ahrymx.medalluin))
