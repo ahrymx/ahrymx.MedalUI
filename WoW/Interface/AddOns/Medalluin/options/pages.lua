@@ -183,6 +183,7 @@ local MODULES = {
     cc = { "mouse", "The game's Click Casting, each binding with its keycaps." },
     npc = { "social", "Gossip, quests, vendors, trainers, flights and mail." },
     tooltips = { "help", "Tooltips reskinned, with a live style editor.", addon = true },
+    radial = { "radial", "Hold a key, sweep, release: radial menus of spells, items and markers.", addon = true },
 }
 local SCOPES = { "Shared by every profile.", "Kept per profile." }
 
@@ -1472,6 +1473,30 @@ function ns.OptionPages()
                         .. "(/mdltip options).")),
             },
         },
+        {
+            id = "radial", name = "Radial menu (ext)",
+            intro = "Provided by the optional mdlui_RadialMenu companion addon.",
+            more = "Enable mdlui_RadialMenu in your AddOns list to build radial menus: hold a key, sweep the mouse "
+                .. "towards a button and let go.",
+            enabled = function() return SlashCmdList and SlashCmdList.MDLUI_RADIAL ~= nil end,
+            groups = {
+                Group("mdlui_RadialMenu",
+                    Button("Open radial editor", function()
+                        if SlashCmdList and SlashCmdList.MDLUI_RADIAL then
+                            if ns.CloseOptions then ns.CloseOptions() end
+                            SlashCmdList.MDLUI_RADIAL("")
+                        end
+                    end, "Closes this window and opens mdlui_RadialMenu's editor: its radials, their buttons "
+                        .. "and keys (/mdlradial)."),
+                    Button("Radial options", function()
+                        if SlashCmdList and SlashCmdList.MDLUI_RADIAL then
+                            if ns.CloseOptions then ns.CloseOptions() end
+                            SlashCmdList.MDLUI_RADIAL("options")
+                        end
+                    end, "Closes this window and opens the editor's Options tab: how a radial opens, its size, "
+                        .. "names and fonts (/mdlradial options).")),
+            },
+        },
     }
     table.insert(list, 2, Shared(list))
     for _, page in ipairs(list) do
@@ -1506,6 +1531,6 @@ function ns.OptionCategories()
                 "units/arena" } },
         { name = "Interface", glyph = "view-full", scope = "Shared by every profile",
             items = { "chat", "side", "quests", "tray", "windows" } },
-        { name = "Extensions", glyph = "misc", note = "Companion addons", items = { "tooltips" } },
+        { name = "Extensions", glyph = "misc", note = "Companion addons", items = { "tooltips", "radial" } },
     }
 end

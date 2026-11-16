@@ -249,6 +249,13 @@ def glyph(kind, x, y):
                  "M10,2.9 C12.8,2.9 14.1,4.7 14.1,7.2 L14.1,12.8 C14.1,15.3 12.8,17.1 10,17.1"
                  " C7.2,17.1 5.9,15.3 5.9,12.8 L5.9,7.2 C5.9,4.7 7.2,2.9 10,2.9 Z"
                  "M5.9,8.3 L14.1,8.3 L14.1,9.9 L5.9,9.9 Z M9.2,2.9 L10.8,2.9 L10.8,8.3 L9.2,8.3 Z", "evenodd")
+    if kind == "radial":        # mdlui_RadialMenu's wheel: a rim, six spokes, the hub
+        spoke = '<rect x="9.2" y="2.4" width="1.6" height="5" transform="rotate({} 10 10)"/>'
+        return (f'<g transform="translate({x},{y}) scale({s})" {f}>'
+                '<path fill-rule="evenodd" d="M1,10 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z'
+                ' M2.8,10 a7.2,7.2 0 1,0 14.4,0 a7.2,7.2 0 1,0 -14.4,0 Z"/>'
+                '<path d="M7.3,10 a2.7,2.7 0 1,0 5.4,0 a2.7,2.7 0 1,0 -5.4,0 Z"/>'
+                + "".join(spoke.format(a) for a in range(30, 360, 60)) + '</g>')
     # the quest tooltips' shortcuts: the mouse, the button pressed filled in pale
     # (the middle one a wheel where the buttons part)
     if kind in ("mouse-left", "mouse-right", "mouse-middle"):
@@ -532,7 +539,7 @@ TABS = ["character", "reputation", "currency", "skills", "pvp", "statistics",
         "view-bags", "view-grid", "view-groups", "track", "track-off",
         "chat-tools", "chat", "channels", "log", "side-auras", "side-meter", "side-loot", "side-zone", "waypoint", "mouse", "edit",
         "mouse-left", "mouse-right", "mouse-middle",
-        "role-tank", "role-healer", "role-damage", "sound", "sound-off"]
+        "role-tank", "role-healer", "role-damage", "sound", "sound-off", "radial"]
 
 
 def part(name, inner, size=32):

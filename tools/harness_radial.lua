@@ -805,3 +805,34 @@ for _, r in ipairs(rowCell.all_ or {}) do
 end
 table.sort(arts)
 print("radial art editor icon", "art=" .. table.concat(arts, ","), "wells=" .. wells)
+
+-- ---- round 4: Medalluin's Options > Extensions > Radial menu (ext), lit by /mdlradial's being there
+local mns = H.medalluin
+local extPage
+for _, page in ipairs(mns.OptionPages()) do if page.id == "radial" then extPage = page end end
+local extButtons = {}
+for _, g in ipairs(extPage.groups) do
+    for _, item in ipairs(g.items) do if item.kind == "button" then extButtons[#extButtons + 1] = item end end
+end
+local extCategory
+for _, c in ipairs(mns.OptionCategories()) do
+    for _, item in ipairs(c.items) do if item == "radial" then extCategory = c.name end end
+end
+print("radial ext page", "name=" .. extPage.name, "enabled=" .. tostring(extPage.enabled()), "category=" .. tostring(extCategory),
+    "buttons=" .. #extButtons .. ":" .. (extButtons[1] and extButtons[1].label or "") .. "," .. (extButtons[2] and extButtons[2].label or ""))
+local closed = 0
+local realClose = mns.CloseOptions
+mns.CloseOptions = function() closed = closed + 1 end
+win:Hide()
+extButtons[1].click()
+print("radial ext editor", "closed=" .. closed, "shown=" .. tostring(win:IsShown()), "tab=" .. shownTabs())
+win:Hide()
+extButtons[2].click()
+print("radial ext options", "closed=" .. closed, "shown=" .. tostring(win:IsShown()), "tab=" .. shownTabs())
+win:Hide()
+local slashFn = SlashCmdList.MDLUI_RADIAL
+SlashCmdList.MDLUI_RADIAL = nil
+extButtons[1].click()
+print("radial ext without the addon", "enabled=" .. tostring(extPage.enabled()), "closed=" .. closed, "shown=" .. tostring(win:IsShown()))
+SlashCmdList.MDLUI_RADIAL = slashFn
+mns.CloseOptions = realClose

@@ -21,13 +21,9 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
 
 ## What changed from upstream
 
-- Stands alone: no FlareUI and no Ace libraries. Categorized under **Medalluin** in the AddOn list, and uses Medalluin's font when Medalluin is installed.
+- Stands alone: no FlareUI and no Ace libraries. Categorized under **Medalluin** in the AddOn list, uses Medalluin's font when Medalluin is installed, and opens from Medalluin's **Radial menu (ext)** settings page (`/mdlui`).
 - Its own names: `/click MdlRadial <radial>` in place of `/click FUIRadial <radial>`.
 - FlareUI's own micro-menu entries (its settings and its threat meter) are gone.
 - If FlareUI's radial menu is on too, a chat line says so once: both would bind keys.
 - The wheel keeps FlareUI's layout in Medalluin's gold and ink: its own rims, backdrop, centre ring, pointer and cancel X.
 - The editor is a window of its own in Medalluin's look. Its controller rows (stick press, gamepad bar slot) and the controller options are left out until universal controller support (2.0).
-
-## Not there yet
-
-A page in Medalluin's options comes in a later version.

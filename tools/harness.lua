@@ -24990,5 +24990,6 @@ if fixesPass then (function()
 end)() end
 
 if radialPass then
-    assert(loadfile("tools/harness_radial.lua"))({ events = events, setCombat = function(on) inCombat = on end })
+    assert(loadfile("tools/harness_radial.lua"))({ events = events, setCombat = function(on) inCombat = on end,
+        medalluin = ns })
 end

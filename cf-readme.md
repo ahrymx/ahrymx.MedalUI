@@ -115,6 +115,7 @@ Companions appear under the **Medalluin** category in the AddOn List, each with 
 | Addon | What it adds | Docs & license |
 |:---|:---|:---|
 | **[`mdlui_Tooltips`](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/README.md)** | An ornamented reskin of every tooltip: items, spells, units, auras, quests, mail and world objects. Forever and Retail. Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard. | [README](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/README.md) · [MIT](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE) |
+| **[`mdlui_RadialMenu`](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md)** | Radial menus: hold a key, sweep the mouse towards a button and let go, in combat too. Spells, items, mounts, macros, markers, emotes and nested radials, built in an editor window. Forever. Based on [FlareUI](https://github.com/malkkav/FlareUI)'s radial menu by Malkkav. | [README](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md) · [MIT](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE) |
 
 ## Recommended addons
 
@@ -149,6 +150,7 @@ These addons are by other authors and pair well with Medalluin. They are not par
 - **[W2UI](https://wowinterface.com/downloads/info27203-W2UI.html)** by aesketch: a design reference for the character window, the corner medallions and the utility bars. Used as a reference only; no code or art is taken from it.
 - **[Baganator](https://www.curseforge.com/wow/addons/baganator)**: inspiration for the bags window.
 - **[PrettyTooltip](https://github.com/FallenShard/PrettyTooltip)** by FallenShard: the base of `mdlui_Tooltips` (MIT).
+- **[FlareUI](https://github.com/malkkav/FlareUI)** by Malkkav: its radial menu is the base of `mdlui_RadialMenu` (MIT).
 - **Marcellus SC** by Brian J. Bonislawsky (Astigmatic): the interface font (SIL OFL 1.1).
 
 ## Work in progress and contributions
@@ -165,4 +167,4 @@ These addons are by other authors and pair well with Medalluin. They are not par
 
 Medalluin is **All Rights Reserved** © 2026 AhryMX. You may install it, play with it, read its code, and change your own copy for personal use. Screenshots, videos, and streams are welcome. You may not reupload, redistribute, fork, retexture, or rebrand it, in whole or in part, without written permission. The only official copies are on [GitHub](https://github.com/ahrymx/ahrymx.medalluin) and [CurseForge](https://www.curseforge.com/wow/addons/medalluin/). See [LICENSE](https://github.com/ahrymx/ahrymx.medalluin/blob/main/LICENSE) for the full terms.
 
-The optional `mdlui_Tooltips` companion addon is based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) © 2026 FallenShard and is included under the [MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE). The Marcellus SC font is © Brian J. Bonislawsky (Astigmatic) and is included under the [SIL Open Font License 1.1](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/Medalluin/media/fonts/OFL.txt). World of Warcraft is a trademark of Blizzard Entertainment, Inc.; Medalluin is not affiliated with or endorsed by Blizzard.
+The optional `mdlui_Tooltips` companion addon is based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) © 2026 FallenShard and is included under the [MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE). The optional `mdlui_RadialMenu` companion addon is based on the radial menu of [FlareUI](https://github.com/malkkav/FlareUI) © 2026 Malkkav and is included under the [MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE). The Marcellus SC font is © Brian J. Bonislawsky (Astigmatic) and is included under the [SIL Open Font License 1.1](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/Medalluin/media/fonts/OFL.txt). World of Warcraft is a trademark of Blizzard Entertainment, Inc.; Medalluin is not affiliated with or endorsed by Blizzard.
