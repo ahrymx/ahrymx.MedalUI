@@ -33,10 +33,15 @@ local GOLD = { .93, .80, .52 }
 local RESET_ICON = "Interface\\Buttons\\UI-RefreshButton"
 local skin = ns.EditorSkin.create()
 local BACKDROP_STYLES = {
-    { text = "Automatic" },
+    { text = "Gilded" },
+    { value = "slate", text = "Slate" },
     { value = "native", text = "Blizzard border" },
     { value = "flat", text = "Flat" },
     { value = "dialogue", text = "DialogueUI" },
+}
+local BAR_STYLES = {
+    { value = "well", text = "Well" },
+    { value = "plain", text = "Plain" },
 }
 local OUTLINES = {
     { value = "NONE", text = "None" },
@@ -1147,13 +1152,32 @@ end, function(percent)
     percent = math.floor(percent / 5 + .5) * 5
     ns.setOption("fontScale", percent ~= 100 and percent / 100 or nil)
 end, 80, 150, "%"), optionSetting("fontScale"))
--- Automatic draws the game's tooltip border, flat beside EllesmereUI, and
--- DialogueUI's art while that addon is installed.
+-- Gilded, the default, is Medalluin's gold frame and ink; Slate its quieter
+-- shading. DialogueUI's art shows only while that addon is installed.
 row("Panel style", dropdown(FIELD_WIDTH, function() return BACKDROP_STYLES end, function()
     return ns.option("backdropStyle")
 end, function(value)
     ns.setOption("backdropStyle", value)
 end), optionSetting("backdropStyle"))
+-- One look for every bar: health, time left, durability, Medalluin's. Each
+-- keeps its own color, which says what the bar is for.
+row("Bar style", dropdown(FIELD_WIDTH, function() return BAR_STYLES end, function()
+    return ns.option("barStyle")
+end, function(value)
+    ns.setOption("barStyle", value ~= "well" and value or nil)
+end), optionSetting("barStyle"))
+row("Bar height", slider(FIELD_WIDTH, function() return ns.option("barHeight") end, function(value)
+    ns.setOption("barHeight", value ~= 8 and value or nil)
+end, 4, 16), optionSetting("barHeight"))
+row("Bar texture", dropdown(FIELD_WIDTH, function()
+    local items = { { text = "Flat" } }
+    for _, name in ipairs(ns.barTextureNames()) do
+        if name ~= "Flat" then items[#items + 1] = { value = name, text = name } end
+    end
+    return items
+end, function() return ns.option("barTexture") end, function(name)
+    ns.setOption("barTexture", name)
+end), optionSetting("barTexture"))
 
 -- Shared by every tooltip type. The default is saved as no setting.
 local function panelSize(key, low, high)

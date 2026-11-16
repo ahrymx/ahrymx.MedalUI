@@ -78,6 +78,11 @@ local BADGE_GAP = 5
 local BADGE_HEIGHT = 16
 local EXTRA_COLOR = colors.extras
 local GOLD_RULE = { .78, .59, .32 }
+-- Medalluin's palette (Medalluin/options/theme.lua): the Gilded look's frame,
+-- wells, and plates.
+local INK = { .043, .039, .035 }
+local GOLD_DARK = { .541, .439, .204 }
+local LINE_STRONG = { .239, .212, .165 }
 local FLAVOR_GOLD = colors.flavor
 local HEADER_ALPHA_TEXTURED, HEADER_ALPHA_PLAIN = .72, .96
 local HALO_SPREAD = 16
@@ -204,16 +209,13 @@ local function titleFont()
     return ellesmereInstalled() and ELLESMERE_BOLD or fontOf(GameTooltipHeaderText)
 end
 
--- "dialogue", "flat", or "native". Unchosen, DialogueUI's art while it is
--- installed and wanted; flat beside EllesmereUI, whose look it matches; else
--- the game's own tooltip border.
+-- "gilded", "slate", "dialogue", "flat", or "native". Unchosen, Gilded:
+-- Medalluin's gold frame and ink. DialogueUI's art only while it is installed.
 local function backdropStyle()
     local chosen = ns.option("backdropStyle")
-    if (chosen == "dialogue" or (chosen == nil and ns.option("dialogueBackdrop"))) and hasDialogueBackdrop() then
-        return "dialogue"
-    end
-    if chosen == "flat" or chosen == "native" then return chosen end
-    return ellesmereInstalled() and "flat" or "native"
+    if chosen == "dialogue" then return hasDialogueBackdrop() and "dialogue" or "gilded" end
+    if chosen == "slate" or chosen == "flat" or chosen == "native" then return chosen end
+    return "gilded"
 end
 
 local function styleOf(key)
@@ -264,6 +266,44 @@ local function makeTexture(parent, layer, path)
     local tex = roundLayout(parent:CreateTexture(nil, layer))
     tex:SetTexture(path or WHITE)
     return tex
+end
+
+-- Four lines around the panel, one pixel thick: a ring `out` pixels outside
+-- its edge (0 on the edge, negative inside it). Placed again on every draw, as
+-- a pixel's size follows the scale.
+local function frameLines(panel, layer, sublevel)
+    local lines = {}
+    for index = 1, 4 do
+        lines[index] = makeTexture(panel, layer)
+        lines[index]:SetDrawLayer(layer, sublevel)
+    end
+    return lines
+end
+
+local function placeLines(panel, lines, out, px)
+    local o = out * px
+    local top, bottom, left, right = lines[1], lines[2], lines[3], lines[4]
+    for _, line in ipairs(lines) do line:ClearAllPoints() end
+    top:SetPoint("TOPLEFT", panel, "TOPLEFT", -o, o)
+    top:SetPoint("TOPRIGHT", panel, "TOPRIGHT", o, o)
+    top:SetHeight(px)
+    bottom:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", -o, -o)
+    bottom:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", o, -o)
+    bottom:SetHeight(px)
+    left:SetPoint("TOPLEFT", panel, "TOPLEFT", -o, o)
+    left:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", -o, -o)
+    left:SetWidth(px)
+    right:SetPoint("TOPRIGHT", panel, "TOPRIGHT", o, o)
+    right:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", o, -o)
+    right:SetWidth(px)
+end
+
+local function colorLines(lines, color, alpha)
+    for _, line in ipairs(lines) do line:SetVertexColor(color[1], color[2], color[3], alpha) end
+end
+
+local function showLines(lines, shown)
+    for _, line in ipairs(lines) do line:SetShown(shown) end
 end
 
 local function createPanel(parent)
@@ -317,6 +357,28 @@ local function createPanel(parent)
     panel.shades[3]:SetWidth(8)
     panel.shades[4]:SetWidth(8)
     panel.header = makeTexture(panel, "BORDER")
+    -- Gilded: a gold line under the header, ink under it; Slate: the tint's wash
+    -- down the panel's top.
+    panel.headerRule = makeTexture(panel, "BORDER")
+    panel.headerRule:SetDrawLayer("BORDER", 3)
+    panel.headerShadow = makeTexture(panel, "BORDER")
+    panel.headerShadow:SetDrawLayer("BORDER", 3)
+    panel.wash = makeTexture(panel, "BACKGROUND")
+    panel.wash:SetDrawLayer("BACKGROUND", -5)
+    -- The footer's sunken band (Gilded) or its rule (Slate), placed by footerBand.
+    panel.footerBand = makeTexture(panel, "BORDER")
+    panel.footerBand:SetDrawLayer("BORDER", 1)
+    panel.footerLine = makeTexture(panel, "BORDER")
+    panel.footerLine:SetDrawLayer("BORDER", 3)
+    panel.footerShadow = makeTexture(panel, "BORDER")
+    panel.footerShadow:SetDrawLayer("BORDER", 2)
+    -- Gilded's frame: ink, then a tinted line, outside the gold edge; a
+    -- highlight and ink just inside it. Slate keeps only the highlight.
+    panel.outerInk = frameLines(panel, "BORDER", 4)
+    panel.outerTint = frameLines(panel, "BORDER", 4)
+    panel.innerTop = makeTexture(panel, "BORDER")
+    panel.innerTop:SetDrawLayer("BORDER", 4)
+    panel.innerLines = frameLines(panel, "BORDER", 4)
     panel.icon = makeTexture(panel, "OVERLAY")
     panel.icon:SetSize(ICON_SIZE, ICON_SIZE)
     panel.iconBorder = makeTexture(panel, "OVERLAY")
@@ -324,6 +386,13 @@ local function createPanel(parent)
     panel.iconBorder:SetPoint("CENTER", panel.icon, "CENTER")
     panel.iconBorder:SetVertexColor(.55, .45, .37, .9)
     panel.iconBorder:SetDrawLayer("OVERLAY", 1)
+    -- The icon's frame: its accent line, then ink, then a dark gold ring.
+    panel.iconGap = makeTexture(panel, "OVERLAY")
+    panel.iconGap:SetDrawLayer("OVERLAY", -1)
+    panel.iconGap:SetPoint("CENTER", panel.icon, "CENTER")
+    panel.iconRing = makeTexture(panel, "OVERLAY")
+    panel.iconRing:SetDrawLayer("OVERLAY", -2)
+    panel.iconRing:SetPoint("CENTER", panel.icon, "CENTER")
     panel.icon:SetDrawLayer("OVERLAY", 2)
     panel.badge = makeTexture(panel, "OVERLAY")
     panel.badge:SetDrawLayer("OVERLAY", 1)
@@ -429,12 +498,19 @@ local function applyBackdrop(panel, chrome)
     local style = parchment and "parchment" or backdropStyle()
     local textured = style == "dialogue" and panel.glow ~= nil
     local border = style == "native" and nativeBorder(panel) or nil
-    local mode = parchment and "parchment" or textured and "dialogue" or border and "native" or "flat"
+    local mode = parchment and "parchment" or textured and "dialogue" or border and "native"
+        or (style == "gilded" or style == "slate") and style or "flat"
     if panel.backdropMode == mode then return end
     panel.backdropMode = mode
     panel.textured = textured
     panel.parchment = parchment and true or false
     panel.halo:SetShown(not parchment)
+    -- Slate's halo is a shadow cast down; the others' a glow around.
+    panel.halo:ClearAllPoints()
+    local drop = mode == "slate" and 4 or 0
+    panel.halo:SetPoint("TOPLEFT", panel, "TOPLEFT", -HALO_SPREAD, HALO_SPREAD - drop)
+    panel.halo:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", HALO_SPREAD, -HALO_SPREAD - drop)
+    panel.halo:SetBlendMode(mode == "slate" and "BLEND" or "ADD")
     if panel.nativeBorder then panel.nativeBorder:SetShown(mode == "native") end
     -- Inside the game's border, the backdrop takes the place of the game's own
     -- background, so none of it shows past the border's rounded corners.
@@ -458,21 +534,73 @@ local function applyBackdrop(panel, chrome)
         if panel.glow then panel.glow:Hide() end
     end
     local band = panel.header
-    band:SetShown(not parchment)
+    band:SetShown(not parchment and mode ~= "slate")
     if textured then
         band:SetTexture(ART .. "band")
         band:SetTextureSliceMargins(BAND_MARGIN, BAND_MARGIN, BAND_MARGIN, BAND_MARGIN)
     else
         if band.SetTextureSliceMargins then band:SetTextureSliceMargins(0, 0, 0, 0) end
-        band:SetTexture(WHITE)
+        band:SetTexture(mode == "gilded" and ART .. "header-glow" or WHITE)
     end
-    for _, region in ipairs(panel.shades) do region:SetShown(mode == "flat") end
-    for _, region in ipairs(panel.edges) do region:SetShown(mode == "flat") end
+    local gilded, slate = mode == "gilded", mode == "slate"
+    local framed = mode == "flat" or gilded or slate
+    for _, region in ipairs(panel.shades) do region:SetShown(mode == "flat" or gilded) end
+    for _, region in ipairs(panel.edges) do region:SetShown(framed) end
+    panel.headerRule:SetShown(gilded)
+    panel.headerShadow:SetShown(gilded)
+    panel.wash:SetShown(slate)
+    showLines(panel.outerInk, gilded)
+    showLines(panel.outerTint, gilded)
+    showLines(panel.innerLines, gilded)
+    panel.innerTop:SetShown(gilded or slate)
     panel.inset = (textured or parchment) and 6 or border and NATIVE_INSET or 1
     local inset = panel.inset
     panel.header:ClearAllPoints()
     panel.header:SetPoint("TOPLEFT", panel, "TOPLEFT", inset, -inset)
     panel.header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -inset, -inset)
+    panel.headerRule:ClearAllPoints()
+    panel.headerRule:SetPoint("TOPLEFT", panel.header, "BOTTOMLEFT")
+    panel.headerRule:SetPoint("TOPRIGHT", panel.header, "BOTTOMRIGHT")
+    panel.headerShadow:ClearAllPoints()
+    panel.headerShadow:SetPoint("TOPLEFT", panel.headerRule, "BOTTOMLEFT")
+    panel.headerShadow:SetPoint("TOPRIGHT", panel.headerRule, "BOTTOMRIGHT")
+    panel.wash:ClearAllPoints()
+    panel.wash:SetPoint("TOPLEFT", panel, "TOPLEFT", inset, -inset)
+    panel.wash:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -inset, -inset)
+    panel.wash:SetHeight(64)
+end
+
+-- The footer's band from top (Gilded: sunken, a gold line over it) or its rule
+-- (Slate), down to the panel's bottom edge. Whether one shows: the panel's end
+-- below the footer is then the band's own padding.
+local function footerBand(panel, top)
+    local mode = panel.backdropMode
+    local band = top and (mode == "gilded" or mode == "slate")
+    panel.footerBand:SetShown(band and mode == "gilded")
+    panel.footerShadow:SetShown(band and mode == "gilded")
+    panel.footerLine:SetShown(band)
+    if not band then return false end
+    local inset, px = panel.inset, pixel(panel)
+    local y = snap(panel, top)
+    panel.footerBand:ClearAllPoints()
+    panel.footerBand:SetPoint("TOPLEFT", panel, "TOPLEFT", inset, -y)
+    panel.footerBand:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -inset, inset)
+    panel.footerBand:SetGradient("VERTICAL", CreateColor(.059, .051, .043, .9), CreateColor(.047, .043, .035, .9))
+    panel.footerLine:ClearAllPoints()
+    panel.footerLine:SetPoint("TOPLEFT", panel, "TOPLEFT", inset, -y)
+    panel.footerLine:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -inset, -y)
+    panel.footerLine:SetHeight(px)
+    if mode == "gilded" then
+        panel.footerLine:SetVertexColor(GOLD_DARK[1], GOLD_DARK[2], GOLD_DARK[3], .45)
+    else
+        panel.footerLine:SetVertexColor(1, 1, 1, .06)
+    end
+    panel.footerShadow:ClearAllPoints()
+    panel.footerShadow:SetPoint("TOPLEFT", panel.footerLine, "BOTTOMLEFT")
+    panel.footerShadow:SetPoint("TOPRIGHT", panel.footerLine, "BOTTOMRIGHT")
+    panel.footerShadow:SetHeight(4)
+    panel.footerShadow:SetGradient("VERTICAL", CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, .55))
+    return true
 end
 
 local function clearPool(panel)
@@ -657,9 +785,43 @@ local function keyCellAt(panel, cell, x, y, modWidth, width, style, color)
     return height
 end
 
+-- A list of stats as two columns: each value, in its own color, set right
+-- in a column as wide as the widest, then its name; a stat marker before it
+-- stays at the left. Marks rows whose text starts with its value: row.statColumn =
+-- { marker, value, rest, where the value's column starts, its width }. A list
+-- with any row that does not, as in Korean with the name first, is left as
+-- the game prints it.
+local VALUE_FIRST = "^(|T.-|t%s*)(|c%x%x%x%x%x%x%x%x[%+%-]?[%d%.,]+%%?|r)(%s.+)$"
+local VALUE_ONLY = "^()(|c%x%x%x%x%x%x%x%x[%+%-]?[%d%.,]+%%?|r)(%s.+)$"
+
+local function valueGrid(panel, rows, style)
+    style = asStyle(style)
+    local markerWidth, widest, parts = 0, 0, {}
+    for index, row in ipairs(rows) do
+        local left = row.left or ""
+        local marker, value, rest = left:match(VALUE_FIRST)
+        if not marker then
+            _, value, rest = left:match(VALUE_ONLY)
+            marker = ""
+        end
+        if not value or (row.right and row.right ~= "") then
+            for _, other in ipairs(rows) do other.statColumn = nil end
+            return
+        end
+        parts[index] = { marker, value, rest }
+        if marker ~= "" then markerWidth = math.max(markerWidth, measureStyled(panel, marker, style)) end
+        widest = math.max(widest, measureStyled(panel, value, style))
+    end
+    for index, row in ipairs(rows) do
+        local part = parts[index]
+        row.statColumn = { part[1], part[2], part[3], math.ceil(markerWidth), math.ceil(widest) }
+    end
+end
+
 local function rowWidth(panel, row, style)
     if row.blank then return 0 end
     style = asStyle(style)
+    if row.statColumn then return row.statColumn[4] + row.statColumn[5] + measureStyled(panel, row.statColumn[3], style) + 2 end
     if row.grid then
         local _, rest = keySplit(row.right)
         return row.grid[2] + row.grid[3] + measureStyled(panel, rest, style) + 2
@@ -690,6 +852,16 @@ local function drawRow(panel, row, y, style, color, indent, gap, rightIndent)
     -- A blank row, as another addon's between its sections: one empty line.
     if row.blank then return y + lineHeight + gap end
     local w = panel.width - 2 * pad() - indent - rightIndent
+    if row.statColumn then
+        local marker, value, rest, markerWidth, column = unpack(row.statColumn)
+        local x = pad() + indent
+        local height = 0
+        if marker ~= "" then height = styledAt(panel, marker, x, y, markerWidth + 1, style, leftColor) end
+        height = math.max(height, styledAt(panel, value, x + markerWidth, y, column + 1, style, leftColor, "RIGHT"))
+        local after = x + markerWidth + column
+        height = math.max(height, styledAt(panel, rest, after, y, math.max(1, x + w - after), style, leftColor))
+        return y + height + gap
+    end
     if row.grid then
         -- a key row: both cells from the left, the second at the grid's column
         local x, grid = pad() + indent, row.grid
@@ -726,6 +898,74 @@ local function acquireTexture(panel, path, sublevel)
     return tex
 end
 
+local function lighter(c, k) return c + (1 - c) * k end
+
+-- The bars' shared options: the style, the height (whole, well included),
+-- and the inset of the fill from the bar's edge.
+local TRACK = { .16, .14, .13 }
+local function barStyle()
+    return ns.option("barStyle") == "plain" and "plain" or "well"
+end
+local function barHeight()
+    return math.max(4, math.min(16, tonumber(ns.option("barHeight")) or 8))
+end
+local function barInset(panel)
+    return barStyle() == "well" and pixel(panel) or 0
+end
+
+-- A bar, as the options say: in a sunken well (a strong line around ink, the
+-- fill lit from above with a bright tip), or plain (a flat track, a flat fill).
+-- Its height defaults to the shared one. Returns its setter: set(ratio, color),
+-- ratio 0 to 1.
+local function drawBar(panel, x, y, width, height)
+    local px, plain = pixel(panel), barStyle() == "plain"
+    width, height = snap(panel, width), snap(panel, height or barHeight())
+    local inset = plain and 0 or px
+    local well = acquireTexture(panel, nil, 0)
+    well:SetPoint("TOPLEFT", panel, "TOPLEFT", snap(panel, x), -snap(panel, y))
+    well:SetSize(width, height)
+    if plain then
+        well:SetVertexColor(TRACK[1], TRACK[2], TRACK[3], 1)
+    else
+        well:SetVertexColor(LINE_STRONG[1], LINE_STRONG[2], LINE_STRONG[3], 1)
+    end
+    local inside = acquireTexture(panel, nil, 1)
+    inside:SetPoint("TOPLEFT", well, "TOPLEFT", inset, -inset)
+    inside:SetPoint("BOTTOMRIGHT", well, "BOTTOMRIGHT", -inset, inset)
+    inside:SetVertexColor(INK[1], INK[2], INK[3], 1)
+    inside:SetShown(not plain)
+    local fill = acquireTexture(panel, nil, 2)
+    fill:SetTexture(ns.barTexturePath(ns.option("barTexture")) or WHITE)
+    fill:SetPoint("TOPLEFT", inside, "TOPLEFT")
+    fill:SetPoint("BOTTOMLEFT", inside, "BOTTOMLEFT")
+    local gloss = acquireTexture(panel, nil, 3)
+    gloss:SetPoint("TOPLEFT", fill, "TOPLEFT")
+    gloss:SetPoint("TOPRIGHT", fill, "TOPRIGHT")
+    gloss:SetHeight(px)
+    gloss:SetVertexColor(1, 1, 1, .25)
+    local tip = acquireTexture(panel, nil, 3)
+    tip:SetPoint("TOPRIGHT", fill, "TOPRIGHT")
+    tip:SetPoint("BOTTOMRIGHT", fill, "BOTTOMRIGHT")
+    tip:SetWidth(px)
+    tip:SetVertexColor(1, 1, 1, .35)
+    local inner = width - 2 * inset
+    return function(ratio, color)
+        ratio = math.max(0, math.min(1, ratio or 0))
+        local shown = ratio > 0
+        fill:SetWidth(math.max(px, inner * ratio))
+        local r, g, b = color[1], color[2], color[3]
+        if plain then
+            fill:SetVertexColor(r, g, b, 1)
+        else
+            fill:SetGradient("VERTICAL", CreateColor(r * .7, g * .7, b * .7, 1),
+                CreateColor(lighter(r, .25), lighter(g, .25), lighter(b, .25), 1))
+        end
+        fill:SetShown(shown)
+        gloss:SetShown(shown and not plain)
+        tip:SetShown(shown and not plain)
+    end
+end
+
 -- before is the gap above a separator; a hidden one takes its gap with it.
 local function rule(panel, y, color, before)
     if not ns.option("separators") then return y end
@@ -742,20 +982,23 @@ local function divider(panel, y, color, before)
     if not ns.option("separators") then return y end
     if panel.parchment then color = inkColor(color) end
     y = y + (before or 0)
-    local px, side = pixel(panel), snap(panel, (panel.width - 2 * pad() - 18) / 2)
+    -- One gold line, fading in over its first fifth and out over its last.
+    local px, inner, top = pixel(panel), panel.width - 2 * pad(), -snap(panel, y + 5)
+    local ramp = snap(panel, inner * .18)
+    local r, g, b = color[1], color[2], color[3]
     local left = acquireTexture(panel)
-    left:SetPoint("TOPLEFT", panel, "TOPLEFT", pad(), -snap(panel, y + 5))
-    left:SetSize(side, px)
-    left:SetVertexColor(color[1] * .52, color[2] * .52, color[3] * .52, .8)
+    left:SetPoint("TOPLEFT", panel, "TOPLEFT", pad(), top)
+    left:SetSize(ramp, px)
+    left:SetGradient("HORIZONTAL", CreateColor(r, g, b, 0), CreateColor(r, g, b, .8))
     local right = acquireTexture(panel)
-    right:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -pad(), -snap(panel, y + 5))
-    right:SetSize(side, px)
-    right:SetVertexColor(color[1] * .52, color[2] * .52, color[3] * .52, .8)
-    local center = acquireTexture(panel, ART .. "stat-marker")
-    center:SetPoint("TOP", panel, "TOP", 0, -y)
-    center:SetSize(10, 10)
-    if panel.parchment then center:SetVertexColor(.35, .21, .10, .9)
-    else center:SetVertexColor(.9, .76, .48, .9) end
+    right:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -pad(), top)
+    right:SetSize(ramp, px)
+    right:SetGradient("HORIZONTAL", CreateColor(r, g, b, .8), CreateColor(r, g, b, 0))
+    local middle = acquireTexture(panel)
+    middle:SetPoint("TOPLEFT", left, "TOPRIGHT")
+    middle:SetPoint("TOPRIGHT", right, "TOPLEFT")
+    middle:SetHeight(px)
+    middle:SetVertexColor(r, g, b, .8)
     return y + 18
 end
 
@@ -855,7 +1098,10 @@ end
 local function drawChrome(panel, tooltip, style)
     applyBackdrop(panel, style)
     local px = pixel(panel)
-    panel.edges[1]:SetHeight(2 * px)
+    local mode = panel.backdropMode
+    local gilded, slate = mode == "gilded", mode == "slate"
+    footerBand(panel, nil)
+    panel.edges[1]:SetHeight((gilded or slate) and px or 2 * px)
     panel.edges[2]:SetHeight(px)
     panel.edges[3]:SetWidth(px)
     panel.edges[4]:SetWidth(px)
@@ -880,6 +1126,18 @@ local function drawChrome(panel, tooltip, style)
             1 - .45 * strength + .45 * strength * tint[3], body)
         panel.glow:SetVertexColor(tint[1], tint[2], tint[3], .35 * strength * body)
         panel.glow:SetShown(strength > 0)
+    elseif gilded then
+        -- Warm ink, lighter under the header; the tint is the header's glow.
+        panel.background:SetGradient("VERTICAL", CreateColor(.059, .055, .047, body),
+            CreateColor(.110, .098, .082, body))
+    elseif slate then
+        -- Flat ink; the tint washes down from the top.
+        local base = { .082, .078, .071 }
+        panel.background:SetGradient("VERTICAL", CreateColor(base[1], base[2], base[3], body),
+            CreateColor(base[1], base[2], base[3], body))
+        local function toward(index) return base[index] + (tint[index] * .16 - base[index]) * strength end
+        panel.wash:SetGradient("VERTICAL", CreateColor(base[1], base[2], base[3], body),
+            CreateColor(toward(1), toward(2), toward(3), body))
     else
         panel.background:SetGradient("VERTICAL",
             CreateColor(.016 + tint[1] * .02 * strength, .012 + tint[2] * .02 * strength,
@@ -888,7 +1146,15 @@ local function drawChrome(panel, tooltip, style)
                 .050 + tint[3] * .06 * strength, body))
     end
     local gradient = style.gradient
-    if strength > 0 and gradient then
+    if slate then
+        panel.halo:SetVertexColor(0, 0, 0, .5 * glow)
+    elseif gilded and strength > 0 and gradient then
+        local left, right, alpha = gradient[1], gradient[2], .3 * strength * glow
+        panel.halo:SetGradient("HORIZONTAL", CreateColor(left[1], left[2], left[3], alpha),
+            CreateColor(right[1], right[2], right[3], alpha))
+    elseif gilded and strength > 0 then
+        panel.halo:SetVertexColor(tint[1], tint[2], tint[3], .3 * strength * glow)
+    elseif strength > 0 and gradient then
         local left, right, alpha = gradient[1], gradient[2], .55 * strength * glow
         panel.halo:SetGradient("HORIZONTAL", CreateColor(left[1], left[2], left[3], alpha),
             CreateColor(right[1], right[2], right[3], alpha))
@@ -900,7 +1166,16 @@ local function drawChrome(panel, tooltip, style)
     local headerAlpha = panel.textured and HEADER_ALPHA_TEXTURED or HEADER_ALPHA_PLAIN
     local bottomAlpha = ns.headerAlpha(style.tooltipType, "Bottom") or headerAlpha
     local topAlpha = ns.headerAlpha(style.tooltipType, "Top") or headerAlpha
-    if gradient then
+    if gilded then
+        -- The tint's glow from the top left, as strong as the header's top is set.
+        local glowColor = gradient and gradient[1] or tint
+        panel.header:SetVertexColor(glowColor[1], glowColor[2], glowColor[3],
+            .34 * strength * topAlpha / HEADER_ALPHA_PLAIN)
+        panel.headerRule:SetVertexColor(GOLD_DARK[1], GOLD_DARK[2], GOLD_DARK[3], .55)
+        panel.headerRule:SetHeight(px)
+        panel.headerShadow:SetVertexColor(0, 0, 0, .6)
+        panel.headerShadow:SetHeight(px)
+    elseif gradient then
         local left, right, alpha = gradient[1], gradient[2], (bottomAlpha + topAlpha) / 2
         panel.header:SetGradient("HORIZONTAL", CreateColor(left[1] * .25, left[2] * .25, left[3] * .25, alpha),
             CreateColor(right[1] * .25, right[2] * .25, right[3] * .25, alpha))
@@ -909,8 +1184,28 @@ local function drawChrome(panel, tooltip, style)
             CreateColor(color[1] * .12, color[2] * .12, color[3] * .12, bottomAlpha),
             CreateColor(color[1] * .38, color[2] * .38, color[3] * .38, topAlpha))
     end
-    for index, edge in ipairs(panel.edges) do
-        local edgeStrength = index == 1 and .8 or .36
+    if gilded then
+        -- Gold on the edge; ink, then the tint, outside it; a highlight and ink inside.
+        colorLines(panel.edges, GOLD_DARK, 1)
+        placeLines(panel, panel.outerInk, 1, px)
+        colorLines(panel.outerInk, INK, 1)
+        placeLines(panel, panel.outerTint, 2, px)
+        local ring = strength > 0 and tint or GOLD_DARK
+        colorLines(panel.outerTint, ring, strength > 0 and .28 * strength or .2)
+        placeLines(panel, panel.innerLines, -1, px)
+        colorLines(panel.innerLines, INK, .6)
+    end
+    if gilded or slate then
+        panel.innerTop:ClearAllPoints()
+        panel.innerTop:SetPoint("TOPLEFT", panel, "TOPLEFT", px, -px)
+        panel.innerTop:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -px, -px)
+        panel.innerTop:SetHeight(px)
+        panel.innerTop:SetVertexColor(gilded and .95 or 1, gilded and .92 or 1, gilded and .82 or 1,
+            gilded and .10 or .05)
+        panel.innerTop:SetDrawLayer("BORDER", 5)
+    end
+    for index, edge in ipairs(gilded and {} or panel.edges) do
+        local edgeStrength = slate and .9 or index == 1 and .8 or .36
         local edgeColor = gradient and (index == 3 and gradient[1] or index == 4 and gradient[2]) or color
         if gradient and index <= 2 then
             local left, right = gradient[1], gradient[2]
@@ -919,7 +1214,7 @@ local function drawChrome(panel, tooltip, style)
                 CreateColor(right[1] * edgeStrength, right[2] * edgeStrength, right[3] * edgeStrength, .95))
         else
             edge:SetVertexColor(edgeColor[1] * edgeStrength, edgeColor[2] * edgeStrength,
-                edgeColor[3] * edgeStrength, .95)
+                edgeColor[3] * edgeStrength, slate and .45 or .95)
         end
     end
     if panel.backdropMode == "native" then
@@ -951,6 +1246,10 @@ local function drawChrome(panel, tooltip, style)
         panel.icon:SetPoint("TOPLEFT", panel, "TOPLEFT", pad(), -titleTop())
     end
     panel.iconBorder:SetSize(iconSize + 2 * px, iconSize + 2 * px)
+    panel.iconGap:SetSize(iconSize + 4 * px, iconSize + 4 * px)
+    panel.iconGap:SetVertexColor(INK[1], INK[2], INK[3], 1)
+    panel.iconRing:SetSize(iconSize + 6 * px, iconSize + 6 * px)
+    panel.iconRing:SetVertexColor(GOLD_DARK[1], GOLD_DARK[2], GOLD_DARK[3], 1)
     -- Icons carry their own dark frame in the outer texels; cropping it lets
     -- the art meet the panel's colored border directly.
     panel.icon:SetTexCoord(.08, .92, .08, .92)
@@ -962,6 +1261,8 @@ local function drawChrome(panel, tooltip, style)
         panel.icon:Hide()
         panel.iconBorder:Hide()
     end
+    panel.iconGap:SetShown(style.icon ~= nil)
+    panel.iconRing:SetShown(style.icon ~= nil)
     local headerMin = style.icon and titleTop() + iconSize + 12 or 0
     if style.badge then
         local badge = panel.badge
@@ -975,8 +1276,9 @@ local function drawChrome(panel, tooltip, style)
         panel.badgeText:SetText(style.badge)
         local height = math.max(BADGE_HEIGHT, text.size + 6)
         badge:SetSize(snap(panel, math.max(iconSize + 2 * px, panel.badgeText:GetStringWidth() + 10)), snap(panel, height))
-        badge:SetVertexColor(plate[1] * .8, plate[2] * .8, plate[3] * .8, .9)
-        panel.badgeFill:SetVertexColor(plate[1] * .14, plate[2] * .14, plate[3] * .14, 1)
+        -- A dark gold plate, lit from above; the number keeps the plate's color.
+        badge:SetVertexColor(GOLD_DARK[1], GOLD_DARK[2], GOLD_DARK[3], 1)
+        panel.badgeFill:SetGradient("VERTICAL", CreateColor(.071, .063, .051, 1), CreateColor(.145, .129, .106, 1))
         badge:Show()
         panel.badgeFill:Show()
         panel.badgeText:Show()
@@ -1013,8 +1315,9 @@ local function pinPanel(panel)
     return true
 end
 
-local function finishPanel(panel, tooltip, y)
-    panel:SetHeight(snap(panel, y + pad() - 2))
+-- bottom: the room under the last row; the padding less 2 unless given.
+local function finishPanel(panel, tooltip, y, bottom)
+    panel:SetHeight(snap(panel, y + (bottom or pad() - 2)))
     alignPanel(panel, tooltip)
     panel:Show()
 end
@@ -1096,6 +1399,14 @@ ns.ui = {
     acquireTexture = acquireTexture,
     rule = rule,
     divider = divider,
+    drawBar = drawBar,
+    barHeight = barHeight,
+    barInset = barInset,
+    footerBand = footerBand,
+    valueGrid = valueGrid,
+    INK = INK,
+    GOLD_DARK = GOLD_DARK,
+    LINE_STRONG = LINE_STRONG,
     drawChrome = drawChrome,
     clampInsets = clampInsets,
     finishPanel = finishPanel,

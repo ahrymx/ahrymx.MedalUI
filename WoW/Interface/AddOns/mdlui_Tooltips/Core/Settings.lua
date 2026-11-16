@@ -58,13 +58,18 @@ local DEFAULTS = {
     -- "SHIFT" shows disenchant results, the spell power rows, gathering
     -- contents, and IDs only while it is held; "ALWAYS" shows them always.
     detailsKey = "SHIFT",
-    -- Only takes effect while DialogueUI is installed.
-    dialogueBackdrop = true,
     -- DialogueUI's brown paper for quests and quest items, when installed.
     questParchment = false,
-    -- nil chooses: DialogueUI's art when installed, flat with EllesmereUI, else
-    -- the game's own tooltip border. "native", "flat", or "dialogue" to pick one.
+    -- nil is Gilded, Medalluin's gold frame and ink. "slate" (its quieter
+    -- shading: a wash from the top, a soft shadow), "native", "flat", or
+    -- "dialogue" (DialogueUI's art, while it is installed) to pick another.
     backdropStyle = nil,
+    -- Every bar (health, time left, durability, Medalluin's): "well", sunken
+    -- with a lit fill, or "plain", a flat track; its height in pixels; and the
+    -- fill's texture by name, nil for flat (the game's health bar keeps its own).
+    barStyle = "well",
+    barHeight = 8,
+    barTexture = nil,
     -- The editor's frame treatment, independent of the tooltips it previews.
     editorStyle = "native",
     -- "ALT", "CTRL", or "NONE". Shift is the game's comparison key.
@@ -148,7 +153,7 @@ ns.ELEMENTS = {
         note = "Half the quality color, red for a type you cannot use." },
     { key = "header", label = "Binding and level", size = 12, color = { .78, .72, .63 },
         note = "The required level is red while you are below it." },
-    { key = "dps", label = "Damage per second", size = 18, color = { .90, .93, .95 } },
+    { key = "dps", label = "Damage per second", size = 20, title = true, caps = false, color = { .90, .93, .95 } },
     { key = "damage", label = "Damage and speed", size = 12, color = { .62, .65, .70 } },
     { key = "armor", label = "Armor", size = 16, color = { .90, .93, .95 } },
     { key = "stats", label = "Stats", size = 13, color = { .90, .85, .74 },
@@ -184,7 +189,7 @@ ns.ELEMENTS = {
     { key = "spellValues", label = "Cost, cast, cooldown, range", size = 13,
         color = { .96, .92, .84 }, tooltipType = "spell",
         note = "The cost takes its resource color unless set." },
-    { key = "spellCaptions", label = "Strip captions", size = 9, color = colors.caption,
+    { key = "spellCaptions", label = "Strip captions", size = 9, title = true, color = colors.caption,
         tooltipType = "spell" },
     { key = "spellDetails", label = "Requirements and details", size = 11,
         color = colors.detail, tooltipType = "spell",
@@ -316,6 +321,34 @@ local function sharedMedia()
     return LibStub and LibStub:GetLibrary("LibSharedMedia-3.0", true)
 end
 
+-- Bar textures: LibSharedMedia's status bars when it is loaded, else these.
+local GAME_BARS = {
+    { "Flat", "Interface\\Buttons\\WHITE8X8" },
+    { "Blizzard", "Interface\\TargetingFrame\\UI-StatusBar" },
+    { "Raid", "Interface\\RaidFrame\\Raid-Bar-Hp-Fill" },
+}
+
+function ns.barTextureNames()
+    local names = {}
+    local media = sharedMedia()
+    if media then
+        for _, name in ipairs(media:List("statusbar")) do names[#names + 1] = name end
+    else
+        for _, bar in ipairs(GAME_BARS) do names[#names + 1] = bar[1] end
+    end
+    return names
+end
+
+-- The chosen bar texture's path, or nil when none is chosen (or it is gone).
+function ns.barTexturePath(name)
+    if type(name) ~= "string" then return end
+    local media = sharedMedia()
+    if media and media:IsValid("statusbar", name) then return media:Fetch("statusbar", name, true) end
+    for _, bar in ipairs(GAME_BARS) do
+        if bar[1] == name then return bar[2] end
+    end
+end
+
 function ns.fontNames()
     local names = {}
     local media = sharedMedia()
@@ -412,7 +445,9 @@ function ns.style(key)
     if type(color) ~= "table" then color = nil end
     -- Names are in capitals unless turned off; other parts only when turned on.
     local caps = ns.elementSetting(key, "caps")
-    if caps == nil then caps = element.caps or element.title == true end
+    if caps == nil then
+        if element.caps ~= nil then caps = element.caps else caps = element.title == true end
+    end
     return {
         key = key,
         title = element.title,

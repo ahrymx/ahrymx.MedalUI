@@ -498,9 +498,28 @@ end
 local function drawStrip(panel, model, y, color, styles)
     local values, captions = styles.spellValues, styles.spellCaptions
     local cells = stripCells(model)
-    local cellWidth = (panel.width - 2 * pad()) / #cells
+    local inner = panel.width - 2 * pad()
+    local cellWidth = inner / #cells
     local captionOffset = math.max(CAPTION_OFFSET, values.size + 4)
     local height = math.max(STRIP_HEIGHT, captionOffset + captions.size + 8)
+    -- The cells sit in a sunken well: a strong edge around ink, shaded under its top.
+    local px, wellHeight = ui.pixel(panel), ui.snap(panel, height - 2)
+    local well = ui.acquireTexture(panel, nil, 0)
+    well:SetPoint("TOPLEFT", panel, "TOPLEFT", ui.snap(panel, pad()), -ui.snap(panel, y))
+    well:SetSize(ui.snap(panel, inner), wellHeight)
+    well:SetVertexColor(ui.LINE_STRONG[1], ui.LINE_STRONG[2], ui.LINE_STRONG[3], 1)
+    local floor = ui.acquireTexture(panel, nil, 0)
+    floor:SetPoint("TOPLEFT", well, "TOPLEFT", px, -px)
+    floor:SetPoint("BOTTOMRIGHT", well, "BOTTOMRIGHT", -px, px)
+    floor:SetVertexColor(.051, .047, .039, 1)
+    local shadow = ui.acquireTexture(panel, nil, 0)
+    shadow:SetPoint("TOPLEFT", floor, "TOPLEFT")
+    shadow:SetPoint("TOPRIGHT", floor, "TOPRIGHT")
+    shadow:SetHeight(3)
+    shadow:SetGradient("VERTICAL", CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, .7))
+    for _, region in ipairs({ floor, shadow }) do region:SetDrawLayer("OVERLAY", -1) end
+    well:SetDrawLayer("OVERLAY", -2)
+    y = y + 4
     for index, cell in ipairs(cells) do
         local x = pad() + (index - 1) * cellWidth
         local valueColor = cell.implied and colors.caption or TITLE_COLOR
@@ -513,14 +532,14 @@ local function drawStrip(panel, model, y, color, styles)
             colors.caption, "CENTER")
         if index > 1 then
             local separator = ui.acquireTexture(panel)
-            separator:SetPoint("TOPLEFT", panel, "TOPLEFT", ui.snap(panel, x), -ui.snap(panel, y + 2))
-            separator:SetSize(ui.pixel(panel), height - 8)
-            separator:SetVertexColor(color[1] * .6, color[2] * .6, color[3] * .6, .5)
+            separator:SetPoint("TOPLEFT", panel, "TOPLEFT", ui.snap(panel, x), -ui.snap(panel, y - 3))
+            separator:SetSize(px, wellHeight - 2 * px)
+            separator:SetVertexColor(.169, .153, .125, 1)
         end
     end
-    -- What the strip leaves under its captions, for a rule after it.
-    panel.rowTail = height - captionOffset - captions.size
-    return y + height
+    -- The well ends the strip: a rule after it counts in the space under it.
+    panel.rowTail = 2
+    return y - 4 + height
 end
 
 local function hasBody(part, body)

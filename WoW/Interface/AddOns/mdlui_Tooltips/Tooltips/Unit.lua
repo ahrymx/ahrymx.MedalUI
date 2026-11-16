@@ -85,7 +85,7 @@ local DRAGONS = {
 local NO_TINT = { 1, 1, 1 }
 -- The game's health bar at the bottom of the panel: the space above it, and
 -- its height.
-local HEALTH_BEFORE, HEALTH_HEIGHT = 6, 6
+local HEALTH_BEFORE = 6
 local PARTS = { "unitName", "unitInfo", "unitBadges", "unitGuild", "unitSkinning", "unitDetails",
     "unitQuests", "extras" }
 
@@ -461,8 +461,12 @@ local function unitView(panel, model, healthBar)
     -- once it is drawn.
     if healthBar then
         sections[#sections + 1] = { separator = { space = HEALTH_BEFORE }, kind = "custom", draw = function(p, y)
-            p.healthTop = y
-            return y + HEALTH_HEIGHT
+            -- The bar's track or sunken well, its fill left empty: the bar
+            -- is the game's, placed inside it.
+            local height, inset = ui.barHeight(), ui.barInset(p)
+            ui.drawBar(p, ui.pad(), y, p.width - 2 * ui.pad(), height)(0, colors.detail)
+            p.healthTop, p.healthInset, p.healthHeight = y + inset, inset, height - 2 * inset
+            return y + height
         end }
     end
     return {
@@ -488,12 +492,24 @@ local lent
 local hookedHealthBars = setmetatable({}, { __mode = "k" })
 
 -- A bar into the room left for it, as wide as the rows.
+-- The bar texture, when one is chosen, is put on the bar too.
 local function placeBar(bar, panel)
-    local top = -ui.snap(panel, panel.healthTop)
+    local top, inset = -ui.snap(panel, panel.healthTop), panel.healthInset or 0
     bar:ClearAllPoints()
-    bar:SetPoint("TOPLEFT", panel, "TOPLEFT", ui.pad(), top)
-    bar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -ui.pad(), top)
-    bar:SetHeight(HEALTH_HEIGHT)
+    bar:SetPoint("TOPLEFT", panel, "TOPLEFT", ui.snap(panel, ui.pad()) + inset, top)
+    bar:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -ui.snap(panel, ui.pad()) - inset, top)
+    bar:SetHeight(math.max(1, panel.healthHeight or 6))
+    local chosen = ns.barTexturePath(ns.option("barTexture"))
+    if chosen then bar:SetStatusBarTexture(chosen) end
+end
+
+-- The bar's own texture, to put back when it is returned.
+local function barTexture(bar)
+    local ok, texture = pcall(function()
+        local region = bar:GetStatusBarTexture()
+        return region and region:GetTexture()
+    end)
+    if ok and not util.isSecret(texture) then return texture end
 end
 
 local function placeHealthBar()
@@ -517,6 +533,7 @@ local function returnHealthBar(panel)
         bar:ClearAllPoints()
         for _, point in ipairs(lent.points) do bar:SetPoint(unpack(point)) end
         bar:SetHeight(lent.height)
+        if lent.texture then bar:SetStatusBarTexture(lent.texture) end
     end)
     lent.placing = false
     if ok then lent = nil else lent.returnPending = true end
@@ -534,7 +551,8 @@ local function lendHealthBar(panel, bar)
         local points, height = util.framePoints(bar), util.number(bar:GetHeight())
         local parent = bar:GetParent()
         if not points or not height or not util.canModify(parent) then return end
-        lent = { bar = bar, panel = panel, parent = parent, points = points, height = height }
+        lent = { bar = bar, panel = panel, parent = parent, points = points, height = height,
+            texture = barTexture(bar) }
         if not hookedHealthBars[bar] then
             -- The game may place its bar again while the panel has it.
             hooksecurefunc(bar, "SetPoint", function()
@@ -571,13 +589,13 @@ local function showSampleHealth(panel, share)
     local bar = panel.sampleHealth
     if not bar then
         bar = CreateFrame("StatusBar", nil, panel)
-        local texture = GameTooltipStatusBar and GameTooltipStatusBar:GetStatusBarTexture()
-        bar:SetStatusBarTexture(texture and texture:GetTexture() or SAMPLE_BAR)
         bar:SetStatusBarColor(0, 1, 0)
         bar:SetMinMaxValues(0, 1)
         panel.sampleHealth = bar
     end
     bar:SetValue(share)
+    -- as the game's looks, unless a bar texture is chosen (placeBar)
+    bar:SetStatusBarTexture(GameTooltipStatusBar and barTexture(GameTooltipStatusBar) or SAMPLE_BAR)
     placeBar(bar, panel)
     bar:Show()
     panel.release = hideSampleHealth

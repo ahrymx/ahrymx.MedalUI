@@ -13,7 +13,6 @@ local colors = ns.Palette.roles
 local isSecret, safeText, trim, readable = util.isSecret, util.safeText, util.trim, util.readable
 local ICON_SIZE = 38
 local TINT_STRENGTH = .7
-local BAR_HEIGHT = 4
 local TIME_COLOR = { .88, .78, .60 }
 local BUFF_COLOR = { .45, .75, .95 }
 local DEBUFF_COLOR = { .90, .30, .25 }
@@ -166,20 +165,19 @@ end
 local function drawBarFill(bar)
     local left = math.max(0, bar.expires - GetTime())
     local ratio = math.max(0, math.min(1, left / bar.duration))
-    bar.fill:SetWidth(math.max(1, bar.width * ratio))
-    bar.fill:SetShown(ratio > 0)
+    bar.set(ratio, bar.color)
 end
 
 local function timeBar(model, color)
     return function(panel, y)
-        local bar = { width = panel.width - 2 * ui.pad(), duration = model.duration, expires = model.expires }
-        bar.fill = ui.drawTrack(panel, y, BAR_HEIGHT)
-        bar.fill:SetVertexColor(color[1], color[2], color[3], 1)
+        local bar = { duration = model.duration, expires = model.expires, color = color }
+        local height = ui.barHeight()
+        bar.set = ui.drawTrack(panel, y, height)
         drawBarFill(bar)
         ui.setLive(panel, function() drawBarFill(bar) end)
         -- The bar ends its section: a rule after it counts in the space below it.
         panel.rowTail = 8
-        return y + BAR_HEIGHT + 8
+        return y + height + 8
     end
 end
 

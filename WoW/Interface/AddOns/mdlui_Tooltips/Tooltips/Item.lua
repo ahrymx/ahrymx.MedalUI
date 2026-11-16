@@ -937,6 +937,9 @@ local function hasStats(model)
 end
 
 local function statsWidth(panel, model, styles)
+    -- Values in a column of their own, measured as they will be drawn.
+    ui.valueGrid(panel, model.primary, styles.stats)
+    ui.valueGrid(panel, model.secondary, styles.stats)
     local need = math.max(
         listWidth(panel, model.armor, styles.armor, 0),
         listWidth(panel, model.primary, styles.stats, 0),
@@ -1010,16 +1013,10 @@ end
 local function drawDurability(panel, durability, y, style)
     local current, maximum = durability[1], durability[2]
     local color = durabilityColor(current, maximum)
-    local track = acquireTexture(panel, nil, 0)
-    track:SetPoint("TOPLEFT", panel, "TOPLEFT", pad(), -(y + math.floor(style.size / 2)))
-    track:SetSize(DURABILITY_BAR, 4)
-    track:SetVertexColor(.16, .14, .13, 1)
-    local fill = acquireTexture(panel, nil, 1)
-    local width = maximum > 0 and DURABILITY_BAR * current / maximum or 0
-    fill:SetPoint("TOPLEFT", track, "TOPLEFT")
-    fill:SetSize(math.max(width, 1), 4)
-    fill:SetVertexColor(color[1], color[2], color[3], 1)
-    if width < 1 then fill:Hide() end
+    -- Centered on the numbers' line.
+    local height = ui.barHeight()
+    ui.drawBar(panel, pad(), y + math.floor((style.size - height) / 2) + 2, DURABILITY_BAR, height)(
+        maximum > 0 and current / maximum or 0, color)
     local healthy = maximum > 0 and current / maximum >= .5
     return styledAt(panel, current .. " / " .. maximum, pad() + DURABILITY_BAR + 7, y,
         math.max(90, style.size * 8), style, healthy and { .82, .78, .71 } or color)
@@ -1054,6 +1051,8 @@ local function drawStats(panel, model, styles, y)
         }, y, styles.armor, LARGE_COLOR)
     end
     if #model.armor > 0 then y = y + 5 end
+    ui.valueGrid(panel, model.primary, styles.stats)
+    ui.valueGrid(panel, model.secondary, styles.stats)
     y = drawGroup(panel, model.primary, y, styles.stats, { .90, .85, .74 })
     -- The rest of the stats sit under a divider, whatever comes above them:
     -- a wand often has its damage and no primary stats.

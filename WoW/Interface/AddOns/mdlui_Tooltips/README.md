@@ -17,6 +17,14 @@
   - Recognizes **Warbound** / **Warband** and **Accountbound** bindings, passing unrecognized Retail item lines cleanly to the footer/extras block.
   - Guards Classic-only static lookup tables (disenchant tables, spell coefficients, and Classic herb/ore/skinning drop tables) on Retail clients.
   - Protects native tooltip parking and unparking during combat lockdown (`InCombatLockdown()`) to prevent secret-value taint on Retail 12.x.
+- **Medalluin's Look**: Every panel is restyled in Medalluin's gold and ink, whichever **Panel style** is picked:
+  - **Bars** (aura time left, durability, the health bar, Medalluin's own XP bar) sit in a recessed well, with a lit fill and a bright tip. Under **All Tooltips** in the style editor, one set of options covers them all: **Bar style** (**Well**, or **Plain** for a flat track), **Bar height** (4–16), and **Bar texture** (Flat, or a game or LibSharedMedia status bar, which the game's health bar takes too while a panel shows it). Each bar keeps its own color, which says what it is for: reaction for health, dispel type for auras, wear for durability.
+  - **Badges** are boxed chips in capitals, tinted by what they mark, wrapping onto a second row when the header runs out of room.
+  - **Icons** get a double frame (the quality line, then an ink gap and a dark-gold ring), and the item level sits on a gold-edged plate.
+  - **Stats** line up: values right-aligned in one column, names starting together after them.
+  - **Text**: names and section captions in Marcellus SC (with Medalluin installed), and a larger damage per second.
+  - **The spell strip** (cost, cast time, cooldown, range) is a sunken well, and section dividers fade out at both ends.
+- **Gilded and Slate Panel Styles**: **Gilded**, the default, has a warm ink body, a dark-gold frame with ink and a quality-tinted ring outside it, a glow in the header's corner above a gold rule, and a sunken footer band. **Slate** is quieter: a flat dark body washed with the tint at the top, a thin tinted border, a drop shadow, and a hairline over the footer. **Blizzard border**, **Flat**, and **DialogueUI** remain as choices.
 
 ---
 
@@ -114,7 +122,7 @@ Herbs, ore, chests, and quest objects get a panel too. On **WoW Forever**, a Cla
 
 - Rows other addons add to a tooltip are kept, below a thin rule in smaller, muted text, in their original order and colors.
 - Comparison tooltips, screen-edge clamping, and anything anchored to the tooltip follow the panel's real size.
-- With **DialogueUI** installed, the panel uses its dark tooltip backdrop, unless another **Panel style** is picked in the style editor. Text uses the game's own tooltip fonts, so a UI addon that changes the default font is followed; with **EllesmereUI** installed, names use its Expressway font. Both are used from those addons' own folders; nothing of theirs is bundled.
+- With **DialogueUI** installed, its dark tooltip backdrop can be picked as the **Panel style** in the style editor; without it, that choice falls back to Gilded. Text uses the game's own tooltip fonts, so a UI addon that changes the default font is followed; with **EllesmereUI** installed, names use its Expressway font. Both are used from those addons' own folders; nothing of theirs is bundled.
 - Whenever a tooltip cannot be read safely, such as spell details or secret values restricted during combat, the game's own tooltip is shown instead.
 
 ## Style editor & Options

@@ -161,6 +161,9 @@ local mailPass = args[2] == "mail"
 -- "radial" loads the mdlui_RadialMenu companion after Medalluin and plays it
 -- (tools/harness_radial.lua).
 radialPass = args[2] == "radial"   -- a global: the main chunk is at its local limit
+-- "tooltips" loads the mdlui_Tooltips companion after Medalluin and draws its
+-- style editor's samples (tools/harness_tooltips.lua).
+tooltipsPass = args[2] == "tooltips"
 local barOff = args[3] == "nobar"
 local savedRows = tonumber((args[3] or ""):match("^rows(%d)$"))
 local savedBare = args[3] == "bare"
@@ -24992,4 +24995,7 @@ end)() end
 if radialPass then
     assert(loadfile("tools/harness_radial.lua"))({ events = events, setCombat = function(on) inCombat = on end,
         medalluin = ns })
+end
+if tooltipsPass then
+    assert(loadfile("tools/harness_tooltips.lua"))({ events = events, medalluin = ns, region = Region })
 end

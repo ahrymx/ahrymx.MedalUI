@@ -12,7 +12,6 @@ local colors = ns.Palette.roles
 local KIND = "mdlui"
 local GOLD = { .847, .722, .416 }   -- Medalluin's gold, its XP bar's
 local WARN = { 1, .3, .25 }
-local BAR = 6
 
 local function readSpec(tooltip)
     local spec = util.call(_G.Medalluin_TooltipSpec, tooltip)
@@ -40,12 +39,10 @@ local function barSection(part, style)
     return { kind = "custom",
         measure = function(panel) return ui.rowWidth(panel, row, style) end,
         draw = function(panel, y)
-            local fill = ui.drawTrack(panel, y, BAR)
-            local ratio = max > 0 and math.max(0, math.min(1, value / max)) or 0
-            fill:SetWidth(math.max(1, (panel.width - 2 * ui.pad()) * ratio))
-            fill:SetVertexColor(color[1], color[2], color[3], 1)
-            fill:SetShown(ratio > 0)
-            return ui.drawRow(panel, row, y + BAR + 4, style, colors.detail, 0, 3)
+            local height = ui.barHeight()
+            local set = ui.drawTrack(panel, y, height)
+            set(max > 0 and value / max or 0, color)
+            return ui.drawRow(panel, row, y + height + 4, style, colors.detail, 0, 3)
         end }
 end
 

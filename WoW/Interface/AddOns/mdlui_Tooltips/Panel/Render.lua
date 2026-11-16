@@ -37,29 +37,67 @@ if not ui then return end
 
 local util = ns.util
 local pad = ui.pad
-local BADGE_SEPARATOR = " |cff" .. util.hex(ns.Palette.roles.caption) .. "\194\183|r "
-local TRACK = { .16, .14, .13 }
 
 -- Badges -----------------------------------------------------------------------
 
--- Badges read as one line, as the item's type and slot do: each word in its
--- badge's color, lightened to read on the dark header, between dim dots.
-local function badgeText(list)
-    local words = {}
-    for index, badge in ipairs(list) do
-        words[index] = "|cff" .. ns.Palette.numberCode(badge[2]) .. badge[1] .. "|r"
-    end
-    return table.concat(words, BADGE_SEPARATOR)
+-- Badges are small boxed chips in a row: each word in capitals, lightened
+-- from its badge's color, on a box of that color. The words are two sizes
+-- under the style's, as capitals read larger.
+local CHIP_PAD, CHIP_GAP, CHIP_ROW_GAP = 6, 4, 3
+
+local function chipStyle(style)
+    local chip = {}
+    for field, value in pairs(style) do chip[field] = value end
+    chip.size = math.max(8, (style.size or 12) - 2)
+    return chip
+end
+
+local function chipWidth(panel, badge, style)
+    return ui.measureStyled(panel, util.upper(badge[1]), style) + 2 * CHIP_PAD
 end
 
 local function badgesWidth(panel, list, style)
-    return ui.measureStyled(panel, badgeText(list), style)
+    style = chipStyle(style)
+    local width = 0
+    for index, badge in ipairs(list) do
+        width = width + chipWidth(panel, badge, style) + (index > 1 and CHIP_GAP or 0)
+    end
+    return width
 end
 
+local function mixed(color, k, base)
+    return { color[1] * k + base * (1 - k), color[2] * k + base * (1 - k), color[3] * k + base * (1 - k) }
+end
+
+-- The chips from x, wrapping where the panel ends; returns the y under them.
 local function drawBadges(panel, list, x, y, style)
-    local text = badgeText(list)
-    -- The panel was fitted to the line, so it never wraps.
-    return y + ui.styledAt(panel, text, x, y, ui.measureStyled(panel, text, style) + 2, style, ns.Palette.roles.detail)
+    style = chipStyle(style)
+    local height = ui.snap(panel, style.size + 6)
+    local px, left, limit = ui.pixel(panel), x, panel.width - pad()
+    for _, badge in ipairs(list) do
+        local color = badge[2] or ns.Palette.roles.detail
+        local width = ui.snap(panel, chipWidth(panel, badge, style))
+        if x > left and x + width > limit then
+            x, y = left, y + height + CHIP_ROW_GAP
+        end
+        -- On DialogueUI's parchment, a pale box with a darker edge.
+        local paper = panel.parchment
+        local edge = paper and mixed(color, .5, .25) or mixed(color, .55, .08)
+        local box = ui.acquireTexture(panel, nil, 0)
+        box:SetPoint("TOPLEFT", panel, "TOPLEFT", ui.snap(panel, x), -ui.snap(panel, y))
+        box:SetSize(width, height)
+        box:SetVertexColor(edge[1], edge[2], edge[3], 1)
+        local fill = paper and mixed(color, .12, .78) or mixed(color, .14, .07)
+        local inside = ui.acquireTexture(panel, nil, 1)
+        inside:SetPoint("TOPLEFT", box, "TOPLEFT", px, -px)
+        inside:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -px, px)
+        inside:SetVertexColor(fill[1], fill[2], fill[3], 1)
+        local word = { color[1] + (1 - color[1]) * .35, color[2] + (1 - color[2]) * .35,
+            color[3] + (1 - color[3]) * .35 }
+        ui.styledAt(panel, util.upper(badge[1]), x, y + 3, width, style, word, "CENTER")
+        x = x + width + CHIP_GAP
+    end
+    return y + height
 end
 
 -- Live parts: updated ten times a second while their panel shows ---------------
@@ -82,22 +120,15 @@ local function setLive(panel, update)
     live[panel] = update
 end
 
--- A bar's dark track across the panel at y, and its fill, for the caller to
--- size and color.
+-- A bar across the panel at y, in its sunken well (Panel/Layout.lua's
+-- drawBar); returns its setter, set(ratio, color).
 local function drawTrack(panel, y, height)
-    local bar = ui.acquireTexture(panel, nil, 0)
-    bar:SetPoint("TOPLEFT", panel, "TOPLEFT", pad(), -y)
-    bar:SetSize(panel.width - 2 * pad(), height)
-    bar:SetVertexColor(TRACK[1], TRACK[2], TRACK[3], 1)
-    local fill = ui.acquireTexture(panel, nil, 1)
-    fill:SetPoint("TOPLEFT", bar, "TOPLEFT")
-    fill:SetHeight(height)
-    return fill
+    return ui.drawBar(panel, pad(), y, panel.width - 2 * pad(), height)
 end
 
 -- Sections -------------------------------------------------------------------------
 
-local FOOTER_TOP = 9
+local FOOTER_TOP, FOOTER_BOTTOM = 9, 5
 
 local function indentOf(view)
     return view.icon and view.iconSize + 10 or 0
@@ -243,7 +274,11 @@ local function renderView(panel, tooltip, view)
         y = drawSeparator(panel, y, section.separator, index > 1)
         y = DRAW[section.kind](panel, y, section)
     end
+    local bottom
     if hasFooter then
+        -- Gilded's sunken band, or Slate's rule, from just under the sections;
+        -- with one, the panel ends a band's padding under the footer.
+        if ui.footerBand(panel, y + 2) then bottom = FOOTER_BOTTOM end
         y = y + FOOTER_TOP
         if footer.draw then
             y = footer.draw(panel, y)
@@ -253,7 +288,7 @@ local function renderView(panel, tooltip, view)
             end
         end
     end
-    ui.finishPanel(panel, tooltip, y)
+    ui.finishPanel(panel, tooltip, y, bottom)
 end
 
 -- The row naming what the panel shows by its ID, while IDs show.
