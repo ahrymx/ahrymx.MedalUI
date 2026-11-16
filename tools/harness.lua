@@ -21950,6 +21950,38 @@ if mailPass then
     fire("MAIL_INBOX_UPDATE")
     M.total = nil
 
+    -- Shift-click on the inbox: Take all, the letter left unread; one that
+    -- costs is read instead; one of words only, nothing; the tooltip says so
+    local function rowOf(label)
+        for _, r in ipairs(shown("mail shift")) do
+            if r.s:sub(1, #label) == label then return r.c end
+        end
+    end
+    local function keysOf(label)
+        local r, got, two = rowOf(label), {}, GameTooltip.AddDoubleLine
+        GameTooltip.AddDoubleLine = function(_, l, rr)
+            table.insert(got, (tostring(l):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")) .. " || "
+                .. (tostring(rr):gsub("|T[^|]*mouse%-(%a+)[^|]*|t", "[%1]")))
+        end
+        r.scripts.OnEnter(r)
+        GameTooltip.AddDoubleLine = two
+        if r.scripts.OnLeave then r.scripts.OnLeave(r) end
+        return table.concat(got, " / ")
+    end
+    print("mail shift tips", "Thalric: " .. keysOf("Thalric"), "Okun: " .. keysOf("Okun"), "Mira: " .. keysOf("Mira"))
+    modsDown.SHIFT = true
+    for _, who in ipairs({ "Thalric", "Mira", "Okun" }) do
+        click("mail shift", who)
+        calls("mail shift-click " .. who)
+        local read = false
+        for _, r in ipairs(shown("mail shift after")) do
+            if r.s:sub(1, #"‹ Inbox") == "‹ Inbox" then read = true end
+        end
+        print("mail shift-click " .. who .. " page", read and "read" or "inbox")
+        if read then click("mail shift after", "‹ Inbox") end
+    end
+    modsDown.SHIFT = false
+
     -- reading: the cloth, an item taken
     click("mail inbox", "Thalric")
     shown("mail read cloth")

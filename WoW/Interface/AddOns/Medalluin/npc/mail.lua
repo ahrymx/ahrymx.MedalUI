@@ -10,7 +10,9 @@
 --
 -- A click reads a letter in the same tab: what it says, its money as a row
 -- to take, its items as tiles to take; Take all, Reply, Return or Delete
--- in the foot. Taking from a letter sent cash on delivery pays for it, so
+-- in the foot. A Shift-click takes all from it without reading it (its
+-- foot's Take all); one sent cash on delivery is read instead, so each item
+-- is paid for as the foot asks. Taking from a letter sent cash on delivery pays for it, so
 -- the foot asks first, as the vendor's does.
 --
 -- Open all takes the money and items of every letter but one sent cash on
@@ -281,6 +283,16 @@ local function Totals(n, total)
     return table.concat(parts, " · ")
 end
 
+-- Shift-click on the inbox: the foot's Take all, the letter left unread;
+-- one that costs (COD) read, to be paid for item by item. Open all at work
+-- is left to it.
+local function Quick(i)
+    local h = Header(i)
+    if h.cod > 0 then return Read(i) end
+    if opening or not (h.money > 0 or (h.items or 0) > 0) then return end
+    AutoLootMailItem(i)
+end
+
 local function Inbox(out)
     local n, total = GetInboxNumItems()
     n, total = n or 0, total or n or 0
@@ -293,11 +305,17 @@ local function Inbox(out)
         local h = Header(i)
         table.insert(out, { "row", label = Short(h), icon = h.icon, crop = true, value = Holds(h),
             dim = h.read,
-            click = function(button) if button ~= "RightButton" then Read(i) end end,
+            click = function(button)
+                if button == "RightButton" then return end
+                if IsShiftKeyDown() then Quick(i) else Read(i) end
+            end,
             enter = function(row)
                 ns.window.Outside(row)
                 GameTooltip:SetText(h.subject ~= "" and h.subject or h.sender)
                 GameTooltip:AddLine(h.sender, 1, 1, 1)
+                local takes = h.cod == 0 and (h.money > 0 or (h.items or 0) > 0)
+                ns.TipKeys({ { "key", "left", nil, "Read" },
+                    takes and { "key", "left", "Shift", "Take all" } or { "key" } })
                 GameTooltip:Show()
             end })
     end
