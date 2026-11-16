@@ -49,6 +49,22 @@ local offset = 0
 
 local function Kind(i) return TaxiNodeGetType(i) end
 
+-- A reachable node's price. Forever reads 0 until the node's route has been worked out, which
+-- asking for its legs does (Blizzard's tooltip asks for them first, so it shows the price)
+local function Cost(i)
+    GetNumRoutes(i)
+    return TaxiNodeCost(i) or 0
+end
+
+-- a row's price and colour (red: more than you have)
+local function Price(r)
+    local d = r.data
+    r.value:SetText(d.here and (TAXINODEYOUAREHERE or "You are here.") or ns.npc.Money(d.cost))
+    local c = d.here and ns.colors.dim or GetMoney() < d.cost and RED or ns.colors.text
+    r.label:SetTextColor(c[1], c[2], c[3])
+    r.value:SetTextColor(c[1], c[2], c[3])
+end
+
 -- Blizzard's places: the node's position on the map, pushed off any node
 -- before it that it would sit on (a distant one never pushes a near one)
 local function Place()
@@ -126,7 +142,15 @@ local function Enter(i, owner)
     ns.window.Outside(owner)
     GameTooltip:AddLine(TaxiNodeName(i), nil, nil, nil, true)
     if kind == "REACHABLE" then
-        GameTooltip:AddLine(ns.npc.Money(TaxiNodeCost(i)), 1, 1, 1)
+        local cost = Cost(i)
+        GameTooltip:AddLine(ns.npc.Money(cost), 1, 1, 1)
+        -- its row takes the price as the game has it now (it may have come in since the list)
+        for _, r in ipairs(rows) do
+            if r:IsShown() and r.data and r.data.index == i and r.data.cost ~= cost then
+                r.data.cost = cost
+                Price(r)
+            end
+        end
     elseif kind == "CURRENT" then
         GameTooltip:AddLine(TAXINODEYOUAREHERE or "You are here.", 1, 1, 1, true)
     end
@@ -179,7 +203,7 @@ local function Destinations()
     for i = 1, NumTaxiNodes() do
         local kind = Kind(i)
         if kind == "REACHABLE" then
-            table.insert(out, { index = i, name = TaxiNodeName(i), cost = TaxiNodeCost(i) or 0 })
+            table.insert(out, { index = i, name = TaxiNodeName(i), cost = Cost(i) })
         elseif kind == "CURRENT" then
             here = { index = i, name = TaxiNodeName(i), here = true }
         end
@@ -228,7 +252,6 @@ end
 -- up to the screen's top.
 local function List()
     local places = Destinations()
-    local money = GetMoney()
     for i = 1, math.max(#rows, #places) do
         local d, r = places[i], rows[i]
         if d and not r then
@@ -243,10 +266,7 @@ local function List()
                 r:SetPoint("TOPLEFT", 0, -(i - 1) * ROW)
                 r:SetPoint("RIGHT", child, "RIGHT")
                 r.label:SetText(d.name)
-                r.value:SetText(d.here and (TAXINODEYOUAREHERE or "You are here.") or ns.npc.Money(d.cost))
-                local c = d.here and ns.colors.dim or money < d.cost and RED or ns.colors.text
-                Colour(r.label, c)
-                Colour(r.value, c)
+                Price(r)
             end
         end
     end
@@ -292,6 +312,8 @@ local function Draw()
     Routes()
     offset = 0
     List()
+    -- prices the game had not worked out yet as the map opened
+    C_Timer.After(0.2, function() if frame:IsShown() then List() end end)
     if hops == 0 then
         if UIErrorsFrame and ERR_TAXINOPATHS then UIErrorsFrame:AddMessage(ERR_TAXINOPATHS, 1, 0.1, 0.1, 1) end
         CloseTaxiMap()

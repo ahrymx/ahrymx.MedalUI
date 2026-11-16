@@ -4112,8 +4112,14 @@ if npcPass or bankPass then
     function TaxiNodeName(i) return W.nodes[i].name end
     function TaxiNodeGetType(i) return W.nodes[i].kind end
     function TaxiNodePosition(i) return W.nodes[i].x, W.nodes[i].y end
-    function TaxiNodeCost(i) return W.nodes[i].cost or 0 end
-    function GetNumRoutes(i) return #(W.nodes[i].legs or {}) end
+    -- Forever (as seen 11-16): a node's cost reads 0 until its route has been worked out, which
+    -- asking for its legs does (Blizzard's tooltip does that first)
+    W.routed = {}
+    function TaxiNodeCost(i) return W.routed[i] and W.nodes[i].cost or 0 end
+    function GetNumRoutes(i)
+        W.routed[i] = true
+        return #(W.nodes[i].legs or {})
+    end
     function TaxiGetNodeSlot(i, leg, src) return W.nodes[i].legs[leg][src and 1 or 2] end
     function TaxiIsDirectFlight(i) return #(W.nodes[i].legs or {}) == 1 end
     function TakeTaxiNode(i) called("TakeTaxiNode", i, W.nodes[i].name) end
@@ -21724,6 +21730,12 @@ if npcPass then
     froutes("npc flight hover row")
     print("npc flight hover row tip", table.concat(W.tip, " / "))
     menethil.scripts.OnLeave(menethil)
+    -- a price the game works out only later (after the list): hovering its row shows it
+    W.nodes[2].cost = 6200
+    menethil.scripts.OnEnter(menethil)
+    print("npc flight late price", "row=" .. tostring(menethil.value.text), "tip=" .. table.concat(W.tip, " / "))
+    menethil.scripts.OnLeave(menethil)
+    W.nodes[2].cost = 5000
     -- flying: a row, a node; never from here or out of reach
     W.calls = {}
     local algaz = frow(frs, "Algaz Station")
