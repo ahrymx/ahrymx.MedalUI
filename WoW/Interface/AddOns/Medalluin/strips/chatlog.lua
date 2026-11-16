@@ -39,7 +39,6 @@ local DIM = { 0.70, 0.66, 0.55 }
 local MAX = 1000                        -- lines kept for each window, at least
 local GUTTER, STEP = 10, 14 * 3         -- the scroll bar's room, a wheel's step (three lines)
 local INSET = 2                         -- the text's room inside the box
-local ROW, ROW_GAP = 22, 6              -- the tabs' height, and the room under them
 local SECRET = "(a line the game keeps hidden)"
 local FADED = 0.6                       -- a saved line's colour, put back
 local DIVIDER = "\226\128\148 last session, saved %s \226\128\148"
@@ -80,7 +79,7 @@ local function Lasting(text)
 end
 ns.chatLog.Lasting = Lasting
 
-local W, page, box, measure, scroller, name, note, tabs, tabSpec
+local W, page, box, measure, scroller, name, note, marked
 local shown, frame = "", nil            -- the text set, and whose it is
 local picked                            -- the window a tab chose (else the chat's own)
 local waiting = 0                       -- lines come while the text is selected
@@ -133,39 +132,21 @@ local function Band()
     end
 end
 
--- The tabs as wide as their words, from the left; when they come to more
--- than the window's width, they share it out instead.
-local function Arrange()
-    if not tabs then return end
-    local room = W.window:GetWidth() - 2 * ns.window.pad
-    tabSpec.fit = true
-    tabs:ClearAllPoints()
-    tabs:SetPoint("TOPLEFT")
-    tabs:Layout()
-    if room > 0 and tabs:GetWidth() > room then
-        tabSpec.fit = false
-        tabs:SetPoint("TOPRIGHT")
-        tabs:SetWidth(room)
-        tabs:Layout()
-    end
-end
-
--- the shown window's tab marked
+-- the shown window's tab marked: the head's tabs again when it changes
 local function Mark()
-    if not tabs then return end
-    for f, b in pairs(tabs.byKey) do
-        if b.selected ~= (f == frame) then tabs:Set(f, { selected = f == frame }) end
-    end
+    if not W or marked == frame then return end
+    marked = frame
+    W.Retab()
 end
 
 local Fill
--- A tab for each window, again: one added, closed, docked or renamed.
-local function Retab()
-    if not tabs then return end
+-- The log's head: a tab for each window (the shell draws them in the
+-- page's tab's place), the shown one marked.
+local function Heads()
     local items, found = {}, false
     for _, f in ipairs(Windows()) do
         if f == picked then found = true end
-        table.insert(items, { key = f, label = Label(f), group = "windows", selected = f == frame,
+        table.insert(items, { label = Label(f), selected = f == frame,
             tip = function() return "Show " .. Label(f) .. "'s lines." end,
             click = function()
                 picked = f
@@ -173,8 +154,14 @@ local function Retab()
             end })
     end
     if picked and not found then picked = nil end
-    tabs:Fill(items)
-    Arrange()
+    return items
+end
+
+-- A tab for each window, again: one added, closed, docked or renamed.
+local function Retab()
+    if not W then return end
+    marked = frame
+    W.Retab()
 end
 ns.chatLog.Retab = Retab
 
@@ -352,14 +339,7 @@ end
 
 -- ----------------------------------------------------------- the window
 local function Build(body, _, band)
-    -- a tab for each window, across the top, the text under them
-    tabSpec = { height = ROW, fit = true, size = 12 }
-    tabs = ns.window.Segments(body, tabSpec)
-    tabs:SetPoint("TOPLEFT")
-    local under = CreateFrame("Frame", nil, body)
-    under:SetPoint("TOPLEFT", 0, -(ROW + ROW_GAP))
-    under:SetPoint("BOTTOMRIGHT")
-    scroller = ns.window.Scroller(under, GUTTER)
+    scroller = ns.window.Scroller(body, GUTTER)
     body:EnableMouseWheel(true)
     body:SetScript("OnMouseWheel", function(_, delta) scroller.To(scroller.target - delta * STEP) end)
     box = CreateFrame("EditBox", "MedalluinChatLogText", scroller.child)
@@ -398,7 +378,6 @@ local function Build(body, _, band)
         end
     end)
     ns.chatLog.box = box
-    ns.chatLog.tabs = tabs
 
     name = ns.Text(band, 12)
     name:SetPoint("LEFT", 2, 0)
@@ -415,16 +394,14 @@ local function Start()
         Lifted = function() return {} end,
     }
     page = { key = "log", label = "Chat log", glyph = "log", order = 1, flex = true, bandUsed = true,
-        height = 80 + ROW + ROW_GAP,
+        height = 80,
         tip = "A chat window's lines, a tab for each: drag to select, Ctrl+C to copy.",
         Available = function() return true end,
+        headTabs = Heads,
         Build = Build,
         Refresh = function() Fill() end,
         Fit = function()
-            if box then
-                Arrange()
-                Fit()
-            end
+            if box then Fit() end
         end,
         -- opened at the newest line of the chat's chosen window
         Shown = function()

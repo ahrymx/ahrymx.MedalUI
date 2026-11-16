@@ -8791,20 +8791,22 @@ if stripsPass then
         logButton.scripts.OnClick(logButton, "LeftButton")
         logState("again")
 
-        -- a tab for each chat window across the log's top (not the combat
-        -- log): the chat's own window marked as it opens; a tab shows its
+        -- a tab for each chat window in the log's head, in its page's
+        -- tab's place (not the combat log): the chat's own window marked as it opens; a tab shows its
         -- window's lines, whatever the chat has chosen
         do
+            -- the head's tabs: the words, where each stands in the window
+            -- and how wide, "*" for the marked (its underline, floating)
             local function tabsState(tag)
                 local list = {}
-                for _, b in ipairs(log.tabs.buttons) do
+                for _, b in ipairs(log.W.tabs) do
                     if b.shown then
-                        table.insert(list, (b.selected and "*" or "") .. tostring(b.label.text)
-                            .. string.format("@%.0f", resolve(b)[1] - resolve(log.tabs:GetParent())[1]))
+                        local on = (b.under and b.under.shown) or (b.mark and b.mark.shown)
+                        table.insert(list, (on and "*" or "") .. tostring(b.label.text)
+                            .. string.format("@%.0f+%.0f/%.0f", resolve(b)[1] - resolve(lw)[1], b.w or 0, b.label.w or 0))
                     end
                 end
-                print("chat log tabs " .. tag, table.concat(list, " "),
-                    string.format("row width=%.0f fit=%s", log.tabs.w or 0, tostring(log.tabs:GetNumPoints() == 1)))
+                print("chat log tabs " .. tag, table.concat(list, " "))
             end
             for i = 4, NUM_CHAT_WINDOWS do _G["ChatFrame" .. i]:Hide() end
             logButton.scripts.OnClick(logButton, "LeftButton")
@@ -8812,7 +8814,7 @@ if stripsPass then
             lw.scripts.OnUpdate(lw, 0.01)
             tabsState("opened")
             logState("tabs opened")
-            local second = log.tabs.buttons[2]
+            local second = log.W.tabs[2]
             second.scripts.OnClick(second, "LeftButton")
             lw.scripts.OnUpdate(lw, 0.01)
             tabsState("second clicked")

@@ -56,6 +56,10 @@
 --            (the quest's page, its title); its click and tooltip are the
 --            head's, and a drag on it moves the window. w.Head() writes it
 --            again.
+--   headTabs() -> { { label, tip() -> text, click(), selected }, ... }: in the
+--            page's tab's place, a tab for each, in words (the chat log's
+--            windows); the selected one marked while the page is shown, a
+--            click its own. w.Retab() asks again.
 --   w.Build(), w.Select(page), w.Open(page) (as its tab does), w.ByFrame(name), w.Retab(), w.SetShown(on),
 --   w.Detached(), w.Head()
 --
@@ -888,7 +892,7 @@ function ns.Window(spec)
     -- A tab as its page's heading (head), or back to its glyph.
     local function Head(b)
         local head = b.page.head
-        b.icon:SetShown(not head)
+        b.icon:SetShown(not head and not b.item)
         if not head then
             if b.headText then
                 b.headText:Hide()
@@ -943,9 +947,15 @@ function ns.Window(spec)
         if b.well then b.well:SetShown(on) end
     end
     local function Mark(b, on)
+        if b.item then on = on and b.item.selected end
         b.mark:SetShown(on and not floating)
         if b.under then b.under:SetShown(on and floating and not b.page.head) end
         b.icon:SetAlpha(on and 1 or floating and FLOAT.dim or 0.6)
+        b.label:SetAlpha(on and 1 or floating and FLOAT.dim or 0.6)
+    end
+    -- a page's tab, or its head's tabs (headTabs)
+    local function Remark(p, on)
+        for _, b in ipairs(p.tabs or {}) do Mark(b, on) end
     end
 
     -- the shadow round a floating window: four corners of one texture,
@@ -1097,7 +1107,7 @@ function ns.Window(spec)
                 p.band:SetShown(p == page)
                 if p ~= page then p.foot:Hide() end
             end
-            if p.tab then Mark(p.tab, p == page) end
+            Remark(p, p == page)
         end
         Layout()
         Listen()
@@ -1161,10 +1171,15 @@ function ns.Window(spec)
     function Tabs()
         local first, second = {}, {}
         for _, p in ipairs(pages) do
+            p.tab, p.tabs = nil, {}
             if p.available and not p.tabless then
-                table.insert(p.row == 2 and second or first, p)
+                local row = p.row == 2 and second or first
+                if p.headTabs then
+                    for _, item in ipairs(p.headTabs() or {}) do table.insert(row, { page = p, item = item }) end
+                else
+                    table.insert(row, { page = p })
+                end
             end
-            p.tab = nil
         end
         local controls = 1 + (view and 1 or 0)
         local full = window:GetWidth() or WIDTH
@@ -1178,7 +1193,8 @@ function ns.Window(spec)
             local span = room
             local width = #list > 0 and math.floor((span + #list - 1) / #list) or 0
             local prev
-            for k, p in ipairs(list) do
+            for k, entry in ipairs(list) do
+                local p, item = entry.page, entry.item
                 n = n + 1
                 local b = tabs[n]
                 if not b then
@@ -1187,13 +1203,17 @@ function ns.Window(spec)
                         local head = self.page.head
                         if self.dragged then
                             self.dragged = nil
+                        elseif self.item then
+                            if current ~= self.page then Open(self.page) end
+                            self.item.click()
                         elseif head and head.Click then
                             head.Click(mouse)
                         else
                             Open(self.page)
                         end
                     end, function()
-                        local pg = tabs[i].page
+                        local pg, it = tabs[i].page, tabs[i].item
+                        if it then return it.tip and it.tip() or it.label end
                         return pg.head and pg.head.tip and pg.head.tip() or pg.tip or pg.label
                     end)
                     b.icon = b:CreateTexture(nil, "ARTWORK")
@@ -1206,11 +1226,19 @@ function ns.Window(spec)
                     b.under:Hide()
                     tabs[n] = b
                 end
-                b.page = p
+                b.page, b.item = p, item
                 Head(b)
+                -- a head's words, not a glyph
+                b.label:SetText(item and item.label or "")
+                if item then b.icon:Hide() end
                 -- the last to the row's end, exactly
                 b:SetWidth(k < #list and width or span - (#list - 1) * (width - 1))
-                if p.icon then
+                -- a head's words cut short in a narrow tab, not over its neighbours
+                b.label:SetWordWrap(false)
+                b.label:SetWidth(item and math.max(1, b:GetWidth() - 8) or 0)
+                if item then
+                    b.icon:SetTexture(nil)
+                elseif p.icon then
                     b.icon:SetTexture(p.icon)
                     b.icon:SetTexCoord(GAME_ICON, 1 - GAME_ICON, GAME_ICON, 1 - GAME_ICON)
                 else
@@ -1227,6 +1255,7 @@ function ns.Window(spec)
                 Mark(b, p == current)
                 b:Show()
                 p.tab, prev = b, b
+                table.insert(p.tabs, b)
             end
         end
         for i = n + 1, #tabs do tabs[i]:Hide() end
@@ -1248,6 +1277,7 @@ function ns.Window(spec)
 
     -- Which pages are there now: a page that has come is built, one that
     -- has gone is left, for the first that is still there.
+    w.tabs = tabs                       -- (the harness reads them)
     function w.Head()
         for _, b in ipairs(tabs) do
             if b:IsShown() and b.page then Head(b) end
