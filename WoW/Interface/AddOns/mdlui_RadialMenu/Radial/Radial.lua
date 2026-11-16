@@ -481,6 +481,19 @@ local EMOTES = {
     { token = "ATTACKMYTARGET", icon = "Ability_SteelMelee" },
     { token = "CHARGE",         icon = "Ability_Warrior_Charge" },
     { token = "FLEE",           icon = "Ability_Rogue_Sprint" },
+    -- the rest of the voice emotes, for the Voice Emotes preset (11-16)
+    { token = "WELCOME",        icon = "Spell_Holy_Renew" },
+    { token = "CONGRATULATE",   icon = "INV_Misc_Gift_01" },
+    { token = "FLIRT",          icon = "INV_Misc_Ribbon_01" },
+    { token = "SILLY",          icon = "Spell_Shadow_MindTwisting" },
+    { token = "TRAIN",          icon = "INV_Misc_Gear_08" },
+    { token = "RASP",           icon = "Spell_Shadow_Charm" },
+    { token = "OPENFIRE",       icon = "Ability_Marksmanship" },
+    { token = "WAIT",           icon = "INV_Misc_PocketWatch_01" },
+    { token = "NOD",            icon = "Spell_ChargePositive" },
+    { token = "NO",             icon = "Spell_ChargeNegative" },
+    -- For the Alliance or For the Horde, as the character is
+    { token = "FACTION",        icon = "INV_BannerPVP_02", faction = true },
     -- last: asks for any emote command when put on a radial (saved as entry.command)
     { token = "CUSTOM",         icon = "INV_Misc_Note_01", custom = true },
 }
@@ -496,6 +509,7 @@ end
 
 -- an emote token's slash command ("/wave"), found as Blizzard's chat menu does
 local emoteCommands = {}
+RM.UnknownEmotes = {}   -- tokens the game's list did not have: their command is a guess
 local function EmoteCommand(token)
     if emoteCommands[token] then return emoteCommands[token] end
     local command
@@ -503,6 +517,7 @@ local function EmoteCommand(token)
         local t = _G["EMOTE" .. i .. "_TOKEN"]
         if t == token then command = _G["EMOTE" .. i .. "_CMD1"] break end
     end
+    if not command then RM.UnknownEmotes[token] = true end
     command = command or ("/" .. token:lower())
     emoteCommands[token] = command
     return command
@@ -517,6 +532,13 @@ ACTIONS.emote = function(entry)
         -- the catalog's entry, or a button whose command is still being asked for: does nothing
         if not entry.command then return L["Custom Emote"], icon, { type = "macro", macrotext = "" } end
         return CE.Label(entry.command), icon, { type = "macro", macrotext = entry.command }
+    end
+    if info.faction then
+        local horde = UnitFactionGroup("player") == "Horde"
+        local command = EmoteCommand(horde and "FORTHEHORDE" or "FORTHEALLIANCE")
+        return horde and L["For the Horde"] or L["For the Alliance"],
+            { texture = "Interface\\Icons\\" .. (horde and "INV_BannerPVP_01" or "INV_BannerPVP_02") },
+            { type = "macro", macrotext = command }
     end
     local command = EmoteCommand(info.token)
     return CE.Label(command, info.upper), icon, { type = "macro", macrotext = command }
@@ -535,9 +557,17 @@ end
 function RM.CustomEmote.Drop(data)
     local radial = data and RM:GetRadial(data.id)
     if not radial then return end
-    for i = #radial.buttons, 1, -1 do
-        if radial.buttons[i] == data.entry then table.remove(radial.buttons, i) end
+    -- on the radial, or in one of its categories
+    local function Drop(list)
+        for i = #list, 1, -1 do
+            if list[i] == data.entry then
+                table.remove(list, i)
+            elseif list[i].kind == "category" then
+                Drop(list[i].buttons or {})
+            end
+        end
     end
+    Drop(radial.buttons)
     RM:RadialChanged(data.id)
     if ns.RadialEditorEmbed then ns.RadialEditorEmbed.Refresh() end
 end
@@ -574,13 +604,19 @@ function RM.CustomEmote.Ask(radialID)
     if not radialID or (CE.asking and ns.AnyDialogShown and ns.AnyDialogShown()) then return end
     local radial = RM:GetRadial(radialID)
     if not radial then return end
-    for _, entry in ipairs(radial.buttons) do
-        if entry.kind == "emote" and entry.emote == "CUSTOM" and not entry.command then
-            CE.asking = true
-            ns.ShowDialog("MDLUI_RADIAL_CUSTOM_EMOTE", L["Type an emote command, like /oom or /cheer."],
-                { id = radialID, entry = entry })
-            return
+    -- on the radial, or in one of its categories
+    local function Find(list)
+        for _, entry in ipairs(list) do
+            if entry.kind == "emote" and entry.emote == "CUSTOM" and not entry.command then return entry end
+            local inner = entry.kind == "category" and Find(entry.buttons or {})
+            if inner then return inner end
         end
+    end
+    local entry = Find(radial.buttons)
+    if entry then
+        CE.asking = true
+        ns.ShowDialog("MDLUI_RADIAL_CUSTOM_EMOTE", L["Type an emote command, like /oom or /cheer."],
+            { id = radialID, entry = entry })
     end
 end
 
@@ -606,6 +642,33 @@ ACTIONS.subradial = function(entry, depth, seen)
     local first = children[1]
     return first.name, first.icon, first.attributes,
         { children = children, childIndex = 1, radialName = data.name, radialID = id }
+end
+
+-- The presets' emote categories, and their glyphs (art/radial/gen_radial.py), in the editor's order
+RM.CATEGORY_GLYPHS = { "greetings", "joy", "sorrow", "taunts", "atease", "playful", "battle", "distress", "signals" }
+RM.GLYPH_FILES = { greetings = "Greetings", joy = "Joy", sorrow = "Sorrow", taunts = "Taunts", atease = "AtEase",
+    playful = "Playful", battle = "Battle", distress = "Distress", signals = "Signals" }
+function RM.GlyphIcon(glyph)
+    return { texture = MEDIA .. "Glyph" .. (RM.GLYPH_FILES[glyph] or "AtEase") }
+end
+
+-- A category: a ring of buttons kept inside its radial ({ kind = "category", name, glyph, buttons }).
+-- On the radial it shows its glyph and fires nothing; a left-click or the wheel opens its ring in
+-- place (ResolveButtons resolves the ring, as "<radial>c<slot>"). No category goes in a category.
+-- Deeper, through a sub-radial, it acts as one: the wheel steps through its buttons.
+ACTIONS.category = function(entry, depth, seen)
+    if depth == 0 then
+        return entry.name or L["Category"], RM.GlyphIcon(entry.glyph), {}, { category = true }
+    end
+    local children = {}
+    for _, button in ipairs(entry.buttons or {}) do
+        if #children >= MAX_BUTTONS then break end
+        local child = button.kind ~= "category" and ResolveEntry(button, depth + 1, seen)
+        if child then children[#children + 1] = child end
+    end
+    if #children == 0 then return nil end
+    local first = children[1]
+    return first.name, first.icon, first.attributes, { children = children, childIndex = 1 }
 end
 
 -- Quest Items: the usable items of the quests in your log, tracked quests first, as one button whose
@@ -678,14 +741,6 @@ function ResolveEntry(entry, depth, seen)
         for key, value in pairs(extra) do info[key] = value end
     end
     return info
-end
-
--- a new account's first radial
-local function MarkerButtons()
-    local t = {}
-    for i = 1, 8 do t[i] = { kind = "targetmarker", marker = i } end
-    t[9] = { kind = "targetmarker", marker = -1 }
-    return t
 end
 
 RM.ResolveEntry = function(_, entry) return ResolveEntry(entry) end
@@ -1020,11 +1075,19 @@ local function SetButtonChild(index, childIndex)
     ApplyButtonState(button, info)
 end
 
-local function ResolveButtons(list)
+-- id: the radial the list is, so its categories get their rings (a ring is "<id>c<slot>"); a ring
+-- itself has none, so a category in it is left out
+local function ResolveButtons(list, id)
     local out = {}
     for i = 1, #(list or {}) do
         if #out >= MAX_BUTTONS then break end
         local entry = ResolveEntry(list[i], 0, {})
+        if entry and entry.category then
+            entry.ring = id and ResolveButtons(list[i].buttons)
+            entry.radialID = id and (id .. "c" .. i)
+            -- an empty category opens nothing: no button
+            if not (entry.ring and #entry.ring > 0) then entry = nil end
+        end
         -- a party spell takes a button per person (ACTIONS.partycast)
         if entry and entry.spread then
             for _, person in ipairs(entry.spread) do
@@ -1044,7 +1107,14 @@ local function ResolveAll()
     wipe(resolvedCache)
     for _, id in ipairs(RM:GetRadialOrder()) do
         local data = RM:GetRadial(id)
-        if data and RM:IsRadialAvailable(id) then resolvedCache[id] = ResolveButtons(data.buttons) end
+        if data and RM:IsRadialAvailable(id) then
+            local list = ResolveButtons(data.buttons, id)
+            resolvedCache[id] = list
+            -- its categories' rings, held by the secure layer as radials of their own
+            for _, info in ipairs(list) do
+                if info.ring then resolvedCache[info.radialID] = info.ring end
+            end
+        end
     end
 end
 
@@ -1062,7 +1132,7 @@ function RM:LayoutRadial(fromCache)
         layoutPending = nil
         syncDirty = false
         ResolveAll()
-        resolved = (currentID and resolvedCache[currentID]) or ResolveButtons(currentRadial)
+        resolved = (currentID and resolvedCache[currentID]) or ResolveButtons(currentRadial, currentID)
     end
 
     local count, radius, interval = RM.PlaceRadialButtons(radial, buttons, resolved)
@@ -1556,6 +1626,9 @@ end
 -- so the full-screen catcher waits: left-click fires, middle-click opens a sub-radial in place
 -- (STACK / DEPTH), right-click goes back or closes, Escape closes; pressing the same macro or key
 -- again fires the aimed button. ROOT is the radial click mode opened.
+-- Categories (a ring of buttons kept in its radial) are written as radials of their own,
+-- "<id>c<slot>", their slot marked "-cat": a left-click or the wheel opens one in place, held or in
+-- click mode (NEST_SNIPPET, on STACK / DEPTH); right-click goes back. A category fires nothing.
 -- Pad mode: a radial's controller key (L3 or R3, alone or with LT / RT held) clicks PAD_NAME as
 -- PadL3 / PadR3 and opens it; R3 (bound while open) fires what the right stick aims at, or the aim it
 -- kept once let go (STICKY, from the aim button: the stick's directions arrive as keys while open);
@@ -1594,8 +1667,37 @@ local SELECT_SNIPPET = ([[
 local AIMED_SNIPPET = [[
     local index = self:RunAttribute("flare-select")
     if not (index and ACTIVE) then return nil end
+    -- a category fires nothing: it opens its ring (NEST_SNIPPET)
+    if self:GetAttribute(ACTIVE .. "-s" .. index .. "-cat") then return nil end
     local child = (CHILD[ACTIVE] and CHILD[ACTIVE][index]) or 1
     return ACTIVE .. "-s" .. index .. "-" .. child .. "-"
+]]
+
+-- self is the header; ... = any sub-radial (the middle button), else categories only. Opens the
+-- aimed slot's ring in place, the radial it leaves kept on STACK. True when it did.
+local NEST_SNIPPET = [[
+    local index = self:RunAttribute("flare-select")
+    if not (index and ACTIVE) then return false end
+    local slot = ACTIVE .. "-s" .. index
+    local sub = self:GetAttribute(slot .. "-sub")
+    if not (sub and (... or self:GetAttribute(slot .. "-cat"))) then return false end
+    if (self:GetAttribute(sub .. "-count") or 0) == 0 then return false end
+    STACK = STACK or newtable()
+    DEPTH = (DEPTH or 0) + 1
+    STACK[DEPTH] = ACTIVE
+    ACTIVE = sub
+    self:CallMethod("OnSecureNested", sub)
+    return true
+]]
+
+-- self is the header. Back to the ring a nested one was opened from; false at the top.
+local BACK_SNIPPET = [[
+    if (DEPTH or 0) == 0 then return false end
+    ACTIVE = STACK[DEPTH]
+    STACK[DEPTH] = nil
+    DEPTH = DEPTH - 1
+    self:CallMethod("OnSecureNested", ACTIVE)
+    return true
 ]]
 
 -- self is the header. Sets OPENX / OPENY in the wheel frame's units; the wheel frame must be shown.
@@ -1813,6 +1915,7 @@ local CLICK_SNIPPET = [[
         end
         if control:GetAttribute("flare-subreset") then CHILD = newtable() end
         ACTIVE, MODE, HOLD = id, "hold", id
+        STACK, DEPTH = newtable(), 0
         -- for the length of the hold: the key with a modifier pressed since still lets go of it,
         -- and Escape cancels
         local variants = control:GetAttribute(id .. "-holdkeys")
@@ -1821,7 +1924,7 @@ local CLICK_SNIPPET = [[
                 control:SetBindingClick(true, key, "]] .. CASTER_NAME .. [[", id)
             end
         end
-        control:SetBindingClick(true, "ESCAPE", "]] .. CATCHER_NAME .. [[", "RightButton")
+        control:SetBindingClick(true, "ESCAPE", "]] .. CATCHER_NAME .. [[", "Escape")
         screen:Show()
         control:RunAttribute("flare-openpoint")
         -- the catcher takes the mouse while the key is held: right-click cancels
@@ -1862,17 +1965,28 @@ local CLICK_SNIPPET = [[
 
 -- self is the catcher, control the header
 local CATCHER_SNIPPET = [[
-    -- the key held (Hold): right-click, left-click or Escape cancels, and the key's release then
-    -- fires nothing (left-click too, so a hold whose key-up never came can't keep the mouse, even in
-    -- a fight); other buttons do nothing
+    -- the key held (Hold): left-click on a category opens its ring, on any other button uses it, as
+    -- letting go would; right-click goes back from a ring. Otherwise right-click, left-click (in the
+    -- centre) or Escape cancels. Either way the radial closes and the key's release then fires
+    -- nothing (so a hold whose key-up never came can't keep the mouse, even in a fight); other
+    -- buttons do nothing
     if MODE == "hold" then
-        if button == "RightButton" or button == "LeftButton" then
+        if button == "LeftButton" and control:RunAttribute("flare-nest") then return false end
+        if button == "RightButton" and control:RunAttribute("flare-back") then return false end
+        if button == "RightButton" or button == "LeftButton" or button == "Escape" then
+            local prefix = button == "LeftButton" and control:RunAttribute("flare-aimed") or nil
             MODE = nil
             OPENX, OPENY = nil, nil
             self:Hide()
             control:GetFrameRef("wheel"):Hide()
             control:ClearBindings()
             control:CallMethod("OnSecureHoldCancel")
+            if prefix then
+                for key in gmatch(control:GetAttribute("flare-keys"), "%S+") do
+                    self:SetAttribute(key, control:GetAttribute(prefix .. key))
+                end
+                return nil, "fired"
+            end
         end
         return false
     end
@@ -1890,28 +2004,16 @@ local CATCHER_SNIPPET = [[
         end
     end
     if button == "MiddleButton" then
-        local index = control:RunAttribute("flare-select")
-        local sub = index and ACTIVE and control:GetAttribute(ACTIVE .. "-s" .. index .. "-sub")
-        if sub and (control:GetAttribute(sub .. "-count") or 0) > 0 then
-            STACK = STACK or newtable()
-            DEPTH = (DEPTH or 0) + 1
-            STACK[DEPTH] = ACTIVE
-            ACTIVE = sub
-            control:CallMethod("OnSecureNested", sub)
-        end
+        control:RunAttribute("flare-nest", true)
         return false
     end
-    if button == "RightButton" and (DEPTH or 0) > 0 then
-        ACTIVE = STACK[DEPTH]
-        STACK[DEPTH] = nil
-        DEPTH = DEPTH - 1
-        control:CallMethod("OnSecureNested", ACTIVE)
-        return false
-    end
+    if button == "RightButton" and control:RunAttribute("flare-back") then return false end
     if button ~= "LeftButton" then
         control:RunAttribute("flare-closeclick")
         return false
     end
+    -- a category opens, as the middle button does
+    if control:RunAttribute("flare-nest") then return false end
     local prefix = control:RunAttribute("flare-aimed")
     control:RunAttribute("flare-closeclick")
     if not prefix then return false end
@@ -1955,6 +2057,11 @@ local CLEAR_SNIPPET = [[
 local WHEEL_SNIPPET = [[
     local index = control:RunAttribute("flare-select")
     if not (index and ACTIVE) then return end
+    -- a category has no buttons to step through: the wheel opens it
+    if control:GetAttribute(ACTIVE .. "-s" .. index .. "-cat") then
+        control:RunAttribute("flare-nest")
+        return
+    end
     local n = control:GetAttribute(ACTIVE .. "-s" .. index .. "-n") or 1
     if n < 2 then return end
     CHILD[ACTIVE] = CHILD[ACTIVE] or newtable()
@@ -2008,6 +2115,7 @@ function SyncSecure()
             local children = info.children or { info }
             Set(id .. "-s" .. i .. "-n", #children)
             Set(id .. "-s" .. i .. "-sub", info.radialID)
+            Set(id .. "-s" .. i .. "-cat", info.category or nil)
             for c, child in ipairs(children) do
                 local prefix = id .. "-s" .. i .. "-" .. c .. "-"
                 for key in ACTION_KEYS:gmatch("%S+") do
@@ -2064,6 +2172,8 @@ local function CreateSecureLayer()
     header:SetAttribute("flare-keys", ACTION_KEYS)
     header:SetAttribute("flare-select", SELECT_SNIPPET)
     header:SetAttribute("flare-aimed", AIMED_SNIPPET)
+    header:SetAttribute("flare-nest", NEST_SNIPPET)
+    header:SetAttribute("flare-back", BACK_SNIPPET)
     header:SetAttribute("flare-openclick", OPEN_CLICK_SNIPPET)
     header:SetAttribute("flare-closeclick", CLOSE_CLICK_SNIPPET)
     header:SetAttribute("flare-openpoint", OPEN_POINT_SNIPPET)
@@ -2672,6 +2782,71 @@ function RM:CopyRadial(id, name)
     return copy
 end
 
+-- Presets (Core/Presets.lua): a copy of one as a radial of the player's own, marked with its key
+function RM:AddPreset(key)
+    local preset = ns.PRESETS[key]
+    if not preset then return nil end
+    local id = self:CreateRadial(preset.name)
+    if not id then return nil end
+    local data = self:GetRadial(id)
+    data.buttons = CopyTable(preset.buttons)
+    data.preset = key
+    self:RadialChanged(id)
+    return id
+end
+
+-- the radials copied from a preset, in the list's order
+function RM:PresetCopies(key)
+    local out = {}
+    for _, id in ipairs(self:GetRadialOrder()) do
+        local data = self:GetRadial(id)
+        if data and data.preset == key then out[#out + 1] = id end
+    end
+    return out
+end
+
+-- the preset's buttons back; its name, key, group and who gets it stay
+function RM:ResetToPreset(id)
+    local data = self:GetRadial(id)
+    local preset = data and data.preset and ns.PRESETS[data.preset]
+    if not preset then return false end
+    data.buttons = CopyTable(preset.buttons)
+    self:RadialChanged(id)
+    return true
+end
+
+-- the same buttons, as saved (key by key, not counting order of keys)
+function RM.SameButtons(a, b)
+    if type(a) ~= type(b) then return false end
+    if type(a) ~= "table" then return a == b end
+    for k, v in pairs(a) do if not RM.SameButtons(v, b[k]) then return false end end
+    for k in pairs(b) do if a[k] == nil then return false end end
+    return true
+end
+
+-- a radial from before presets that is one as it came (the first run's Markers): it becomes that
+-- preset's copy, so it can be reset
+function RM:MarkPresetCopies()
+    for _, id in ipairs(self:GetRadialOrder()) do
+        local data = self:GetRadial(id)
+        if data and not data.preset then
+            for _, key in ipairs(ns.PRESET_ORDER) do
+                if RM.SameButtons(data.buttons, ns.PRESETS[key].buttons) then
+                    data.preset = key
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- the names on the wheel as drawn now (the harness's way to read the art)
+function RM.ShownNames()
+    local t = {}
+    for i, info in ipairs(resolved or {}) do t[i] = info.name end
+    return t
+end
+
 function RM:RenameRadial(id, name)
     syncDirty = true
     local data = self:GetRadial(id)
@@ -2720,8 +2895,23 @@ function RM:GetMacroText(radialID)
 end
 
 -- currentRadial is the saved button list itself, so edits show without copying
+-- a category's ring ("<radial>c<slot>") loads that category's buttons; a preset ("preset:<key>") its own
 function RM:LoadRadial(radialID)
     local data = self:GetRadial(radialID)
+    if not data and type(radialID) == "string" then
+        local base, slot = radialID:match("^(.+)c(%d+)$")
+        local parent = base and self:GetRadial(base)
+        if not parent then
+            local preset = base and base:match("^preset:(.+)$")
+            parent = preset and ns.PRESETS and ns.PRESETS[preset]
+        end
+        local entry = parent and parent.buttons[tonumber(slot)]
+        if entry and entry.kind == "category" then data = entry end
+        if not data then
+            local preset = radialID:match("^preset:(.+)$")
+            data = preset and ns.PRESETS and ns.PRESETS[preset]
+        end
+    end
     currentID = data and radialID or nil
     currentRadial = data and data.buttons or {}
 end
@@ -3266,8 +3456,20 @@ function RM:Init()
     -- first run: one radial, so the library is never empty
     local store = GetStore()
     if store and not next(store.radials) then
-        local id = self:CreateRadial(L["Markers"])
-        self:GetRadial(id).buttons = MarkerButtons()
+        self:AddPreset("markers")
+    end
+    self:MarkPresetCopies()
+    -- the emotes the game's list lacks (their command is a guess), said once, to fix (11-16)
+    for _, e in ipairs(EMOTES) do
+        if not (e.custom or e.faction) then EmoteCommand(e.token) end
+    end
+    EmoteCommand("FORTHEALLIANCE")
+    EmoteCommand("FORTHEHORDE")
+    if next(RM.UnknownEmotes) then
+        local list = {}
+        for token in pairs(RM.UnknownEmotes) do list[#list + 1] = token end
+        table.sort(list)
+        ns.Print("emotes not in the game's list (sent as typed): " .. table.concat(list, " "))
     end
 
     self:LoadActiveRadial()

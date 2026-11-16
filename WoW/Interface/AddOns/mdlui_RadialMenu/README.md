@@ -13,27 +13,31 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
 - **Hold, sweep, release.** The wheel opens at the cursor or the centre of the screen. Let go of the key over a button to use it, or in the centre to cancel.
 - **What a button can be:** a spell (at the best rank you know), an item, a mount, a macro, a target or world marker, a game panel, an emote, a quest item, a spell cast on a party member, or another radial.
 - **Sub-radials.** A button can open another radial. Hover it and use the mouse wheel to flip through its buttons.
+- **Categories.** A button can hold a ring of its own buttons. Click it, or turn the mouse wheel on it, and the ring opens in place while you hold the key; let go over a button to use it, or right-click to go back.
 - **Party spells.** A party button holds one slot for you and one for each party member: aim at a person to cast on them.
 - **Click mode.** A macro line such as `/click MdlRadial markers` opens a radial that stays up until you click a button.
 - **The look.** FlareUI's layout in Medalluin's gold and ink: its own rims (brighter, with a glow, on the button you aim at), an ink backdrop with a thin gold ring, a gold centre ring, pointer and cancel X.
 
 ## The editor
 
-`/mdlradial` opens the editor, as does its key binding (Key Bindings > AddOns). The window is laid out like Medalluin's Settings window. On first run, a **Markers** radial is made for you.
+`/mdlradial` opens the editor, as does its key binding (Key Bindings > AddOns). The window is laid out like Medalluin's Settings window. On first run, a copy of the **Markers** preset is made for you.
 
 - **The sidebar** lists your radials under their groups, with a search above them.
   - Right-click a radial to group it, and drag to reorder.
   - Radials this character doesn't get sit under **Not on This Character**.
+  - **Presets** come next: **Markers**, **Emotes** and **Voice Emotes**, ready-made and read-only. **Add to my radials** makes a copy you can change however you like.
   - **Options > Every radial** sits at the bottom of the list.
 - **The Wheel sheet** holds the radial's wheel, the chosen slot, and the **Catalog**.
   - Click a slot to choose it, drag it onto another to move it, and right-click to remove it.
   - The chosen slot's card sets its place on the wheel. For a spell with ranks, it also sets whether the button casts the **Best known** rank or stays on **This rank**.
   - The Catalog has Panels, Spells, Party, Items, Professions, Macros, Markers, Emotes, Mounts and Radials. Click an entry to add it after the chosen slot, or drag it onto the wheel. You can also drop spells, items, mounts and macros from the game's own windows.
+  - A category's card has **Open** (or click its slot twice), which shows its own buttons on the wheel to change them; **< Back** returns. It also has **Rename...** and a row of glyphs to choose its picture. **Category** in the Catalog's Radials makes an empty one.
   - **Show** at the sheets' right turns slot names, numbers and the next empty slot on or off.
 - **The Radial sheet** holds who gets the radial and its key.
   - **Who gets it:** every character, a faction, a class, or one character.
   - **Its key:** click it, then press the key; right-click clears it. A character can keep a key of its own.
   - **Macro** puts a macro that opens the radial on your cursor, to drop on a bar. **Copy**, **Rename** and **Delete** sit beside it.
+  - **Reset...** puts a preset's copy back as the preset has it. Its name, key and who gets it stay.
   - **On This Character** lists every key that opens a radial here.
 - **The footer** holds **+ New radial**, and **Import...** while FlareUI's radials are loaded.
   - A **Changed since it opened** chip shows once you change something. **Undo changes** puts back everything since the window opened: buttons, names, who gets them, and keys.

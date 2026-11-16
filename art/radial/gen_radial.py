@@ -2,7 +2,8 @@
 """mdlui_RadialMenu's own wheel art: FlareUI's layout, each part redrawn in Medalluin's
 gold and ink (the user's call, 2026-11-16, from the mockups' "FlareUI layout" boards).
 
-    python3 art/radial/gen_radial.py   -> assets/radial/*.png and the companion's art/radial/*.tga
+    python3 art/radial/gen_radial.py          -> assets/radial/*.png and the companion's art/radial/*.tga
+    python3 art/radial/gen_radial.py glyphs   -> the emote category glyphs only (Glyph*.tga)
 
 Each texture is drawn at its own size in texels; the comment on each says the size the
 wheel shows it at (Radial/Radial.lua), and lengths below are in those screen pixels.
@@ -175,6 +176,107 @@ def mask():
     return c
 
 
+
+# ------------------------------------------------------------------ emote category glyphs
+# The presets' categories (Core/Presets.lua), picked by the user from the mockup's candidates
+# (2026-11-16): Medalluin's glyph style, as art/strips/gen_strips.py's (a 20x20 box, the gold
+# gradient, a dark outline), on an ink square the round button masks. 64 texels; the glyph is
+# about 30 px in the 46 px icon.
+GLYPH_TEXELS, GLYPH_BOX = 64, 42
+
+
+def _circ(cx, cy, r):
+    return f'<circle cx="{cx}" cy="{cy}" r="{r}"/>'
+
+
+def _rect(x, y, w, h, rx=0, rot=None):
+    t = f' transform="rotate({rot[0]} {rot[1]} {rot[2]})"' if rot else ""
+    return f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}"{t}/>'
+
+
+def _path(d, rot=None):
+    t = f' transform="rotate({rot[0]} {rot[1]} {rot[2]})"' if rot else ""
+    return f'<path d="{d}"{t}/>'
+
+
+def _mask_face(smile):
+    """A theatre mask: the face, its eye holes and its mouth (and a tear) cut out."""
+    face = [_path("M3,3 C7,1.5 13,1.5 17,3 C17.5,11 15,17 10,18.8 C5,17 2.5,11 3,3 Z")]
+    cuts = [_path("M5.2,7 C6.2,5.6 8,5.6 8.8,7.2 C8,8.6 6.2,8.6 5.2,7 Z"),
+            _path("M11.2,7.2 C12,5.6 13.8,5.6 14.8,7 C13.8,8.6 12,8.6 11.2,7.2 Z")]
+    if smile:
+        cuts.append(_path("M5.6,11 C7.5,15.2 12.5,15.2 14.4,11 C12.4,12.6 7.6,12.6 5.6,11 Z"))
+    else:
+        cuts.append(_path("M5.8,15 C7.6,11.2 12.4,11.2 14.2,15 C12.4,13.6 7.6,13.6 5.8,15 Z"))
+        cuts.append(_path("M6.2,9.6 C6.9,10.8 7.1,11.8 6.8,12.6 C6.4,12.6 6,11.4 6.2,9.6 Z"))
+    return face, cuts
+
+
+def _sword(rot):
+    s = ("M10,0.6 L11.6,2.6 L11.6,12.2 L8.4,12.2 L8.4,2.6 Z M5.2,12.2 L14.8,12.2 L14.8,14.2 L5.2,14.2 Z "
+         "M9,14.2 L11,14.2 L11,17.4 L9,17.4 Z M8.2,17.4 L11.8,17.4 L11.8,19.2 L8.2,19.2 Z")
+    return _path(s, rot=(rot, 10, 10))
+
+
+# name: (shapes, holes cut from them)
+GLYPHS = {
+    "Greetings": ([_rect(5, 9, 10, 9, 3)]                                   # an open hand
+                  + [_rect(x, top, 2.2, 12 - top, 1.1) for x, top in [(5.2, 3.2), (7.7, 1.6), (10.2, 1.4), (12.7, 2.6)]]
+                  + [_rect(2.6, 8, 2.2, 7, 1.1, rot=(-35, 3.7, 14))], []),
+    "Joy": _mask_face(True),                                                # the comedy mask
+    "Sorrow": _mask_face(False),                                            # the tragedy mask
+    "Taunts": ([_path("M5,8.6 C5,4.6 15,4.6 15,8.6 L15,12.4 L13,13.6 L13,16.4 L7,16.4 L7,13.6 L5,12.4 Z"),
+                _path("M5.4,7.4 C3,7 1,4.6 1.4,1.6 C2.6,4 4.2,4.6 6.6,5 Z"),   # a horned skull
+                _path("M14.6,7.4 C17,7 19,4.6 18.6,1.6 C17.4,4 15.8,4.6 13.4,5 Z")],
+               [_circ(7.9, 9.8, 1.6), _circ(12.1, 9.8, 1.6), _rect(8.8, 14, 0.7, 2.4), _rect(10.5, 14, 0.7, 2.4)]),
+    "AtEase": ([_rect(2.4, 15.2, 15.2, 2.4, 1.2, rot=(-14, 10, 16.4)),       # a campfire
+                _rect(2.4, 15.2, 15.2, 2.4, 1.2, rot=(14, 10, 16.4)),
+                _path("M10,14.4 C7.2,14.4 6,12.6 6.6,10.6 C7.2,8.8 8.6,8.2 8.6,6 C10,7.2 10.4,8.4 10.2,9.6 "
+                      "C11.4,8.6 11.6,6.6 11.2,4.6 C13.8,6.4 14.6,9.4 13.8,11.6 C13.2,13.4 12,14.4 10,14.4 Z")], []),
+    "Playful": ([_path("M3,16 C3,11 6,7.4 2.4,4 C7,4.4 9,7.4 10,10.4 C11,7.4 13,4.4 17.6,4 C14,7.4 17,11 17,16 Z"),
+                 _path("M8.6,10.4 C8.6,6 9.2,3.6 10,2.6 C10.8,3.6 11.4,6 11.4,10.4 Z"),   # a jester's cap
+                 _rect(2.4, 15.4, 15.2, 3, 1.4), _circ(2.6, 3.6, 1.6), _circ(17.4, 3.6, 1.6), _circ(10, 2, 1.5)], []),
+    "Battle": ([_sword(45), _sword(-45)], []),                              # crossed swords
+    "Distress": ([_path("M10,1.4 L19,17.6 L1,17.6 Z")],                     # a warning sign
+                 [_path("M8.9,6.6 L11.1,6.6 L10.6,12.8 L9.4,12.8 Z"), _circ(10, 15, 1.2)]),
+    "Signals": ([_rect(3, 1.4, 1.8, 18, 0.9), _path("M4.8,2.6 L18,6.8 L4.8,11 Z")], []),   # a pennant
+}
+
+
+class Picture:
+    """A finished image, for PARTS (which expects .image())."""
+
+    def __init__(self, img):
+        self.img = img
+
+    def image(self):
+        return self.img
+
+
+def glyph(name):
+    import io
+    import subprocess
+    from PIL import ImageFilter
+    shapes, holes = GLYPHS[name]
+    big = GLYPH_BOX * 4
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{big}" height="{big}" viewBox="-1 -1 22 22">'
+           '<defs><linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">'
+           '<stop offset="0" stop-color="#f0d488"/><stop offset="1" stop-color="#a8823a"/></linearGradient>'
+           '<mask id="m" maskUnits="userSpaceOnUse" x="-1" y="-1" width="22" height="22">'
+           '<rect x="-1" y="-1" width="22" height="22" fill="#fff"/>'
+           f'<g fill="#000">{"".join(holes)}</g></mask></defs>'
+           f'<g fill="url(#gold)" mask="url(#m)">{"".join(shapes)}</g></svg>')
+    png = subprocess.run(["rsvg-convert"], input=svg.encode(), capture_output=True, check=True).stdout
+    g = Image.open(io.BytesIO(png)).convert("RGBA").resize((GLYPH_BOX, GLYPH_BOX), Image.LANCZOS)
+    # the dark outline, a texel round the glyph
+    edge = Image.new("RGBA", g.size, (0x2a, 0x1e, 0x08, 0))
+    edge.putalpha(g.getchannel("A").filter(ImageFilter.MaxFilter(3)))
+    edge.alpha_composite(g)
+    out = Image.new("RGBA", (GLYPH_TEXELS, GLYPH_TEXELS), INK + (255,))
+    at = (GLYPH_TEXELS - GLYPH_BOX) // 2
+    out.alpha_composite(edge, (at, at))
+    return Picture(out)
+
 PARTS = {
     "Backdrop": backdrop, "OuterRing": outer_ring, "Hub": hub,
     "Rim": lambda: rim(False), "RimLit": lambda: rim(True), "RimGlow": rim_glow,
@@ -185,7 +287,13 @@ PARTS = {
 def main():
     os.makedirs(ASSETS, exist_ok=True)
     os.makedirs(MEDIA, exist_ok=True)
-    for name, draw in PARTS.items():
+    # "glyphs": the emote category glyphs alone, the wheel's parts left as they are
+    parts = dict(PARTS)
+    for name in GLYPHS:
+        parts["Glyph" + name] = (lambda n: lambda: glyph(n))(name)
+    if sys.argv[1:] == ["glyphs"]:
+        parts = {k: v for k, v in parts.items() if k.startswith("Glyph")}
+    for name, draw in parts.items():
         img = draw().image()
         img.save(os.path.join(ASSETS, name + ".png"))
         to_tga(img, os.path.join(MEDIA, name + ".tga"))

@@ -23,6 +23,9 @@ local BRONZE_MUTED = { 0.541, 0.439, 0.204 }   -- and its dark gold
 local FALLBACK_ICON = 134400
 
 local editor, editingID, selectedButton, dragging, activeCategory
+-- openSlot: the category open on the wheel (its slot on the radial); viewPreset: the preset shown
+-- (Core/Presets.lua), read-only, instead of a radial
+local openSlot, viewPreset
 local RadialDrag, RadialRowMenu, GroupMenu   -- the radials list's drag and its group menus (before BuildRadialColumn)
 local browseCache = {}   -- category -> its entries, built once per opening
 local snapshot, dirty
@@ -487,17 +490,22 @@ local function ContainsRadial(radialID, targetID, depth)
     if not data then return false end
     for _, button in ipairs(data.buttons) do
         if button.kind == "subradial" and ContainsRadial(button.radial, targetID, depth + 1) then return true end
+        for _, inner in ipairs(button.kind == "category" and button.buttons or {}) do
+            if inner.kind == "subradial" and ContainsRadial(inner.radial, targetID, depth + 1) then return true end
+        end
     end
     return false
 end
 
 AddCategory("radials", L["Radials"], function()
     local out = {}
+    -- an empty category, to fill with buttons of its own (not inside a category)
+    if not openSlot then out[1] = { kind = "category", name = L["Category"], glyph = "atease", buttons = {} } end
     for _, id in ipairs(RM():GetRadialsByName()) do
         if not ContainsRadial(id, editingID) then out[#out + 1] = { kind = "subradial", radial = id } end
     end
     return out
-end, L["Creates sub-radials. Use the mouse wheel while hovering it in the radial menu to flip through its buttons."], L["No other radials yet: make one and it can open from here."])
+end, L["Creates sub-radials. Use the mouse wheel while hovering it in the radial menu to flip through its buttons. A category is a ring of its own buttons, kept in this radial: click it, or turn the wheel on it, to open it."], L["No other radials yet: make one and it can open from here."])
 
 --------------------------------------------------
 -- 5. DRAG
@@ -543,14 +551,37 @@ local function CurrentRadial()
     return editingID and rm:GetRadial(editingID) or nil
 end
 
+-- what the wheel shows and edits: the radial, or its category opened there (an entry that keeps its
+-- own buttons); a preset, or its category, while one is viewed
+local function CurrentList()
+    local top
+    if viewPreset then
+        top = ns.PRESETS[viewPreset]
+    else
+        top = CurrentRadial()
+    end
+    local category = top and openSlot and top.buttons[openSlot]
+    if category and category.kind == "category" then return category end
+    openSlot = nil
+    return top
+end
+
 local function Changed()
     dirty = true
     RM():RadialChanged(editingID)
 end
 
 local function InsertEntry(entry, atIndex)
-    local radial = CurrentRadial()
-    if not (radial and entry) then return end
+    local radial = CurrentList()
+    if not (radial and entry) or viewPreset then return end
+    if entry.kind == "category" then
+        if openSlot then
+            ns.Print(L["a category can't go inside a category."])
+            return
+        end
+        -- the Catalog's is a template: each gets buttons of its own
+        entry = CopyTable(entry)
+    end
     if #radial.buttons >= RM().MAX_BUTTONS then
         ns.Print(L["that radial is full (%d buttons)."]:format(RM().MAX_BUTTONS))
         return
@@ -565,8 +596,8 @@ local function InsertEntry(entry, atIndex)
 end
 
 local function MoveButton(from, to)
-    local radial = CurrentRadial()
-    if not radial then return end
+    local radial = CurrentList()
+    if not radial or viewPreset then return end
     to = math.max(1, math.min(#radial.buttons, to))
     if from == to then return end
     table.insert(radial.buttons, to, table.remove(radial.buttons, from))
@@ -576,11 +607,26 @@ local function MoveButton(from, to)
 end
 
 local function RemoveButton(index)
-    local radial = CurrentRadial()
-    if not (radial and radial.buttons[index]) then return end
+    local radial = CurrentList()
+    if not (radial and radial.buttons[index]) or viewPreset then return end
     table.remove(radial.buttons, index)
     if selectedButton and selectedButton > #radial.buttons then selectedButton = #radial.buttons end
     Changed()
+    Refresh()
+end
+
+-- a category's ring on the wheel, in place of the radial (its slot chosen again on the way back)
+local function OpenCategory(slot)
+    local list = CurrentList()
+    local entry = not openSlot and list and slot and list.buttons[slot]
+    if not (entry and entry.kind == "category") then return end
+    openSlot, selectedButton = slot, nil
+    Refresh()
+end
+
+local function CloseCategory()
+    if not openSlot then return end
+    selectedButton, openSlot = openSlot, nil
     Refresh()
 end
 
@@ -590,11 +636,11 @@ end
 local function FinishDrag()
     local payload = dragging
     StopDrag()
-    if not (payload and editor) then return end
+    if not (payload and editor) or viewPreset then return end
 
     local target, empty = editor.canvas:SlotUnderMouse()
     local overCanvas = target ~= nil or editor.stage:IsMouseOver()
-    local radial = CurrentRadial()
+    local radial = CurrentList()
     if not radial then return end
 
     if payload.from then
@@ -657,6 +703,37 @@ ns.Dialogs["MDLUI_RADIAL_DELETE"] = {
     end,
     hideOnEscape = true,
     showAlert = true,
+}
+
+-- a preset's copy, back as the preset has it; its name, key and who gets it stay
+ns.Dialogs["MDLUI_RADIAL_RESET"] = {
+    text = L["Put |cffffff00%s|r back as it comes? Your changes to its buttons are lost; its name and key stay."],
+    button1 = L["Reset"],
+    button2 = L["Cancel"],
+    OnAccept = function(data)
+        if not (data and data.id and RM():ResetToPreset(data.id)) then return end
+        if editingID == data.id then selectedButton, openSlot = nil, nil end
+        dirty = true
+        Refresh()
+    end,
+    hideOnEscape = true,
+}
+
+ns.Dialogs["MDLUI_RADIAL_CATEGORY_NAME"] = {
+    text = "%s",
+    button1 = L["Rename"],
+    button2 = L["Cancel"],
+    hasEditBox = true,
+    maxLetters = 40,
+    editText = function(data) return data and data.name or "" end,
+    OnAccept = function(data, text)
+        text = text and strtrim(text) or ""
+        if text == "" or not (data and data.entry) then return end
+        data.entry.name = text
+        Changed()
+        Refresh()
+    end,
+    hideOnEscape = true,
 }
 
 --------------------------------------------------
@@ -904,7 +981,7 @@ local otherOpen = false          -- "Not on this character" unfolded (this sessi
 local KINDS = {
     spell = L["Spell"], item = L["Item"], mount = L["Mount"], macro = L["Macro"], emote = L["Emote"],
     targetmarker = L["Target marker"], worldmarker = L["World marker"], subradial = L["Radial"],
-    micromenu = L["Panel"], partycast = L["Party spell"], questitems = L["Quest Items"],
+    micromenu = L["Panel"], partycast = L["Party spell"], questitems = L["Quest Items"], category = L["Category"],
 }
 
 -- a tooltip from the copy document: label, description, tip
@@ -922,8 +999,8 @@ local function Hover(control, rowKey)
 end
 
 local function SelectRadial(id)
-    if id == editingID then return end
-    editingID, selectedButton = id, nil
+    if id == editingID and not viewPreset then return end
+    editingID, selectedButton, openSlot, viewPreset = id, nil, nil, nil
     Refresh()
 end
 
@@ -1134,13 +1211,19 @@ local function BuildNav(win)
                 elseif item.options then
                     ns.ButtonSound()
                     win.ShowPage("options")
+                elseif item.preset then
+                    ns.ButtonSound()
+                    if item.preset ~= viewPreset then viewPreset, selectedButton, openSlot = item.preset, nil, nil end
+                    win.ShowPage("radial", "wheel")
                 elseif item.id then
                     if mouseButton == "RightButton" then RadialRowMenu(self, item.id) return end
                     ns.ButtonSound()
                     if win.page == "radial" then
                         SelectRadial(item.id)
                     else
-                        if item.id ~= editingID then editingID, selectedButton = item.id, nil end
+                        if item.id ~= editingID or viewPreset then
+                            editingID, selectedButton, openSlot, viewPreset = item.id, nil, nil, nil
+                        end
                         win.ShowPage("radial")
                     end
                 end
@@ -1153,6 +1236,13 @@ local function BuildNav(win)
                     local group = RM():GetGroup(item.group)
                     GameTooltip:AddLine(group and group.name or "", 1, 1, 1)
                     GameTooltip:AddLine(L["Click to open or close. Right-click to rename or ungroup. Drag to move."], 0.8, 0.8, 0.8, true)
+                    GameTooltip:Show()
+                    return
+                end
+                if item.preset then
+                    ns.OwnGameTooltip(self, "ANCHOR_RIGHT")
+                    GameTooltip:AddLine(ns.PRESETS[item.preset].name, 1, 1, 1)
+                    GameTooltip:AddLine(L["A ready-made radial. Add a copy of your own to change it; you can put the copy back as it comes at any time."], nil, nil, nil, true)
                     GameTooltip:Show()
                     return
                 end
@@ -1212,10 +1302,13 @@ local function BuildNav(win)
             local lit, name, available
             available = true
             name = L["Every radial"]
-            if item.id then
+            if item.preset then
+                name = ns.PRESETS[item.preset].name
+                lit = win.page == "radial" and item.preset == viewPreset
+            elseif item.id then
                 local data = RM():GetRadial(item.id)
                 name, available = data.name, item.available
-                lit = win.page == "radial" and item.id == editingID
+                lit = win.page == "radial" and item.id == editingID and not viewPreset
                 local key = item.key and KeyText(item.key) or ""
                 cell.Key:SetText(key)
                 Paint(cell.Key, item.beaten and UI.clash or (lit and UI.gold or UI.faint))
@@ -1257,6 +1350,14 @@ local function BuildWheelCard(host, sheet)
     host.wheelCard = card
     host.keyChip = Panel.Chip(card, "")
     Panel.InBand(card, host.keyChip, 8, true)
+    -- a category open on the wheel: back to its radial
+    host.backButton = Panel.UButton(card, L["< Back"], 64, 20, "quiet")
+    Panel.InBand(card, host.backButton, 10, true)
+    host.backButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        CloseCategory()
+    end)
+    Tip(host.backButton, L["Back"], L["Back to the radial this category is on."])
     host.countText = Panel.Plain(card, 11, UI.faint)
     host.countText:SetJustifyH("RIGHT")
     Panel.InBand(card, host.countText)
@@ -1279,6 +1380,23 @@ local function BuildSlotCard(host, sheet)
         if selectedButton then RemoveButton(selectedButton) end
     end)
     Tip(host.removeButton, L["Remove"], L["Takes the button off this radial. Undo changes brings it back."])
+    -- a category: open its ring on the wheel (a double-click opens it too), and rename it
+    host.openButton = Panel.UButton(card, L["Open"], 56, 22, "secondary")
+    host.openButton:SetPoint("RIGHT", host.removeButton, "LEFT", -6, 0)
+    host.openButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        OpenCategory(selectedButton)
+    end)
+    Tip(host.openButton, L["Open"], L["Shows the category's own buttons on the wheel, to change them."])
+    host.renameCatButton = Panel.UButton(card, L["Rename..."], 76, 22, "quiet")
+    host.renameCatButton:SetPoint("RIGHT", host.openButton, "LEFT", -6, 0)
+    host.renameCatButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        local list = CurrentList()
+        local entry = list and selectedButton and list.buttons[selectedButton]
+        if not (entry and entry.kind == "category") then return end
+        ns.ShowDialog("MDLUI_RADIAL_CATEGORY_NAME", L["Name the category"], { entry = entry, name = entry.name })
+    end)
     host.slotEmpty = Panel.Plain(card, 12, UI.dim)
     host.slotEmpty:SetPoint("TOP", 0, -(Panel.BAND_H + 64))
     host.slotEmpty:SetJustifyH("CENTER")
@@ -1323,7 +1441,7 @@ local function BuildSlotCard(host, sheet)
     row = Panel.CardRow(slot, 3, L["Spell rank"], "")
     Tip(row, L["Spell rank"], L["Best known: casts the best rank you know, and follows new ones as you learn them. This rank: stays on the rank it has (one put on below your best is kept there)."])
     host.rankSeg = Panel.Segment(row, { L["Best known"], L["This rank"] }, function(i)
-        local radial = CurrentRadial()
+        local radial = CurrentList()
         local entry = radial and selectedButton and radial.buttons[selectedButton]
         if not entry then return end
         entry.pinned = (i == 2) or nil
@@ -1332,6 +1450,35 @@ local function BuildSlotCard(host, sheet)
     end)
     row:Hold(host.rankSeg)
     host.rankRow = row
+
+    -- a category: its glyph, in the rank's place
+    row = Panel.CardRow(slot, 3, L["Glyph"], "")
+    Tip(row, L["Glyph"], L["The picture the category shows on the radial."])
+    local glyphs = CreateFrame("Frame", nil, row)
+    local glyphNames = RM().CATEGORY_GLYPHS
+    glyphs:SetSize(#glyphNames * 22 - 2, 20)
+    host.glyphButtons = {}
+    for i, glyph in ipairs(glyphNames) do
+        local b = CreateFrame("Button", nil, glyphs)
+        b:SetSize(20, 20)
+        b:SetPoint("LEFT", (i - 1) * 22, 0)
+        b.Icon = b:CreateTexture(nil, "ARTWORK")
+        b.Icon:SetAllPoints()
+        b.Icon:SetTexture(RM().GlyphIcon(glyph).texture)
+        b.glyph = glyph
+        b:SetScript("OnClick", function()
+            local list = CurrentList()
+            local entry = list and selectedButton and list.buttons[selectedButton]
+            if not (entry and entry.kind == "category") or viewPreset then return end
+            ns.ButtonSound()
+            entry.glyph = glyph
+            Changed()
+            Refresh()
+        end)
+        host.glyphButtons[i] = b
+    end
+    row:Hold(glyphs)
+    host.glyphRow = row
 end
 
 local function BuildCatalogCard(host, sheet)
@@ -1390,7 +1537,7 @@ local function BuildCatalogCard(host, sheet)
             cell:SetScript("OnClick", function(self)
                 if not self.item then return end
                 ns.ButtonSound()
-                local radial = CurrentRadial()
+                local radial = CurrentList()
                 local after = radial and selectedButton and selectedButton <= #radial.buttons and selectedButton + 1 or nil
                 InsertEntry(self.item, after)
             end)
@@ -1413,6 +1560,34 @@ end
 -- THE RADIAL SHEET
 -- Who gets it, its key; Macro / Copy / Rename / Delete; the keys on this character.
 --------------------------------------------------
+-- a preset, viewed: what it is, and a copy of it for your radials (in the Catalog's place)
+local function BuildPresetCard(host, sheet)
+    local height = sheet:GetHeight() - SLOT_H - GAP
+    local card = Panel.Card(sheet, L["Preset"], SIDE_CARD_W, height)
+    card:SetPoint("TOPRIGHT", 0, -(SLOT_H + GAP))
+    host.presetCard = card
+    local text = Panel.Plain(card, 12, UI.dim)
+    text:SetPoint("TOPLEFT", Panel.CARD_PAD, -(Panel.BAND_H + 12))
+    text:SetWidth(SIDE_CARD_W - 2 * Panel.CARD_PAD)
+    text:SetSpacing(3)
+    text:SetText(L["A ready-made radial, read-only. Add a copy to your radials and change it however you like: its Radial sheet can put it back as it comes at any time."])
+    local add = Panel.UButton(card, L["Add to my radials"], 150, 26, "primary")
+    add:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -14)
+    add:SetScript("OnClick", function()
+        if not viewPreset then return end
+        ns.ButtonSound()
+        local id = RM():AddPreset(viewPreset)
+        if not id then return end
+        editingID, viewPreset, openSlot, selectedButton = id, nil, nil, nil
+        Changed()
+        Refresh()
+    end)
+    host.addPresetButton = add
+    host.presetCopies = Panel.Plain(card, 11, UI.faint)
+    host.presetCopies:SetPoint("TOPLEFT", add, "BOTTOMLEFT", 0, -10)
+    host.presetCopies:SetWidth(SIDE_CARD_W - 2 * Panel.CARD_PAD)
+end
+
 local function BuildRadialSheet(host, sheet)
     local S = ns.Settings
     local colW = math.floor((sheet:GetWidth() - GAP) / 2)
@@ -1485,7 +1660,7 @@ local function BuildRadialSheet(host, sheet)
 
     -- a macro that opens it (made on the spot and put on the cursor), a copy, a new name, Delete
     local rightW = sheet:GetWidth() - colW - GAP
-    local make = Panel.Card(content, L["Make"], rightW, Height(4))
+    local make = Panel.Card(content, L["Make"], rightW, Height(5))
     make:SetPoint("TOPRIGHT", 0, 0)
     local function Action(n, label, line, text, style, onClick)
         local r = Panel.CardRow(make, n, label, line)
@@ -1515,6 +1690,15 @@ local function BuildRadialSheet(host, sheet)
         if not radial then return end
         ns.ShowDialog("MDLUI_RADIAL_DELETE", radial.name or "", { id = editingID })
     end)
+    -- a preset's copy: its buttons back as the preset has them
+    local presetRow
+    host.resetButton, presetRow = Action(5, L["Preset"], "", L["Reset..."], nil, function()
+        local radial = editingID and RM():GetRadial(editingID)
+        local preset = radial and radial.preset and ns.PRESETS[radial.preset]
+        if not preset then return end
+        ns.ShowDialog("MDLUI_RADIAL_RESET", preset.name, { id = editingID })
+    end)
+    host.presetLine = presetRow.line
 
     -- what opens on this character
     local keys = Panel.Card(content, S:Text("rm.overview", "label"), rightW, 160)
@@ -1538,6 +1722,19 @@ local function BuildCanvas(host)
             local entry = EntryFromCursor()
             if entry then InsertEntry(entry, i) return end
             ns.ButtonSound()
+            -- the same slot again, quickly: a category opens
+            local now = GetTime()
+            local again = i == selectedButton and host.lastChoose and now - host.lastChoose < 0.4
+            host.lastChoose = now
+            if again then
+                local list = CurrentList()
+                local chosen = list and list.buttons[i]
+                if chosen and chosen.kind == "category" then
+                    host.lastChoose = nil
+                    OpenCategory(i)
+                    return
+                end
+            end
             selectedButton = i
             Refresh()
         end,
@@ -1552,7 +1749,8 @@ local function BuildCanvas(host)
             end
         end,
         startDrag = function(i)
-            local radial = CurrentRadial()
+            if viewPreset then return end
+            local radial = CurrentList()
             local entry = radial and radial.buttons[i]
             if entry then StartDrag({ from = i, entry = entry }) end
         end,
@@ -1565,7 +1763,7 @@ local function BuildCanvas(host)
                 GameTooltip:Show()
                 return
             end
-            local radial = CurrentRadial()
+            local radial = CurrentList()
             local entry = radial and radial.buttons[hit.index]
             if entry then EntryTooltip(hit, entry, L["Click to choose it. Drag it onto another slot to move it; right-click removes."]) end
         end,
@@ -1596,6 +1794,7 @@ local function Build(win)
     BuildWheelCard(win, wheel)
     BuildSlotCard(win, wheel)
     BuildCatalogCard(win, wheel)
+    BuildPresetCard(win, wheel)
     BuildRadialSheet(win, win.sheets.radial)
     BuildCanvas(win)
     BuildFooter(win)
@@ -1677,6 +1876,9 @@ local function NavItems(perRadial)
             local data = rm:GetRadial(id)
             if data and (data.name or ""):lower():find(filter, 1, true) then out[#out + 1] = Item(id) end
         end
+        for _, key in ipairs(ns.PRESET_ORDER) do
+            if ns.PRESETS[key].name:lower():find(filter, 1, true) then out[#out + 1] = { preset = key } end
+        end
         if L["Every radial"]:lower():find(filter, 1, true) then out[#out + 1] = { options = true } end
         if #out == 0 then out[1] = { head = L["Nothing matches"], faint = true } end
         return out
@@ -1709,6 +1911,8 @@ local function NavItems(perRadial)
         out[#out + 1] = { head = L["Not on This Character"], fold = true, open = otherOpen, count = #other, faint = true }
         if otherOpen then for _, item in ipairs(other) do out[#out + 1] = item end end
     end
+    out[#out + 1] = { head = L["Presets"], open = true }
+    for _, key in ipairs(ns.PRESET_ORDER) do out[#out + 1] = { preset = key } end
     out[#out + 1] = { head = L["Options"], open = true }
     out[#out + 1] = { options = true }
     return out
@@ -1745,10 +1949,21 @@ local function RefreshHeader(radial)
         editor.crumb:SetText(L["Create one with + New radial, below."])
         return
     end
+    local list = CurrentList()
+    local category = list ~= radial and list or nil
+    if viewPreset then
+        editor.moreText = L["A ready-made radial, to look at: click a category's slot twice, or choose it and Open, to see its buttons. Add to my radials makes a copy you can change."]
+        local parts = { L["Presets"], radial.name }
+        if category then parts[#parts + 1] = category.name end
+        editor.pageTitle:SetText(radial.name)
+        editor.crumb:SetText(table.concat(parts, "  >  ") .. "   " .. DOT .. "  " .. L["Read-only"])
+        return
+    end
     local parts = { L["Radials"] }
     local group = radial.group and RM():GetGroup(radial.group)
     if group then parts[#parts + 1] = group.name end
     parts[#parts + 1] = radial.name
+    if category then parts[#parts + 1] = category.name end
     editor.pageTitle:SetText(radial.name)
     editor.crumb:SetText(table.concat(parts, "  >  ") .. "   " .. DOT .. "  " .. ScopeText(radial.scope, radial))
 end
@@ -1756,9 +1971,14 @@ end
 -- the chosen slot's card: the button, or what to do for one
 local function RefreshSlot(radial)
     local entry = radial and selectedButton and radial.buttons[selectedButton]
+    local category = entry and entry.kind == "category"
     editor.slot:SetShown(entry ~= nil)
     editor.slotChip:SetShown(entry ~= nil)
-    editor.removeButton:SetShown(entry ~= nil)
+    editor.removeButton:SetShown(entry ~= nil and not viewPreset)
+    editor.openButton:SetShown(category == true)
+    editor.renameCatButton:SetShown(category == true and not viewPreset)
+    editor.rankRow:SetShown(not category)
+    editor.glyphRow:SetShown(category == true)
     editor.slotEmpty:SetShown(entry == nil)
     editor.slotEmpty:SetText(L["Choose a slot on the wheel."])
     if not entry then return end
@@ -1769,16 +1989,26 @@ local function RefreshSlot(radial)
     -- a spell's rank, when it has ranks ("Rank 3")
     local rank = entry.kind == "spell" and entry.id and C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(entry.id)
     rank = type(rank) == "string" and rank:find("%d") and rank or nil
-    editor.slotKind:SetText((KINDS[entry.kind] or tostring(entry.kind)) .. (rank and (DOT .. rank) or ""))
+    local fact = rank
+    if category then
+        local count = #(entry.buttons or {})
+        fact = count == 1 and L["1 button"] or L["%d buttons"]:format(count)
+    end
+    editor.slotKind:SetText((KINDS[entry.kind] or tostring(entry.kind)) .. (fact and (DOT .. fact) or ""))
     editor.slotChip:SetText(L["%d of %d"]:format(selectedButton, n))
     editor.slotPlace.value:SetText(L["%d of %d"]:format(selectedButton, n))
-    editor.slotPlace.minus:SetEnabled(selectedButton > 1)
-    editor.slotPlace.plus:SetEnabled(selectedButton < n)
+    editor.slotPlace.minus:SetEnabled(selectedButton > 1 and not viewPreset)
+    editor.slotPlace.plus:SetEnabled(selectedButton < n and not viewPreset)
+    for _, b in ipairs(editor.glyphButtons) do
+        local on = category and b.glyph == (entry.glyph or "atease")
+        b.Icon:SetAlpha(on and 1 or 0.4)
+        b:SetEnabled(not viewPreset)
+    end
     -- no rank: the row stays, greyed, saying when it applies
     local row = editor.rankRow
     row:SetAlpha(rank and 1 or 0.45)
     row.line:SetText(rank and L["Best known follows the ranks you learn"] or L["A spell with ranks only"])
-    for _, b in ipairs(editor.rankSeg.buttons) do b:SetEnabled(rank ~= nil) end
+    for _, b in ipairs(editor.rankSeg.buttons) do b:SetEnabled(rank ~= nil and not viewPreset) end
     editor.rankSeg:SetValue(rank and (entry.pinned and 2 or 1) or 0)
 end
 
@@ -1797,9 +2027,11 @@ local function RefreshCanvas(radial)
     editor.canvas:Draw({
         entries = entries,
         chosen = selectedButton,
-        hint = #radial.buttons == 0 and L["Drag something from the Catalog onto the wheel, or click it."]
+        hint = (viewPreset and L["A preset: click a slot to see it  \194\183  click a category twice to open it"])
+            or (#radial.buttons == 0 and L["Drag something from the Catalog onto the wheel, or click it."])
             or L["Click a slot to choose it  \194\183  drag it onto another to move it  \194\183  right-click removes"],
-        names = show.names, numbers = show.numbers, empty = show.empty,
+        -- a preset takes nothing: no empty slot to drop on
+        names = show.names, numbers = show.numbers, empty = show.empty and not viewPreset,
     })
 end
 
@@ -1807,32 +2039,50 @@ function Refresh()
     if not (editor and editor:IsShown()) then return end
     local rm = RM()
     local radial = CurrentRadial()
-    if radial and selectedButton and selectedButton > #radial.buttons then selectedButton = nil end
+    local list = CurrentList()
+    if list and selectedButton and selectedButton > #list.buttons then selectedButton = nil end
+    -- a preset has no Radial sheet
+    editor.tabs.radial:SetShown(editor.page == "radial" and not viewPreset)
+    if viewPreset and editor.sheet == "radial" then editor.ShowPage("radial", "wheel") return end
     local _, perRadial = rm:ResolveKeys()
 
     editor.radialList:SetData(NavItems(perRadial))
     RefreshOverview(perRadial)
-    RefreshHeader(radial)
+    RefreshHeader(viewPreset and ns.PRESETS[viewPreset] or radial)
 
-    local has = radial ~= nil
+    local has = radial ~= nil and not viewPreset
     editor.radialContent:SetShown(has)
-    editor.radialEmpty:SetShown(not has)
-    editor.keyChip:SetShown(has)
-    editor.countText:SetShown(has)
-    editor.slotCard:SetShown(has)
+    editor.radialEmpty:SetShown(radial == nil)
+    editor.keyChip:SetShown(has and not openSlot)
+    editor.backButton:SetShown(openSlot ~= nil)
+    editor.wheelCard.title:SetText(openSlot and list.name or L["Wheel"])
+    editor.countText:SetShown(list ~= nil)
+    editor.slotCard:SetShown(list ~= nil)
     editor.catalogCard:SetShown(has)
+    editor.presetCard:SetShown(viewPreset ~= nil)
+    if viewPreset then
+        editor.countText:SetText(L["%d of %d buttons"]:format(#list.buttons, rm.MAX_BUTTONS))
+        local names = {}
+        for _, id in ipairs(rm:PresetCopies(viewPreset)) do names[#names + 1] = rm:GetRadial(id).name end
+        editor.presetCopies:SetText(#names > 0 and L["Your copies: %s"]:format(table.concat(names, ", "))
+            or L["No copy yet."])
+    end
     if has then
+        local preset = radial.preset and ns.PRESETS[radial.preset]
+        editor.resetButton:SetEnabled(preset ~= nil)
+        editor.presetLine:SetText(preset and L["Copied from %s: put it back as it comes"]:format(preset.name)
+            or L["Not made from a preset"])
         local key = rm:GetRadialKey(editingID)
         editor.keyChip:SetText((key and key ~= "") and KeyText(key) or L["no key"])
-        editor.countText:SetText(L["%d of %d buttons"]:format(#radial.buttons, rm.MAX_BUTTONS))
+        editor.countText:SetText(L["%d of %d buttons"]:format(#list.buttons, rm.MAX_BUTTONS))
         editor.scopeDrop:SetValueText(ScopeText(radial.scope, radial))
         editor.scopeDrop:GenerateMenu()
         editor.ownKey:SetOn(rm:HasOwnKey(editingID))
         if not editor.keyButton.waiting then editor.keyButton:ShowKey(key or "") end
         editor.nameLine:SetText(radial.name)
     end
-    RefreshSlot(radial)
-    RefreshCanvas(radial)
+    RefreshSlot(list)
+    RefreshCanvas(list)
     editor.undoButton:SetEnabled(dirty == true)
     editor.changed:SetShown(dirty == true)
     if has then RefreshBrowse() end
@@ -1847,4 +2097,6 @@ ns.RadialEditorEmbed = {
     Refresh = function() if editor then Refresh() end end,
     -- the chosen slot (the harness's way to read it)
     Chosen = function() return editingID, selectedButton end,
+    -- the category open on the wheel, and the preset viewed
+    Open = function() return openSlot, viewPreset end,
 }

@@ -9,6 +9,11 @@ local events, setCombat = H.events, H.setCombat
 local ADDON = "WoW/Interface/AddOns/mdlui_RadialMenu/"
 
 -- ------------------------------------------------------------ stubs
+CopyTable = CopyTable or function(t)
+    local out = {}
+    for k, v in pairs(t) do out[k] = type(v) == "table" and CopyTable(v) or v end
+    return out
+end
 -- override bindings, by owner: key -> "frame:button"
 local owned = {}
 function SetOverrideBindingClick(owner, prio, key, name, button)
@@ -206,6 +211,7 @@ print("radial saved", "options=" .. tostring(type(mdlui_RadialMenuDB.options)),
 local order = RM:GetRadialOrder()
 local first = order[1]
 local data = RM:GetRadial(first)
+local firstID, firstPreset = first, data.preset   -- the first run's Markers is the preset's copy (checked with the presets)
 local kinds = {}
 for _, b in ipairs(data.buttons) do kinds[#kinds + 1] = b.kind .. ":" .. tostring(b.marker or b.id or b.which or "") end
 print("radial first run", "radials=" .. #order, "name=" .. tostring(data.name), "buttons=" .. #data.buttons)
@@ -215,6 +221,7 @@ print("radial macro", RM:GetMacroText(first))
 local header = refs and (function()
     for h in pairs(refs) do return h end
 end)()
+local secureHeader = header
 print("radial header", header ~= nil, "count=" .. tostring(header and header:GetAttribute(first .. "-count")))
 
 -- ------------------------------------------------------------ the secure copy
@@ -268,6 +275,18 @@ radialCursor = { 0.5, 0.7 }
 print("radial hold right-click", click(catcher, "RightButton", false))
 print("radial hold release after cancel", click(caster, first, false))
 state("cancelled")
+-- left-click while held uses the button aimed at, as letting go would; the release does nothing.
+-- In the centre it cancels.
+radialCursor = { 0.5, 0.5 }
+click(caster, first, true)
+radialCursor = { 0.7, 0.5 }
+print("radial hold left-click", click(catcher, "LeftButton", false))
+print("radial hold release after left-click", click(caster, first, false))
+state("used by left-click")
+radialCursor = { 0.5, 0.5 }
+click(caster, first, true)
+print("radial hold left-click centre", click(catcher, "LeftButton", false))
+state("left-click centre cancels")
 
 -- ------------------------------------------------------------ click mode, by macro
 radialCursor = { 0.5, 0.5 }
@@ -500,11 +519,6 @@ local function menuText(entries)
     for _, e in ipairs(entries) do parts[#parts + 1] = (e.on and "(x) " or "") .. tostring(e.text) end
     return table.concat(parts, " | ")
 end
-CopyTable = CopyTable or function(t)
-    local out = {}
-    for k, v in pairs(t) do out[k] = type(v) == "table" and CopyTable(v) or v end
-    return out
-end
 local getText = Region.GetText
 function Region:GetText()
     local text = getText(self)
@@ -556,6 +570,7 @@ local function listNames()
         local data = item.id and RM:GetRadial(item.id)
         out[#out + 1] = item.head and ("[" .. item.head .. (item.count and not item.open and (" " .. item.count) or "") .. "]")
             or item.group and ("<" .. item.group .. ">") or item.options and "*Every radial"
+            or item.preset and ("~" .. ns.PRESETS[item.preset].name)
             or ((item.member and "-" or "") .. (data and data.name or "?") .. (item.key and ("=" .. item.key) or ""))
     end
     return table.concat(out, ", ")
@@ -1022,3 +1037,220 @@ for _, panel in ipairs({ "bags", "character" }) do
     print("radial panel " .. panel, "label=" .. tostring(info and info.name), "type=" .. tostring(attrs and attrs.type),
         "macrotext=" .. tostring(attrs and attrs.macrotext):gsub("\n", " / "))
 end
+
+-- ---- presets (Core/Presets.lua) and categories: a copy of each preset, a category's ring in the
+-- secure copy, opened by the held key (left-click or the wheel) and in click mode, Reset
+for _, key in ipairs(ns.PRESET_ORDER) do
+    local p, cats, n = ns.PRESETS[key], 0, 0
+    for _, b in ipairs(p.buttons) do
+        if b.kind == "category" then cats, n = cats + 1, n + #b.buttons else n = n + 1 end
+    end
+    print("radial preset " .. key, "name=" .. p.name, "categories=" .. cats, "buttons=" .. n)
+end
+print("radial preset first run", "markers=" .. tostring(firstPreset))
+local before = #RM:GetRadialOrder()
+local emo, voice = RM:AddPreset("emotes"), RM:AddPreset("voice")
+runTimers()
+print("radial preset added", "radials " .. before .. "->" .. #RM:GetRadialOrder(), "name=" .. RM:GetRadial(emo).name,
+    "marked=" .. tostring(RM:GetRadial(emo).preset), "copies=" .. #RM:PresetCopies("emotes"),
+    "own table=" .. tostring(RM:GetRadial(emo).buttons ~= ns.PRESETS.emotes.buttons))
+local joy, right, dead = { 0.7, 0.55 }, { 0.7, 0.5 }, { 0.51, 0.51 }
+local function hold() radialCursor = { 0.5, 0.5 } click(caster, emo, true) end
+local function shown() return table.concat(RM.ShownNames(), ",") end
+hold()
+radialCursor = joy
+print("radial category release on it", click(caster, emo, false))
+print("radial category synced", "count=" .. tostring(secureHeader:GetAttribute(emo .. "-count")),
+    "cat=" .. tostring(secureHeader:GetAttribute(emo .. "-s2-cat")), "sub=" .. tostring(secureHeader:GetAttribute(emo .. "-s2-sub")),
+    "ring=" .. tostring(secureHeader:GetAttribute(emo .. "c2-count")), "ring slot 2: " .. slotAttrs(emo .. "c2", 2),
+    "plain slot cat=" .. tostring(secureHeader:GetAttribute(firstID .. "-s2-cat")))
+hold()
+radialCursor = joy
+click(catcher, "LeftButton", false)
+state("category opened")
+print("radial category art", shown())
+radialCursor = right
+print("radial category release in ring", click(caster, emo, false))
+hold()
+state("category held again")
+radialCursor = joy
+click(catcher, "LeftButton", false)
+click(catcher, "RightButton", false)
+state("category back")
+print("radial category art back", shown())
+click(catcher, "RightButton", false)
+state("category right-click at top cancels")
+hold()
+radialCursor = dead
+click(catcher, "LeftButton", false)
+state("category left-click off it cancels")
+hold()
+radialCursor = joy
+click(catcher, "LeftButton", false)
+radialCursor = right
+print("radial category left-click in ring", click(catcher, "LeftButton", false))
+print("radial category release after", click(caster, emo, false))
+state("category used by left-click")
+hold()
+radialCursor = joy
+wheelTurn(wheel, -1)
+state("category wheel opens")
+radialCursor = right
+print("radial category wheel, release", click(caster, emo, false))
+hold()
+radialCursor = joy
+click(catcher, "LeftButton", false)
+click(catcher, "Escape", false)
+state("category escape cancels")
+-- click mode: left-click opens a category, as middle-click does; left-click in it fires
+radialCursor = { 0.5, 0.5 }
+click(macro, emo, false)
+radialCursor = joy
+click(catcher, "LeftButton", false)
+state("category click mode opened")
+radialCursor = right
+print("radial category click mode fires", click(catcher, "LeftButton", false))
+radialCursor = { 0.5, 0.5 }
+click(macro, emo, false)
+radialCursor = joy
+click(catcher, "MiddleButton", false)
+state("category middle-click opened")
+click(catcher, "Escape", false)
+-- a plain sub-radial is no category: a left-click fires its button (click mode), or cancels (held)
+local subs = RM:CreateRadial("Subs")
+RM:GetRadial(subs).buttons = { { kind = "subradial", radial = voice }, { kind = "emote", emote = "BOW" } }
+RM:RadialChanged(subs)
+radialCursor = { 0.5, 0.5 }
+click(caster, subs, true)          -- (opening writes the secure copy)
+radialCursor = { 0.5, 0.7 }
+click(catcher, "LeftButton", false)
+state("sub-radial held, left-click cancels")
+radialCursor = { 0.5, 0.5 }
+click(macro, subs, false)
+radialCursor = { 0.5, 0.7 }
+print("radial sub-radial left-click fires", click(catcher, "LeftButton", false))
+RM:DeleteRadial(subs)
+-- a category in a ring is left out; through a sub-radial a category steps like one
+local ring = RM:GetRadial(emo).buttons[2].buttons
+table.insert(ring, 1, { kind = "category", name = "Inner", glyph = "joy", buttons = { { kind = "emote", emote = "WAVE" } } })
+RM:RadialChanged(emo)
+print("radial category in a ring", "ring count=" .. tostring(secureHeader:GetAttribute(emo .. "c2-count")))
+table.remove(ring, 1)
+local deep = RM:ResolveEntry({ kind = "subradial", radial = emo })
+print("radial category through a sub-radial", "children=" .. #deep.children,
+    "first=" .. tostring(deep.children[1].name) .. ":" .. #(deep.children[1].children or {}))
+-- the faction's battle cry
+local function cry() local i = RM:ResolveEntry({ kind = "emote", emote = "FACTION" }) return i.name .. " " .. i.attributes.macrotext end
+local realFaction = UnitFactionGroup
+local alliance = cry()
+UnitFactionGroup = function() return "Horde" end
+print("radial preset faction", alliance, "|", cry())
+UnitFactionGroup = realFaction
+-- Reset: the preset's buttons back, the name, key and who gets it kept
+RM:SetRadialKey(emo, "H")
+RM:RenameRadial(emo, "My Emotes")
+RM:SetRadialScope(emo, "class:PALADIN")
+table.remove(RM:GetRadial(emo).buttons, 1)
+RM:GetRadial(emo).buttons[1].glyph = "battle"
+print("radial preset reset", tostring(RM:ResetToPreset(emo)),
+    "same=" .. tostring(RM.SameButtons(RM:GetRadial(emo).buttons, ns.PRESETS.emotes.buttons)),
+    "own table=" .. tostring(RM:GetRadial(emo).buttons ~= ns.PRESETS.emotes.buttons),
+    "name=" .. RM:GetRadial(emo).name, "key=" .. tostring(RM:GetRadialKey(emo)), "scope=" .. tostring(RM:GetRadial(emo).scope),
+    "plain radial=" .. tostring(RM:ResetToPreset(emotes)))
+-- an old Markers radial, as it came, becomes the preset's copy; a changed one doesn't
+local old1, old2 = RM:CreateRadial("Old Markers"), RM:CreateRadial("Changed Markers")
+RM:GetRadial(old1).buttons = CopyTable(ns.PRESETS.markers.buttons)
+RM:GetRadial(old2).buttons = CopyTable(ns.PRESETS.markers.buttons)
+table.remove(RM:GetRadial(old2).buttons)
+RM:MarkPresetCopies()
+print("radial preset marks old", "as it came=" .. tostring(RM:GetRadial(old1).preset), "changed=" .. tostring(RM:GetRadial(old2).preset))
+
+-- ---- the editor: a category opened on the wheel and changed there, its glyph and name, a new
+-- one from the Catalog, Reset on the Radial sheet; a preset viewed read-only, and added
+win:Show()
+win.ShowPage("radial", "wheel")
+local function navTo(test)
+    for _, c in ipairs(host.radialList.cells) do
+        if c.item and test(c.item) then c.scripts.OnClick(c, "LeftButton") return true end
+    end
+    return false
+end
+local function opened() local slot, preset = ns.RadialEditorEmbed.Open() return tostring(slot) .. "/" .. tostring(preset) end
+local function catButtons(i) return #(RM:GetRadial(emo).buttons[i].buttons or {}) end
+navTo(function(item) return item.id == emo end)
+hits = host.canvas.hits
+hits[2].scripts.OnClick(hits[2], "LeftButton")
+print("radial editor category slot", "name=" .. tostring(host.slotName.text), "kind=" .. tostring(host.slotKind.text),
+    "open=" .. tostring(host.openButton:IsShown()), "rename=" .. tostring(host.renameCatButton:IsShown()),
+    "glyphs=" .. tostring(host.glyphRow:IsShown()) .. ":" .. #host.glyphButtons, "rank row=" .. tostring(host.rankRow:IsShown()))
+host.openButton.scripts.OnClick(host.openButton)
+print("radial editor category open", "open=" .. opened(), "crumb=" .. plain(win.crumb.text), "card=" .. tostring(host.wheelCard.title.text),
+    "back=" .. tostring(host.backButton:IsShown()), "key chip=" .. tostring(host.keyChip:IsShown()), "slots=" .. slotsOf(),
+    "count=" .. tostring(host.countText.text))
+category("Radials")
+print("radial editor category catalog", "first=" .. tostring(host.browseList.data[1] and host.browseList.data[1].kind))
+category("Emotes")
+cell = host.browseList.cells[1]
+cell.scripts.OnClick(cell, "LeftButton")
+print("radial editor category add", "in it=" .. catButtons(2), "radial=" .. #RM:GetRadial(emo).buttons,
+    "last=" .. tostring(RM:GetRadial(emo).buttons[2].buttons[catButtons(2)].emote), "slots=" .. slotsOf())
+host.undoButton.scripts.OnClick(host.undoButton)
+print("radial editor category undo", "in it=" .. catButtons(2), "open=" .. opened())
+host.backButton.scripts.OnClick(host.backButton)
+print("radial editor category back", "open=" .. opened(), "slots=" .. slotsOf(), "card=" .. tostring(host.wheelCard.title.text),
+    "crumb=" .. plain(win.crumb.text))
+hits[3].scripts.OnClick(hits[3], "LeftButton")
+hits[3].scripts.OnClick(hits[3], "LeftButton")
+print("radial editor category double-click", "open=" .. opened(), "card=" .. tostring(host.wheelCard.title.text))
+host.backButton.scripts.OnClick(host.backButton)
+hits[2].scripts.OnClick(hits[2], "LeftButton")
+host.glyphButtons[7].scripts.OnClick(host.glyphButtons[7])
+print("radial editor category glyph", "saved=" .. tostring(RM:GetRadial(emo).buttons[2].glyph),
+    "lit=" .. host.glyphButtons[7].Icon:GetAlpha() .. "/" .. host.glyphButtons[2].Icon:GetAlpha())
+host.renameCatButton.scripts.OnClick(host.renameCatButton)
+d2 = _G.mdluiRadialDialog
+print("radial editor category rename asks", "shown=" .. tostring(d2:IsShown()), d2.Text.text, "box=" .. tostring(d2.EditBox.text))
+d2.EditBox.text = "Glee"
+d2.Button1.scripts.OnClick(d2.Button1)
+print("radial editor category renamed", "name=" .. tostring(RM:GetRadial(emo).buttons[2].name), "slot=" .. tostring(host.slotName.text))
+category("Radials")
+local template = host.browseList.data[1]
+cell = host.browseList.cells[1]
+cell.scripts.OnClick(cell, "LeftButton")
+local made = RM:GetRadial(emo).buttons[3]   -- after the chosen slot
+made.buttons[1] = { kind = "emote", emote = "WAVE" }
+print("radial editor category new", "radial=" .. #RM:GetRadial(emo).buttons, "kind=" .. made.kind, "name=" .. made.name,
+    "own table=" .. tostring(made ~= template), "template empty=" .. #template.buttons)
+-- Reset, on the Radial sheet
+win.ShowPage("radial", "radial")
+print("radial editor reset row", "line=" .. tostring(host.presetLine.text), "enabled=" .. tostring(host.resetButton.enabled))
+host.resetButton.scripts.OnClick(host.resetButton)
+print("radial editor reset asks", "shown=" .. tostring(d2:IsShown()), d2.Text.text)
+d2.Button1.scripts.OnClick(d2.Button1)
+print("radial editor reset", "same=" .. tostring(RM.SameButtons(RM:GetRadial(emo).buttons, ns.PRESETS.emotes.buttons)),
+    "name=" .. RM:GetRadial(emo).name, "key=" .. tostring(RM:GetRadialKey(emo)), "undo=" .. tostring(host.undoButton.enabled))
+navTo(function(item) return item.id and not RM:GetRadial(item.id).preset end)
+print("radial editor reset row, plain", "line=" .. tostring(host.presetLine.text), "enabled=" .. tostring(host.resetButton.enabled))
+-- a preset: read-only, its categories open, Add makes a copy
+local radialsBefore = #RM:GetRadialOrder()
+navTo(function(item) return item.preset == "voice" end)
+print("radial editor preset", "open=" .. opened(), "sheet=" .. tostring(win.sheet), "radial tab=" .. tostring(win.tabs.radial:IsShown()),
+    "lit=" .. lit(), "crumb=" .. plain(win.crumb.text), "catalog=" .. tostring(host.catalogCard:IsShown()),
+    "preset card=" .. tostring(host.presetCard:IsShown()), "copies=" .. tostring(host.presetCopies.text), "slots=" .. slotsOf(),
+    "hint=" .. tostring(host.canvas.hint.text))
+hits[1].scripts.OnClick(hits[1], "LeftButton")
+hits[2].scripts.OnClick(hits[2], "RightButton")
+print("radial editor preset slot", "name=" .. tostring(host.slotName.text), "remove=" .. tostring(host.removeButton:IsShown()),
+    "rename=" .. tostring(host.renameCatButton:IsShown()), "open=" .. tostring(host.openButton:IsShown()),
+    "after right-click=" .. #ns.PRESETS.voice.buttons, "undo=" .. tostring(host.undoButton.enabled))
+hits[3].scripts.OnClick(hits[3], "LeftButton")
+hits[3].scripts.OnClick(hits[3], "LeftButton")
+print("radial editor preset category", "open=" .. opened(), "crumb=" .. plain(win.crumb.text), "slots=" .. slotsOf())
+host.backButton.scripts.OnClick(host.backButton)
+host.addPresetButton.scripts.OnClick(host.addPresetButton)
+local added = ns.RadialEditorEmbed.Chosen()
+print("radial editor preset added", "radials " .. radialsBefore .. "->" .. #RM:GetRadialOrder(), "open=" .. opened(),
+    "name=" .. tostring(host.nameText.text), "marked=" .. tostring(RM:GetRadial(added).preset), "lit=" .. lit(),
+    "radial tab=" .. tostring(win.tabs.radial:IsShown()), "catalog=" .. tostring(host.catalogCard:IsShown()))
+navTo(function(item) return item.preset == "voice" end)
+print("radial editor preset copies", tostring(host.presetCopies.text))
