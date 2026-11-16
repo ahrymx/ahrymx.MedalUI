@@ -266,7 +266,7 @@ files["WoW/Interface/AddOns/mdlui_RadialMenu/**/*.lua"] = {
         "GetMacroItem", "MAXEMOTEINDEX", "strtrim", "C_ClassColor", "IsRaidMarkerActive",
         "SecureHandlerExecute", "SecureHandlerSetFrameRef", "SecureHandlerWrapScript",
         "MAX_ACCOUNT_MACROS", "CreateMacro", "EditMacro", "DeleteMacro", "FlareUI2_DB",
-        "GetBindingName", "tinsert", "NOT_BOUND",
+        "GetBindingName", "tinsert", "NOT_BOUND", "ToggleBackpack",
     },
 }
 files["WoW/Interface/AddOns/mdlui_RadialMenu/Radial/Radial.lua"] = {

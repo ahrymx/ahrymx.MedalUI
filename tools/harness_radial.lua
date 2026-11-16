@@ -1012,3 +1012,13 @@ extButtons[1].click()
 print("radial ext without the addon", "enabled=" .. tostring(extPage.enabled()), "closed=" .. closed, "shown=" .. tostring(win:IsShown()))
 SlashCmdList.MDLUI_RADIAL = slashFn
 mns.CloseOptions = realClose
+
+-- A game panel's button: the micro button /clicked. The backpack opens
+-- nothing when clicked with a modifier held (a radial on Shift-E fires with
+-- Shift down), so Bags clicks it with none, and opens the bags itself with one.
+for _, panel in ipairs({ "bags", "character" }) do
+    local info = RM:ResolveEntry({ kind = "micromenu", panel = panel })
+    local attrs = info and info.attributes
+    print("radial panel " .. panel, "label=" .. tostring(info and info.name), "type=" .. tostring(attrs and attrs.type),
+        "macrotext=" .. tostring(attrs and attrs.macrotext):gsub("\n", " / "))
+end

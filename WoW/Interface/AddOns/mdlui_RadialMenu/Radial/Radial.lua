@@ -195,7 +195,7 @@ local ResolveEntry                -- ACTIONS.subradial recurses through it
 -- opened from a tainted call, a panel taints its frames and secret comparisons there then fail.
 local MICRO_PANELS = {
     bags        = { order = 1,  label = L["Bags"],         icon = 133633,  button = "MainMenuBarBackpackButton",
-                    macrotext = "/run ToggleAllBags()" },
+                    macrotext = "/run ToggleAllBags()", modified = "mdluiRadialBags" },
     character   = { order = 2,  label = L["Character"],    icon = 136047,  button = "CharacterMicroButton" },
     collections = { order = 3,  label = L["Collections"],  icon = 132261,  button = "CollectionsMicroButton" },
     groupfinder = { order = 4,  label = L["Group Finder"], icon = 132161,  button = "LFDMicroButton" },
@@ -210,6 +210,15 @@ local MICRO_PANELS = {
     talents     = { order = 11, label = L["Talents"],      icon = 132222,  button = "TalentMicroButton" },
 }
 RM.MICRO_PANELS = MICRO_PANELS
+
+-- Bags with a modifier held (ACTIONS.micromenu): a plain button the macro /clicks, which opens
+-- the backpack as its key binding does
+do
+    local bags = CreateFrame("Button", "mdluiRadialBags", UIParent)
+    bags:Hide()
+    bags:RegisterForClicks("LeftButtonUp")
+    bags:SetScript("OnClick", function() ToggleBackpack() end)
+end
 
 local GUILD_ICON = "Interface\\Icons\\INV_Shirt_GuildTabard_01"
 
@@ -419,7 +428,15 @@ ACTIONS.micromenu = function(entry)
     -- Gamepad UI is blocked (ForceTaint_Strong) when Blizzard hands it the controller
     if panel.button and _G[panel.button] then
         -- /click, not a clickbutton attribute: the secure layer copies plain values only
-        return panel.label, icon, { type = "macro", macrotext = "/click " .. panel.button }
+        local text = "/click " .. panel.button
+        -- The backpack button opens nothing when the key that fires it has a modifier (a radial
+        -- on Shift-E or Ctrl-1). So with one, the macro's own [mod] picks a button of ours that
+        -- opens the backpack (insecure, only then). Lua's IsModifierKeyDown is no use here: under
+        -- such a binding it says no modifier while the macro's conditions see one.
+        if panel.modified then
+            text = "/click [nomod] " .. panel.button .. "; " .. panel.modified
+        end
+        return panel.label, icon, { type = "macro", macrotext = text }
     end
     if panel.macrotext then
         return panel.label, icon, { type = "macro", macrotext = panel.macrotext }
