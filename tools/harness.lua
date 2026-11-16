@@ -24994,7 +24994,7 @@ end)() end
 
 if radialPass then
     assert(loadfile("tools/harness_radial.lua"))({ events = events, setCombat = function(on) inCombat = on end,
-        medalluin = ns })
+        medalluin = ns, pointAt = function(r) mouseOver = r or false end })
 end
 if tooltipsPass then
     assert(loadfile("tools/harness_tooltips.lua"))({ events = events, medalluin = ns, region = Region })

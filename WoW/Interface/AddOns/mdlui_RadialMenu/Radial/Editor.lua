@@ -4,13 +4,18 @@ local L = ns.L
 --------------------------------------------------
 -- RADIAL EDITOR
 -- mdlui_RadialMenu: forked from FlareUI's Settings/RadialEditor.lua (6.8.2) by Malkkav, MIT (see LICENSE).
--- Changes: hosted by UI/Window.lua with UI/Panel.lua's pieces in Medalluin's look, names and dialog keys
--- renamed, the Gamepad UI's controller row and bar slots left out (controller work waits for 2.0).
+-- Sections 1-10 are the fork's model, read across from FlareUI's file: the lists, the Catalog's
+-- categories, drags, the edits (InsertEntry, MoveButton, RemoveButton), Undo, who gets a radial and its
+-- key, the name popup, macros. Changes there: names and dialog keys renamed, the Gamepad UI's
+-- controller row and bar slots left out (controller work waits for 2.0), drops on the canvas.
+-- Sections 11-13 are this addon's own (2026-11-16): FlareUI's layout builders were replaced by the
+-- Unit Frame Editor's layout (UI/Window.lua, UI/Canvas.lua), so the layout half no longer follows
+-- FlareUI's and the scratchpad script that regenerated this file from FlareUI's no longer applies.
 --
--- The editor window's Radials tab: every radial with who gets it and its key, what opens on this
--- character, and the selected radial's buttons, a Catalog to drag from and a live preview. Edits are
--- live; a snapshot taken on open backs "Undo changes". Drags from Blizzard's windows use the game
--- cursor (OnReceiveDrag); internal drags are resolved in FinishDrag.
+-- The editor window's radials: every radial with who gets it and its key, what opens on this
+-- character, the chosen radial's wheel with its buttons as slots, and a Catalog to fill it from.
+-- Edits are live; a snapshot taken on open backs "Undo changes". Drags from Blizzard's windows use the
+-- game cursor (OnReceiveDrag); internal drags are resolved in FinishDrag.
 --------------------------------------------------
 
 local BRONZE       = { 0.769, 0.647, 0.341 }   -- Medalluin's gold
@@ -579,33 +584,31 @@ local function RemoveButton(index)
     Refresh()
 end
 
--- nothing is on the game cursor during an internal drag, so OnReceiveDrag never fires
+-- nothing is on the game cursor during an internal drag, so OnReceiveDrag never fires. On the canvas
+-- (UI/Canvas.lua): dropped on a slot, a button takes its place and a Catalog entry goes in there; on
+-- the empty slot, at the end. A button dropped off the canvas comes off the radial.
 local function FinishDrag()
     local payload = dragging
     StopDrag()
     if not (payload and editor) then return end
 
-    local target
-    for _, cell in ipairs(editor.buttonList.cells) do
-        if cell:IsShown() and cell.dataIndex and cell:IsMouseOver() then
-            target = cell.dataIndex
-            break
-        end
-    end
-    local overList = editor.buttonList:IsMouseOver() or editor.dropZone:IsMouseOver()
+    local target, empty = editor.canvas:SlotUnderMouse()
+    local overCanvas = target ~= nil or editor.stage:IsMouseOver()
+    local radial = CurrentRadial()
+    if not radial then return end
 
     if payload.from then
-        if target then
+        if target and not empty then
             MoveButton(payload.from, target)
-        elseif overList then
-            MoveButton(payload.from, #(CurrentRadial() or { buttons = {} }).buttons)
-        else
-            RemoveButton(payload.from)   -- dragged off the list entirely
+        elseif empty then
+            MoveButton(payload.from, #radial.buttons)
+        elseif not overCanvas then
+            RemoveButton(payload.from)   -- dragged off the wheel entirely
         end
     elseif payload.entry then
-        if target then
+        if target and not empty then
             InsertEntry(payload.entry, target)
-        elseif overList then
+        elseif overCanvas then
             InsertEntry(payload.entry)
         end
     end
@@ -882,28 +885,28 @@ end
 
 --------------------------------------------------
 -- 11. BUILD
--- The window keeps the other pages' size. The right column: the radials, what opens on this
--- character and the live preview (with Undo). The middle: the selected radial's name and actions
--- (Rename, Copy, Macro, Delete), one row for who gets it and its key, then the Catalog (a category
--- menu over a three-column grid) and the radial's buttons, each part in its own box.
+-- mdlui_RadialMenu's own, in the Unit Frame Editor's layout (FlareUI's builders are gone): UI/Window.lua
+-- makes the window and hands its parts here. The list box: the radials, grouped, and what opens on
+-- this character at its foot. The canvas (UI/Canvas.lua): the chosen radial's wheel, a slot per
+-- button. The body: the radial's name and Delete over its tabs, Radial (who gets it, its key, Macro,
+-- Copy, Rename), Slot (the chosen button) and Catalog (what to put on it); Look is the window's.
 --------------------------------------------------
-local COLUMN_PAD = 12            -- the radials' inset in the panel's right column
-local LIST_W = 256               -- the radials list: the right column (280) less its insets
-local DETAIL_X = 0               -- the selected radial's column
+local Panel = ns.SettingsPanel
+local UI = ns.ui
 local RADIAL_ROW_H = 22
-local BUTTON_LIST_W = 64         -- the radial's buttons
-local BUTTON_ROW_H = 36
-local BUTTON_RIM = 30            -- a button's round icon in the list
+local LIST_ROWS = 16             -- the radials list, above "On this character"
+local OVERVIEW_Y = 368           -- that one's hairline, from the list box's top
 local GRID_ROW_H = 30            -- the Catalog's rows (three columns)
-local BOX_PAD = 8                -- (11-11) a section box reaches this far round its contents
-local BOX_GAP = 4                -- half the space between two boxes
 local GRID_RIM = 24              -- a Catalog entry's round icon
-local PREVIEW_H = 206            -- RadialMenu's PREVIEW_BOX (200) and a margin
-local OVERVIEW_H = 130           -- "On this character": its title and up to six lines
-local FORM_TOP = 34              -- labels; their controls sit 14 lower
--- (FlareUI's Gamepad UI adds a Controller row under the form here: it waits for 2.0)
-local LOWER_TOP = 104            -- Catalog and buttons start here (room under the form, 11-11)
-local LINE_ABOVE = 13                       -- the line under the form sits this far above them
+local SLOT_RIM = 42              -- the chosen button's icon on the Slot tab
+local ROW_GAP = 30               -- a row (24) and the space under it
+
+-- what kind of button a slot holds, on the Slot tab
+local KINDS = {
+    spell = L["Spell"], item = L["Item"], mount = L["Mount"], macro = L["Macro"], emote = L["Emote"],
+    targetmarker = L["Target marker"], worldmarker = L["World marker"], subradial = L["Radial"],
+    micromenu = L["Panel"], partycast = L["Party spell"], questitems = L["Quest Items"],
+}
 
 -- a tooltip from the copy document: label, description, tip
 local function Hover(control, rowKey)
@@ -917,77 +920,6 @@ local function Hover(control, rowKey)
         GameTooltip:Show()
     end)
     control:HookScript("OnLeave", function() GameTooltip:Hide() end)
-end
-
-local function Text(parent, font, text)
-    local fs = parent:CreateFontString(nil, "OVERLAY", font)
-    if text then fs:SetText(text) end
-    fs:SetJustifyH("LEFT")
-    return fs
-end
-
--- a section box behind the contents, as the settings pages' (11-11 Marcus): on the host's parent, under it
-local sectionBoxes = {}
--- the page's middle and right boxes step aside while the editor shows: its own boxes take their place
-local function PageBoxes(hide)
-    for _, box in ipairs({ ns.SettingsPanel.middleBox, ns.SettingsPanel.rightBox }) do
-        if box then
-            if hide then
-                if not box.ftSaved then
-                    box.ftSaved = { { box:GetBackdropColor() }, { box:GetBackdropBorderColor() } }
-                end
-                box:SetBackdropColor(0, 0, 0, 0)
-                box:SetBackdropBorderColor(0, 0, 0, 0)
-            elseif box.ftSaved then
-                box:SetBackdropColor(unpack(box.ftSaved[1]))
-                box:SetBackdropBorderColor(unpack(box.ftSaved[2]))
-            end
-        end
-    end
-end
-local function SectionBox(host)
-    local box = CreateFrame("Frame", nil, host:GetParent(), "BackdropTemplate")
-    ns.SettingsPanel.Box(box, 0.32)
-    box:SetFrameLevel(math.max(0, host:GetFrameLevel() - 1))
-    -- it lives on the parent, so the editor shows and hides it with itself (BuildEmbedded)
-    box:Hide()
-    sectionBoxes[#sectionBoxes + 1] = box
-    return box
-end
-
-local function Divider(parent)
-    local t = parent:CreateTexture(nil, "ARTWORK")
-    t:SetColorTexture(BRONZE_MUTED[1], BRONZE_MUTED[2], BRONZE_MUTED[3], 0.45)
-    return t
-end
-
--- the panel's padding: the host ends this far above the window's bottom line
-local PANEL_PAD = 12
-
--- a column divider between two sections, clear of the line under the form and of the window's
--- bottom line
-local VLINE_GAP = 10
-local function VLine(parent, x)
-    local t = Divider(parent)
-    t:SetWidth(1)
-    t:SetPoint("TOPLEFT", x, -LOWER_TOP + LINE_ABOVE - VLINE_GAP)
-    t:SetPoint("BOTTOMLEFT", x, VLINE_GAP - PANEL_PAD)
-    return t
-end
-
--- quiet text actions (Rename, Copy, Delete, + New, Undo) instead of big buttons
-local function LinkButton(parent, text, onClick, danger)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetNormalFontObject("GameFontNormalSmall")
-    b:SetHighlightFontObject(danger and "GameFontRedSmall" or "GameFontHighlightSmall")
-    b:SetDisabledFontObject("GameFontDisableSmall")
-    b:SetText(text)
-    b:SetSize(math.max(20, b:GetFontString():GetStringWidth() + 10), 20)
-    b:SetScript("OnClick", function(...)
-        ns.ButtonSound()
-        onClick(...)
-    end)
-    return b
 end
 
 local function SelectRadial(id)
@@ -1127,30 +1059,37 @@ function GroupMenu(owner, gid)
     })
 end
 
--- the radials and "On this character" fill the panel's right column, where other pages show their
--- info panel; host keeps the references
-local function BuildRadialColumn(host, column)
-    local col = CreateFrame("Frame", nil, column)
-    col:SetPoint("TOPLEFT", COLUMN_PAD, -COLUMN_PAD)
-    col:SetPoint("BOTTOMRIGHT", -COLUMN_PAD, COLUMN_PAD)
-    host.column = col
-    local height = column:GetHeight() > 0 and column:GetHeight() - 2 * COLUMN_PAD or 600
-    local title = Text(col, "GameFontNormal", L["Radials"])
-    title:SetPoint("TOPLEFT", 4, -4)
-    host.newButton = LinkButton(col, L["+ New Radial"], function() ShowNamePopup(false) end)
-    host.newButton:SetPoint("TOPRIGHT", col, "TOPLEFT", LIST_W, 0)
-    Hover(host.newButton, "rm.new")
+-- a tooltip of plain words: a title, then the text, wrapped
+local function Tip(control, title, text)
+    control:HookScript("OnEnter", function(self)
+        ns.OwnGameTooltip(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(title, 1, 1, 1)
+        GameTooltip:AddLine(text, nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    control:HookScript("OnLeave", function() GameTooltip:Hide() end)
+end
 
-    -- the list takes what the overview and the preview leave
-    local rows = math.max(4, math.floor((height - 26 - OVERVIEW_H - 27 - PREVIEW_H) / RADIAL_ROW_H))
-    local list = CreateList(col, LIST_W, 1, rows, RADIAL_ROW_H,
+local DOT = " \194\183 "   -- a middle dot between facts, as bytes so the file stays ASCII
+
+-- the radials in the list box, grouped (a group's head folds it, its radials sit in under it), the
+-- ones not on this character under a caption; "On this character" at the box's foot
+local function BuildList(host, box)
+    local list = CreateList(box, 156, 1, LIST_ROWS, RADIAL_ROW_H,
         function(cell)
+            Panel.Rounded(cell.Highlight, UI.selected[1], UI.selected[2], UI.selected[3], 1)
             cell.Icon:SetSize(14, 14)
-            cell.Key = cell:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-            cell.Key:SetPoint("RIGHT", -6, 0)
+            Panel.Heading(cell.Text, 13, UI.text)
+            cell.Key = Panel.Plain(cell, 10, UI.faint)
+            cell.Key:SetPoint("RIGHT", -12, 0)
             cell.Key:SetJustifyH("RIGHT")
-            cell.Text:SetFontObject("GameFontHighlight")
-            cell.Text:SetPoint("RIGHT", cell.Key, "LEFT", -4, 0)
+            cell.Mark = Panel.Fill(cell, "ARTWORK", UI.gold)
+            cell.Mark:SetSize(4, 4)
+            cell.Mark:SetPoint("RIGHT", -5, 0)
+            cell.Head = Panel.Plain(cell, 9, UI.goldDark)
+            cell.Head:SetPoint("BOTTOMLEFT", 6, 3)
+            cell.Fold = Panel.Plain(cell, 11, UI.gold)
+            cell.Fold:SetPoint("BOTTOMRIGHT", -12, 1)
             -- left: a radial to edit, a group folds or opens; right: the group menus
             cell:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             cell:SetScript("OnClick", function(self, mouseButton)
@@ -1185,10 +1124,11 @@ local function BuildRadialColumn(host, column)
                 if not RM():IsRadialAvailable(id) then GameTooltip:AddLine(L["Not available on this character."], 0.6, 0.6, 0.6) end
                 local winner = self.item.beatenBy and RM():GetRadial(self.item.beatenBy)
                 if winner then GameTooltip:AddLine(L["%s opens %s on this character."]:format(KeyText(self.item.key), winner.name), 1, 0.6, 0) end
+                GameTooltip:AddLine(L["Right-click for its group. Drag to move it."], 0.6, 0.6, 0.6, true)
                 GameTooltip:Show()
             end)
             cell:SetScript("OnLeave", function() GameTooltip:Hide() end)
-            -- drag a radial over another to put it there (11-12, Marcus); a name follows the cursor
+            -- drag a radial over another to put it there; a name follows the cursor
             cell:RegisterForDrag("LeftButton")
             cell:SetScript("OnDragStart", function(self)
                 local item = self.item
@@ -1199,123 +1139,118 @@ local function BuildRadialColumn(host, column)
             cell:SetScript("OnDragStop", function() RadialDrag.Stop(host.radialList) end)
         end,
         function(cell, item)
+            cell.Head:Hide()
+            cell.Fold:Hide()
+            cell.Mark:Hide()
+            cell.Highlight:Hide()
+            -- a caption: the radials not on this character
             if item.header then
                 cell.Icon:Hide()
-                cell.Icon:ClearAllPoints()
-                cell.Icon:SetPoint("LEFT", 4, 0)
-                cell.Key:SetText("")
-                cell.Text:SetText("|cff9d8462" .. item.header .. "|r")
-                cell.Highlight:Hide()
+                cell.Text:Hide()
+                cell.Key:Hide()
+                cell.Head:SetText(item.header:upper())
+                cell.Head:SetTextColor(UI.faint[1], UI.faint[2], UI.faint[3])
+                cell.Head:Show()
                 cell:EnableMouse(false)
                 return
             end
             cell:EnableMouse(true)
-            -- a group: its name and count, + / − at the right (11-12)
+            -- a group: its name (and, folded, its count) in capitals, - / + at the right
             if item.group then
                 local group = RM():GetGroup(item.group)
                 cell.Icon:Hide()
-                cell.Icon:ClearAllPoints()
-                cell.Icon:SetPoint("LEFT", 4, 0)
-                cell.Text:SetText("|cffffd100" .. (group and group.name or "") .. "|r |cff9d8462(" .. item.count .. ")|r")
-                cell.Key:SetText("|cffffd100" .. (item.open and "−" or "+") .. "|r")
-                cell.Highlight:Hide()
+                cell.Text:Hide()
+                cell.Key:Hide()
+                local name = group and group.name or ""
+                cell.Head:SetText((item.open and name or (name .. " (" .. item.count .. ")")):upper())
+                cell.Head:SetTextColor(UI.goldDark[1], UI.goldDark[2], UI.goldDark[3])
+                cell.Head:Show()
+                cell.Fold:SetText(item.open and "-" or "+")
+                cell.Fold:Show()
                 return
             end
-            -- a group's radials sit in under it
-            cell.Icon:ClearAllPoints()
-            cell.Icon:SetPoint("LEFT", item.indent and 18 or 4, 0)
+            -- a radial: who gets it (a narrowed one's icon), its name, its key; the chosen one lit
             local data = RM():GetRadial(item.id)
-            cell.Icon:SetShown(ApplyScopeIcon(cell.Icon, data.scope))
+            local chosen = item.id == editingID
+            local left = item.indent and 14 or 8
+            cell.Icon:ClearAllPoints()
+            cell.Icon:SetPoint("LEFT", left, 0)
+            local icon = ApplyScopeIcon(cell.Icon, data.scope)
+            cell.Icon:SetShown(icon)
             cell.Icon:SetDesaturated(not item.available)
             cell.Icon:SetAlpha(item.available and 1 or 0.5)
-            cell.Text:SetText(item.available and data.name or ("|cff808080" .. data.name .. "|r"))
-            local color = item.beaten and "|cffff9900" or (item.available and "|cffffd100" or "|cff808080")
-            cell.Key:SetText(item.key and (color .. KeyText(item.key) .. "|r") or "")
-            cell.Highlight:SetShown(item.id == editingID)
+            cell.Text:ClearAllPoints()
+            if icon then cell.Text:SetPoint("LEFT", cell.Icon, "RIGHT", 4, 0) else cell.Text:SetPoint("LEFT", left, 0) end
+            cell.Text:SetPoint("RIGHT", cell.Key, "LEFT", -4, 0)
+            cell.Text:SetText(data.name)
+            local c = chosen and UI.goldBright or (item.available and UI.text or UI.faint)
+            cell.Text:SetTextColor(c[1], c[2], c[3])
+            cell.Text:Show()
+            local k = item.beaten and UI.clash or (chosen and UI.gold or UI.faint)
+            cell.Key:SetText(item.key and KeyText(item.key) or "")
+            cell.Key:SetTextColor(k[1], k[2], k[3])
+            cell.Key:Show()
+            cell.Highlight:SetShown(chosen)
+            cell.Mark:SetShown(chosen)
         end)
-    list:SetPoint("TOPLEFT", 0, -26)
+    list:SetPoint("TOPLEFT", 4, -4)
     host.radialList = list
-    host.radialRows = rows
 
-    -- placed under the list's last row on each refresh
-    local overviewTitle = Text(col, "GameFontNormal", ns.Settings:Text("rm.overview", "label"))
-    host.overviewTitle = overviewTitle
-    local overview = Text(col, "GameFontHighlightSmall")
-    overview:SetPoint("TOPLEFT", overviewTitle, "BOTTOMLEFT", 0, -6)
-    overview:SetWidth(LIST_W - 8)
+    local line = Panel.Fill(box, "ARTWORK", UI.line)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 8, -OVERVIEW_Y)
+    line:SetPoint("TOPRIGHT", -8, -OVERVIEW_Y)
+    local title = Panel.Caption(box, ns.Settings:Text("rm.overview", "label"))
+    title:SetPoint("TOPLEFT", 10, -OVERVIEW_Y - 10)
+    host.overviewTitle = title
+    local overview = Panel.Plain(box, 11)
+    overview:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    overview:SetWidth(140)
     overview:SetJustifyV("TOP")
-    overview:SetSpacing(4)
+    overview:SetSpacing(3)
     overview:SetMaxLines(6)
     host.overview = overview
-    local overviewHover = CreateFrame("Frame", nil, col)
-    overviewHover:SetPoint("TOPLEFT", overviewTitle, "TOPLEFT", -4, 4)
-    overviewHover:SetSize(LIST_W, 18)
-    overviewHover:EnableMouse(true)
-    Hover(overviewHover, "rm.overview")
-
-    -- the live preview at the column's foot; Undo on its title line, greyed until something changed
-    local previewArea = CreateFrame("Frame", nil, col)
-    previewArea:SetPoint("BOTTOMLEFT", 0, 0)
-    previewArea:SetSize(LIST_W, PREVIEW_H)
-    host.previewArea = previewArea
-    local previewLabel = Text(col, "GameFontNormal", L["Live Preview"])
-    previewLabel:SetPoint("BOTTOMLEFT", previewArea, "TOPLEFT", 4, 4)
-    host.undoButton = LinkButton(col, L["Undo Changes"], function()
-        RestoreSnapshot()
-        TakeSnapshot()
-        Refresh()
-    end)
-    host.undoButton:SetPoint("BOTTOMRIGHT", previewArea, "TOPRIGHT", 0, 1)
-    -- two boxes: the radials (and what opens here), and the live preview with its title
-    -- (11-11 Marcus: they take the column box's place, edge to edge, top to bottom)
-    local listBox = SectionBox(col)
-    listBox:SetPoint("TOPLEFT", column, "TOPLEFT")
-    listBox:SetPoint("TOPRIGHT", column, "TOPRIGHT")
-    listBox:SetPoint("BOTTOM", previewArea, "TOP", 0, 24 + BOX_PAD + 2 * BOX_GAP)
-    local previewBox = SectionBox(col)
-    previewBox:SetPoint("TOP", previewArea, "TOP", 0, 24 + BOX_PAD)
-    previewBox:SetPoint("LEFT", column, "LEFT")
-    previewBox:SetPoint("BOTTOMRIGHT", column, "BOTTOMRIGHT")
+    local hover = CreateFrame("Frame", nil, box)
+    hover:SetPoint("TOPLEFT", line, "BOTTOMLEFT", 0, 0)
+    hover:SetPoint("BOTTOMRIGHT", -8, 4)
+    hover:EnableMouse(true)
+    Hover(hover, "rm.overview")
 end
 
-local function BuildDetails(host, width)
-    local x = DETAIL_X
+-- the body's head (the radial's name, Delete) and its Radial tab
+local function BuildRadialTab(host, win)
     local S = ns.Settings
-
-    local name = Text(host, "GameFontNormalLarge")
-    name:SetPoint("TOPLEFT", x, -6)
-    name:SetWordWrap(false)
-    host.nameText = name
-    host.deleteButton = LinkButton(host, L["Delete"], function()
+    local body = win.body
+    host.nameText = Panel.Serif(body, 16, UI.goldBright)
+    host.nameText:SetPoint("TOPLEFT", 0, -2)
+    host.nameText:SetWidth(180)
+    host.nameText:SetJustifyH("LEFT")
+    host.nameText:SetWordWrap(false)
+    host.deleteButton = Panel.UButton(body, L["Delete..."], 80, 22)
+    host.deleteButton:SetPoint("TOPRIGHT", 0, 0)
+    host.deleteButton:SetScript("OnClick", function()
+        ns.ButtonSound()
         local radial = editingID and RM():GetRadial(editingID)
         if not radial then return end
         ns.ShowDialog("MDLUI_RADIAL_DELETE", radial.name or "", { id = editingID })
-    end, true)
-    host.deleteButton:SetPoint("TOPRIGHT", 0, -2)
-    -- a macro that opens it, made on the spot and put on the cursor
-    host.macroButton = LinkButton(host, L["Macro"], CreateRadialMacro)
-    host.macroButton:SetPoint("RIGHT", host.deleteButton, "LEFT", -6, 0)
-    Hover(host.macroButton, "rm.macroCreate")
-    host.copyButton = LinkButton(host, L["Copy"], function()
-        local radial = editingID and RM():GetRadial(editingID)
-        if not radial then return end
-        editingID, selectedButton = RM():CopyRadial(editingID, L["%s (copy)"]:format(radial.name)), nil
-        Changed()
-        Refresh()
     end)
-    host.copyButton:SetPoint("RIGHT", host.macroButton, "LEFT", -6, 0)
-    Hover(host.copyButton, "rm.copy")
-    host.renameButton = LinkButton(host, L["Rename"], function() ShowNamePopup(true) end)
-    host.renameButton:SetPoint("RIGHT", host.copyButton, "LEFT", -6, 0)
-    -- the name stops short of the four actions
-    name:SetWidth(width - 210)
 
-    -- the form: who gets it | its key
-    host.scopeLabel = Text(host, "GameFontNormalSmall", S:Text("rm.scope", "label"))
-    host.scopeLabel:SetPoint("TOPLEFT", x + 2, -FORM_TOP)
-    local scope = CreateFrame("DropdownButton", nil, host, "WowStyle1DropdownTemplate")
-    scope:SetWidth(200)
-    scope:SetPoint("TOPLEFT", x, -FORM_TOP - 14)
+    local page = win.pages.radial
+    local content = CreateFrame("Frame", nil, page)
+    content:SetAllPoints()
+    host.radialContent = content
+    host.radialEmpty = Panel.Plain(page, 11, UI.dim)
+    host.radialEmpty:SetPoint("TOPLEFT", 0, -2)
+    host.radialEmpty:SetWidth(270)
+    host.radialEmpty:SetText(L["No radials yet. Create one with + New radial."])
+
+    -- who gets it
+    local row = Panel.Row(content, 0, S:Text("rm.scope", "label"))
+    Hover(row, "rm.scope")
+    host.scopeLabel = row.label
+    local scope = CreateFrame("DropdownButton", nil, row, "WowStyle1DropdownTemplate")
+    scope:SetWidth(150)
+    scope:SetPoint("RIGHT", 0, 0)
     scope:SetupMenu(function(_, root)
         local data = editingID and RM():GetRadial(editingID)
         if not data then return end
@@ -1334,37 +1269,12 @@ local function BuildDetails(host, width)
     end)
     Hover(scope, "rm.scope")
     host.scopeDrop = scope
-    if ns.PadNav and ns.PadNav.GuardDropdown then
-        ns.PadNav.GuardDropdown(scope, function()
-            local entries, data = {}, editingID and RM():GetRadial(editingID)
-            if not data then return entries end
-            local choices = RM():GetScopeChoices()
-            local listed = false
-            for _, s in ipairs(choices) do if s == (data.scope or "") then listed = true end end
-            if not listed and data.scope then table.insert(choices, data.scope) end
-            for _, s in ipairs(choices) do
-                entries[#entries + 1] = { text = ScopeText(s, data), checked = function() return (data.scope or "") == s end,
-                                          pick = function() RM():SetRadialScope(editingID, s); Changed(); Refresh() end }
-            end
-            return entries
-        end)
-    end
-    -- the controller steps through who gets it (its menu can't open from addon code there)
-    scope.padCycle = function(delta)
-        local data = editingID and RM():GetRadial(editingID)
-        if not data then return end
-        local choices = RM():GetScopeChoices()
-        local at = 1
-        for i, s in ipairs(choices) do if s == (data.scope or "") then at = i end end
-        RM():SetRadialScope(editingID, choices[((at - 1 + delta) % #choices) + 1])
-        Changed()
-        Refresh()
-    end
 
-    local keyX = x + 214
-    host.keyLabel = Text(host, "GameFontNormalSmall", S:Text("rm.key", "label"))
-    host.keyLabel:SetPoint("TOPLEFT", keyX + 2, -FORM_TOP)
-    host.keyButton = ns.SettingsPanel.KeyButton(host, function(key)
+    -- its key
+    row = Panel.Row(content, ROW_GAP, S:Text("rm.key", "label"))
+    Hover(row, "rm.key")
+    host.keyLabel = row.label
+    host.keyButton = Panel.KeyButton(row, function(key)
         if not editingID then return end
         local taken = GameAction(key)
         if taken then
@@ -1377,157 +1287,144 @@ local function BuildDetails(host, width)
         Changed()
         Refresh()
     end, function(button)
-        -- a cancelled capture only puts the key back: a page refresh would reset Undo
+        -- a cancelled capture only puts the key back: a refresh would reset Undo
         button:ShowKey(editingID and RM():GetRadialKey(editingID) or "")
     end)
-    host.keyButton:SetSize(120, 24)
-    host.keyButton:SetPoint("TOPLEFT", keyX, -FORM_TOP - 15)
+    host.keyButton:SetSize(150, 22)
+    host.keyButton:SetPoint("RIGHT", 0, 0)
     Hover(host.keyButton, "rm.key")
-    local own = CreateFrame("CheckButton", nil, host, "UICheckButtonTemplate")
-    own:SetSize(22, 22)
-    own:SetPoint("LEFT", host.keyButton, "RIGHT", 8, 0)
-    own.text = Text(own, "GameFontHighlightSmall", S:Text("rm.ownKey", "label"))
-    own.text:SetPoint("LEFT", own, "RIGHT", 2, 1)
-    own:SetHitRectInsets(0, -(own.text:GetStringWidth() + 4), 0, 0)
-    own:SetScript("OnClick", function(self)
-        local on = self:GetChecked() and true or false
-        PlaySound(on and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
-        if editingID then RM():SetOwnKey(editingID, on) end
+
+    -- this character's own key
+    row = Panel.Row(content, 2 * ROW_GAP, S:Text("rm.ownKey", "label"))
+    Hover(row, "rm.ownKey")
+    host.ownKey = Panel.Switch(row, function(self)
+        if editingID then RM():SetOwnKey(editingID, self:GetChecked() and true or false) end
         Changed()
         Refresh()
     end)
-    Hover(own, "rm.ownKey")
-    host.ownKey = own
+    host.ownKey:SetPoint("RIGHT", -2, 0)
+    Hover(host.ownKey, "rm.ownKey")
 
-    -- (11-11: the form has its own box, BuildLower; no line under it)
+    local line = Panel.Fill(content, "ARTWORK", UI.line)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 0, -(3 * ROW_GAP + 4))
+    line:SetPoint("TOPRIGHT", 0, -(3 * ROW_GAP + 4))
 
-    -- nothing to show: every radial deleted
-    local empty = Text(host, "GameFontDisable", L["No radials yet. Create one with + New radial."])
-    empty:SetPoint("TOPLEFT", x + 2, -10)
-    host.empty = empty
+    -- a macro that opens it (made on the spot and put on the cursor), a copy, a new name
+    local y = 3 * ROW_GAP + 16
+    host.macroButton = Panel.UButton(content, L["Macro"], 86, 24)
+    host.macroButton:SetPoint("TOPLEFT", 0, -y)
+    host.macroButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        CreateRadialMacro()
+    end)
+    Hover(host.macroButton, "rm.macroCreate")
+    host.copyButton = Panel.UButton(content, L["Copy"], 86, 24)
+    host.copyButton:SetPoint("TOPLEFT", 92, -y)
+    host.copyButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        local radial = editingID and RM():GetRadial(editingID)
+        if not radial then return end
+        editingID, selectedButton = RM():CopyRadial(editingID, L["%s (copy)"]:format(radial.name)), nil
+        Changed()
+        Refresh()
+    end)
+    Hover(host.copyButton, "rm.copy")
+    host.renameButton = Panel.UButton(content, L["Rename..."], 86, 24)
+    host.renameButton:SetPoint("TOPLEFT", 184, -y)
+    host.renameButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        ShowNamePopup(true)
+    end)
 end
 
-local BUTTONS_NUDGE = 6
-local function BuildLower(host, height, width)
-    local x, top = DETAIL_X, LOWER_TOP
-    -- left to right: the Catalog, the radial's buttons (the preview is in the right column)
-    local buttonsX = x + width - BUTTON_LIST_W
-    local catX = x
-    local gridW = buttonsX - 16 - catX
+-- the chosen button, on the Slot tab: its icon, name and kind, its place, a spell's rank, Remove
+local function BuildSlotTab(host, win)
+    local page = win.pages.slot
+    local slot = CreateFrame("Frame", nil, page)
+    slot:SetAllPoints()
+    host.slot = slot
+    host.slotEmpty = Panel.Plain(page, 11, UI.dim)
+    host.slotEmpty:SetPoint("TOPLEFT", 0, -2)
+    host.slotEmpty:SetWidth(270)
 
-    -- the radial's buttons, in order; the title and icons centred in the section, which runs on to the
-    -- window's column line (BUTTONS_NUDGE past the host's edge)
-    -- three boxes: the radial's form on top, the Catalog and the buttons below (11-11 Marcus)
-    local inner = ns.SettingsPanel.INNER or 10
-    local page = ns.SettingsPanel.middleBox
-    local topBox = SectionBox(host)
-    topBox:SetPoint("TOPLEFT", page, "TOPLEFT")
-    topBox:SetPoint("TOPRIGHT", page, "TOPRIGHT")
-    topBox:SetPoint("BOTTOM", host, "TOP", 0, -(top - 10 - 2 * BOX_GAP))
-    local catalogBox = SectionBox(host)
-    catalogBox:SetPoint("TOPLEFT", host, "TOPLEFT", -inner, -(top - 10))
-    catalogBox:SetPoint("BOTTOMRIGHT", host, "BOTTOMLEFT", buttonsX - 8 - BOX_GAP, -inner)
-    local buttonsBox = SectionBox(host)
-    buttonsBox:SetPoint("TOPLEFT", host, "TOPLEFT", buttonsX - 8 + BOX_GAP, -(top - 10))
-    buttonsBox:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT")
-    local buttonsTitle = Text(host, "GameFontNormal", L["Buttons"])
-    buttonsTitle:SetJustifyH("CENTER")
-    buttonsTitle:SetPoint("TOP", host, "TOPLEFT", (buttonsX - 8 + x + width) / 2 + BUTTONS_NUDGE, -top)
-    local listTop = top + 22
-    local listRows = math.max(4, math.floor((height - listTop - 4) / BUTTON_ROW_H))
-    local buttonList = CreateList(host, BUTTON_LIST_W, 1, listRows, BUTTON_ROW_H,
-        function(cell)
-            cell:SetScript("OnEnter", function(self)
-                if not self.item then return end
-                EntryTooltip(self, self.item, L["Drag to reorder, right-click to remove."])
-            end)
-            -- the icon alone, round as in the radial, centred under the title
-            cell.Text:Hide()
-            cell.Icon:ClearAllPoints()
-            cell.Icon:SetPoint("CENTER", cell, "LEFT", (x + width - buttonsX - 8) / 2 + BUTTONS_NUDGE, 0)
-            -- the selected and hover highlights centred on the icon, across the box (they hugged the
-            -- cell's left side, 11-12 Marcus)
-            local across = math.max(BUTTON_ROW_H, (x + width - buttonsX - 8) - 16)
-            for _, hl in ipairs({ cell.Highlight, cell:GetHighlightTexture() }) do
-                hl:ClearAllPoints()
-                hl:SetPoint("CENTER", cell.Icon, "CENTER")
-                hl:SetSize(across, BUTTON_ROW_H - 2)
-            end
-            MakeRound(cell, BUTTON_RIM)
-            cell:SetScript("OnLeave", function() GameTooltip:Hide() end)
-            cell:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-            cell:RegisterForDrag("LeftButton")
-            cell:SetScript("OnDragStart", function(self)
-                if self.dataIndex then StartDrag({ from = self.dataIndex, entry = self.item }) end
-            end)
-            cell:SetScript("OnDragStop", FinishDrag)
-            -- something on the game cursor goes in at this row
-            cell:SetScript("OnReceiveDrag", function(self)
-                local entry = EntryFromCursor()
-                if entry then InsertEntry(entry, self.dataIndex) end
-            end)
-            -- the controller: X removes the button, Y picks it up and the D-pad moves it (PadNav.lua)
-            cell.padX = function() if cell.dataIndex then RemoveButton(cell.dataIndex) end end
-            cell.padMove = function(delta)
-                local from = cell.dataIndex
-                local radial = CurrentRadial()
-                if not (from and radial) then return nil end
-                local to = from + delta
-                if to < 1 or to > #radial.buttons then return nil end
-                MoveButton(from, to)
-                return editor.buttonList:CellFor(to)
-            end
-            cell:SetScript("OnClick", function(self, mouseButton)
-                if not self.dataIndex then return end
-                if mouseButton == "RightButton" then
-                    RemoveButton(self.dataIndex)
-                else
-                    local entry = EntryFromCursor()
-                    if entry then
-                        InsertEntry(entry, self.dataIndex)
-                        return
-                    end
-                    selectedButton = self.dataIndex
-                    Refresh()
-                end
-            end)
-        end,
-        function(cell, entry, index)
-            local _, icon = EntryDisplay(entry)
-            ApplyIcon(cell, icon)
-            cell.Highlight:SetShown(index == selectedButton)
-        end)
-    buttonList:SetPoint("TOPLEFT", buttonsX, -listTop)
-    host.buttonList = buttonList
+    local icon = CreateFrame("Frame", nil, slot)
+    icon:SetSize(SLOT_RIM, SLOT_RIM)
+    icon:SetPoint("TOPLEFT", 0, -2)
+    icon.Icon = icon:CreateTexture(nil, "ARTWORK")
+    icon.Icon:SetPoint("CENTER")
+    MakeRound(icon, SLOT_RIM)
+    host.slotIcon = icon
+    host.slotName = Panel.Serif(slot, 14, UI.text)
+    host.slotName:SetPoint("TOPLEFT", icon, "TOPRIGHT", 10, -5)
+    host.slotName:SetWidth(270 - SLOT_RIM - 10)
+    host.slotName:SetJustifyH("LEFT")
+    host.slotName:SetWordWrap(false)
+    host.slotKind = Panel.Plain(slot, 11, UI.dim)
+    host.slotKind:SetPoint("TOPLEFT", host.slotName, "BOTTOMLEFT", 0, -5)
+    host.slotKind:SetWidth(270 - SLOT_RIM - 10)
+    host.slotKind:SetWordWrap(false)
 
-    local dropZone = CreateFrame("Frame", nil, host)
-    dropZone:SetPoint("TOPLEFT", buttonList, "TOPLEFT")
-    dropZone:SetPoint("BOTTOMRIGHT", buttonList, "BOTTOMRIGHT", 0, -6)
-    dropZone:SetFrameLevel(math.max(0, buttonList:GetFrameLevel() - 1))
-    dropZone:EnableMouse(true)
-    dropZone:SetScript("OnReceiveDrag", function()
-        local entry = EntryFromCursor()
-        if entry then InsertEntry(entry) end
+    -- its place on the wheel, a step either way
+    local top = 56
+    local row = Panel.Row(slot, top, L["Place"])
+    Tip(row, L["Place"], L["Where the button sits on the wheel: 1 at the top, then clockwise. You can drag it on the wheel too."])
+    local place = Panel.Stepper(row, 48, "<", ">")
+    place:SetPoint("RIGHT", 0, 0)
+    place.minus:SetScript("OnClick", function()
+        ns.ButtonSound()
+        if selectedButton then MoveButton(selectedButton, selectedButton - 1) end
     end)
-    dropZone:SetScript("OnMouseUp", function()
-        local entry = EntryFromCursor()
-        if entry then InsertEntry(entry) end
+    place.plus:SetScript("OnClick", function()
+        ns.ButtonSound()
+        if selectedButton then MoveButton(selectedButton, selectedButton + 1) end
     end)
-    host.dropZone = dropZone
+    host.slotPlace = place
 
-    -- the Catalog: its categories as small text links right of the title (11-11 Marcus, instead of a
-    -- dropdown): right-aligned, split by slashes in the page title's gold, the open one yellow and the
-    -- rest grey, always on one line; then a three-column grid, search at the bottom
-    local catalogTitle = Text(host, "GameFontNormal", L["Catalog"])
-    catalogTitle:SetPoint("TOPLEFT", catX + 4, -top)
-    local LINK_H, SLASH_W = 16, 14
-    local rightX = catX + gridW - 10   -- (in line with the search box)
-    local links, slashes = {}, {}
+    -- a spell with ranks: its best known (following new ones), or kept on the one it has
+    row = Panel.Row(slot, top + ROW_GAP, L["Rank"])
+    Tip(row, L["Rank"], L["Best known: casts the best rank you know, and follows new ones as you learn them. This rank: stays on the rank it has (one put on below your best is kept there)."])
+    host.rankSeg = Panel.Segment(row, { L["Best known"], L["This rank"] }, function(i)
+        local radial = CurrentRadial()
+        local entry = radial and selectedButton and radial.buttons[selectedButton]
+        if not entry then return end
+        entry.pinned = (i == 2) or nil
+        Changed()
+        Refresh()
+    end)
+    host.rankSeg:SetPoint("RIGHT", 0, 0)
+    host.rankRow = row
+
+    local line = Panel.Fill(slot, "ARTWORK", UI.line)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", 0, -(top + 2 * ROW_GAP + 4))
+    line:SetPoint("TOPRIGHT", 0, -(top + 2 * ROW_GAP + 4))
+    host.removeButton = Panel.UButton(slot, L["Remove"], 110, 22)
+    host.removeButton:SetPoint("TOPRIGHT", 0, -(top + 2 * ROW_GAP + 14))
+    host.removeButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        if selectedButton then RemoveButton(selectedButton) end
+    end)
+    Tip(host.removeButton, L["Remove"], L["Takes the button off this radial. Undo changes brings it back."])
+end
+
+-- the Catalog tab: its categories as links (the open one lit, slashes between them on a line), then
+-- a three-column grid; how to add, and the search, at the foot
+local function BuildCatalogTab(host, win)
+    local page = win.pages.catalog
+    local width, pageH = 270, win.PAGE_H or 422
+    local LINK_H, SLASH_W = 18, 14
+    local links, x, y = {}, 0, 0
     for i, c in ipairs(CATEGORIES) do
-        local link = CreateFrame("Button", nil, host)
-        link:SetNormalFontObject("GameFontNormalSmall")
+        local link = CreateFrame("Button", nil, page)
+        local fs = link:CreateFontString(nil, "OVERLAY")
+        Panel.Heading(fs, 12, UI.dim)
+        fs:SetPoint("LEFT", 0, 0)
+        link:SetFontString(fs)
+        link.label = fs
         link:SetText(c.label)
-        link:SetSize(link:GetFontString():GetStringWidth() + 2, LINK_H)
+        local w = math.ceil(fs:GetStringWidth() or 0) + 2
+        link:SetSize(w, LINK_H)
         link.key = c.key
         link:SetScript("OnClick", function()
             ns.ButtonSound()
@@ -1536,75 +1433,45 @@ local function BuildLower(host, height, width)
             RefreshBrowse()
         end)
         link:SetScript("OnEnter", function(self)
-            if self.key ~= activeCategory then self:GetFontString():SetTextColor(0.9, 0.9, 0.9) end
+            if self.key ~= activeCategory then self.label:SetTextColor(UI.text[1], UI.text[2], UI.text[3]) end
         end)
         link:SetScript("OnLeave", function() host.PaintCategories() end)
+        -- the next line when it would run past the tab; else a slash before it
+        if x > 0 and x + SLASH_W + w > width then
+            x, y = 0, y + LINK_H
+        elseif x > 0 then
+            local slash = Panel.Serif(page, 12, UI.goldDark)
+            slash:SetText("/")
+            slash:SetPoint("CENTER", page, "TOPLEFT", x + SLASH_W / 2, -y - LINK_H / 2)
+            x = x + SLASH_W
+        end
+        link:SetPoint("TOPLEFT", x, -y)
+        x = x + w
         links[i] = link
-        -- the slash before it (between it and the one on its left)
-        local slash = Text(host, "GameFontNormalSmall", "/")
-        slash:SetTextColor(1, 0.82, 0)   -- (WoW yellow, 11-13)
-        slashes[i] = slash
     end
-    -- one line always (11-12 Marcus), right up to the title: the slashes' gaps close in first, then the
-    -- links' text gets smaller until they fit
-    local room = rightX - (catX + 4 + catalogTitle:GetStringWidth() + 6)
-    local function Total(gap)
-        local sum = 0
-        for _, link in ipairs(links) do sum = sum + link:GetWidth() end
-        return sum + (#links - 1) * gap
-    end
-    if Total(SLASH_W) > room then SLASH_W = math.max(8, math.floor((room - Total(0)) / math.max(1, #links - 1))) end
-    if Total(SLASH_W) > room then
-        local k = math.max(0.6, (room - (#links - 1) * SLASH_W) / Total(0))
-        for _, link in ipairs(links) do
-            local fs = link:GetFontString()
-            local face, size, flags = fs:GetFont()
-            if face and size then fs:SetFont(face, size * k, flags) end
-            link:SetSize(fs:GetStringWidth() + 2, LINK_H)
-        end
-    end
-    local x, line, lineOf = rightX, 0, {}
-    for i = #links, 1, -1 do
-        local w = links[i]:GetWidth()
-        local gap = i < #links and SLASH_W or 0
-        x = x - gap
-        links[i]:SetPoint("TOPRIGHT", host, "TOPLEFT", x, -top)
-        lineOf[i] = line
-        x = x - w
-    end
-    for i = 2, #links do
-        local slash = slashes[i]
-        -- shown between links i - 1 and i when they share a line
-        if lineOf[i - 1] == lineOf[i] then
-            slash:SetPoint("CENTER", links[i], "LEFT", -SLASH_W / 2, 0)
-            slash:Show()
-        else
-            slash:Hide()
-        end
-    end
-    slashes[1]:Hide()
-    local extra = line * LINK_H   -- the grid starts lower by the extra lines
+    host.categoryLinks = links
     host.PaintCategories = function()
         for _, link in ipairs(links) do
-            local on = link.key == activeCategory
-            link:GetFontString():SetTextColor(on and 1 or 0.5, on and 0.82 or 0.5, on and 0 or 0.5)
+            local c = link.key == activeCategory and UI.goldBright or UI.dim
+            link.label:SetTextColor(c[1], c[2], c[3])
         end
     end
 
-    -- below the grid: how to edit (left) and the search (right)
-    local gridRows = math.max(4, math.floor((height - top - 26 - extra - 44) / GRID_ROW_H))
-    local browseList = CreateList(host, gridW, 3, gridRows, GRID_ROW_H,
+    local gridTop = y + LINK_H + 8
+    local rows = math.max(4, math.floor((pageH - gridTop - 56) / GRID_ROW_H))
+    local browseList = CreateList(page, width, 3, rows, GRID_ROW_H,
         function(cell)
             MakeRound(cell, GRID_RIM)
             cell.Icon:ClearAllPoints()
-            cell.Icon:SetPoint("CENTER", cell, "LEFT", 4 + GRID_RIM / 2, 0)
-            cell.Text:SetPoint("LEFT", cell, "LEFT", 4 + GRID_RIM + 6, 0)
+            cell.Icon:SetPoint("CENTER", cell, "LEFT", 2 + GRID_RIM / 2, 0)
+            cell.Text:SetPoint("LEFT", cell, "LEFT", 2 + GRID_RIM + 5, 0)
+            cell.Text:SetPoint("RIGHT", -2, 0)
             cell:RegisterForDrag("LeftButton")
             cell:SetScript("OnEnter", function(self)
                 if not self.item then return end
                 -- a category's note (Radials explains sub-radials) comes with every entry's tooltip
                 local note = host.categoryNote
-                EntryTooltip(self, self.item, (note and (note .. "\n\n") or "") .. L["Click or drag to add it."])
+                EntryTooltip(self, self.item, (note and (note .. "\n\n") or "") .. L["Click to add it after the chosen slot, or drag it onto the wheel."])
             end)
             cell:SetScript("OnLeave", function() GameTooltip:Hide() end)
             cell:SetScript("OnDragStart", function(self)
@@ -1612,7 +1479,11 @@ local function BuildLower(host, height, width)
             end)
             cell:SetScript("OnDragStop", FinishDrag)
             cell:SetScript("OnClick", function(self)
-                if self.item then InsertEntry(self.item) end
+                if not self.item then return end
+                ns.ButtonSound()
+                local radial = CurrentRadial()
+                local after = radial and selectedButton and selectedButton <= #radial.buttons and selectedButton + 1 or nil
+                InsertEntry(self.item, after)
             end)
         end,
         function(cell, entry)
@@ -1620,49 +1491,99 @@ local function BuildLower(host, height, width)
             ApplyIcon(cell, icon)
             cell.Text:SetText(name)
         end)
-    browseList:SetPoint("TOPLEFT", catX, -top - 26 - extra)
+    browseList:SetPoint("TOPLEFT", 0, -gridTop)
     host.browseList = browseList
 
-    local search = CreateFrame("EditBox", nil, host, "SearchBoxTemplate")
-    -- level with the settings search in the left column
-    search:SetSize(180, 22)
-    search:SetPoint("BOTTOMRIGHT", host, "BOTTOMLEFT", catX + gridW - 10, 4)
-    search:HookScript("OnTextChanged", function() if host:IsShown() then RefreshBrowse() end end)
+    local hint = Panel.Plain(page, 11, UI.faint)
+    hint:SetPoint("BOTTOMLEFT", 0, 30)
+    hint:SetWidth(width)
+    hint:SetText(L["Click adds after the chosen slot, or drag onto the wheel."])
+    local search = CreateFrame("EditBox", nil, page, "SearchBoxTemplate")
+    search:SetSize(width - 6, 22)
+    search:SetPoint("BOTTOMLEFT", 6, 2)
+    search:HookScript("OnTextChanged", function() if editor and editor:IsShown() then RefreshBrowse() end end)
     host.search = search
-
-    local hint = Text(host, "GameFontDisableSmall", L["Click or drag from Catalog to add. Drag reorders, right-click removes."])
-    hint:SetPoint("BOTTOMLEFT", host, "BOTTOMLEFT", catX + 4, 6)
-    hint:SetWidth(gridW - 180 - 26)
-    hint:SetJustifyV("BOTTOM")
-    hint:SetSpacing(1)
 end
 
-local function BuildEmbedded(host, column)
-    editor = host
-    local height = host:GetHeight() > 0 and host:GetHeight() or 530
-    local width = (ns.SettingsPanel.MIDDLE_W or 484) - DETAIL_X
+-- the canvas: the chosen radial's wheel, its slots chosen, moved, filled and emptied there
+local function BuildCanvas(host, win)
+    host.stage = win.stage
+    host.canvas = ns.RadialCanvas.Create(win.stage, {
+        choose = function(i)
+            -- something on the game cursor goes in at this slot
+            local entry = EntryFromCursor()
+            if entry then InsertEntry(entry, i) return end
+            ns.ButtonSound()
+            selectedButton = i
+            win.ShowTab("slot")
+            Refresh()
+        end,
+        remove = function(i) RemoveButton(i) end,
+        drop = function(i)
+            local entry = EntryFromCursor()
+            if entry then
+                InsertEntry(entry, i)
+            elseif not i then
+                -- the empty slot, clicked: the Catalog, to fill it from
+                ns.ButtonSound()
+                win.ShowTab("catalog")
+            end
+        end,
+        startDrag = function(i)
+            local radial = CurrentRadial()
+            local entry = radial and radial.buttons[i]
+            if entry then StartDrag({ from = i, entry = entry }) end
+        end,
+        finishDrag = FinishDrag,
+        enter = function(hit)
+            if hit.ghost then
+                ns.OwnGameTooltip(hit, "ANCHOR_RIGHT")
+                GameTooltip:AddLine(L["Empty slot"], 1, 1, 1)
+                GameTooltip:AddLine(L["Drop something here, or click to open the Catalog."], nil, nil, nil, true)
+                GameTooltip:Show()
+                return
+            end
+            local radial = CurrentRadial()
+            local entry = radial and radial.buttons[hit.index]
+            if entry then EntryTooltip(hit, entry, L["Click to choose it. Drag it onto another slot to move it; right-click removes."]) end
+        end,
+    })
+end
 
-    BuildRadialColumn(host, column)
-    BuildDetails(host, width)
-    BuildLower(host, height, width)
+-- the footer's buttons the editor answers: + New radial, Undo changes
+local function BuildFooter(host, win)
+    host.newButton = win.newButton
+    host.newButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        ShowNamePopup(false)
+    end)
+    Hover(host.newButton, "rm.new")
+    host.undoButton = win.undoButton
+    host.undoButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        RestoreSnapshot()
+        TakeSnapshot()
+        Refresh()
+    end)
+    Tip(host.undoButton, L["Undo changes"], L["Every change since the window opened, undone: buttons, names, who gets them, keys."])
+end
 
-    -- opening takes the Undo snapshot; leaving keeps the edits
-    for _, box in ipairs(sectionBoxes) do box:SetShown(host:IsShown()) end
-    PageBoxes(host:IsShown())
-    host:SetScript("OnShow", function()
+local function Build(win)
+    editor = win
+    BuildList(win, win.list)
+    BuildRadialTab(win, win)
+    BuildSlotTab(win, win)
+    BuildCatalogTab(win, win)
+    BuildCanvas(win, win)
+    BuildFooter(win, win)
+    -- opening takes the Undo snapshot; closing keeps the edits
+    win:HookScript("OnShow", function()
         browseCache = {}
-        host.column:Show()
-        for _, box in ipairs(sectionBoxes) do box:Show() end
-        PageBoxes(true)
         TakeSnapshot()
     end)
-    host:SetScript("OnHide", function()
-        host.column:Hide()
-        for _, box in ipairs(sectionBoxes) do box:Hide() end
-        PageBoxes(false)
+    win:HookScript("OnHide", function()
         dirty, snapshot = false, nil
         if popup then popup:Hide() end
-        if RM() then RM():HidePreview() end
         StopDrag()
     end)
     browseCache = {}
@@ -1702,7 +1623,7 @@ function RefreshBrowse()
     -- an empty grid says why: nothing found by the search, or nothing in this category yet
     local list = editor.browseList
     if not list.emptyText then
-        list.emptyText = list:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        list.emptyText = Panel.Plain(list, 11, UI.faint)
         list.emptyText:SetPoint("TOPLEFT", 8, -14)
         list.emptyText:SetPoint("TOPRIGHT", -8, -14)
         list.emptyText:SetJustifyH("CENTER")
@@ -1713,13 +1634,13 @@ function RefreshBrowse()
     list.emptyText:SetShown(why ~= nil)
 end
 
--- the radials column: the ones this character gets in list order, then the others under a header;
--- "On this character" follows the last row
+-- the radials list: the ones this character gets in list order, then the others under a caption;
+-- and what opens on this character
 local function RefreshRadialColumn(perRadial)
     local rm = RM()
     local here, other = {}, {}
-    -- groups (11-12): a row before their first radial here, then their radials unless folded; the
-    -- radials not on this character stay ungrouped under the header
+    -- groups: a row before their first radial here, then their radials unless folded; the radials
+    -- not on this character stay ungrouped under the caption
     local counts, placed = {}, {}
     for _, id in ipairs(rm:GetRadialOrder()) do
         local data = rm:GetRadial(id)
@@ -1752,9 +1673,6 @@ local function RefreshRadialColumn(perRadial)
         for _, item in ipairs(other) do here[#here + 1] = item end
     end
     editor.radialList:SetData(here)
-    local shown = math.min(#here, editor.radialRows)
-    editor.overviewTitle:ClearAllPoints()
-    editor.overviewTitle:SetPoint("TOPLEFT", editor.column, "TOPLEFT", 4, -26 - shown * RADIAL_ROW_H - 18)
 
     -- what opens on this character: working keys in list order, then clashes
     local lines, clashes = {}, {}
@@ -1764,47 +1682,92 @@ local function RefreshRadialColumn(perRadial)
             local name = rm:GetRadial(id).name
             if not info.beatenBy then
                 local taken = GameAction(info.key)
-                lines[#lines + 1] = "|cffffd100" .. KeyText(info.key) .. "|r  " .. name
-                    .. (taken and ("  |cffff9933" .. L["also bound to %s"]:format(taken) .. "|r") or "")
+                lines[#lines + 1] = "|cffc4a557" .. KeyText(info.key) .. "|r  " .. name
+                    .. (taken and ("  |cffe8923a" .. L["also bound to %s"]:format(taken) .. "|r") or "")
             elseif info.tie then
-                clashes[#clashes + 1] = "|cffff4040" .. KeyText(info.key) .. "  " .. name .. " (" .. L["clash"] .. ")|r"
+                clashes[#clashes + 1] = "|cffe8923a" .. KeyText(info.key) .. "  " .. name .. " (" .. L["clash"] .. ")|r"
             end
         end
     end
     for _, line in ipairs(clashes) do lines[#lines + 1] = line end
-    if #lines == 0 then lines[1] = "|cff808080" .. L["No keys yet."] .. "|r" end
+    if #lines == 0 then lines[1] = "|cff7d7562" .. L["No keys yet."] .. "|r" end
     editor.overview:SetText(table.concat(lines, "\n"))
+end
+
+-- the Slot tab: the chosen button, or what to do for one
+local function RefreshSlot(radial)
+    local entry = radial and selectedButton and radial.buttons[selectedButton]
+    editor.slot:SetShown(entry ~= nil)
+    editor.slotEmpty:SetShown(entry == nil)
+    editor.slotEmpty:SetText(radial and L["Choose a slot on the wheel."] or L["No radials yet. Create one with + New radial."])
+    if not entry then return end
+    local n = #radial.buttons
+    local name, icon = EntryDisplay(entry)
+    ApplyIcon(editor.slotIcon, icon)
+    editor.slotName:SetText(name)
+    -- a spell's rank, when it has ranks ("Rank 3")
+    local rank = entry.kind == "spell" and entry.id and C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(entry.id)
+    rank = type(rank) == "string" and rank:find("%d") and rank or nil
+    editor.slotKind:SetText((KINDS[entry.kind] or tostring(entry.kind)) .. (rank and (DOT .. rank) or "")
+        .. DOT .. L["slot %d of %d"]:format(selectedButton, n))
+    editor.slotPlace.value:SetText(L["%d of %d"]:format(selectedButton, n))
+    editor.slotPlace.minus:SetEnabled(selectedButton > 1)
+    editor.slotPlace.plus:SetEnabled(selectedButton < n)
+    editor.rankRow:SetShown(rank ~= nil)
+    editor.rankSeg:SetValue(entry.pinned and 2 or 1)
+end
+
+-- the canvas: the chosen radial's wheel, whose it is and its key over it
+local function RefreshCanvas(radial)
+    if not radial then
+        editor.canvas:Draw({})
+        return
+    end
+    local entries = {}
+    for i, entry in ipairs(radial.buttons) do
+        local name, icon = EntryDisplay(entry)
+        entries[i] = { name = name, icon = icon }
+    end
+    local key = RM():GetRadialKey(editingID)
+    local show = editor.show or {}
+    editor.canvas:Draw({
+        entries = entries,
+        chosen = selectedButton,
+        scope = radial.name .. DOT .. ScopeText(radial.scope, radial) .. DOT
+            .. ((key and key ~= "") and ("|cffc4a557" .. KeyText(key) .. "|r") or L["no key"]),
+        count = L["%d of %d buttons"]:format(#radial.buttons, RM().MAX_BUTTONS),
+        hint = #radial.buttons == 0 and L["Drag something from the Catalog onto the wheel, or click it."]
+            or L["Click a slot to choose it. Drag it onto another to move it; right-click removes."],
+        names = show.names, numbers = show.numbers, empty = show.empty,
+    })
 end
 
 function Refresh()
     if not (editor and editor:IsShown()) then return end
     local rm = RM()
     local radial = CurrentRadial()
+    if radial and selectedButton and selectedButton > #radial.buttons then selectedButton = nil end
     local _, perRadial = rm:ResolveKeys()
 
     RefreshRadialColumn(perRadial)
 
     local has = radial ~= nil
-    for _, region in ipairs({ editor.nameText, editor.deleteButton, editor.copyButton, editor.renameButton,
-        editor.scopeLabel, editor.scopeDrop, editor.keyLabel, editor.keyButton, editor.ownKey,
-        editor.macroButton }) do
-        region:SetShown(has)
-    end
-    editor.empty:SetShown(not has)
-
+    editor.nameText:SetShown(has)
+    editor.deleteButton:SetShown(has)
+    editor.radialContent:SetShown(has)
+    editor.radialEmpty:SetShown(not has)
     if has then
         editor.nameText:SetText(radial.name)
         editor.scopeDrop:SetDefaultText(ScopeText(radial.scope, radial))
         editor.scopeDrop:GenerateMenu()
-        editor.ownKey:SetChecked(rm:HasOwnKey(editingID))
+        editor.ownKey:SetOn(rm:HasOwnKey(editingID))
         if not editor.keyButton.waiting then editor.keyButton:ShowKey(rm:GetRadialKey(editingID) or "") end
     end
-    editor.buttonList:SetData(radial and radial.buttons or {})
+    RefreshSlot(radial)
+    RefreshCanvas(radial)
     editor.undoButton:SetEnabled(dirty == true)
 
     RefreshBrowse()
-
-    if rm and editingID then rm:ShowPreview(editingID, editor.previewArea) else rm:HidePreview() end
 end
 
 --------------------------------------------------
@@ -1812,6 +1775,8 @@ end
 --------------------------------------------------
 -- used by UI/Window.lua
 ns.RadialEditorEmbed = {
-    Build = BuildEmbedded,
+    Build = Build,
     Refresh = function() if editor then Refresh() end end,
+    -- the chosen slot (the harness's way to read it)
+    Chosen = function() return editingID, selectedButton end,
 }

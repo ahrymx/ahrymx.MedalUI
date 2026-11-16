@@ -271,11 +271,10 @@ files["WoW/Interface/AddOns/mdlui_RadialMenu/Radial/Radial.lua"] = {
     max_line_length = false,
     ignore = { "431" },
 }
--- Radial/Editor.lua is the upstream editor's fork, read across the same way: its unused VLine and
--- shadowed x are FlareUI's. UI/Panel.lua's copy is one string a line.
+-- Radial/Editor.lua's model half is the upstream editor's fork, read across the same way (its long
+-- lines are FlareUI's). UI/Panel.lua's copy is one string a line.
 files["WoW/Interface/AddOns/mdlui_RadialMenu/Radial/Editor.lua"] = {
     max_line_length = false,
-    ignore = { "211/VLine", "411/x" },
 }
 files["WoW/Interface/AddOns/mdlui_RadialMenu/UI/Panel.lua"] = {
     max_line_length = false,

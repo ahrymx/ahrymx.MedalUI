@@ -4,9 +4,11 @@ local L = ns.L
 --------------------------------------------------
 -- PANEL
 -- What the radial editor (Radial/Editor.lua, from FlareUI's RadialEditor.lua) reads of FlareUI's
--- settings panel, drawn in Medalluin's look: a gold edge on an ink well, Marcellus headings.
---   ns.SettingsPanel   Rounded, Box, ScrollLine, KeyButton, Dress; INNER, MIDDLE_W; middleBox and
---                      rightBox (UI/Window.lua sets them)
+-- settings panel, drawn in Medalluin's look: a gold edge on an ink well, Marcellus headings; and the
+-- Unit Frame Editor's pieces (Medalluin/options/controls.lua, copied: this addon stands alone), which
+-- the window (UI/Window.lua) is built from.
+--   ns.SettingsPanel   Rounded, Box, ScrollLine, KeyButton, Dress; Fill, Outline, Paint, Skin,
+--                      Serif, Plain, Caption, UButton, Tab, Switch, Segment, Stepper, Row
 --   ns.Settings        Text(row, field[, optional]) and Format(text): the editor's copy
 --   ns.OwnGameTooltip, ns.SkinButton
 --------------------------------------------------
@@ -25,16 +27,19 @@ local C = {
     lineStrong = { 0.239, 0.212, 0.165 },
     text = ns.colors.text,
     dim = ns.colors.dim,
+    panel = { 0.102, 0.094, 0.082 },        -- the window
+    selected = { 0.204, 0.165, 0.086 },     -- a chosen row, tab or chip
+    faint = { 0.490, 0.459, 0.384 },        -- the least of the text
+    red = { 0.471, 0.094, 0.078 },
+    redHover = { 0.580, 0.125, 0.098 },
+    clash = { 0.910, 0.573, 0.227 },        -- a key two radials share
+    lift = { 0.949, 0.918, 0.824, 0.045 },  -- under the pointer
+    lift2 = { 0.949, 0.918, 0.824, 0.08 },  -- pressed
 }
 ns.ui = C
 
 local Panel = {}
 ns.SettingsPanel = Panel
-
--- the window's measures (UI/Window.lua): the editor's middle is FlareUI's width
-Panel.INNER = 10
-Panel.MIDDLE_W = 636
-Panel.RIGHT_W = 280
 
 --------------------------------------------------
 -- SURFACES
@@ -143,6 +148,269 @@ function Panel.Button(parent, text, width, height)
     b:SetText(text or "")
     Face(b)
     return b
+end
+
+--------------------------------------------------
+-- THE UNIT FRAME EDITOR'S PIECES
+-- A control in a row is its label at the left and itself at the right, 24px high; its text is its
+-- tooltip (the UFE's rows), not a column beside it.
+--------------------------------------------------
+local NONE = { 0, 0, 0, 0 }
+
+function Panel.Fill(parent, layer, color, sub)
+    local t = parent:CreateTexture(nil, layer, nil, sub)
+    t:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+    return t
+end
+local Fill = Panel.Fill
+
+-- a texture, or each of an outline's, recoloured
+function Panel.Paint(t, color)
+    if t.SetColorTexture then
+        t:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
+        return
+    end
+    for _, e in ipairs(t) do e:SetColorTexture(color[1], color[2], color[3], color[4] or 1) end
+end
+local Paint = Panel.Paint
+
+-- a one-pixel line round a frame, inset
+function Panel.Outline(parent, layer, color, inset, sub)
+    inset = inset or 0
+    local t = {}
+    for i = 1, 4 do t[i] = Fill(parent, layer, color, sub) end
+    t[1]:SetPoint("TOPLEFT", inset, -inset)
+    t[1]:SetPoint("TOPRIGHT", -inset, -inset)
+    t[1]:SetHeight(1)
+    t[2]:SetPoint("BOTTOMLEFT", inset, inset)
+    t[2]:SetPoint("BOTTOMRIGHT", -inset, inset)
+    t[2]:SetHeight(1)
+    t[3]:SetPoint("TOPLEFT", inset, -inset)
+    t[3]:SetPoint("BOTTOMLEFT", inset, inset)
+    t[3]:SetWidth(1)
+    t[4]:SetPoint("TOPRIGHT", -inset, -inset)
+    t[4]:SetPoint("BOTTOMRIGHT", -inset, inset)
+    t[4]:SetWidth(1)
+    return t
+end
+local Outline = Panel.Outline
+
+-- a surface: a fill under a dark gold edge, then a strong line and a faint one inside it
+function Panel.Skin(frame, color)
+    local bg = Fill(frame, "BACKGROUND", color, 1)
+    bg:SetAllPoints()
+    Outline(frame, "BORDER", C.goldDark, 0, 1)
+    Outline(frame, "BORDER", C.lineStrong, 1, 1)
+    Outline(frame, "BORDER", C.line, 2, 2)
+    return bg
+end
+
+-- the console's serif (headings, buttons, names), or the game's plain face (reading)
+function Panel.Serif(parent, size, color)
+    local fs = parent:CreateFontString(nil, "OVERLAY")
+    Panel.Heading(fs, size, color or C.text)
+    return fs
+end
+function Panel.Plain(parent, size, color)
+    local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    local face, _, flags = fs:GetFont()
+    if face then fs:SetFont(face, size or 12, flags) end
+    color = color or C.text
+    fs:SetTextColor(color[1], color[2], color[3])
+    fs:SetJustifyH("LEFT")
+    return fs
+end
+-- a small caption in capitals over what it names
+function Panel.Caption(parent, text, color)
+    local fs = Panel.Plain(parent, 9, color or C.goldDark)
+    fs:SetText(text and text:upper() or "")
+    return fs
+end
+
+-- A button in one of the UFE's four styles; its text a serif in its own font string (b.label), so
+-- b:SetText works as on any button. Painted for rest, hover and press; greyed while disabled.
+local STYLES = {
+    primary = { rest = C.gold, hover = C.goldBright, press = { 0.659, 0.541, 0.259 },
+        edge = C.goldBright, edgeLit = C.goldBright, text = C.ink, lit = C.ink },
+    secondary = { rest = C.raised, hover = { 0.149, 0.133, 0.106 }, press = { 0.078, 0.071, 0.055 },
+        edge = C.lineStrong, edgeLit = C.goldDark, text = C.gold, lit = C.goldBright },
+    quiet = { rest = NONE, hover = C.lift, press = C.lift2, edge = NONE, edgeLit = NONE, text = C.dim, lit = C.text },
+    danger = { rest = C.red, hover = C.redHover, press = { 0.369, 0.071, 0.059 },
+        edge = { 0.604, 0.200, 0.149 }, edgeLit = { 0.604, 0.200, 0.149 },
+        text = { 0.949, 0.847, 0.784 }, lit = { 0.949, 0.847, 0.784 } },
+}
+function Panel.UButton(parent, label, width, height, style)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(width, height or 24)
+    b.bg = Fill(b, "BACKGROUND", C.raised, 1)
+    b.bg:SetAllPoints()
+    b.edge = Outline(b, "BORDER", C.lineStrong, 0)
+    local fs = b:CreateFontString(nil, "OVERLAY")
+    Panel.Heading(fs, 12, C.gold)
+    fs:SetPoint("CENTER", 0, 0)
+    b:SetFontString(fs)
+    b.label = fs
+    b:SetText(label or "")
+    b.style = STYLES[style] and style or "secondary"
+    function b:Paint_(state)
+        local s = STYLES[self.style]
+        state = state or "rest"
+        Paint(self.bg, s[state])
+        Paint(self.edge, state ~= "rest" and s.edgeLit or s.edge)
+        local c = (not self:IsEnabled()) and C.faint or (state == "rest" and s.text or s.lit)
+        self.label:SetTextColor(c[1], c[2], c[3])
+        self:SetAlpha(self:IsEnabled() and 1 or 0.6)
+    end
+    b:SetScript("OnEnter", function(self) self:Paint_("hover") end)
+    b:SetScript("OnLeave", function(self) self:Paint_("rest") end)
+    b:SetScript("OnMouseDown", function(self) if self:IsEnabled() then self:Paint_("press") end end)
+    b:SetScript("OnMouseUp", function(self) self:Paint_(self:IsMouseOver() and "hover" or "rest") end)
+    b:SetScript("OnEnable", function(self) self:Paint_("rest") end)
+    b:SetScript("OnDisable", function(self) self:Paint_("rest") end)
+    b:Paint_("rest")
+    return b
+end
+
+-- A tab over a strip with a gold rule under it: lit while on (b.mark), its foot then open onto the
+-- page it shows. Sized to its text.
+function Panel.Tab(parent, label)
+    local b = CreateFrame("Button", nil, parent)
+    b:SetHeight(22)
+    local bg = Fill(b, "BACKGROUND", C.ink, 1)
+    bg:SetAllPoints()
+    b.mark = Fill(b, "BACKGROUND", C.selected, 2)
+    b.mark:SetPoint("TOPLEFT", 1, -1)
+    b.mark:SetPoint("BOTTOMRIGHT", -1, 0)
+    b.mark:Hide()
+    b.edge = Outline(b, "BORDER", C.goldDark, 0)
+    b.foot = Fill(b, "OVERLAY", C.selected)
+    b.foot:SetPoint("BOTTOMLEFT", 1, 0)
+    b.foot:SetPoint("BOTTOMRIGHT", -1, 0)
+    b.foot:SetHeight(1)
+    b.foot:Hide()
+    local fs = b:CreateFontString(nil, "OVERLAY")
+    Panel.Heading(fs, 12, C.dim)
+    fs:SetPoint("CENTER", 0, 0)
+    b:SetFontString(fs)
+    b.label = fs
+    b:SetText(label)
+    b:SetWidth(math.ceil(fs:GetStringWidth() or 0) + 24)
+    local glow = Fill(b, "HIGHLIGHT", C.lift)
+    glow:SetAllPoints()
+    function b:SetOn(on)
+        self.mark:SetShown(on and true or false)
+        self.foot:SetShown(on and true or false)
+        Paint(self.edge, on and C.gold or C.goldDark)
+        local c = on and C.goldBright or C.dim
+        self.label:SetTextColor(c[1], c[2], c[3])
+    end
+    return b
+end
+
+-- On or off: a gold track with the knob at the right, or a dark one with it at the left. A
+-- CheckButton, so it flips itself on a click; onClick(self) then reads self:GetChecked().
+function Panel.Switch(parent, onClick)
+    local b = CreateFrame("CheckButton", nil, parent)
+    b:SetSize(34, 16)
+    local track = Fill(b, "BACKGROUND", C.well, 1)
+    track:SetAllPoints()
+    local edge = Outline(b, "BORDER", C.lineStrong, 0)
+    local knob = Fill(b, "ARTWORK", C.faint)
+    knob:SetSize(10, 10)
+    function b:Paint_()
+        local on = self:GetChecked() and true or false
+        Paint(track, on and C.gold or C.well)
+        Paint(edge, on and C.goldBright or C.lineStrong)
+        Paint(knob, on and C.ink or C.faint)
+        knob:ClearAllPoints()
+        if on then knob:SetPoint("RIGHT", -3, 0) else knob:SetPoint("LEFT", 3, 0) end
+    end
+    function b:SetOn(on)
+        self:SetChecked(on and true or false)
+        self:Paint_()
+    end
+    b:SetScript("OnClick", function(self)
+        self:Paint_()
+        PlaySound(self:GetChecked() and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+        if onClick then onClick(self) end
+    end)
+    b:Paint_()
+    return b
+end
+
+-- Two or three answers side by side, every one in sight; the chosen one lit (its b.mark). The
+-- buttons are seg.buttons, in order; onPick(i).
+function Panel.Segment(parent, labels, onPick)
+    local seg = CreateFrame("Frame", nil, parent)
+    seg:SetHeight(22)
+    seg.buttons = {}
+    local x = 1
+    for i, text in ipairs(labels) do
+        local b = CreateFrame("Button", nil, seg)
+        b:SetHeight(20)
+        local bg = Fill(b, "BACKGROUND", C.well, 1)
+        bg:SetAllPoints()
+        b.mark = Fill(b, "BACKGROUND", C.selected, 2)
+        b.mark:SetAllPoints()
+        b.mark:Hide()
+        b.edge = Outline(b, "BORDER", C.gold, 0)
+        for _, e in ipairs(b.edge) do e:Hide() end
+        local fs = Panel.Plain(b, 11, C.dim)
+        fs:SetPoint("CENTER", 0, 0)
+        b:SetFontString(fs)
+        b.label = fs
+        b:SetText(text)
+        b:SetWidth(math.ceil(fs:GetStringWidth() or 0) + 16)
+        b:SetPoint("LEFT", x, 0)
+        x = x + b:GetWidth()
+        local glow = Fill(b, "HIGHLIGHT", C.lift)
+        glow:SetAllPoints()
+        b:SetScript("OnClick", function()
+            ns.ButtonSound()
+            onPick(i)
+        end)
+        seg.buttons[i] = b
+    end
+    seg:SetWidth(x + 1)
+    Outline(seg, "BORDER", C.lineStrong, 0)
+    function seg:SetValue(at)
+        for i, b in ipairs(self.buttons) do
+            local on = i == at
+            b.mark:SetShown(on)
+            for _, e in ipairs(b.edge) do e:SetShown(on) end
+            local c = on and C.goldBright or C.dim
+            b.label:SetTextColor(c[1], c[2], c[3])
+        end
+    end
+    return seg
+end
+
+-- - value +: quiet steps round a value (the UFE's), or other marks; st.minus, st.value, st.plus
+function Panel.Stepper(parent, valueWidth, less, more)
+    local st = CreateFrame("Frame", nil, parent)
+    st:SetSize(18 + (valueWidth or 40) + 18 + 8, 22)
+    st.plus = Panel.UButton(st, more or "+", 18, 18, "quiet")
+    st.plus:SetPoint("RIGHT", 0, 0)
+    st.value = Panel.Plain(st, 11)
+    st.value:SetJustifyH("CENTER")
+    st.value:SetWidth(valueWidth or 40)
+    st.value:SetPoint("RIGHT", st.plus, "LEFT", -4, 0)
+    st.minus = Panel.UButton(st, less or "-", 18, 18, "quiet")
+    st.minus:SetPoint("RIGHT", st.value, "LEFT", -4, 0)
+    return st
+end
+
+-- a row across a page at y: its label at the left (row.label); its control goes at the right
+function Panel.Row(parent, y, label)
+    local row = CreateFrame("Frame", nil, parent)
+    row:SetPoint("TOPLEFT", 0, -y)
+    row:SetPoint("TOPRIGHT", 0, -y)
+    row:SetHeight(24)
+    row:EnableMouse(true)
+    row.label = Panel.Plain(row, 12)
+    row.label:SetPoint("LEFT", 0, 0)
+    row.label:SetText(label or "")
+    return row
 end
 
 --------------------------------------------------

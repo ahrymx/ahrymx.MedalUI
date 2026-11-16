@@ -2236,6 +2236,29 @@ function RM.DrawWheelSample(f)
     return f:GetWidth(), f:GetHeight()
 end
 
+-- The editor's canvas (UI/Canvas.lua) on a sample's wheel: one slot per entry ({ name, icon }, one
+-- per stored button, so a slot is always its button: the radial leaves out what it can't resolve and
+-- spreads a party spell), laid out by the radial's own code, slot `chosen` aimed at (its slice lit,
+-- the pointer on it, its rim lit). Answers count, radius, interval.
+function RM.DrawEditorWheel(f, entries, chosen)
+    local count, radius, interval = RM.PlaceRadialButtons(f, f.buttons, entries)
+    RM:LayoutPing(count, radius, interval, f)
+    local lit = chosen and chosen >= 1 and chosen <= count and chosen or nil
+    for i = 1, count do SetButtonSelected(f.buttons[i], i == lit) end
+    RM:LightSlice(lit, f)
+    if lit then
+        f.Pointer:SetRotation(f.buttons[lit].angle)
+        f.Pointer:Show()
+    else
+        f.Pointer:Hide()
+    end
+    f.CancelSelect:Hide()
+    f.CancelIcon:SetAlpha(CANCEL_ALPHA_IDLE)
+    f:Show()
+    return count, radius, interval
+end
+RM.ROUND_SIZE, RM.ICON_SIZE = ROUND_SIZE, ICON_SIZE
+
 --------------------------------------------------
 -- 12. GAMEPAD BAR (the Gamepad UI)
 -- A radial on a slot of Blizzard's controller bar (LT + A, a D-pad direction ...): an account macro

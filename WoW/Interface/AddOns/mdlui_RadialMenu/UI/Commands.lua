@@ -3,7 +3,7 @@ local _, ns = ...
 --------------------------------------------------
 -- COMMANDS
 -- /mdlradial                     the editor window (UI/Window.lua)
--- /mdlradial options             the window's Options tab
+-- /mdlradial options             the window's Look tab (how every radial opens and looks)
 -- /mdlradial list                the radials, their keys and macros, in chat
 -- /mdlradial key <radial> <key>  bind a radial (a name or number from the list); "none" clears it
 -- /mdlradial padlog              the controller aim log on or off
