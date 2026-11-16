@@ -871,7 +871,11 @@ local function GlowColours()
     return map
 end
 
--- Each edge handed to the client, with the colours as they are now.
+-- Each edge handed to the client, with the colours as they are now. The
+-- client shows what it is handed while the aura is on, whatever this addon
+-- hid, so the 45-degree cut goes only where the frame's own glow traces it
+-- (ns.ShapeDispelGlows): handed to it on a Reticule's or the party widget's
+-- rectangle, it drew the medallion's cut there (2026-11-16).
 local function DressLiveGlow(lg)
     local btn = lg.btn
     if not btn then return end
@@ -879,8 +883,10 @@ local function DressLiveGlow(lg)
     local colours = GlowColours()
     if btn.ClearDispelTypeTextures then pcall(btn.ClearDispelTypeTextures, btn) end
     for _, e in ipairs(lg.edges) do
-        pcall(btn.AddDispelTypeTexture, btn, e, { style = STYLE and STYLE.PreserveAsset, showWhenHarmful = true,
-            customDispelColorMap = colours })
+        if e ~= lg.cut or lg.cutShown then
+            pcall(btn.AddDispelTypeTexture, btn, e, { style = STYLE and STYLE.PreserveAsset, showWhenHarmful = true,
+                customDispelColorMap = colours })
+        end
     end
 end
 
@@ -906,7 +912,8 @@ local function MakeLiveGlow(b)
             btn:SetSize(w, h)
             lg.btn = btn
             lg.edges, lg.cut = GlowEdges(btn, h, own.side, own.window)
-            if lg.cut and own.cut then lg.cut:SetShown(own.cut:IsShown()) end
+            lg.cutShown = lg.cut and own.cut and own.cut:IsShown() or false
+            if lg.cut then lg.cut:SetShown(lg.cutShown) end
             DressLiveGlow(lg)
         end,
     })
@@ -1417,8 +1424,16 @@ function ns.ShapeDispelGlows()
         for _, g in ipairs({ b.dispelGlow, b.threatGlow }) do
             if g.cut then g.cut:SetShown(cuts[g.window] and not b.inWidget and true or false) end
         end
+        -- the live glow's too: what the client is handed (DressLiveGlow)
         local lg = b.liveGlow
-        if lg and lg.cut then lg.cut:SetShown(b.dispelGlow.cut:IsShown()) end
+        if lg and lg.cut then
+            local on = b.dispelGlow.cut and b.dispelGlow.cut:IsShown() or false
+            if lg.cutShown ~= on then
+                lg.cutShown = on
+                lg.cut:SetShown(on)
+                DressLiveGlow(lg)
+            end
+        end
     end
 end
 

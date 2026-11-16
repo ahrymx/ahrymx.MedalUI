@@ -13123,8 +13123,9 @@ if lightPass then
     -- the light profile's windows are rectangles: no glow traces a cut
     local cuts = {}
     for _, u in ipairs({ "player", "target", "party1", "party2", "party3", "party4" }) do
-        local cut = ns.units[u].dispelGlow.cut
-        table.insert(cuts, u .. "=" .. (cut and tostring(cut.shown) or "none"))
+        local b = ns.units[u]
+        local function Cut(g) return g and g.cut and tostring(g.cut.shown) or "none" end
+        table.insert(cuts, u .. "=" .. Cut(b.dispelGlow) .. "/" .. Cut(b.threatGlow) .. "/" .. Cut(b.liveGlow))
     end
     print("glow cuts", table.concat(cuts, " "))
     if keybindPass then KeybindPass() end
@@ -16016,11 +16017,13 @@ if dispelPass then
                 local lg = b.liveGlow
                 local c = lg and lg.container
                 local lit, col = 0, "-"
-                -- (an edge lights on the aura frame the client shows, only
-                -- while it holds an aura)
+                -- (an edge handed to the client lights on the aura frame it
+                -- shows, only while it holds an aura, whether this addon hid
+                -- it or not: showWhenHarmful)
                 local held = lg and lg.btn and lg.btn.shown
-                for _, e in ipairs(lg and lg.edges or {}) do
-                    if held and e.shown ~= false and e.vertex and (e.vertex[4] or 1) > 0 then
+                for _, el in ipairs(lg and lg.btn and lg.btn.dispelEls or {}) do
+                    local e = el[1]
+                    if held and e.vertex and (e.vertex[4] or 1) > 0 then
                         lit = lit + 1
                         col = string.format("%d,%d,%d,%.2f", e.vertex[1] * 255 + 0.5, e.vertex[2] * 255 + 0.5,
                             e.vertex[3] * 255 + 0.5, e.vertex[4] or 1)
@@ -16041,6 +16044,19 @@ if dispelPass then
             inCombat = true
             fire("PLAYER_REGEN_DISABLED")
             live("poison, combat")
+            -- a rectangle (the Reticule's windows, the party widget's) has
+            -- no cut: the client is not handed it, so it cannot light it
+            do
+                local cuts = ns.layout.cuts
+                ns.layout.cuts = {}
+                ns.ShapeDispelGlows()
+                fire("UNIT_AURA", "player")
+                live("poison, combat, a rectangle")
+                ns.layout.cuts = cuts
+                ns.ShapeDispelGlows()
+                fire("UNIT_AURA", "player")
+                live("poison, combat, cut again")
+            end
             aura("Curse")
             live("curse (not yours), combat")
             aura("Disease")
