@@ -3,36 +3,45 @@ local L = ns.L
 
 --------------------------------------------------
 -- WINDOW
--- The editor window, laid out as Medalluin's Unit Frame Editor (Medalluin/options/editor.lua): a
--- serif plate on its top edge and an x; a caption over each column on a gold rule; down the left, the
--- radials in an ink box (Radial/Editor.lua); in the middle, the canvas, the chosen radial's wheel
--- drawn large (UI/Canvas.lua); at the right, the radial's name and Delete over its tabs:
---   Radial    who gets it, its key, Macro, Copy, Rename (Radial/Editor.lua)
---   Slot      the button chosen on the wheel (Radial/Editor.lua)
---   Catalog   what to put on it; the tab the window opens on (Radial/Editor.lua)
---   Look      how every radial opens and looks, its fonts (here)
--- The footer: + New radial and Import... (while FlareUI's radials are loaded) | what the canvas
--- shows | Undo changes, Close. Built on first open; it remembers where it was moved to
--- (ns.db.global.editorPoint). ns.OpenEditor([tab]) opens it.
+-- The editor window, laid out as Medalluin's Settings window (Medalluin/options/window.lua):
+--   the head      a bar across the top: the title, a faint subtitle, the x in its own cell
+--   the sidebar   a search over the radials, then the radials under their groups' headings, the
+--                 ones not on this character, and Options > Every radial (Radial/Editor.lua)
+--   the page      a header (its title, where it sits, a (?)) over the page:
+--                   a radial: two sheets under the header, Wheel (the wheel, the chosen slot, the
+--                   Catalog) and Radial (who gets it, its key, Macro, Copy, Rename, Delete, the keys
+--                   on this character), Radial/Editor.lua's; Show at the sheets' right
+--                   Every radial: how every radial opens and looks, its fonts (here)
+--   the footer    + New radial, Import... (while FlareUI's radials are loaded); "Changed since it
+--                 opened", Undo changes, Close
+-- Each group of options is a card of rows: a label, a line saying what it does, the control.
+-- Built on first open; dragged by its head or any bare part, and it remembers where
+-- (ns.db.global.editorPoint). ns.OpenEditor([where]) opens it.
 --------------------------------------------------
 local Panel = ns.SettingsPanel
 local C = ns.ui
 local S = ns.Settings
 
--- the Unit Frame Editor's measures
-local W, H = 1000, 620
-local PAD, LIST_W, BODY_W, TAB_H, FOOT = 14, 160, 270, 24, 58
-local TAB_Y = PAD + 24                  -- the caption row's top
-local TOP = TAB_Y + TAB_H + 10          -- the list's, the canvas's and the body's top
-local BODY_TOP = 64                     -- the tabs' pages, under the name and the tab strip
-local PAGE_H = H - TOP - 4 - FOOT - BODY_TOP
-local CHIP_W, CHIP_H = 96, 24
-local ROW_GAP = 30
+-- the Settings window's measures
+local W, H = 1040, 680
+local EDGE, BAR_H, SIDE_W, FOOT = 1, 34, 200, 40
+local X, RIGHT = EDGE + SIDE_W + 18, 16                  -- the page's left, its right margin
+local HEAD_TOP, HEAD_H, STRIP_H = EDGE + BAR_H + 14, 50, 26
+local SHEET_TOP = HEAD_TOP + HEAD_H + STRIP_H - 4 + 12   -- a radial's sheets, under the tabs
+local PAGE_TOP = HEAD_TOP + HEAD_H + 12                  -- Every radial, under its header
+local BOTTOM = EDGE + FOOT + 14
+local PAGE_W = W - X - RIGHT
+local COL_GAP = 12
+local COL_W = math.floor((PAGE_W - COL_GAP) / 2)
 local SCALES = { 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5 }
-local FONT_SIZES = { 8, 32 }
-local TABS = { { "radial", L["Radial"] }, { "slot", L["Slot"] }, { "catalog", L["Catalog"] }, { "look", L["Look"] } }
+local SIZES = {}
+for s = 8, 32 do SIZES[#SIZES + 1] = s end
+local SHEETS = { { "wheel", L["Wheel"] }, { "radial", L["Radial"] } }
+-- older names for where to open: the tabs the window had
+local SHEET_OF = { wheel = "wheel", slot = "wheel", catalog = "wheel", radial = "radial" }
 
-local frame, tabs, pages, current
+local frame
+local page, sheet = "radial", "wheel"
 
 local function RM() return ns.RadialMenu end
 local function DB() return ns.db.profile.radialmenu end
@@ -51,17 +60,19 @@ local function Tipped(region, key)
 end
 
 --------------------------------------------------
--- THE LOOK TAB
--- Each option a row: its label at the left, its control at the right, its text in its tooltip.
--- row.Fill() shows the saved value.
+-- EVERY RADIAL (the Options page)
+-- A card for each group; each option a row, its copy in its tooltip. row.Fill() shows the saved
+-- value; frame.lookRows[key] is each row.
 --------------------------------------------------
 local rows = {}
 
-local function Row(page, y, key)
-    local row = Panel.Row(page, y, S:Text(key, "label"))
-    row.key = key
+-- name: the row's own (a font's size row shares its font's copy), else the copy's key
+local function Row(card, n, key, line, name)
+    local row = Panel.CardRow(card, n, S:Text(key, "label"), line)
+    row.key = name or key
     Tipped(row, key)
     rows[#rows + 1] = row
+    frame.lookRows[row.key] = row
     return row
 end
 
@@ -74,14 +85,14 @@ local function Applied(opening)
 end
 
 -- one of two answers, side by side (short words; the tooltip has the long ones)
-local function Choice(page, y, key, field, values, labels)
-    local row = Row(page, y, key)
+local function Choice(card, n, key, line, field, values, labels)
+    local row = Row(card, n, key, line)
     local seg = Panel.Segment(row, labels, function(i)
         DB()[field] = values[i]
         row.Fill()
         Applied(true)
     end)
-    seg:SetPoint("RIGHT", 0, 0)
+    row:Hold(seg)
     for _, b in ipairs(seg.buttons) do Tipped(b, key) end
     function row.Fill()
         local at = 1
@@ -92,48 +103,27 @@ local function Choice(page, y, key, field, values, labels)
     return row
 end
 
-local function Toggle(page, y, key, get, set)
-    local row = Row(page, y, key)
+local function Toggle(card, n, key, line, get, set)
+    local row = Row(card, n, key, line)
     local check = Panel.Switch(row, function(self) set(self:GetChecked() and true or false) end)
-    check:SetPoint("RIGHT", -2, 0)
+    row:Hold(check)
     Tipped(check, key)
     function row.Fill() check:SetOn(get() and true or false) end
     row.check = check
     return row
 end
 
--- a value stepped through a list (or a range of whole numbers): - value +
-local function Stepper(row, values, get, set, text)
-    local st = Panel.Stepper(row, 36)
-    st:SetPoint("RIGHT", 0, 0)
-    local function At()
-        local now = get()
-        for i, v in ipairs(values) do if math.abs(v - now) < 0.001 then return i end end
-        -- a value between steps: the nearest
-        local best, at = math.huge, 1
-        for i, v in ipairs(values) do if math.abs(v - now) < best then best, at = math.abs(v - now), i end end
-        return at
-    end
-    local function Step(delta)
-        local i = math.max(1, math.min(#values, At() + delta))
-        ns.ButtonSound()
-        set(values[i])
-        row.Fill()
-    end
-    st.plus:SetScript("OnClick", function() Step(1) end)
-    st.minus:SetScript("OnClick", function() Step(-1) end)
-    Tipped(st.plus, row.key)
-    Tipped(st.minus, row.key)
-    local fill = row.Fill
-    function row.Fill()
-        if fill then fill() end
-        local i = At()
-        st.value:SetText(text(values[i]))
-        st.minus:SetEnabled(i > 1)
-        st.plus:SetEnabled(i < #values)
-    end
+-- a value on a rail: - value +
+local function Slider(card, n, key, line, values, get, set, text, name)
+    local row = Row(card, n, key, line, name)
+    local st = Panel.Slider(row, values, text, get, set)
+    row:Hold(st)
+    Tipped(st.plus, key)
+    Tipped(st.minus, key)
+    Tipped(st.track, key)
+    function row.Fill() st:Fill() end
     row.plus, row.minus, row.value = st.plus, st.minus, st.value
-    return st
+    return row
 end
 
 local function FontName(face)
@@ -143,19 +133,10 @@ local function FontName(face)
     return face
 end
 
--- a font: its face (a menu) and its size
-local function Font(page, y, key, field)
-    local row = Row(page, y, key)
-    local sizes = {}
-    for s = FONT_SIZES[1], FONT_SIZES[2] do sizes[#sizes + 1] = s end
-    local st = Stepper(row, sizes, function() return DB()[field].size or 14 end, function(v)
-        DB()[field].size = v
-        RM():ApplyFonts()
-    end, tostring)
-    local drop = CreateFrame("DropdownButton", nil, row, "WowStyle1DropdownTemplate")
-    drop:SetWidth(104)
-    drop:SetPoint("RIGHT", st, "LEFT", -4, 0)
-    drop:SetupMenu(function(_, root)
+-- a font's face, from a menu; its size is the row under it
+local function Font(card, n, key, line, field)
+    local row = Row(card, n, key, line)
+    local drop = Panel.Choice(row, 150, function(_, root)
         for _, face in ipairs(ns.FontNames()) do
             root:CreateRadio(FontName(face), function() return (DB()[field].face or ns.GLOBAL_FONT) == face end,
                 function()
@@ -165,57 +146,68 @@ local function Font(page, y, key, field)
                 end)
         end
     end)
+    row:Hold(drop)
     Tipped(drop, key)
-    local fill = row.Fill
     function row.Fill()
-        fill()
-        drop:SetDefaultText(FontName(DB()[field].face))
+        drop:SetValueText(FontName(DB()[field].face))
         drop:GenerateMenu()
     end
     row.drop = drop
     return row
 end
 
-local function Caption(page, y, text)
-    local cap = Panel.Caption(page, text)
-    cap:SetPoint("TOPLEFT", 0, -y)
-    return y + 16
+local function CardHeight(n) return Panel.BAND_H + 4 + n * Panel.ROW_H + 8 end
+
+local function BuildOptions(at)
+    local opening = Panel.Card(at, L["Opening"], COL_W, CardHeight(3))
+    opening:SetPoint("TOPLEFT", 0, 0)
+    Choice(opening, 1, "rm.position", L["Where the wheel opens"], "position",
+        { "cursor", "center" }, { L["Cursor"], L["Centre"] })
+    Choice(opening, 2, "rm.activation", L["Hold the key, or press it once"], "activation",
+        { "hold", "toggle" }, S:Text("rm.activation", "choices"))
+    Choice(opening, 3, "rm.subRadials", L["Its first button again, or the one you left"], "subRadials",
+        { "reset", "remember" }, { L["Reset"], L["Remember"] })
+
+    local look = Panel.Card(at, L["Look"], COL_W, CardHeight(3))
+    look:SetPoint("TOPLEFT", opening, "BOTTOMLEFT", 0, -COL_GAP)
+    Slider(look, 1, "rm.scale", L["The whole radial's size"], SCALES,
+        function() return DB().scale or 1 end,
+        function(v)
+            DB().scale = v
+            Applied(false)
+        end,
+        function(v) return math.floor(v * 100 + 0.5) .. "%" end)
+    Toggle(look, 2, "rm.names", L["The button you point at shows its name"],
+        function() return DB().showNames ~= false end,
+        function(on)
+            DB().showNames = on
+            Applied(false)
+        end)
+    Toggle(look, 3, "rm.autoRanks", L["A spell casts the best rank you know"],
+        function() return DB().autoRanks ~= false end,
+        function(on)
+            DB().autoRanks = on
+            RM().ForgetRanks()
+            RM().MarkDirty()
+            RM():RadialChanged()
+        end)
+
+    local fonts = Panel.Card(at, L["Fonts"], PAGE_W - COL_W - COL_GAP, CardHeight(4))
+    fonts:SetPoint("TOPRIGHT", 0, 0)
+    for i, f in ipairs({ { "rm.font.labels", "labelFont", L["The name of the button you point at"] },
+        { "rm.font.counts", "countFont", L["Item counts and spell charges"] } }) do
+        Font(fonts, 2 * i - 1, f[1], f[3], f[2])
+        local size = Slider(fonts, 2 * i, f[1], nil, SIZES,
+            function() return DB()[f[2]].size or 14 end,
+            function(v)
+                DB()[f[2]].size = v
+                RM():ApplyFonts()
+            end, tostring, f[1] .. ".size")
+        size.label:SetText(L["Size"])
+    end
 end
 
-local function BuildLook(page)
-    local note = Panel.Plain(page, 11, C.dim)
-    note:SetPoint("TOPLEFT", 0, -2)
-    note:SetText(L["These apply to every radial."])
-    local y = Caption(page, 24, L["Opening"])
-    Choice(page, y, "rm.position", "position", { "cursor", "center" }, { L["Cursor"], L["Centre"] })
-    y = y + ROW_GAP
-    Choice(page, y, "rm.activation", "activation", { "hold", "toggle" }, S:Text("rm.activation", "choices"))
-    y = y + ROW_GAP
-    Choice(page, y, "rm.subRadials", "subRadials", { "reset", "remember" }, { L["Reset"], L["Remember"] })
-    y = Caption(page, y + ROW_GAP + 6, L["Look"])
-    local scale = Row(page, y, "rm.scale")
-    Stepper(scale, SCALES, function() return DB().scale or 1 end, function(v)
-        DB().scale = v
-        Applied(false)
-    end, function(v) return math.floor(v * 100 + 0.5) .. "%" end)
-    y = y + ROW_GAP
-    Toggle(page, y, "rm.names", function() return DB().showNames ~= false end, function(on)
-        DB().showNames = on
-        Applied(false)
-    end)
-    y = y + ROW_GAP
-    Toggle(page, y, "rm.autoRanks", function() return DB().autoRanks ~= false end, function(on)
-        DB().autoRanks = on
-        RM().ForgetRanks()
-        RM().MarkDirty()
-        RM():RadialChanged()
-    end)
-    y = Caption(page, y + ROW_GAP + 6, L["Fonts"])
-    Font(page, y, "rm.font.labels", "labelFont")
-    Font(page, y + ROW_GAP, "rm.font.counts", "countFont")
-end
-
-local function FillLook()
+local function FillOptions()
     for _, row in ipairs(rows) do row.Fill() end
 end
 
@@ -260,71 +252,70 @@ local function ShowImport()
 end
 
 --------------------------------------------------
--- TABS
+-- PAGES AND SHEETS
 --------------------------------------------------
-local function ShowTab(key)
-    if not pages[key] then key = "catalog" end
-    current = key
-    for k, b in pairs(tabs) do b:SetOn(k == key) end
-    for k, p in pairs(pages) do p:SetShown(k == key) end
-    if key == "look" then FillLook() end
+-- a radial (on a sheet: "wheel" or "radial"; the one shown last when nil), or "options"
+local function ShowPage(to, toSheet)
+    page = to == "options" and "options" or "radial"
+    sheet = toSheet or sheet
+    local radial = page == "radial"
+    frame.page, frame.sheet = page, sheet
+    frame.head:SetHeight(radial and HEAD_H + STRIP_H - 4 or HEAD_H)
+    for k, b in pairs(frame.tabs) do
+        b:SetShown(radial)
+        b:SetOn(k == sheet)
+    end
+    frame.showLabel:SetShown(radial and sheet == "wheel")
+    frame.showSeg:SetShown(radial and sheet == "wheel")
+    for k, f in pairs(frame.sheets) do f:SetShown(radial and k == sheet) end
+    frame.options:SetShown(not radial)
+    if not radial then
+        frame.pageTitle:SetText(L["Every radial"])
+        frame.crumb:SetText(L["Options"] .. "   \194\183   " .. L["Shared by every radial"])
+        frame.moreText = L["How every radial opens and looks. Each radial's own buttons, who gets it and its key "
+            .. "are on its page."]
+        FillOptions()
+    end
     ShowImport()
+    ns.RadialEditorEmbed.Refresh()
 end
 
 --------------------------------------------------
--- THE CANVAS'S CHIPS (the footer's "Show on the canvas")
+-- SHOW (the canvas's: the Wheel sheet's, at the tabs' right)
 --------------------------------------------------
-local CHIPS = {
+local SHOW = {
     { "names", L["Names"],
         L["Every slot's name under it. Off: only the chosen slot's, as the wheel names the one you point at."] },
     { "numbers", L["Numbers"], L["Each slot's place: 1 at the top, then clockwise."] },
     { "empty", L["Empty slot"], L["The next free slot, to drop something on, until the radial is full."] },
 }
 
-local function PaintChip(b)
-    local on = frame.show[b.key]
-    Panel.Paint(b.bg, on and C.selected or C.ink)
-    for _, e in ipairs(b.lit) do e:SetShown(on) end
-    Panel.Paint(b.swatch, on and C.gold or C.lineStrong)
-    local c = on and C.goldBright or C.dim
-    b.label:SetTextColor(c[1], c[2], c[3])
-end
-
-local function Chips(from)
+local function BuildShow(head)
     frame.show = { names = true, numbers = false, empty = true }
-    frame.chips = {}
-    for i, chip in ipairs(CHIPS) do
-        local b = CreateFrame("Button", nil, frame)
-        b:SetSize(CHIP_W, CHIP_H)
-        b:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", from + (i - 1) * (CHIP_W + 4), 10)
-        b.key = chip[1]
-        b.bg = Panel.Fill(b, "BACKGROUND", C.ink, 1)
-        b.bg:SetAllPoints()
-        Panel.Outline(b, "BORDER", C.goldDark, 0)
-        b.lit = Panel.Outline(b, "OVERLAY", C.goldBright, 0)
-        b.swatch = Panel.Fill(b, "ARTWORK", C.gold)
-        b.swatch:SetSize(6, 6)
-        b.swatch:SetPoint("LEFT", 8, 0)
-        b.label = Panel.Serif(b, 11, C.dim)
-        b.label:SetPoint("LEFT", b.swatch, "RIGHT", 4, 0)
-        b.label:SetPoint("RIGHT", -4, 0)
-        b.label:SetText(chip[2])
-        b:SetScript("OnClick", function(self)
-            ns.ButtonSound()
-            frame.show[self.key] = not frame.show[self.key]
-            PaintChip(self)
-            ns.RadialEditorEmbed.Refresh()
-        end)
+    local labels = {}
+    for i, s in ipairs(SHOW) do labels[i] = s[2] end
+    local seg
+    seg = Panel.Segment(head, labels, function(i, b)
+        frame.show[b.key] = not frame.show[b.key]
+        seg:SetOn(i, frame.show[b.key])
+        ns.RadialEditorEmbed.Refresh()
+    end)
+    seg:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, 3)
+    for i, b in ipairs(seg.buttons) do
+        b.key = SHOW[i][1]
+        seg:SetOn(i, frame.show[b.key])
         b:SetScript("OnEnter", function(self)
             ns.OwnGameTooltip(self, "ANCHOR_TOP")
-            GameTooltip:AddLine(chip[2], 1, 1, 1)
-            GameTooltip:AddLine(chip[3], nil, nil, nil, true)
+            GameTooltip:AddLine(SHOW[i][2], 1, 1, 1)
+            GameTooltip:AddLine(SHOW[i][3], nil, nil, nil, true)
             GameTooltip:Show()
         end)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-        PaintChip(b)
-        frame.chips[i] = b
     end
+    frame.showSeg, frame.chips = seg, seg.buttons
+    frame.showLabel = Panel.Plain(head, 12, C.dim)
+    frame.showLabel:SetText(L["Show"])
+    frame.showLabel:SetPoint("RIGHT", seg, "LEFT", -8, 0)
 end
 
 --------------------------------------------------
@@ -336,29 +327,201 @@ local function Remember()
     ns.db.global.editorPoint = { point, relative, math.floor(x + 0.5), math.floor(y + 0.5) }
 end
 
+-- a region that drags the window; where it is left is kept
+local function Grip(region)
+    region:EnableMouse(true)
+    region:RegisterForDrag("LeftButton")
+    region:SetScript("OnDragStart", function() frame:StartMoving() end)
+    region:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+        if frame.SetUserPlaced then frame:SetUserPlaced(false) end
+        Remember()
+    end)
+end
+
+-- a bar of the window's chrome (its head or footer), a hairline on its inner edge
+local function Bar(top)
+    local bar = CreateFrame("Frame", nil, frame)
+    bar:SetPoint(top and "TOPLEFT" or "BOTTOMLEFT", EDGE, top and -EDGE or EDGE)
+    bar:SetPoint(top and "TOPRIGHT" or "BOTTOMRIGHT", -EDGE, top and -EDGE or EDGE)
+    bar:SetHeight(top and BAR_H or FOOT)
+    bar:SetFrameLevel(frame:GetFrameLevel() + 5)
+    Panel.Fill(bar, "BACKGROUND", C.ink, 1):SetAllPoints()
+    local rule = Panel.Fill(bar, "BORDER", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint(top and "BOTTOMLEFT" or "TOPLEFT", 0, 0)
+    rule:SetPoint(top and "BOTTOMRIGHT" or "TOPRIGHT", 0, 0)
+    return bar
+end
+
+-- the head: the title, the subtitle, the x (red under the pointer)
+local function Head()
+    local bar = Bar(true)
+    Grip(bar)
+    frame.title = Panel.Serif(bar, 15, C.goldBright)
+    frame.title:SetPoint("LEFT", 14, 0)
+    frame.title:SetText(L["Radial Menu"])
+    local get = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+    local version = get and get("mdlui_RadialMenu", "Version")
+    frame.subtitle = Panel.Plain(bar, 11, C.faint)
+    frame.subtitle:SetPoint("LEFT", frame.title, "RIGHT", 10, -1)
+    frame.subtitle:SetText(L["Editor"] .. (version and ("  \194\183  " .. version) or ""))
+    local x = CreateFrame("Button", nil, bar)
+    x:SetSize(BAR_H, BAR_H - 1)
+    x:SetPoint("TOPRIGHT", 0, 0)
+    local lit = Panel.Fill(x, "BACKGROUND", C.red, 1)
+    lit:SetAllPoints()
+    lit:Hide()
+    local seam = Panel.Fill(x, "BORDER", C.line)
+    seam:SetWidth(1)
+    seam:SetPoint("TOPLEFT", 0, 0)
+    seam:SetPoint("BOTTOMLEFT", 0, 0)
+    x.glyph = x:CreateTexture(nil, "ARTWORK")
+    x.glyph:SetTexture(Panel.ART .. "Close")
+    x.glyph:SetSize(14, 14)
+    x.glyph:SetPoint("CENTER", 0, 0)
+    x.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    x:SetScript("OnClick", function() frame:Hide() end)
+    x:SetScript("OnEnter", function(self)
+        lit:Show()
+        self.glyph:SetVertexColor(0.949, 0.847, 0.784, 1)
+    end)
+    x:SetScript("OnLeave", function(self)
+        lit:Hide()
+        self.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    end)
+    frame.closeX = x
+end
+
+-- the sidebar: its search; the editor fills frame.nav with the radials
+local function Sidebar()
+    local side = CreateFrame("Frame", nil, frame)
+    side:SetPoint("TOPLEFT", EDGE, -(EDGE + BAR_H))
+    side:SetPoint("BOTTOMLEFT", EDGE, EDGE + FOOT)
+    side:SetWidth(SIDE_W)
+    Panel.Fill(side, "BACKGROUND", C.ink, 1):SetAllPoints()
+    local rule = Panel.Fill(side, "BORDER", C.line)
+    rule:SetWidth(1)
+    rule:SetPoint("TOPRIGHT", 0, 0)
+    rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    frame.side = side
+    frame.sideSearch = Panel.Search(side, SIDE_W - 23, 26, L["Search radials"], function()
+        if frame:IsShown() then ns.RadialEditorEmbed.Refresh() end
+    end)
+    frame.sideSearch:SetPoint("TOPLEFT", 11, -10)
+    local nav = CreateFrame("Frame", nil, side)
+    nav:SetPoint("TOPLEFT", 0, -(10 + 26 + 4))
+    nav:SetPoint("BOTTOMRIGHT", -1, 4)
+    frame.nav = nav
+    frame.navRows = math.floor((H - 2 * EDGE - BAR_H - FOOT - (10 + 26 + 4) - 4) / 24)
+end
+
+-- the page's header: its title, where it sits and a (?), a hairline under; the sheets' tabs and
+-- Show along its foot on a radial's page
+local function Header()
+    local head = CreateFrame("Frame", nil, frame)
+    head:SetPoint("TOPLEFT", frame, "TOPLEFT", X, -HEAD_TOP)
+    head:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -RIGHT, -HEAD_TOP)
+    head:SetHeight(HEAD_H + STRIP_H - 4)
+    frame.head = head
+    frame.pageTitle = Panel.Serif(head, 20, C.text)
+    frame.pageTitle:SetPoint("TOPLEFT", 0, -2)
+    frame.pageTitle:SetWordWrap(false)
+    frame.crumb = Panel.Plain(head, 12, C.faint)
+    frame.crumb:SetPoint("TOPLEFT", 0, -28)
+    frame.crumb:SetWordWrap(false)
+    local q = CreateFrame("Button", nil, head)
+    q:SetSize(22, 16)
+    q:SetPoint("LEFT", frame.crumb, "RIGHT", 6, 0)
+    q.text = Panel.Plain(q, 12, C.gold)
+    q.text:SetPoint("CENTER", 0, 0)
+    q.text:SetText("(?)")
+    q:SetScript("OnEnter", function(self)
+        self.text:SetTextColor(C.goldBright[1], C.goldBright[2], C.goldBright[3])
+        ns.OwnGameTooltip(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(frame.pageTitle:GetText() or "", 1, 1, 1)
+        GameTooltip:AddLine(frame.moreText or "", nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    q:SetScript("OnLeave", function(self)
+        self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3])
+        GameTooltip:Hide()
+    end)
+    frame.more = q
+    local rule = Panel.Fill(head, "ARTWORK", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint("BOTTOMLEFT", 0, 0)
+    rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    frame.tabs = {}
+    local x = 0
+    for _, s in ipairs(SHEETS) do
+        local b = Panel.SheetTab(head, s[2])
+        b:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", x, 1)
+        x = x + b:GetWidth() + 2
+        b:SetScript("OnClick", function()
+            ns.ButtonSound()
+            ShowPage("radial", s[1])
+        end)
+        frame.tabs[s[1]] = b
+    end
+    BuildShow(head)
+end
+
+-- the footer: + New radial, Import... at the left; while something changed, a pill saying so;
+-- Undo changes, Close at the right
+local function Footer()
+    local bar = Bar(false)
+    frame.foot = bar
+    frame.newButton = Panel.UButton(bar, L["+ New radial"], 112, 26, "primary")
+    frame.newButton:SetPoint("LEFT", 11, 0)
+    frame.importButton = Panel.UButton(bar, L["Import..."], 84, 26)
+    frame.importButton:SetPoint("LEFT", frame.newButton, "RIGHT", 6, 0)
+    frame.importButton:SetScript("OnClick", function()
+        ns.ButtonSound()
+        AskImport()
+    end)
+    Tipped(frame.importButton, "rm.import")
+    frame.closeButton = Panel.UButton(bar, L["Close"], 64, 26, "quiet")
+    frame.closeButton:SetPoint("RIGHT", -8, 0)
+    frame.closeButton:SetScript("OnClick", function() frame:Hide() end)
+    frame.undoButton = Panel.UButton(bar, L["Undo changes"], 120, 26)
+    frame.undoButton:SetPoint("RIGHT", frame.closeButton, "LEFT", -6, 0)
+    local pill = CreateFrame("Frame", nil, bar)
+    pill:SetHeight(24)
+    pill:SetPoint("RIGHT", frame.undoButton, "LEFT", -10, 0)
+    Panel.Fill(pill, "BACKGROUND", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.10 }, 1):SetAllPoints()
+    Panel.Outline(pill, "BORDER", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.35 }, 0)
+    local dot = pill:CreateTexture(nil, "ARTWORK")
+    dot:SetTexture(Panel.ART .. "Round")
+    dot:SetSize(7, 7)
+    dot:SetPoint("LEFT", 10, 0)
+    dot:SetVertexColor(C.goldBright[1], C.goldBright[2], C.goldBright[3], 1)
+    pill.text = Panel.Plain(pill, 11, C.goldBright)
+    pill.text:SetPoint("LEFT", dot, "RIGHT", 7, 0)
+    pill.text:SetText(L["Changed since it opened"])
+    pill:SetWidth(10 + 7 + 7 + math.ceil(pill.text:GetStringWidth() or 0) + 10)
+    pill:Hide()
+    frame.changed = pill
+end
+
 local function Build()
     frame = CreateFrame("Frame", "mdluiRadialEditor", UIParent)
     frame:SetSize(W, H)
     frame:SetFrameStrata("DIALOG")
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
-    frame:EnableMouse(true)
     frame:SetMovable(true)
-    -- dragged by any bare part of it to move; where it was left is kept
-    frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", function() frame:StartMoving() end)
-    frame:SetScript("OnDragStop", function()
-        frame:StopMovingOrSizing()
-        if frame.SetUserPlaced then frame:SetUserPlaced(false) end
-        Remember()
-    end)
+    Grip(frame)
     local at = ns.db.global.editorPoint
     if type(at) == "table" and at[1] then
         frame:SetPoint(at[1], UIParent, at[2], at[3], at[4])
     else
         frame:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
     end
-    Panel.Skin(frame, C.panel)
+    -- the page's tone; a hairline edge, a faint gold ring outside it
+    Panel.Fill(frame, "BACKGROUND", C.page, 1):SetAllPoints()
+    Panel.Outline(frame, "BORDER", C.lineStrong, 0)
+    Panel.Outline(frame, "BORDER", { C.gold[1], C.gold[2], C.gold[3], 0.35 }, -1)
     frame:Hide()
     tinsert(UISpecialFrames, "mdluiRadialEditor")
     frame:SetScript("OnShow", function()
@@ -367,134 +530,49 @@ local function Build()
     end)
     frame:SetScript("OnHide", ns.WindowCloseSound)
 
-    -- the head: the title on a plate across the top edge, the x
-    local plate = CreateFrame("Frame", nil, frame)
-    plate:SetHeight(28)
-    plate:SetPoint("CENTER", frame, "TOP", 0, 0)
-    plate:SetFrameLevel(frame:GetFrameLevel() + 10)
-    Panel.Skin(plate, C.ink)
-    local title = Panel.Serif(plate, 15, C.goldBright)
-    title:SetPoint("CENTER", 0, 0)
-    title:SetText(L["Radial Menu"])
-    plate:SetWidth(math.ceil(title:GetStringWidth() or 0) + 44)
-    frame.title = title
-    local close = Panel.UButton(frame, "x", 20, 20, "quiet")
-    close.label:SetTextColor(C.gold[1], C.gold[2], C.gold[3])
-    close:SetPoint("TOPRIGHT", -8, -6)
-    close:SetScript("OnClick", function() frame:Hide() end)
-    frame.closeX = close
+    Head()
+    Sidebar()
+    Header()
+    Footer()
 
-    -- a caption over each column, on the gold rule
-    frame.captions = {}
-    for i, cap in ipairs({ { PAD + 2, L["Radials"] }, { PAD + LIST_W + 10 + 2, L["Wheel"] },
-        { W - PAD - 4 - BODY_W + 2, L["Chosen radial"] } }) do
-        local fs = Panel.Caption(frame, cap[2])
-        fs:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", cap[1], -(TAB_Y + TAB_H - 3))
-        frame.captions[i] = fs
+    -- a radial's sheets, and Every radial
+    frame.sheets = {}
+    for _, s in ipairs(SHEETS) do
+        local f = CreateFrame("Frame", nil, frame)
+        f:SetPoint("TOPLEFT", frame, "TOPLEFT", X, -SHEET_TOP)
+        f:SetSize(PAGE_W, H - SHEET_TOP - BOTTOM)
+        f:Hide()
+        frame.sheets[s[1]] = f
     end
-    local rule = Panel.Fill(frame, "ARTWORK", C.gold)
-    rule:SetHeight(1)
-    rule:SetPoint("TOPLEFT", PAD, -(TAB_Y + TAB_H))
-    rule:SetPoint("TOPRIGHT", -PAD, -(TAB_Y + TAB_H))
+    local options = CreateFrame("Frame", nil, frame)
+    options:SetPoint("TOPLEFT", frame, "TOPLEFT", X, -PAGE_TOP)
+    options:SetSize(PAGE_W, H - PAGE_TOP - BOTTOM)
+    options:Hide()
+    frame.options, frame.look, frame.lookRows = options, options, {}
+    BuildOptions(options)
 
-    -- left: the radials' ink box
-    local list = CreateFrame("Frame", nil, frame)
-    list:SetPoint("TOPLEFT", PAD, -TOP)
-    list:SetPoint("BOTTOMLEFT", PAD, FOOT)
-    list:SetWidth(LIST_W)
-    Panel.Skin(list, C.ink)
-    frame.list = list
-
-    -- the middle: the canvas
-    local stage = CreateFrame("Frame", nil, frame)
-    stage:SetPoint("TOPLEFT", list, "TOPRIGHT", 10, 0)
-    stage:SetSize(W - 2 * PAD - LIST_W - 10 - 14 - BODY_W - 4, H - TOP - FOOT)
-    frame.stage = stage
-
-    -- right: the body, its tabs under the radial's name
-    local body = CreateFrame("Frame", nil, frame)
-    body:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD - 4, -(TOP + 4))
-    body:SetPoint("BOTTOMRIGHT", -PAD - 4, FOOT)
-    body:SetWidth(BODY_W)
-    frame.body = body
-    local strip = CreateFrame("Frame", nil, body)
-    strip:SetHeight(22)
-    strip:SetPoint("TOPLEFT", 0, -32)
-    strip:SetPoint("TOPRIGHT", 0, -32)
-    local stripRule = Panel.Fill(strip, "ARTWORK", C.gold)
-    stripRule:SetHeight(1)
-    stripRule:SetPoint("BOTTOMLEFT", 0, 0)
-    stripRule:SetPoint("BOTTOMRIGHT", 0, 0)
-    tabs, pages = {}, {}
-    local x = 0
-    for _, t in ipairs(TABS) do
-        local b = Panel.Tab(strip, t[2])
-        b:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", x, 0)
-        x = x + b:GetWidth() + 3
-        b:SetScript("OnClick", function()
-            ns.ButtonSound()
-            ShowTab(t[1])
-        end)
-        tabs[t[1]] = b
-        local page = CreateFrame("Frame", nil, body)
-        page:SetPoint("TOPLEFT", 0, -BODY_TOP)
-        page:SetPoint("BOTTOMRIGHT", 0, 0)
-        page:Hide()
-        pages[t[1]] = page
-    end
-    frame.tabs, frame.pages, frame.PAGE_H = tabs, pages, PAGE_H
-    frame.look = pages.look
-    BuildLook(pages.look)
-
-    -- the footer: + New radial, Import... | what the canvas shows | Undo changes, Close
-    local foot = Panel.Fill(frame, "ARTWORK", C.line)
-    foot:SetHeight(1)
-    foot:SetPoint("BOTTOMLEFT", PAD, FOOT - 8)
-    foot:SetPoint("BOTTOMRIGHT", -PAD, FOOT - 8)
-    frame.newButton = Panel.UButton(frame, L["+ New radial"], 104, 24, "primary")
-    frame.newButton:SetPoint("BOTTOMLEFT", PAD, 10)
-    frame.importButton = Panel.UButton(frame, L["Import..."], 80, 24)
-    frame.importButton:SetPoint("LEFT", frame.newButton, "RIGHT", 6, 0)
-    frame.importButton:SetScript("OnClick", function()
-        ns.ButtonSound()
-        AskImport()
-    end)
-    Tipped(frame.importButton, "rm.import")
-    local closeFoot = Panel.UButton(frame, L["Close"], 96, 24, "quiet")
-    closeFoot:SetPoint("BOTTOMRIGHT", -PAD, 10)
-    closeFoot:SetScript("OnClick", function() frame:Hide() end)
-    frame.closeButton = closeFoot
-    frame.undoButton = Panel.UButton(frame, L["Undo changes"], 110, 24)
-    frame.undoButton:SetPoint("RIGHT", closeFoot, "LEFT", -8, 0)
-    local from, to = PAD + 104 + 6 + 80 + 18, W - PAD - 96 - 8 - 110 - 18
-    for _, dx in ipairs({ from - 9, to + 9 }) do
-        local d = Panel.Fill(frame, "ARTWORK", C.line)
-        d:SetSize(1, 20)
-        d:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", dx, 12)
-    end
-    Chips(from)
-    frame.chipsCaption = Panel.Caption(frame, L["Show on the canvas"])
-    frame.chipsCaption:SetPoint("BOTTOMLEFT", frame.chips[1], "TOPLEFT", 2, 4)
-
-    frame.ShowTab = ShowTab
+    frame.ShowPage = ShowPage
+    frame.page, frame.sheet = page, sheet
     ns.RadialEditorEmbed.Build(frame)
     ns.editorWindow = frame
 end
 
--- opens the window on a tab ("radial", "slot", "catalog", "look"), or the one it showed last (the
--- Catalog the first time). "options" is Look; "radials" is the radials' tab it showed last, else
--- the Catalog.
-function ns.OpenEditor(tab)
+-- opens the window: "options" (or "look") on Every radial; a sheet ("wheel", "radial"; the old
+-- tabs "slot" and "catalog" are the Wheel's) on the chosen radial; "radials" on the chosen radial's
+-- sheet shown last; nothing on the page shown last (the Wheel the first time)
+function ns.OpenEditor(where)
     if not ns.db then return end
     if not frame then Build() end
-    if tab == "options" then
-        tab = "look"
-    elseif tab == "radials" then
-        tab = current ~= "look" and current or "catalog"
-    end
     frame:Show()
-    ShowTab(tab or current)   -- (nothing yet: the Catalog)
-    ns.RadialEditorEmbed.Refresh()
+    if where == "options" or where == "look" then
+        ShowPage("options")
+    elseif SHEET_OF[where] then
+        ShowPage("radial", SHEET_OF[where])
+    elseif where == "radials" then
+        ShowPage("radial")
+    else
+        ShowPage(page)
+    end
 end
 
 function ns.ToggleEditor()

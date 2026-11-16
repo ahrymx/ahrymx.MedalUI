@@ -3,10 +3,11 @@ local L = ns.L
 
 --------------------------------------------------
 -- CANVAS
--- The editor window's middle (UI/Window.lua), as the Unit Frame Editor's canvas: the chosen radial's
--- wheel drawn large by the radial's own layout code (RM.DrawEditorWheel), one slot per button, the
--- chosen slot boxed in gold. A line over it says whose the radial is and its key; one under it says
--- what the pointer does. The editor (Radial/Editor.lua) is told what happens to a slot:
+-- The Wheel card's well (UI/Window.lua, Radial/Editor.lua): the chosen radial's wheel drawn large by
+-- the radial's own layout code (RM.DrawEditorWheel), one slot per button, the chosen slot lit as the
+-- wheel lights the one you point at in play (its rim, its slice, the pointer, its name in gold). A
+-- line under it says what the pointer does. The editor (Radial/Editor.lua) is told what happens to a
+-- slot:
 --   cb.choose(i)        a left click         cb.remove(i)       a right click
 --   cb.drop(i)          the game cursor let go on it (i nil: the empty slot)
 --   cb.startDrag(i)     cb.finishDrag()      a drag from a slot, and its end anywhere
@@ -20,8 +21,7 @@ local Canvas = {}
 ns.RadialCanvas = Canvas
 
 local FIT = 340          -- the wheel's diameter (buttons included) at most, so the names fit round it
-local BOX = 66           -- the chosen slot's box
-local TOP_LINE, FOOT_LINE = 24, 22
+local TOP_LINE, FOOT_LINE = 8, 24
 
 local function RM() return ns.RadialMenu end
 
@@ -32,16 +32,9 @@ function Canvas.Create(stage, cb)
     Panel.Outline(stage, "BORDER", C.line, 0)
     stage:SetClipsChildren(true)
 
-    canvas.scope = Panel.Plain(stage, 11, C.dim)
-    canvas.scope:SetPoint("TOPLEFT", 10, -8)
-    canvas.scope:SetPoint("TOPRIGHT", -120, -8)
-    canvas.scope:SetWordWrap(false)
-    canvas.count = Panel.Plain(stage, 11, C.faint)
-    canvas.count:SetPoint("TOPRIGHT", -10, -8)
-    canvas.count:SetJustifyH("RIGHT")
     canvas.hint = Panel.Plain(stage, 11, C.faint)
-    canvas.hint:SetPoint("BOTTOMLEFT", 10, 8)
-    canvas.hint:SetPoint("BOTTOMRIGHT", -10, 8)
+    canvas.hint:SetPoint("BOTTOMLEFT", 10, 9)
+    canvas.hint:SetPoint("BOTTOMRIGHT", -10, 9)
     canvas.hint:SetJustifyH("CENTER")
 
     -- no radial at all
@@ -53,24 +46,14 @@ function Canvas.Create(stage, cb)
     canvas.emptyText:SetPoint("TOP", canvas.emptyTitle, "BOTTOM", 0, -6)
     canvas.emptyText:SetJustifyH("CENTER")
     canvas.emptyText:SetText(L["Create one with + New radial, below."])
+    canvas.emptyText:SetTextColor(C.faint[1], C.faint[2], C.faint[3])
 
-    -- the wheel: a sample's (the radial's art, its backdrop left out), between the two lines
+    -- the wheel: a sample's (the radial's art, its backdrop left out), over the hint
     local holder = RM().CreateSample(stage)
     holder:ClearAllPoints()
     holder:SetPoint("TOPLEFT", 0, -TOP_LINE)
     holder:SetPoint("BOTTOMRIGHT", 0, FOOT_LINE)
-    local wheel = holder.wheel
-    canvas.holder, canvas.wheel = holder, wheel
-
-    -- the chosen slot's box, over the wheel's art and under the slots' hit areas
-    local box = CreateFrame("Frame", nil, wheel)
-    box:SetSize(BOX, BOX)
-    box:SetFrameLevel(wheel:GetFrameLevel() + 15)
-    local wash = Panel.Fill(box, "BACKGROUND", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.08 })
-    wash:SetAllPoints()
-    Panel.Outline(box, "BORDER", C.goldBright, 0)
-    box:Hide()
-    canvas.box = box
+    canvas.holder, canvas.wheel = holder, holder.wheel
 
     canvas.cb = cb
     return setmetatable(canvas, { __index = Canvas })
@@ -128,12 +111,10 @@ function Canvas:Hit(i)
     return hit
 end
 
--- st: entries ({ name, icon } per button; nil: no radial), chosen, scope, count, hint, and the
+-- st: entries ({ name, icon } per button; nil: no radial), chosen, hint, and the
 -- footer's chips: names (every slot's name, not only the chosen one's), numbers, empty (the next
 -- free slot, a drop target; always while the radial has no buttons)
 function Canvas:Draw(st)
-    self.scope:SetText(st.scope or "")
-    self.count:SetText(st.count or "")
     local none = st.entries == nil
     self.emptyTitle:SetShown(none)
     self.emptyText:SetShown(none)
@@ -141,7 +122,6 @@ function Canvas:Draw(st)
     self.hint:SetShown(not none)
     if none then
         for _, hit in ipairs(self.hits) do hit:Hide() end
-        self.box:Hide()
         self.drawn = 0
         return
     end
@@ -166,6 +146,8 @@ function Canvas:Draw(st)
         if isGhost then b.RimGlow:Hide() end
         local named = (b.Label:GetText() or "") ~= ""
         b.Label:SetShown(not isGhost and named and (st.names or i == chosen))
+        local c = i == chosen and C.goldBright or C.text
+        b.Label:SetTextColor(c[1], c[2], c[3])
 
         local hit = self:Hit(i)
         hit.index, hit.ghost = i, isGhost or nil
@@ -180,13 +162,6 @@ function Canvas:Draw(st)
     end
     for i = count + 1, #self.hits do self.hits[i]:Hide() end
     self.drawn = count
-
-    self.box:ClearAllPoints()
-    if chosen then
-        local b = wheel.buttons[chosen]
-        self.box:SetPoint("CENTER", wheel, "CENTER", b.baseX, b.baseY)
-    end
-    self.box:SetShown(chosen ~= nil)
     self.hint:SetText(st.hint or "")
 end
 

@@ -519,51 +519,59 @@ function Region:SetEnabled(on) self.enabled = on and true or false end
 function Region:IsEnabled() return self.enabled ~= false end
 C_Item.GetItemCount = C_Item.GetItemCount or function() return 0 end
 UnitFactionGroup = UnitFactionGroup or function() return "Alliance", "Alliance" end
--- ---- the window opens on the Catalog tab, laid out as Medalluin's Unit Frame Editor
+-- ---- the window opens on a radial's Wheel sheet, laid out as Medalluin's Settings window
 setCombat(false)
 slash("")
 local win = _G.mdluiRadialEditor
 local host = win
-local TAB_ORDER = { "radial", "slot", "catalog", "look" }
+local function plain(t) return ((t or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")) end
+-- the page shown, and on a radial's page its sheet ("radial/wheel", "options")
 local function shownTabs()
     local on = {}
-    for k, b in pairs(win.tabs) do if b.mark.shown then on[#on + 1] = k end end
+    for k, b in pairs(win.tabs) do if b:IsShown() and b.foot:IsShown() then on[#on + 1] = k end end
     table.sort(on)
-    return table.concat(on, ",")
+    return win.page .. (#on > 0 and ("/" .. table.concat(on, ",")) or "")
 end
 local function isIn(list, name) for _, v in ipairs(list) do if v == name then return true end end return false end
 print("radial editor opens", "shown=" .. tostring(win:IsShown()), "strata=" .. tostring(win.strata or win:GetFrameStrata()),
     "escape=" .. tostring(isIn(UISpecialFrames, "mdluiRadialEditor")), "tab=" .. shownTabs(),
-    "catalog=" .. tostring(win.pages.catalog:IsShown()), "look=" .. tostring(win.look:IsShown()))
+    "wheel=" .. tostring(win.sheets.wheel:IsShown()), "options=" .. tostring(win.options:IsShown()))
 local function texts(list, field)
     local out = {}
     for _, r in ipairs(list) do out[#out + 1] = tostring(field and r[field] or r.text) end
     return table.concat(out, ",")
 end
-local tabLabels = {}
-for _, k in ipairs(TAB_ORDER) do tabLabels[#tabLabels + 1] = win.tabs[k].text end
 print("radial editor window", "size=" .. win.w .. "x" .. win.h, "title=" .. tostring(win.title.text),
-    "captions=" .. texts(win.captions), "tabs=" .. table.concat(tabLabels, ","),
-    "list=" .. win.list.w, "stage=" .. win.stage.w .. "x" .. win.stage.h, "body=" .. win.body.w)
+    "subtitle=" .. tostring(win.subtitle.text), "tabs=" .. tostring(win.tabs.wheel.text) .. "," .. tostring(win.tabs.radial.text),
+    "search=" .. tostring(win.sideSearch.hint.text), "rows=" .. #host.radialList.cells,
+    "cards=" .. tostring(host.wheelCard.title.text) .. "," .. tostring(host.slotCard.title.text) .. "," .. tostring(host.catalogCard.title.text),
+    "show=" .. texts(win.chips, "key"))
 print("radial editor footer", "new=" .. tostring(win.newButton.text) .. ":" .. win.newButton.style,
-    "import=" .. tostring(win.importButton:IsShown()), "caption=" .. tostring(win.chipsCaption.text),
-    "chips=" .. texts(win.chips, "key"), "undo=" .. tostring(win.undoButton.text),
-    "close=" .. tostring(win.closeButton.text) .. ":" .. win.closeButton.style)
+    "import=" .. tostring(win.importButton:IsShown()), "undo=" .. tostring(win.undoButton.text),
+    "close=" .. tostring(win.closeButton.text) .. ":" .. win.closeButton.style, "changed=" .. tostring(win.changed:IsShown()))
+-- the sidebar: [a heading], <a group>, -a radial in a group, a radial=its key, *Every radial
 local function listNames()
     local out = {}
     for _, item in ipairs(host.radialList.data) do
         local data = item.id and RM:GetRadial(item.id)
-        out[#out + 1] = item.header and ("[" .. item.header .. "]") or item.group and ("<" .. item.group .. ">")
-            or ((data and data.name or "?") .. (item.key and ("=" .. item.key) or ""))
+        out[#out + 1] = item.head and ("[" .. item.head .. (item.count and not item.open and (" " .. item.count) or "") .. "]")
+            or item.group and ("<" .. item.group .. ">") or item.options and "*Every radial"
+            or ((item.member and "-" or "") .. (data and data.name or "?") .. (item.key and ("=" .. item.key) or ""))
     end
     return table.concat(out, ", ")
+end
+local function lit()
+    for _, c in ipairs(host.radialList.cells) do
+        if c.item and c.Bar:IsShown() then return tostring(c.Text.text) end
+    end
+    return "none"
 end
 local function buttonsOf(id)
     local out = {}
     for _, b in ipairs(RM:GetRadial(id).buttons) do out[#out + 1] = b.kind .. ":" .. tostring(b.marker or b.id or b.emote or b.radial or b.panel or "") end
     return table.concat(out, " ")
 end
--- the canvas's slots: how many it drew, "+" for the empty one; the chosen one boxed
+-- the canvas's slots: how many it drew, "+" for the empty one; the chosen one, lit as in play
 local function slotsOf()
     local c = host.canvas
     local n, empty = 0, false
@@ -571,25 +579,27 @@ local function slotsOf()
         if c.hits[i].ghost then empty = true else n = n + 1 end
     end
     local _, chosen = ns.RadialEditorEmbed.Chosen()
-    return n .. (empty and "+" or "") .. " chosen=" .. tostring(chosen) .. " box=" .. tostring(c.box:IsShown())
+    return n .. (empty and "+" or "") .. " chosen=" .. tostring(chosen)
+        .. " lit=" .. tostring(chosen and c.wheel.buttons[chosen].lit or false)
 end
-print("radial editor list", listNames())
+print("radial editor list", listNames(), "lit=" .. lit())
 print("radial editor selected", "name=" .. tostring(host.nameText.text), "key=" .. tostring(host.keyButton.text),
     "slots=" .. slotsOf(), "undo=" .. tostring(host.undoButton.enabled))
-print("radial editor overview", ((host.overview.text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")))
-print("radial editor canvas", "scope=" .. ((host.canvas.scope.text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")),
-    "count=" .. tostring(host.canvas.count.text), "hint=" .. tostring(host.canvas.hint.text))
+print("radial editor overview", plain(host.overview.text))
+print("radial editor canvas", "crumb=" .. plain(win.crumb.text), "chip=" .. tostring(host.keyChip.text.text),
+    "count=" .. tostring(host.countText.text), "hint=" .. tostring(host.canvas.hint.text))
+print("radial editor slot card", "empty=" .. tostring(host.slotEmpty:IsShown()) .. ":" .. tostring(host.slotEmpty.text),
+    "slot=" .. tostring(host.slot:IsShown()), "remove=" .. tostring(host.removeButton:IsShown()))
 
--- ---- the Catalog: its categories, the markers' grid, a click puts one on the radial
-local links = host.categoryLinks
-local linkKeys = {}
-for _, l in ipairs(links) do linkKeys[#linkKeys + 1] = l.key end
-print("radial editor catalog", "categories=" .. table.concat(linkKeys, " "), "grid=" .. #host.browseList.data)
-local function category(key)
-    for _, l in ipairs(links) do if l.key == key then l.scripts.OnClick(l) end end
+-- ---- the Catalog: its categories (a menu), the markers' grid, a click puts one on the radial
+print("radial editor catalog", "categories=" .. menuText(menuOf(host.catDrop)), "grid=" .. #host.browseList.data,
+    "count=" .. tostring(host.catCount.text))
+local function category(label)
+    for _, e in ipairs(menuOf(host.catDrop)) do if e.text == label then e.pick() end end
 end
-category("markers")
-print("radial editor markers", "grid=" .. #host.browseList.data,
+category("Markers")
+print("radial editor markers", "shown=" .. tostring(host.catDrop.value.text), "grid=" .. #host.browseList.data,
+    "count=" .. tostring(host.catCount.text),
     "first=" .. host.browseList.data[1].kind .. ":" .. host.browseList.data[1].marker,
     "last=" .. host.browseList.data[#host.browseList.data].kind .. ":" .. host.browseList.data[#host.browseList.data].marker)
 local editing = RM:GetRadialOrder()[1]
@@ -598,27 +608,35 @@ local cell = host.browseList.cells[10]   -- clear (marker 0)
 cell.scripts.OnClick(cell, "LeftButton")
 print("radial editor add", "buttons " .. before .. "->" .. #RM:GetRadial(editing).buttons,
     "last=" .. RM:GetRadial(editing).buttons[#RM:GetRadial(editing).buttons].kind .. ":" .. RM:GetRadial(editing).buttons[#RM:GetRadial(editing).buttons].marker,
-    "undo=" .. tostring(host.undoButton.enabled), "slots=" .. slotsOf())
+    "undo=" .. tostring(host.undoButton.enabled), "changed=" .. tostring(win.changed:IsShown()), "slots=" .. slotsOf(),
+    "count=" .. tostring(host.countText.text))
 local hits = host.canvas.hits
 hits[1].scripts.OnClick(hits[1], "RightButton")
 print("radial editor remove", "buttons=" .. #RM:GetRadial(editing).buttons, "first=" .. buttonsOf(editing):match("^%S+"))
 host.undoButton.scripts.OnClick(host.undoButton)
 print("radial editor undo", "buttons=" .. #RM:GetRadial(editing).buttons, "first=" .. buttonsOf(editing):match("^%S+"),
-    "undo=" .. tostring(host.undoButton.enabled))
+    "undo=" .. tostring(host.undoButton.enabled), "changed=" .. tostring(win.changed:IsShown()))
 host.search.text = "marker 8"   -- (the harness's marker names)
 host.search.scripts.OnTextChanged(host.search)
-print("radial editor search", "grid=" .. #host.browseList.data)
+print("radial editor search", "grid=" .. #host.browseList.data, "count=" .. tostring(host.catCount.text),
+    "hint=" .. tostring(host.search.hint:IsShown()))
 host.search.text = ""
 host.search.scripts.OnTextChanged(host.search)
 
--- ---- the canvas: a slot chosen (the Slot tab), moved a step, dragged onto another; a Catalog entry
--- dropped on a slot; a slot dragged off; the chips
+-- ---- the canvas: a slot chosen (its card), moved a step, dragged onto another; a Catalog entry
+-- dropped on a slot; a slot dragged off; Show
 hits[2].scripts.OnClick(hits[2], "LeftButton")
 local cw = host.canvas.wheel
 print("radial editor slot", "tab=" .. tostring(shownTabs()), "slots=" .. slotsOf(), "name=" .. tostring(host.slotName.text),
-    "kind=" .. tostring(host.slotKind.text), "place=" .. tostring(host.slotPlace.value.text),
-    "rank=" .. tostring(host.rankRow:IsShown()), "rims=" .. tostring(cw.buttons[2].RimArt.texture):match("([^\\]+)$")
-    .. "," .. tostring(cw.buttons[1].RimArt.texture):match("([^\\]+)$"), "pointer=" .. tostring(cw.Pointer:IsShown()))
+    "kind=" .. tostring(host.slotKind.text), "chip=" .. tostring(host.slotChip.text.text), "place=" .. tostring(host.slotPlace.value.text),
+    "rank=" .. tostring(host.rankRow:GetAlpha()) .. ":" .. tostring(host.rankRow.line.text),
+    "rims=" .. tostring(cw.buttons[2].RimArt.texture):match("([^\\]+)$")
+    .. "," .. tostring(cw.buttons[1].RimArt.texture):match("([^\\]+)$"), "pointer=" .. tostring(cw.Pointer:IsShown()),
+    "label=" .. table.concat(cw.buttons[2].Label.textColor, ","))
+hits[1].scripts.OnClick(hits[1], "LeftButton")
+print("radial editor slot unranked", "kind=" .. tostring(host.slotKind.text), "rank=" .. tostring(host.rankRow:GetAlpha())
+    .. ":" .. tostring(host.rankRow.line.text), "seg=" .. tostring(host.rankSeg.buttons[1].enabled))
+hits[2].scripts.OnClick(hits[2], "LeftButton")
 local order0 = buttonsOf(editing)
 host.slotPlace.plus.scripts.OnClick(host.slotPlace.plus)
 print("radial editor slot move", "slots=" .. slotsOf(), "place=" .. tostring(host.slotPlace.value.text),
@@ -643,7 +661,7 @@ hits[3].scripts.OnDragStop(hits[3])
 H.pointAt(nil)
 print("radial editor drag", "before=" .. was, "after=" .. first(3), "slots=" .. slotsOf())
 host.undoButton.scripts.OnClick(host.undoButton)
-category("emotes")
+category("Emotes")
 local emoteCell = host.browseList.cells[1]
 local count0 = #RM:GetRadial(editing).buttons
 emoteCell.scripts.OnDragStart(emoteCell)
@@ -657,13 +675,14 @@ hits[2].scripts.OnDragStart(hits[2])
 hits[2].scripts.OnDragStop(hits[2])   -- (the pointer over nothing: off the canvas)
 print("radial editor drag off", "buttons " .. count1 .. "->" .. #RM:GetRadial(editing).buttons)
 host.undoButton.scripts.OnClick(host.undoButton)
-category("markers")
--- the empty slot: clicked, it opens the Catalog
+category("Markers")
+-- the empty slot: clicked, the Catalog's search takes the keyboard
 local ghostHit
 for i = 1, host.canvas.drawn do if hits[i].ghost then ghostHit = hits[i] end end
-host.tabs.slot.scripts.OnClick(host.tabs.slot)
+local focused = false
+host.search.SetFocus = function() focused = true end
 ghostHit.scripts.OnClick(ghostHit, "LeftButton")
-print("radial editor empty slot", "tab=" .. shownTabs(), "index=" .. tostring(ghostHit.index))
+print("radial editor empty slot", "focus=" .. tostring(focused), "index=" .. tostring(ghostHit.index))
 local function chip(key)
     for _, c in ipairs(win.chips) do if c.key == key then c.scripts.OnClick(c) end end
 end
@@ -696,6 +715,14 @@ host.browseList.cells[3].scripts.OnClick(host.browseList.cells[3], "LeftButton")
 print("radial editor catalog after", "buttons " .. count2 .. "->" .. #RM:GetRadial(editing).buttons,
     "third=" .. (select(3, buttonsOf(editing):match("^(%S+) (%S+) (%S+)"))), "slots=" .. slotsOf())
 host.undoButton.scripts.OnClick(host.undoButton)
+
+-- ---- the Radial sheet: who gets it, its key, Macro / Copy / Rename / Delete, the keys here
+win.tabs.radial.scripts.OnClick(win.tabs.radial)
+print("radial editor radial sheet", "tab=" .. shownTabs(), "wheel=" .. tostring(win.sheets.wheel:IsShown()),
+    "radial=" .. tostring(win.sheets.radial:IsShown()), "show=" .. tostring(win.showSeg:IsShown()),
+    "scope=" .. tostring(host.scopeDrop.value.text), "own=" .. tostring(host.ownKey.checked),
+    "name=" .. tostring(host.nameLine.text), "delete=" .. host.deleteButton.style)
+win.tabs.wheel.scripts.OnClick(win.tabs.wheel)
 
 -- ---- a new radial, named in the popup; renamed; copied; deleted
 host.newButton.scripts.OnClick(host.newButton)
@@ -777,13 +804,39 @@ host.newButton.scripts.OnEnter(host.newButton)
 GameTooltip.AddLine = addLine
 print("radial editor hover", "owner=" .. tostring(GameTooltip.owner == host.newButton), table.concat(tipLines, " / "))
 
--- ---- Look: the tab, its rows (each one's text in its tooltip)
-win.tabs.look.scripts.OnClick(win.tabs.look)
-local opt = win.look
-local function rowOf(key)
-    for _, child in ipairs(opt.all_ or {}) do if child.key == key then return child end end
+-- ---- a group in the sidebar: its heading, its radials on an elbow under it; folded, its count
+local emotes = RM:GetRadialOrder()[2]
+local social = RM:CreateGroupWith(emotes, "Social")
+local function cellOf(test)
+    for _, c in ipairs(host.radialList.cells) do if c.item and test(c.item) then return c end end
 end
-print("radial options tab", "tab=" .. shownTabs(), "look=" .. tostring(opt:IsShown()), "catalog=" .. tostring(win.pages.catalog:IsShown()))
+local emoteCell = cellOf(function(item) return item.id == emotes end)
+emoteCell.scripts.OnClick(emoteCell, "LeftButton")
+local head = cellOf(function(item) return item.group == social end)
+emoteCell = cellOf(function(item) return item.id == emotes end)
+print("radial editor group", listNames(), "head=" .. tostring(head.Head.text), "elbow=" .. tostring(emoteCell.Elbow[1]:IsShown()),
+    "crumb=" .. plain(win.crumb.text))
+head.scripts.OnClick(head, "LeftButton")
+head = cellOf(function(item) return item.group == social end)
+print("radial editor group folded", listNames(), "pill=" .. tostring(head.Pill:IsShown()) .. ":" .. tostring(head.Pill.text.text))
+head.scripts.OnClick(head, "LeftButton")
+RM:Ungroup(social)
+local markersCell = cellOf(function(item) return item.id == RM:GetRadialOrder()[1] end)
+markersCell.scripts.OnClick(markersCell, "LeftButton")
+
+-- ---- Every radial (the sidebar's Options): its cards, its rows (each one's text in its tooltip)
+host.sideSearch.text = "emo"
+host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+print("radial editor sidebar search", listNames())
+host.sideSearch.text = ""
+host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+for _, c in ipairs(host.radialList.cells) do
+    if c.item and c.item.options then c.scripts.OnClick(c, "LeftButton") end
+end
+local opt = win.look
+local function rowOf(key) return win.lookRows[key] end
+print("radial options tab", "tab=" .. shownTabs(), "look=" .. tostring(opt:IsShown()), "wheel=" .. tostring(win.sheets.wheel:IsShown()),
+    "title=" .. tostring(win.pageTitle.text), "crumb=" .. tostring(win.crumb.text), "lit=" .. lit())
 local pos = rowOf("rm.position")
 local function picked(r)
     local out = {}
@@ -822,14 +875,14 @@ ranks.check.scripts.OnClick(ranks.check)
 print("radial options ranks off", "saved=" .. tostring(mdlui_RadialMenuDB.options.autoRanks))
 ranks.check.checked = true
 ranks.check.scripts.OnClick(ranks.check)
-local labels = rowOf("rm.font.labels")
-print("radial options font", "face=" .. tostring(labels.drop.defaultText), "size=" .. tostring(labels.value.text),
-    "menu=" .. menuText(menuOf(labels.drop)))
+local labels, labelSize = rowOf("rm.font.labels"), rowOf("rm.font.labels.size")
+print("radial options font", "face=" .. tostring(labels.drop.value.text), "size=" .. tostring(labelSize.value.text),
+    "label=" .. tostring(labelSize.label.text), "menu=" .. menuText(menuOf(labels.drop)))
 local faces = menuOf(labels.drop)
 faces[2].pick()
-labels.plus.scripts.OnClick(labels.plus)
+labelSize.plus.scripts.OnClick(labelSize.plus)
 print("radial options font set", "face=" .. tostring(mdlui_RadialMenuDB.options.labelFont.face),
-    "size=" .. tostring(mdlui_RadialMenuDB.options.labelFont.size), "shown=" .. tostring(labels.drop.defaultText))
+    "size=" .. tostring(mdlui_RadialMenuDB.options.labelFont.size), "shown=" .. tostring(labels.drop.value.text))
 mdlui_RadialMenuDB.options.labelFont.face, mdlui_RadialMenuDB.options.labelFont.size = "__global", 16
 local tipped = {}
 GameTooltip.AddLine = function(_, text) tipped[#tipped + 1] = text end
@@ -862,7 +915,7 @@ local function dump(v)
     return "{" .. table.concat(out, ",") .. "}"
 end
 local flareBefore = dump(FlareUI2_DB)
-win.tabs.catalog.scripts.OnClick(win.tabs.catalog)
+win.tabs.wheel.scripts.OnClick(win.tabs.wheel)
 print("radial import shown", "shown=" .. tostring(win.importButton:IsShown()))
 win.importButton.scripts.OnClick(win.importButton)
 print("radial import asks", "shown=" .. tostring(d2:IsShown()), d2.Text.text)
@@ -885,7 +938,7 @@ setCombat(false)
 FlareUI2_DB = nil
 
 -- ---- /mdlradial options, the binding, Escape's way out
-win.tabs.catalog.scripts.OnClick(win.tabs.catalog)
+win.tabs.wheel.scripts.OnClick(win.tabs.wheel)
 win:Hide()
 slash("options")
 print("radial editor options word", "shown=" .. tostring(win:IsShown()), "tab=" .. shownTabs())
