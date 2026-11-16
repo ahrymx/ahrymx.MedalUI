@@ -99,6 +99,10 @@ local function Recipe(p, info)
         color = DIFFICULTY[info.relativeDifficulty] or ns.colors.text,
         selected = info.recipeID == p.chosen,
         click = function(button)
+            if ns.Linking(button) and C_TradeSkillUI.GetRecipeLink then
+                ns.LinkInChat(C_TradeSkillUI.GetRecipeLink(info.recipeID))
+                return
+            end
             if button == "RightButton" then
                 local favs = Favourites()
                 favs[info.recipeID] = not favs[info.recipeID] or nil

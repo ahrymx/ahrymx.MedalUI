@@ -459,6 +459,10 @@ local function Tooltip(owner, n)
 end
 
 local function Click(p, b, button)
+    if ns.Linking(button) then
+        ns.LinkInChat(ns.SpellLink(Entry(Config(), b.node).spell))
+        return
+    end
     p.chosen = b.node.ID
     if planning then
         if button == "RightButton" then Remove(b.node.ID) else Add(b.node.ID) end

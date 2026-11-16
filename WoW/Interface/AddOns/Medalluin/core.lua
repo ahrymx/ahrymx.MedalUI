@@ -590,3 +590,33 @@ function Medalluin_TooltipSpec(tooltip)
     local spec = live[tooltip]
     if spec and tooltip:GetOwner() == spec.owner then return spec end
 end
+
+-- ------------------------------------------------------------ links into chat
+-- A shift-clicked link: into the chat box being typed in, else the chat
+-- opened with it, no Enter first (as the game's quest log does). Only where
+-- Shift means nothing else: the game's bags split a stack with it, and a
+-- merchant's list buys one.
+local function ActiveChat()
+    local get = ChatEdit_GetActiveWindow or (ChatFrameUtil and ChatFrameUtil.GetActiveWindow)
+    return get and get() or nil
+end
+ns.ChatOpen = function() return ActiveChat() ~= nil end
+function ns.LinkInChat(link)
+    if type(link) ~= "string" or link == "" then return end
+    local insert = ChatEdit_InsertLink or (ChatFrameUtil and ChatFrameUtil.InsertLink)
+    if insert and insert(link) then return end
+    if ActiveChat() then return end
+    local open = ChatFrameUtil and ChatFrameUtil.OpenChat or ChatFrame_OpenChat
+    if open then open(link) end
+end
+-- whether a click is the one that links (Shift, as the player has set it)
+function ns.Linking(button)
+    if button and button ~= "LeftButton" then return false end
+    if IsModifiedClick then return IsModifiedClick("CHATLINK") and true or false end
+    return IsShiftKeyDown() and true or false
+end
+function ns.SpellLink(id)
+    if not id then return end
+    if C_Spell and C_Spell.GetSpellLink then return C_Spell.GetSpellLink(id) end
+    return GetSpellLink and GetSpellLink(id)
+end

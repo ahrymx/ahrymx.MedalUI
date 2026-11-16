@@ -488,14 +488,8 @@ local function Linking()
     return IsShiftKeyDown()
 end
 
--- A link put into chat: into the box being typed in, else the chat opened
--- with it (as the game's quest log does), no Enter needed first.
-function Q.LinkInChat(link)
-    if not link then return end
-    if ChatEdit_InsertLink and ChatEdit_InsertLink(link) then return end
-    local open = ChatFrameUtil and ChatFrameUtil.OpenChat or ChatFrame_OpenChat
-    if open then open(link) end
-end
+-- a quest linked in chat (core.lua)
+function Q.LinkInChat(link) ns.LinkInChat(link) end
 
 -- tracked: the field the log's quests carry, or asked (the tracker's, from Read)
 local function IsTracked(quest)

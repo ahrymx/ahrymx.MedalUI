@@ -87,8 +87,9 @@ end
 local function Click(i, item, link)
     return function(button)
         if button == "RightButton" then return end
-        if IsModifiedClick("CHATLINK") and link and ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow() then
-            ChatEdit_InsertLink(link)
+        -- Shift buys a stack, so it links only while a chat box is open
+        if IsModifiedClick("CHATLINK") and link and ns.ChatOpen() then
+            ns.LinkInChat(link)
         elseif IsModifiedClick("DRESSUP") and link and DressUpItemLink then
             DressUpItemLink(link)
         elseif IsShiftKeyDown() then
@@ -131,7 +132,14 @@ local function Buyback(out)
             local label = (quantity or 1) > 1 and format("%s  x%d", name, quantity) or name
             table.insert(out, { "row", label = label, icon = icon, value = Money(price or 0),
                 color = usable == false and RED or Quality(GetBuybackItemLink and GetBuybackItemLink(i)),
-                click = function(button) if button ~= "RightButton" then BuybackItem(i) end end,
+                click = function(button)
+                    if button == "RightButton" then return end
+                    if ns.Linking() then
+                        ns.LinkInChat(GetBuybackItemLink and GetBuybackItemLink(i))
+                    else
+                        BuybackItem(i)
+                    end
+                end,
                 enter = function(row)
                     ns.window.Outside(row)
                     GameTooltip:SetBuybackItem(i)
@@ -185,8 +193,8 @@ local function SellList(out)
             value = Money(s.value), color = c and { c.r, c.g, c.b },
             click = function(button)
                 if button == "RightButton" then return end
-                if IsModifiedClick("CHATLINK") and link and ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow() then
-                    ChatEdit_InsertLink(link)
+                if ns.Linking() and link then
+                    ns.LinkInChat(link)
                 elseif IsModifiedClick("DRESSUP") and link and DressUpItemLink then
                     DressUpItemLink(link)
                 else

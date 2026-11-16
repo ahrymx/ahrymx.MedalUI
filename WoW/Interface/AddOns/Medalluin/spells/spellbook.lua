@@ -489,6 +489,8 @@ end
 local function Press(p, item, button)
     if Binding() then
         Bind(item)
+    elseif ns.Linking(button) and item.info and (item.info.spellID or item.info.actionID) then
+        ns.LinkInChat(ns.SpellLink(item.info.spellID or item.info.actionID))
     elseif button == "LeftButton" and Ranked(item) then
         Fold(item.info.name)
         Refresh(p)

@@ -356,7 +356,14 @@ local function Letter(out, i)
         if name then
             table.insert(tiles, { icon = icon, crop = true, label = name, count = count,
                 selected = pending and pending.attachment == a,
-                click = function(button) if button ~= "RightButton" then TakeItem(i, a, name, h.cod) end end,
+                click = function(button)
+                    if button == "RightButton" then return end
+                    if ns.Linking() then
+                        ns.LinkInChat(GetInboxItemLink and GetInboxItemLink(i, a))
+                    else
+                        TakeItem(i, a, name, h.cod)
+                    end
+                end,
                 enter = function(tile)
                     ns.window.Outside(tile)
                     GameTooltip:SetInboxItem(i, a)

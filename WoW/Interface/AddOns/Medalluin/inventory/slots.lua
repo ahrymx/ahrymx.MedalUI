@@ -136,6 +136,17 @@ end
 
 local function Where(b) return b:GetParent():GetID(), b:GetID() end
 
+-- Shift-click on a slot with no chat box open: the game's template drops the
+-- link, and splits a stack instead. A single item has nothing to split, so
+-- the chat opens with its link; a stack keeps its split.
+local function LinkOne(b, button)
+    if not ns.Linking(button) or ns.ChatOpen() or CursorHasItem() then return end
+    local bag, slot = Where(b)
+    local info = C_Container.GetContainerItemInfo(bag, slot)
+    if not info or (info.stackCount or 1) > 1 then return end
+    ns.LinkInChat(info.hyperlink or C_Container.GetContainerItemLink(bag, slot))
+end
+
 local function Guard(b)
     local g = CreateFrame("Button", nil, b)
     g:SetAllPoints()
@@ -152,7 +163,7 @@ local function Guard(b)
                 info and info.itemName or "That item"))
         elseif IsModifiedClick("CHATLINK") then
             local link = C_Container.GetContainerItemLink(bag, slot)
-            if link and ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow() then ChatEdit_InsertLink(link) end
+            ns.LinkInChat(link)
         else
             C_Container.PickupContainerItem(bag, slot)
         end
@@ -226,6 +237,7 @@ function ns.Slots(spec)
         b.lock = Padlock(b)
         b.guard = Guard(b)
         b:HookScript("OnClick", Lock)
+        b:HookScript("OnClick", LinkOne)
         table.insert(all, b)
         slots[bag][slot] = b
         return b

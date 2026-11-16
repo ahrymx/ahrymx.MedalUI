@@ -36,7 +36,7 @@ local function Rows()
                 row.click = function()
                     if IsModifiedClick and IsModifiedClick("CHATLINK") and CI.GetCurrencyListLink then
                         local link = CI.GetCurrencyListLink(i)
-                        if link and ChatEdit_InsertLink then ChatEdit_InsertLink(link) end
+                        ns.LinkInChat(link)
                         return
                     end
                     selected = c.currencyID

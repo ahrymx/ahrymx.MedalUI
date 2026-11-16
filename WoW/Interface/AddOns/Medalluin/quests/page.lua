@@ -237,7 +237,10 @@ local function Take(kind)
         end)
         p:SetScript("OnLeave", function() GameTooltip:Hide() end)
         p:SetScript("OnClick", function(self)
-            if self.item and self.item.link and HandleModifiedItemClick then HandleModifiedItemClick(self.item.link) end
+            local link = self.item and self.item.link
+            if not link then return end
+            if ns.Linking() then ns.LinkInChat(link)
+            elseif HandleModifiedItemClick then HandleModifiedItemClick(link) end
         end)
     end
     list[used[kind]] = p

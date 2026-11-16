@@ -14378,6 +14378,27 @@ if bagsPass then
         print("bags.guard clicks", "said=" .. table.concat(W.said, " / "), "picked=" .. table.concat(W.picked, ","),
             "linked=" .. table.concat(inserted, ","), "tip=" .. tostring(GameTooltip.item))
         g.scripts.OnLeave(g)
+        -- no chat box open (2026-11-16): the guard's Shift-click opens the
+        -- chat with its link; a slot's, for a single item, does too, and a
+        -- stack's keeps the game's split (nothing opened)
+        ;(function()
+            local opened, open, util = {}, ChatFrame_OpenChat, ChatFrameUtil
+            ChatEdit_GetActiveWindow = function() return nil end
+            ChatEdit_InsertLink = function() return false end
+            ChatFrameUtil = nil
+            ChatFrame_OpenChat = function(l) table.insert(opened, tostring(l)) end
+            IsModifiedClick = function(action) return action == "CHATLINK" end
+            g.scripts.OnClick(g, "LeftButton")
+            local one, stack = _G.MedalluinBagsItem0_1, _G.MedalluinBagsItem0_2
+            one.scripts.OnClick(one, "LeftButton")
+            stack.scripts.OnClick(stack, "LeftButton")
+            one.scripts.OnClick(one, "RightButton")
+            IsModifiedClick = modified
+            print("bags.link no chat open", "opened=" .. table.concat(opened, ","),
+                "single=" .. tostring(W.items["0:1"] and W.items["0:1"].hyperlink),
+                "stack=" .. tostring(W.items["0:2"] and W.items["0:2"].stackCount))
+            ChatFrame_OpenChat, ChatFrameUtil = open, util
+        end)()
         ChatEdit_GetActiveWindow, ChatEdit_InsertLink = chat, insert
         UIErrorsFrame = errors
         -- a lock made at the vendor is guarded at once; Alt+click on the guard unlocks
@@ -17069,6 +17090,26 @@ if spellPass then
     row("Healing Wave").scripts.OnClick(row("Healing Wave"), "LeftButton")
     rows("book.folded", 14)
     print("book.folded kept", tostring(MedalluinCharDB.bookOpen["Healing Wave"]))
+    -- Shift-click (2026-11-16): the spell linked, the chat opened with it
+    -- (no box open), not unfolded; its secure button's the same
+    ;(function()
+        local opened, open, util, insert, active = {}, ChatFrame_OpenChat, ChatFrameUtil, ChatEdit_InsertLink,
+            ChatEdit_GetActiveWindow
+        local modified, getLink = IsModifiedClick, C_Spell.GetSpellLink
+        ChatFrameUtil, ChatEdit_GetActiveWindow = nil, function() return nil end
+        ChatEdit_InsertLink = function() return false end
+        ChatFrame_OpenChat = function(l) table.insert(opened, tostring(l)) end
+        C_Spell.GetSpellLink = function(id) return "spell:" .. tostring(id) end
+        IsModifiedClick = function(action) return action == "CHATLINK" end
+        row("Healing Wave").scripts.OnClick(row("Healing Wave"), "LeftButton")
+        local hw = button("Healing Wave")
+        if hw then hw.scripts.PostClick(hw, "LeftButton", false) end
+        IsModifiedClick, C_Spell.GetSpellLink = modified, getLink
+        ChatFrameUtil, ChatEdit_InsertLink, ChatEdit_GetActiveWindow = util, insert, active
+        ChatFrame_OpenChat = open
+        print("book.shift-click", "opened=" .. table.concat(opened, ","),
+            "unfolded=" .. tostring(MedalluinCharDB.bookOpen["Healing Wave"]))
+    end)()
 
     -- 5. a short screen: only the rows wholly in view get a button; the
     -- wheel scrolls, and the buttons follow
@@ -18210,6 +18251,27 @@ if talentPass then
     print("talents.followed one", table.concat(T.calls, ","))
     press(elemT.reset)
     T.points = points
+    -- Shift-click (2026-11-16): the talent's spell linked, the chat opened
+    -- with it (no box open), nothing learned or planned
+    ;(function()
+        local opened, open, util, insert, active = {}, ChatFrame_OpenChat, ChatFrameUtil, ChatEdit_InsertLink,
+            ChatEdit_GetActiveWindow
+        local modified, getLink = IsModifiedClick, C_Spell.GetSpellLink
+        ChatFrameUtil, ChatEdit_GetActiveWindow = nil, function() return nil end
+        ChatEdit_InsertLink = function() return false end
+        ChatFrame_OpenChat = function(l) table.insert(opened, tostring(l)) end
+        C_Spell.GetSpellLink = function(id) return "spell:" .. tostring(id) end
+        IsModifiedClick = function(action) return action == "CHATLINK" end
+        local calls = T.calls
+        T.calls = {}
+        click("Concussion")
+        local made = table.concat(T.calls, ",")
+        T.calls = calls
+        IsModifiedClick, C_Spell.GetSpellLink = modified, getLink
+        ChatFrameUtil, ChatEdit_InsertLink, ChatEdit_GetActiveWindow = util, insert, active
+        ChatFrame_OpenChat = open
+        print("talents.shift-click", "opened=" .. table.concat(opened, ","), "calls=" .. made)
+    end)()
     -- talents staged are not the plan's: Apply and Reset wait out the mode
     click("Concussion")
     toggle()
@@ -21690,6 +21752,19 @@ if npcPass then
     click(rows, "Star Ruby  x2")
     W.modified, W.chatOpen = nil, nil
     calls("npc sell modified")
+    -- no chat box open (2026-11-16): the link opens the chat, nothing sold;
+    -- on the buy list Shift still asks for a stack, nothing opened
+    ;(function()
+        local opened, open, util = {}, ChatFrame_OpenChat, ChatFrameUtil
+        ChatFrameUtil = nil
+        ChatFrame_OpenChat = function(l) table.insert(opened, tostring(l)) end
+        W.modified = "CHATLINK"
+        click(rows, "Star Ruby  x2")
+        W.modified = nil
+        calls("npc sell link, no chat open")
+        print("npc sell link opened", table.concat(opened, ","))
+        ChatFrame_OpenChat, ChatFrameUtil = open, util
+    end)()
     -- nothing to sell
     W.bag = { [3] = bag[3] }
     fire("BAG_UPDATE_DELAYED")
@@ -21702,6 +21777,19 @@ if npcPass then
     harnessBeside("npc buyback tips", MedalluinNPC)
     click(rows, "Linen Cloth  x20")
     calls("npc buyback")
+    -- Shift-click: the link, not bought back (the chat opened with it)
+    ;(function()
+        local opened, open, util, getLink = {}, ChatFrame_OpenChat, ChatFrameUtil, GetBuybackItemLink
+        ChatFrameUtil = nil
+        ChatFrame_OpenChat = function(l) table.insert(opened, tostring(l)) end
+        GetBuybackItemLink = function(i) return "buyback:" .. i end
+        W.modified = "CHATLINK"
+        click(rows, "Linen Cloth  x20")
+        W.modified = nil
+        calls("npc buyback link")
+        print("npc buyback link opened", table.concat(opened, ","))
+        ChatFrame_OpenChat, ChatFrameUtil, GetBuybackItemLink = open, util, getLink
+    end)()
     -- locked items (inventory/locks.lua): on neither Sell nor Sell junk, and
     -- the game's own junk sale, which would take them, not used
     ns.locks.Toggle(705)

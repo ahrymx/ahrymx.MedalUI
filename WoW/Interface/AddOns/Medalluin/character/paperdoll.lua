@@ -104,6 +104,12 @@ local function Style(btn, slotName)
     btn.level = ns.Text(btn, 11)
     btn.level:SetPoint("BOTTOM", 0, 2)
     Restyle(btn)
+    -- Shift-click with no chat box open: the chat opened with its link (the
+    -- game's slot puts it only into a box being typed in)
+    btn:HookScript("OnClick", function(self, button)
+        if not ns.Linking(button) or ns.ChatOpen() or CursorHasItem() then return end
+        ns.LinkInChat(GetInventoryItemLink("player", self:GetID()))
+    end)
     for _, method in ipairs({ "SetNormalTexture", "SetNormalAtlas" }) do
         if btn[method] then hooksecurefunc(btn, method, Restyle) end
     end
