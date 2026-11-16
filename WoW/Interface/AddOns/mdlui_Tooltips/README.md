@@ -66,6 +66,8 @@ Turn on **Armor colors** under **Item Details** to tell armor types apart at a g
 
 ## Spell tooltips
 
+![Stormstrike's tooltip: its mana, cast, cooldown and range in a strip, the cooldown remaining, and the description](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-spell.png)
+
 Spells use the same panel: the icon and name, small badges for the spell's school, its rank, and **Passive** for passive spells and talents, and a strip with cost, cast time, cooldown, and range. The description follows one sentence per line, with its numbers highlighted.
 
 The panel is tinted by the spell's school: a class spell's comes from WoW Forever's client spell data, which the addon carries, and any other spell's is read from the damage its description names (`Fire damage`) or a school that starts its name (`Holy Light`). Spells with neither are tinted by the resource they cost.
@@ -76,6 +78,8 @@ On **WoW Forever (`16001`)**, spells that deal magic damage or heal show their s
 
 ## Players and NPCs
 
+![A Gryphon Master's tooltip: the portrait with its level badge, Elite and PvP badges, and the game's health bar, the dragon behind the header](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-unit.png)
+
 Units under the cursor get a panel with their portrait, the name in class color (players) or reaction color (NPCs: red hostile, yellow neutral, green friendly, grey when tapped by someone else), the guild or an NPC's role, and the level, race, and class or creature type, the level in its difficulty color. Badges mark elites, rares, bosses, a player's faction, PvP, AFK, DND, and the dead. Below sit what the unit is targeting (in red when it is you), and the unit's quest lines. Rows other addons add are kept below, and the game's own health bar closes the panel. Elites, rares, rare elites, and bosses show the dragon from the game's target frame behind the header, and players their faction's crest.
 
 **Class colors** under **Colors** on the **Units** page's **Panel** sheet has a swatch for each class. Overrides apply to player names, panel tints and glows, the guild's lighter shade, player targets, and players on the minimap. Click to choose a color, right-click for the default, or reset the row to clear all class overrides. With no override, the game's current class color is used, including changes made by other addons.
@@ -85,6 +89,8 @@ Units under the cursor get a panel with their portrait, the name in class color 
 Auras show their icon and name, badges for buff or debuff, the dispel type in the game's colors (Magic, Curse, Disease, Poison), and stacks, then the description one sentence per line, the time left with who cast it, and a bar that drains as the aura runs out.
 
 ## Quests
+
+![The Dark Iron War, completed: its zone, level badges, the giver's words, the objectives ticked, where it starts and ends, its chain, the reputation and when it was done](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-quest.png)
 
 With **DialogueUI** installed, enable **Quest parchment** under **Details** on the **Quests** or **Items** page's **Panel** sheet for its brown parchment and darker ink. The shared toggle applies to quest tooltips, items marked **Quest Item**, and items that begin a quest; the **Quest item** sample on the **Items** page previews it. It is off by default. Per-part custom text colors still take precedence, and the artwork is read from DialogueUI's folder.
 
@@ -131,6 +137,13 @@ Herbs, ore, chests, and quest objects get a panel too. On **WoW Forever**, a Cla
 |:---|:---|
 | `/mdltip` or `/mdltooltips` | Opens the mdlui_Tooltips window on the page shown last |
 | `/mdltip options` | Opens it on its **Options** page |
+
+| | |
+|:---:|:---:|
+| ![The window's Items page, Style sheet: the Weapon sample with its name chosen, and the part's font, size, color, outline and caps beside it](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-items.png) | ![The Spells page: the Fireball sample with its spell power breakdown, the spell name chosen](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-spells.png) |
+| ![The Units page: an elite enemy's sample with its quest progress](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-units.png) | ![The All tooltips page: fonts, bars, the panel and the school colors](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-all.png) |
+
+![The Options page: the layout, the modifiers, placement, and every kind's Restyle and Follow cursor](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-options.png)
 
 The window is laid out as Medalluin's settings: a sidebar of pages, cards of settings, and a footer with **Reset all fonts and colors**, **Undo changes** (every setting back as it was when the window opened) and **Close**. It can be dragged by its head, and opens where it was left.
 

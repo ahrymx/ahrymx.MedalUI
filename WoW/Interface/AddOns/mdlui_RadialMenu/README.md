@@ -22,6 +22,10 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
 
 `/mdlradial` opens the editor, as does its key binding (Key Bindings > AddOns). The window is laid out like Medalluin's Settings window. On first run, a copy of the **Markers** preset is made for you.
 
+| | |
+|:---:|:---:|
+| ![The editor on the Markers radial: its wheel of target markers, the chosen slot, and the Catalog's panels](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/radialmenu-showcase/radial-editor-markers.png) | ![The editor on an Emotes radial: five category buttons on its wheel](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/radialmenu-showcase/radial-editor-emotes.png) |
+
 - **The sidebar** lists your radials under their groups, with a search above them.
   - Right-click a radial to group it, and drag to reorder.
   - Radials this character doesn't get sit under **Not on This Character**.
@@ -43,6 +47,8 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
   - A **Changed since it opened** chip shows once you change something. **Undo changes** puts back everything since the window opened: buttons, names, who gets them, and keys.
 
 ## Every radial
+
+![The Every radial page: Opening, Look and Fonts](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/radialmenu-showcase/radial-every-radial.png)
 
 **Options > Every radial** (`/mdlradial options`) holds what is shared by every radial:
 

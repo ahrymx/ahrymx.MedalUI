@@ -100,7 +100,9 @@ Esc opens a game menu that also shows your character, Medalluin's shortcuts, and
 
 Every part of Medalluin can be switched off on the **Modules** page; turn off what you'd rather keep from another addon or the default UI.
 
-![The Medalluin settings window on its Modules page: each part switched on or off](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/settings-modules.png)
+| | |
+|:---:|:---:|
+| ![The Medalluin settings window on its Modules page, Interface sheet: each part switched on or off, with what it needs](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/settings-modules.png) | ![The Visibility & fading page: the console's Minimal OoC Mode, its opacities and what brings it back](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/settings-visibility.png) |
 
 - **Profiles:** settings, action bar skills and key bindings are kept per profile and restored when you switch.
 - **Unit frame editor** (`/mui edit`): every piece's size, font, text and place, on a live canvas.
