@@ -8,6 +8,8 @@
 --                  "everything else" opacity but the player and target
 --                  frames, lifted out of the console's alpha to their own
 --                  (20%); combat, and what is ticked there, bring it back.
+--                  While regenerating (health, or mana, energy or focus,
+--                  refilling) the faded parts show at least its own opacity
 --                  It takes over from fading when idle while it is on. The
 --                  overhead is not the console's: it keeps its own opacity
 --   the overhead   Console > Overhead > Opacity: it shows whenever it holds
@@ -86,9 +88,6 @@ local REGEN_QUIET = 3
 local healthChanged = -math.huge
 local healthWatch = CreateFrame("Frame")
 healthWatch:RegisterUnitEvent("UNIT_HEALTH", "player")
-healthWatch:SetScript("OnEvent", function(_, _, unit)
-    if unit == "player" then healthChanged = GetTime() end
-end)
 local function Hurt()
     local h, most = UnitHealth("player"), UnitHealthMax("player")
     if ns.IsSecret(h) or ns.IsSecret(most) then return GetTime() - healthChanged < REGEN_QUIET end
@@ -96,6 +95,27 @@ local function Hurt()
     return h < most
 end
 ns.PlayerHurt = Hurt
+
+-- Regenerating: hurt, or a power that refills (mana, energy, focus) below
+-- its most. Rage and the like drain instead, so never count. Where power is
+-- secret it is guessed as health is: it changed in the last REGEN_QUIET.
+local REFILLS = { [0] = true, [2] = true, [3] = true }
+local powerChanged = -math.huge
+healthWatch:RegisterUnitEvent("UNIT_POWER_FREQUENT", "player")
+healthWatch:SetScript("OnEvent", function(_, event, unit)
+    if unit ~= "player" then return end
+    if event == "UNIT_HEALTH" then healthChanged = GetTime() else powerChanged = GetTime() end
+end)
+local function Regenerating()
+    if Hurt() then return true end
+    local kind = UnitPowerType("player")
+    if ns.IsSecret(kind) or not REFILLS[kind] then return false end
+    local p, most = UnitPower("player", kind), UnitPowerMax("player", kind)
+    if ns.IsSecret(p) or ns.IsSecret(most) then return GetTime() - powerChanged < REGEN_QUIET end
+    if not p or not most or most <= 0 then return false end
+    return p < most
+end
+ns.PlayerRegenerating = Regenerating
 
 -- The pointer over the console or anything that hangs off it.
 local function Over()
@@ -192,9 +212,13 @@ local wanted
 -- now: a setting changed, so go there at once rather than fade
 local function Update(now)
     local want, minimal = ns.ConsoleWanted(), Minimal()
+    -- the least the faded parts show while regenerating (0: as faded)
+    local regen = (minimal and not want) and Num("consoleMinimalRegen", 0, 1) or 0
+    if regen > 0 and not Regenerating() then regen = 0 end
     local goal = want and Num("consoleAlpha", 0, 1)
-        or minimal and Num("consoleMinimalRest", 0, 1) or Num("consoleFadedAlpha", 0, 1)
-    local unitGoal = lifted and (want and Num("consoleAlpha", 0, 1) or Num("consoleMinimalUnits", 0, 1)) or 1
+        or minimal and math.max(Num("consoleMinimalRest", 0, 1), regen) or Num("consoleFadedAlpha", 0, 1)
+    local unitGoal = lifted and (want and Num("consoleAlpha", 0, 1)
+        or math.max(Num("consoleMinimalUnits", 0, 1), regen)) or 1
     if not now and want == wanted and goal == fader.goal and unitGoal == units.goal then return end
     wanted = want
     local time = (not now) and Num(want and "consoleFadeIn" or "consoleFadeOut", 0, 10) or 0
@@ -250,8 +274,8 @@ for _, key in ipairs({ "consoleFade", "consoleShowCombat", "consoleShowTarget", 
     "consoleShowGroup", "consoleShowMouse", "consoleAlpha", "consoleFadedAlpha", "simParty" }) do
     ns.OnSetting(key, function() Update(true) end)
 end
-for _, key in ipairs({ "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt",
-    "consoleMinimalGroup", "consoleMinimalMouse" }) do
+for _, key in ipairs({ "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalRegen", "consoleMinimalTarget",
+    "consoleMinimalHurt", "consoleMinimalGroup", "consoleMinimalMouse" }) do
     ns.OnSetting(key, function() Update(true) end)
 end
 ns.OnSetting("consoleMinimal", function()

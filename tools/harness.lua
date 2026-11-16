@@ -12709,6 +12709,27 @@ function FadePass()
         set("consoleMinimalUnits", 0.35)
         set("consoleMinimalRest", 0.1)
         mini("35% and 10%")
+        -- while regenerating (2026-11-16): the faded parts at least its
+        -- opacity (the console 10% up to 50%, the units 35% up to 50%);
+        -- nothing refilling, as faded; rage drains, so never counts
+        set("consoleMinimalRegen", 0.5)
+        mini("regenerating 50%, mana not full")
+        local power, powerType = UnitPower, UnitPowerType
+        UnitPower = function() return 100 end
+        run(0.7)
+        mini("regenerating 50%, mana full")
+        health = 82
+        run(0.7)
+        mini("regenerating 50%, hurt")
+        health = 100
+        UnitPower = function() return 40 end
+        UnitPowerType = function() return 1 end
+        run(0.7)
+        mini("regenerating 50%, rage not full")
+        UnitPower, UnitPowerType = power, powerType
+        set("consoleMinimalRegen", 0)
+        run(0.7)
+        mini("regenerating 0%")
         -- at nothing, the pointer unticked: out of its way; the lifted
         -- player and target at their own opacity, judged on their own
         ;(function()

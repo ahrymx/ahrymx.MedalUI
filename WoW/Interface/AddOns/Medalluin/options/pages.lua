@@ -636,7 +636,7 @@ local function Shared(list)
                 groups = Concat({
                     On("immersion", ns.consoleBuilt == "reticule"
                         and Mirror("Console: Minimal OoC Mode", { "consoleMinimal", "consoleMinimalUnits",
-                            "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt",
+                            "consoleMinimalRest", "consoleMinimalRegen", "consoleMinimalTarget", "consoleMinimalHurt",
                             "consoleMinimalGroup", "consoleMinimalMouse" },
                             "Out of combat, the console fades away but for your player and target frames.")
                         or Tip("The Reticule's: choose it on Profiles to use it.",
@@ -653,8 +653,8 @@ local function Shared(list)
                     Mirror("Console", { "consoleFade", "consoleFadedAlpha", "consoleShowCombat",
                         "consoleShowTarget", "consoleShowHurt", "consoleShowGroup", "consoleShowMouse",
                         "consoleAlpha", "consoleFadeIn", "consoleFadeOut", "consoleMinimal", "consoleMinimalUnits",
-                        "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt", "consoleMinimalGroup",
-                        "consoleMinimalMouse" }),
+                        "consoleMinimalRest", "consoleMinimalRegen", "consoleMinimalTarget", "consoleMinimalHurt",
+                        "consoleMinimalGroup", "consoleMinimalMouse" }),
                     Mirror("Overhead", { "overheadAlpha", "overheadFadeIn", "overheadFadeOut", "overheadRowVis",
                         "overheadRowFaded", "overheadRowFadeTime" }),
                     Mirror("Action bars", { "visibility", "extraVisibility" }),
@@ -860,6 +860,10 @@ function ns.OptionPages()
                             Opacity("consoleMinimalRest", "Everything else",
                                 "How much of the rest of the console, its bars and its party row shows out of "
                                 .. "combat. The overhead keeps its own."),
+                            Opacity("consoleMinimalRegen", "While regenerating",
+                                "While your health, mana, energy or focus refills out of combat, the faded console "
+                                .. "and your player and target frames show at least this much. 0%: as faded. "
+                                .. "Combat and what brings it back below still make it whole."),
                             { kind = "check", key = "consoleMinimalTarget", label = "Back with a target",
                                 tip = "Whole again while you have a target." },
                             { kind = "check", key = "consoleMinimalHurt", label = "Back when health is not full",

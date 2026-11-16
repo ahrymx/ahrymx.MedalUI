@@ -63,7 +63,7 @@ local DEFAULTS = {
     overheadRowVis = 1, overheadRowFaded = 0, overheadRowFadeTime = 0.25,
     -- Minimal OoC Mode (the Reticule): out of combat the console at Rest, the
     -- player and target at Units; combat, and what is ticked, bring it back
-    consoleMinimal = false, consoleMinimalUnits = 0.2, consoleMinimalRest = 0,
+    consoleMinimal = false, consoleMinimalUnits = 0.2, consoleMinimalRest = 0, consoleMinimalRegen = 0,
     consoleMinimalTarget = false, consoleMinimalHurt = false, consoleMinimalGroup = false, consoleMinimalMouse = true,
     deadColor = "ff40424a", -- a dead friend's frame (dead.lua), every frame and profile
     visibility = 1,         -- Bar 1 visibility: see VISIBILITY
@@ -370,8 +370,8 @@ for _, key in ipairs({
     "minimapScale", "minimapX", "minimapY", "minimapAreaTime", "minimapStart", "minimapMoverHover",
     "consoleFade", "consoleShowCombat", "consoleShowTarget", "consoleShowHurt", "consoleShowGroup",
     "consoleShowMouse", "consoleAlpha", "consoleFadedAlpha", "consoleFadeIn", "consoleFadeOut",
-    "consoleMinimal", "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalTarget", "consoleMinimalHurt",
-    "consoleMinimalGroup", "consoleMinimalMouse",
+    "consoleMinimal", "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalRegen", "consoleMinimalTarget",
+    "consoleMinimalHurt", "consoleMinimalGroup", "consoleMinimalMouse",
     "bar1Paging", "bar1PagingCustom", "row2Paging", "row2PagingCustom", "row3Paging", "row3PagingCustom",
     "gridPaging", "gridPagingCustom",
     "partyPets", "partyLayout", "partyRange", "auraGlow", "auraThreat", "auraCC", "auraBuffs", "auraBoss",

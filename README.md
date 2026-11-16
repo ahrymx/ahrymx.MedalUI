@@ -18,7 +18,7 @@ The console sits at the bottom: player and target on its wings, action bars in b
 ![The Reticule console with its action bars, and the overhead's boss, pet, focus and target-of-target frames above](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/console-overhead.png)
 
 - **Two profiles:** the slim **Reticule** (default), or the round **Arena** below.
-- **Reticule:** the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console. Its Minimal OoC Mode fades the console away out of combat, leaving your player and target frames faint until combat brings it back.
+- **Reticule:** the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console. Its Minimal OoC Mode fades the console away out of combat, leaving your player and target frames faint until combat brings it back; it can stay half-seen while your health or mana refills.
 - **Action bars:** one to three rows, with Blizzard's button art or **bare icons**. Empty buttons hide and reappear while you drag a spell, item or macro.
 - **Class power and cast bars** built into the console: combo points, holy power, runes, soul shards and the rest.
 - **Party, raid, boss and arena** frames: on the console's own row, or as draggable widgets. Offline and dead members get a look of their own: a plug icon, or wings and a timer.
