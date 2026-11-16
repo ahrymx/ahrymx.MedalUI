@@ -251,3 +251,32 @@ files["WoW/Interface/AddOns/mdlui_Tooltips/**/*.lua"] = {
         "LibStub", "Auctionator", "QuestieLoader",
     },
 }
+
+-- mdlui_RadialMenu companion addon. Radial/Radial.lua keeps the upstream fork's
+-- line lengths and its `radial` shadowing, so FlareUI's changes can still be
+-- read across line by line.
+files["WoW/Interface/AddOns/mdlui_RadialMenu/**/*.lua"] = {
+    globals = { "mdlui_RadialMenuDB", "SLASH_MDLUI_RADIAL1", "BINDING_HEADER_MDLUI_RADIAL",
+                "BINDING_NAME_MDLUI_RADIAL_EDITOR", "mdluiRadialToggleEditor" },
+    read_globals = {
+        "canaccessvalue", "C_InputInterfaceStyle", "C_GamePad", "GamepadMode", "GetLocale", "SOUNDKIT", "PlaySound",
+        "GAMEPAD_FACE_BOTTOM", "GAMEPAD_FACE_RIGHT", "GAMEPAD_SHOULDER_LEFT", "GAMEPAD_SHOULDER_RIGHT",
+        "GetMacroItem", "MAXEMOTEINDEX", "strtrim", "C_ClassColor", "IsRaidMarkerActive",
+        "SecureHandlerExecute", "SecureHandlerSetFrameRef", "SecureHandlerWrapScript",
+        "MAX_ACCOUNT_MACROS", "CreateMacro", "EditMacro", "DeleteMacro", "FlareUI2_DB",
+        "GetBindingName", "tinsert", "NOT_BOUND",
+    },
+}
+files["WoW/Interface/AddOns/mdlui_RadialMenu/Radial/Radial.lua"] = {
+    max_line_length = false,
+    ignore = { "431" },
+}
+-- Radial/Editor.lua is the upstream editor's fork, read across the same way: its unused VLine and
+-- shadowed x are FlareUI's. UI/Panel.lua's copy is one string a line.
+files["WoW/Interface/AddOns/mdlui_RadialMenu/Radial/Editor.lua"] = {
+    max_line_length = false,
+    ignore = { "211/VLine", "411/x" },
+}
+files["WoW/Interface/AddOns/mdlui_RadialMenu/UI/Panel.lua"] = {
+    max_line_length = false,
+}

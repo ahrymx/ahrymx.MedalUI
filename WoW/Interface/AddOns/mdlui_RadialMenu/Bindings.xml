@@ -1,0 +1,6 @@
+<Bindings>
+	<!-- Options > Keybindings > AddOns > mdlui_RadialMenu; the names are in UI/Commands.lua -->
+	<Binding name="MDLUI_RADIAL_EDITOR" header="MDLUI_RADIAL" category="ADDONS">
+		mdluiRadialToggleEditor()
+	</Binding>
+</Bindings>

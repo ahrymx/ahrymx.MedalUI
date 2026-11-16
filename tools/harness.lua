@@ -158,6 +158,9 @@ local npcPass = args[2] == "npc"
 -- (npc/mail.lua): six letters, Open all step by step (the bags filling, the
 -- mailbox closing, Stop), the send form and its wells, and the names it keeps.
 local mailPass = args[2] == "mail"
+-- "radial" loads the mdlui_RadialMenu companion after Medalluin and plays it
+-- (tools/harness_radial.lua).
+radialPass = args[2] == "radial"   -- a global: the main chunk is at its local limit
 local barOff = args[3] == "nobar"
 local savedRows = tonumber((args[3] or ""):match("^rows(%d)$"))
 local savedBare = args[3] == "bare"
@@ -24985,3 +24988,7 @@ if fixesPass then (function()
     ns.CheckIssues()
     state("no Edit Mode")
 end)() end
+
+if radialPass then
+    assert(loadfile("tools/harness_radial.lua"))({ events = events, setCombat = function(on) inCombat = on end })
+end
