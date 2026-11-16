@@ -44,7 +44,8 @@
 -- frame that holds secure buttons cannot be shown or hidden in combat and
 -- the window must open in combat. The layer follows the window out of
 -- combat and a state driver hides it in combat: in combat the book reads,
--- scrolls and shows its tooltips, but casts and drags only out of it.
+-- scrolls and shows its tooltips, but casts and drags only out of it
+-- (PickupSpellBookItem is protected in combat for an addon's code).
 --
 -- Blizzard's book is a tab of PlayerSpellsFrame, which the talents share:
 -- this window shows while the frame is open on it (spells/frame.lua).
