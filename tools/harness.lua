@@ -3336,7 +3336,9 @@ end
 -- of the account's and one of the character's, and the game's macro window
 -- (Blizzard_MacroUI.lua, forever) with the parts and methods
 -- spells/macros.lua calls, each save, delete, new and pickup noted in
--- bookWorld.macros.calls.
+-- bookWorld.macros.calls. In combat the game blocks EditMacro, CreateMacro
+-- and DeleteMacro for an addon's code (ADDON_ACTION_BLOCKED): noted as
+-- "BLOCKED <call>", the macro left as it was.
 if spellPass then
     local MW = { calls = {},
         account = { { "Heal", 136052, "#showtooltip\n/cast [@mouseover,help] Healing Wave" },
@@ -3359,6 +3361,7 @@ if spellPass then
     end
     function GetMacroSpell(i) return i == 1 and 401 or nil end
     function EditMacro(i, name, icon, body)
+        if inCombat then table.insert(MW.calls, "BLOCKED edit " .. i) return end
         local m = at(i)
         table.insert(MW.calls, "edit " .. i .. (name and " name=" .. name or "") .. (body and " body" or ""))
         if name then m[1] = name end
@@ -3367,12 +3370,14 @@ if spellPass then
         return i
     end
     function CreateMacro(name, icon, body, perCharacter)
+        if inCombat then table.insert(MW.calls, "BLOCKED create " .. name) return end
         local list = perCharacter and MW.character or MW.account
         table.insert(list, { name, icon, body or "" })
         table.insert(MW.calls, "create " .. name .. (perCharacter and " character" or ""))
         return (perCharacter and 120 or 0) + #list
     end
     function DeleteMacro(i)
+        if inCombat then table.insert(MW.calls, "BLOCKED delete " .. i) return end
         table.insert(MW.calls, "delete " .. i)
         if i > 120 then table.remove(MW.character, i - 120) else table.remove(MW.account, i) end
     end
@@ -17452,6 +17457,52 @@ if spellPass then
         cards("book.macros combat cards")
         combat(false)
         cards("book.macros after combat")
+        -- combat: nothing the game would block. Typed before it, then:
+        -- Save, New, the pencil, Delete, another macro and the other set
+        -- each refused (said in chat), the typing kept; saved after it
+        local function press(k) MM.editor.buttons.byKey[k].scripts.OnClick(MM.editor.buttons.byKey[k], "LeftButton") end
+        local focusCard = card("Focus")
+        focusCard.scripts.OnClick(focusCard, "LeftButton")
+        calls()
+        bookWorld.Type("/focus\n/cast [@focus] Frost Shock")
+        fire("PLAYER_REGEN_DISABLED")
+        combat(true)
+        edit("book.macros fight editor")
+        press("save")
+        press("new")
+        MM.editor.pencil.scripts.OnClick(MM.editor.pencil)
+        focusCard.delete.scripts.OnClick(focusCard.delete)
+        local healCard = card("Heal")
+        healCard.scripts.OnClick(healCard, "LeftButton")
+        MM.switch.buttons[2].scripts.OnClick(MM.switch.buttons[2], "LeftButton")
+        bookWorld.Type("/focus\n/cast [@focus] Earth Shock")
+        print("book.macros fight", "calls=" .. calls(), "tab=" .. tostring(PanelTemplates_GetSelectedTab(MacroFrame)),
+            "changed=" .. tostring(MacroFrame.textChanged), "popup=" .. tostring(MacroPopupFrame.shown))
+        edit("book.macros fight kept")
+        combat(false)
+        edit("book.macros fight over")
+        press("save")
+        print("book.macros fight saved", "calls=" .. calls(), "body=" .. tostring(select(3, GetMacroInfo(2))):gsub("\n", "/"))
+        -- the picker open as combat starts: put away; typed, the book
+        -- closed in combat: the game's save on hide does nothing
+        press("new")
+        calls()
+        fire("PLAYER_REGEN_DISABLED")
+        combat(true)
+        print("book.macros fight picker", "shown=" .. tostring(MacroPopupFrame.shown))
+        focusCard = card("Focus")
+        focusCard.scripts.OnClick(focusCard, "LeftButton")
+        bookWorld.Type("/focus\n/oops")
+        MM.Showing(false)
+        print("book.macros fight closed", "calls=" .. calls(), "changed=" .. tostring(MacroFrame.textChanged))
+        combat(false)
+        MM.Showing(true)
+        print("book.macros fight reopened", "calls=" .. calls(), "body=" .. tostring(select(3, GetMacroInfo(2))):gsub("\n", "/"))
+        cards("book.macros fight cards")
+        MW.account[2][3] = "/focus\n/cast [@focus] Hex"
+        MacroFrame:SelectMacro(MacroFrame:GetSelectedIndex())
+        MM.Refresh()
+        calls()
         -- the list scrolled: only heads wholly in view have a button
         MM.scroller.scroll.h = 60
         MM.Refresh()

@@ -59,6 +59,7 @@ local cards = {}
 M.cards = cards
 local adopted, placing, shown = false, false, false
 local edited = false                    -- the editor's text typed into since it was loaded
+local fight = false                     -- in combat: from PLAYER_REGEN_DISABLED, which runs before the lockdown
 
 local function Binding()
     return ns.db.spellbookClickCast and ns.clickcast ~= nil and ns.clickcast.Binding()
@@ -98,10 +99,31 @@ local function Press(b)
     if click then click(b, "LeftButton") end
 end
 
+-- Macros cannot change in combat. The game's save, new, rename and delete
+-- call EditMacro, CreateMacro and DeleteMacro, which the game blocks in
+-- combat for code an addon started, and pressing its buttons from ours is
+-- that. So in combat: those buttons are off; the game's "text changed" mark
+-- is held back (Adopt), so a switch, a tab or the window closing saves
+-- nothing; and a move away from typed text waits until combat ends, so the
+-- typing is not lost. Says so and returns true while in combat.
+local function Combat() return fight or InCombatLockdown() end
+local function Fighting()
+    if not Combat() then return false end
+    print("|cffe0b84aMedalluin|r: macros cannot change in combat.")
+    return true
+end
+
+-- a button of the game's that writes a macro: pressed out of combat only
+local function Write(b)
+    if Fighting() then return end
+    Press(b)
+end
+
 -- a macro into the editor, as the game's own grid selects one
 local function Select(i)
     local f = MacroFrame
     if not i or f:GetSelectedIndex() == i then return end
+    if edited and Fighting() then return end
     f:SaveMacro()
     f:SelectMacro(i, true)
     if MacroPopupFrame then MacroPopupFrame:Hide() end
@@ -146,6 +168,8 @@ local function Click(c, button)
     if Binding() then
         Bind(c.index)
     elseif button == "LeftButton" then
+        -- typed text kept in the editor through combat (Fighting): not even folded
+        if edited and c.i ~= MacroFrame:GetSelectedIndex() and Fighting() then return end
         Toggle(c.name)
         Select(c.i)
         Refresh()
@@ -264,6 +288,7 @@ local function Card(n)
     c.delete.label:SetText("Delete")
     -- the game's own confirm, which deletes the macro in the editor
     c.delete:SetScript("OnClick", function()
+        if Fighting() then return end
         Select(c.i)
         Press(MacroDeleteButton)
     end)
@@ -450,11 +475,12 @@ local function Paint()
     editor.ring:SetShown(name ~= nil)
     editor.name:SetText(name or "")
     editor.pencil:SetShown(name ~= nil)
-    editor.pencil:SetAlpha(MacroEditButton:IsEnabled() and 1 or 0.4)
+    local free = not Combat()
+    editor.pencil:SetAlpha(free and MacroEditButton:IsEnabled() and 1 or 0.4)
     editor.empty:SetShown(count == 0)
     local can = name ~= nil
-    editor.buttons:Set("new", { enabled = MacroNewButton:IsEnabled() })
-    editor.buttons:Set("save", { enabled = can, selected = can and edited })
+    editor.buttons:Set("new", { enabled = free and MacroNewButton:IsEnabled() })
+    editor.buttons:Set("save", { enabled = free and can, selected = free and can and edited })
     editor.buttons:Set("cancel", { enabled = can and edited })
     local spell = index and Spell(index)
     editor.casts:SetText(spell and "Casts " .. spell or "")
@@ -503,16 +529,18 @@ local function Editor(parent)
     e.pencil:SetSize(28, 28)
     e.pencil:SetPoint("LEFT", e.name, "RIGHT", 6, 0)
     R.Glyph(e.pencil, "edit", 18)
-    e.pencil:SetScript("OnClick", function() Press(MacroEditButton) end)
+    e.pencil:SetScript("OnClick", function() Write(MacroEditButton) end)
     e.pencil:SetScript("OnEnter", function(self)
         ns.Tip(self, ns.window.Outside, { title = "Change its name and icon", color = GOLD })
     end)
     e.pencil:SetScript("OnLeave", function() GameTooltip:Hide() end)
     e.buttons = ns.window.Segments(e.head, { height = BAR - 8, fit = true, size = 12, items = {
-        { key = "new", label = "+  New", click = function() Press(MacroNewButton) end,
-            tip = function() return "A new macro in this set: its name and icon first." end },
-        { key = "save", label = "Save", click = function() Press(MacroSaveButton) end,
-            tip = function() return "Save the text." end },
+        { key = "new", label = "+  New", click = function() Write(MacroNewButton) end,
+            tip = function()
+                return Combat() and "Not in combat." or "A new macro in this set: its name and icon first."
+            end },
+        { key = "save", label = "Save", click = function() Write(MacroSaveButton) end,
+            tip = function() return Combat() and "Not in combat." or "Save the text." end },
         { key = "cancel", label = "Cancel", click = function()
             if not edited then return end
             Press(MacroCancelButton)
@@ -759,6 +787,8 @@ local function Adopt()
     hooksecurefunc(f, "ChangeTab", function() edited = false end)
     MacroFrameText:HookScript("OnTextChanged", function(_, user)
         if user then edited = true end
+        -- in combat the game's mark is held back (Fighting), ours kept
+        if Combat() then f.textChanged = nil end
         Paint()
     end)
     -- the game opens on the account's set: back to the one last shown
@@ -795,6 +825,23 @@ function M.Build(p, b)
     layer = W.Layer("MedalluinSpellbookMacros")
     M.switch, M.list, M.scroller, M.editor, M.layer = switch, list, scroller, editor, layer
     ns.On("PLAYER_REGEN_ENABLED", Follow)
+    -- combat: the game's "text changed" held back, and the name and icon
+    -- picker and the delete confirm put away, as neither could save
+    ns.On("PLAYER_REGEN_DISABLED", function()
+        fight = true
+        if not adopted then return end
+        MacroFrame.textChanged = nil
+        if MacroPopupFrame and MacroPopupFrame:IsShown() then MacroPopupFrame:Hide() end
+        if StaticPopup_Hide then StaticPopup_Hide("CONFIRM_DELETE_SELECTED_MACRO") end
+        Paint()
+    end)
+    -- after it: typed text marked again for the game to save
+    ns.On("PLAYER_REGEN_ENABLED", function()
+        fight = false
+        if not adopted then return end
+        if edited and MacroFrame:IsShown() then MacroFrame.textChanged = 1 end
+        Paint()
+    end)
     if MacroFrame then Adopt() end
 end
 
@@ -803,6 +850,7 @@ function M.Tab(n)
     local tab = _G["MacroFrameTab" .. n]
     if not tab or PanelTemplates_GetSelectedTab(MacroFrame) == n then return end
     if MacroPopupFrame and MacroPopupFrame:IsShown() then return end
+    if edited and Fighting() then return end
     MedalluinCharDB = MedalluinCharDB or {}
     MedalluinCharDB.macroTab = n
     local click = tab:GetScript("OnClick")

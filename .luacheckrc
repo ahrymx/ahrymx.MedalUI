@@ -110,7 +110,7 @@ read_globals = {
     "RAID_CLASS_COLORS", "FACTION_BAR_COLORS", "PowerBarColor", "MAX_PLAYER_LEVEL",
     "PLAYER_OFFLINE", "DEAD", "LEVEL", "XP", "REPUTATION", "FAILED", "INTERRUPTED",
     "BAGSLOTTEXT", "NUM_BAG_SLOTS", "DURABILITY", "TIMEMANAGER_TITLE", "TIMEMANAGER_TOOLTIP_LOCALTIME",
-    "TIMEMANAGER_TOOLTIP_REALMTIME", "OKAY", "CANCEL", "StaticPopup_Show",
+    "TIMEMANAGER_TOOLTIP_REALMTIME", "OKAY", "CANCEL", "StaticPopup_Show", "StaticPopup_Hide",
     -- Lua extras WoW provides
     "wipe", "format", "unpack", "CopyTable",
     -- the raid (widgets/raid.lua)
@@ -132,8 +132,10 @@ read_globals = {
     "GetCurrentArenaSeason", "GetStatisticsCategoryList", "GetCategoryInfo", "GetCategoryNumAchievements",
     "GetStatistic", "GetAchievementInfo", "GetNumTitles", "IsTitleKnown", "GetTitleName", "GetCurrentTitle",
     "SetCurrentTitle", "PLAYER_TITLE_NONE", "EquipmentManager_EquipSet", "MAX_EQUIPMENT_SETS_PER_PLAYER", "REMOVE",
-    -- the game's macro window (spells/macros.lua)
-    "MacroFrame", "MacroPopupFrame", "MacroFrame_Show", "MacroFrameText", "MacroFrameScrollFrame",
+    -- the game's macro window (spells/macros.lua); its "text changed" mark is
+    -- held back in combat, when the game's save would be blocked
+    MacroFrame = { other_fields = true, fields = { textChanged = { read_only = false } } },
+    "MacroPopupFrame", "MacroFrame_Show", "MacroFrameText", "MacroFrameScrollFrame",
     "MacroFrameTextButton", "MacroFrameTextBackground", "MacroFrameTab1", "MacroFrameTab2", "MacroSaveButton",
     "MacroCancelButton", "MacroDeleteButton", "MacroNewButton", "MacroExitButton", "MacroEditButton",
     "GetNumMacros", "PanelTemplates_GetSelectedTab", "IconSelectorPopupFrameModes", "Constants", "GetSpellInfo",
