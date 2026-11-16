@@ -1,5 +1,5 @@
--- The unit-frame editor's canvas (art/settings/gen_editor.py's U3): the
--- middle of the editor's window (options/editor.lua), the chosen frame drawn
+-- The unit-frame editor's canvas: the well in the canvas's card of the
+-- editor's window (options/editor.lua), the chosen frame drawn
 -- large as its buttons have it now, the chosen piece boxed and nothing else.
 -- Drag the box to move the piece, the arrow keys nudge it (the editor's
 -- window has the keys); the frames on screen follow, as they follow the
@@ -8,8 +8,8 @@
 -- What the canvas draws is a copy, read off a real button after every
 -- change (each region's points, size, font and words), so it can never
 -- disagree with the frame it shows. An icon shows on the copy as the real
--- one does, or while it is the chosen piece, or while the footer's preview
--- chips show it (E.preview: a dispel type's glow, the aggro glow, crowd
+-- one does, or while it is the chosen piece, or while the preview chips
+-- under it show it (E.preview: a dispel type's glow, the aggro glow, crowd
 -- control, a boss debuff, your buffs), drawn by the frame's own glow
 -- (ns.EdgeGlow) with the preview's icons (ns.STUB_ICONS). A mirrored frame
 -- shows a left copy over a right one. A frame with no button laid out now
@@ -850,8 +850,7 @@ function Draw()
         Refit()
         view.frame = frame.id
     end
-    stage.title:SetText(frame.name .. "  >  " .. E.PIECES[piece].label)
-    -- what the frame is and whose, under it (the editor's words)
+    -- why the frame is not on screen now, where it is not (the editor's words)
     stage.scope:SetWidth(math.max(20, (stage:GetWidth() or 0) - 20))
     stage.scope:SetText(E.ui.Scope and E.ui.Scope() or "")
     local top = (stage.scope:GetText() or "") ~= "" and math.ceil(stage.scope:GetStringHeight() or 0) + 4 or 0
@@ -884,8 +883,8 @@ function Draw()
         height = height + GAP + reach[k].t - reach[k].b
     end
     local width = right - left
-    -- the stage's room, less its title and scope, its hint and a margin
-    local roomW, roomH = (stage:GetWidth() or 0) - 40, (stage:GetHeight() or 0) - 76 - top
+    -- the stage's room, less its scope, its hint and a margin
+    local roomW, roomH = (stage:GetWidth() or 0) - 40, (stage:GetHeight() or 0) - 56 - top
     local scale = MAX_SCALE
     if width > 0 then scale = math.min(scale, roomW / width) end
     if height > 0 then scale = math.min(scale, roomH / height) end
@@ -952,6 +951,8 @@ function Draw()
     end
     for i = n + 1, #boxes do boxes[i]:Hide(); boxes[i].from = nil end
     stage.preview:SetText(E.PreviewText())
+    -- the zoom, on the card's chip (the editor's)
+    if stage.zoom then stage.zoom:SetText(math.floor(view.zoom * 100 + 0.5) .. "%") end
     -- once more next frame: words just set are measured only once the game
     -- has laid them out, so a text's box first drawn from them is off until
     -- then (2026-11-12: the name's box centred until it was dragged)
@@ -991,17 +992,17 @@ end
 function ns.EditorStage(parent)
     if stage then return stage end
     stage = CreateFrame("Frame", nil, parent)
-    UI.Skin(stage, C.well)
+    -- a well in its card, a hairline round it
+    UI.Fill(stage, "BACKGROUND", C.well, 1):SetAllPoints()
+    UI.Outline(stage, "BORDER", C.line, 0)
     -- nothing drawn on the canvas reaches past it
     stage:SetClipsChildren(true)
-    stage.title = UI.Serif(stage, 12, C.goldBright)
-    stage.title:SetPoint("TOPLEFT", 10, -8)
-    stage.scope = UI.Plain(stage, 10, C.dim)
-    stage.scope:SetPoint("TOPLEFT", 10, -24)
+    stage.scope = UI.Plain(stage, 11, C.dim)
+    stage.scope:SetPoint("TOPLEFT", 10, -8)
     stage.scope:SetJustifyH("LEFT")
-    stage.preview = UI.Plain(stage, 10, C.goldDark)
+    stage.preview = UI.Plain(stage, 10, C.gold)
     stage.preview:SetPoint("BOTTOMLEFT", 10, 24)
-    stage.hint = UI.Plain(stage, 10, C.dim)
+    stage.hint = UI.Plain(stage, 10, C.faint)
     stage.hint:SetPoint("BOTTOMLEFT", 10, 8)
     stage.hint:SetText("Drag the box  ·  arrows nudge  ·  wheel zooms  ·  drag the canvas to pan  ·  double-click fits")
     stage.note = UI.Plain(stage, 12, C.dim)
@@ -1027,6 +1028,11 @@ function ns.EditorStage(parent)
     -- its parts, by name (the harness reads them)
     stage.holder, stage.proxies, stage.boxes, stage.dots, stage.guides = holder, proxies, boxes, dots, guides
     stage.view, stage.grid = view, grid
+    -- the whole frame in view again (the card's Fit, as a double click)
+    function stage.Fit()
+        Refit()
+        Draw()
+    end
     return stage
 end
 

@@ -10436,9 +10436,32 @@ local function EditorPass()
         end
         print("editor window " .. tag, "shown=" .. tostring(w.shown), "tabs=" .. table.concat(t, ","),
             "pieces=" .. table.concat(r, ","), "piece tabs=" .. table.concat(pt, ","), "controls=" .. table.concat(c, ","))
-        print("  title=" .. tostring(w.body.title.text), "scope=" .. tostring(w.stage.scope.text))
+        print("  title=" .. tostring(w.body.title.text), "changed=" .. tostring(w.body.changed:IsShown()),
+            "crumb=" .. tostring(w.crumb.text), "scope=" .. tostring(w.stage.scope.text))
     end
     window("unit")
+    -- the Settings window's shell: the head, the sidebar's headings and the
+    -- piece lit, Shown in the piece's band, its tabs across the card
+    ;(function()
+        local heads, lit = {}, {}
+        for _, row in ipairs(w.list.rows) do
+            if row.shown and row.heading then heads[#heads + 1] = row.head.text end
+            if row.shown and row.piece and row.bar:IsShown() then lit[#lit + 1] = row.text.text end
+        end
+        local sh, st = w.controls.shown, w.body.tabStrip
+        local t1, tn = st.tabs[1], st.tabs[2]
+        local on, widths, hairs = {}, {}, 0
+        for _, b in ipairs(w.tabs) do if b.foot:IsShown() then on[#on + 1] = b.text.text end end
+        for _, b in ipairs(st.tabs) do if b.shown then widths[#widths + 1] = string.format("%.0f", b:GetWidth()) end end
+        for _, c in pairs(w.controls) do if c.hair and c.shown and c.hair:IsShown() then hairs = hairs + 1 end end
+        print("editor shell tabs", "frame lit=" .. table.concat(on, ","), "piece tabs=" .. table.concat(widths, ","),
+            "hairlines=" .. hairs)
+        print("editor shell", "head=" .. tostring(w.title.text) .. "|" .. tostring(w.version.text):gsub("%d[%d.]*", "v"),
+            "size=" .. w:GetWidth() .. "x" .. w:GetHeight(), "heads=" .. table.concat(heads, ","), "lit=" .. table.concat(lit, ","),
+            "shown in band=" .. tostring(sh:GetTop() > w.body:GetTop() - 36 and sh:GetRight() <= w.body:GetRight()),
+            "strip=" .. string.format("%.0f..%.0f of %.0f", t1:GetLeft() - w.body:GetLeft(), tn:GetRight() - w.body:GetLeft(),
+                w.body:GetWidth()), "close=" .. tostring(w.close.text.text) .. ":" .. tostring(w.close.style))
+    end)()
     local function choose(id, which)
         for _, b in ipairs(w.tabs) do if b.frame.id == id then b.scripts.OnClick(b) end end
         for _, row in ipairs(w.list.rows) do
@@ -10552,27 +10575,28 @@ local function EditorPass()
         choose("unit", "level"); kept[#kept + 1] = "auras, then level:" .. w.tab
         pickTab("place")
         print("  tab kept", table.concat(kept, " "))
-        -- the frame tabs under their group's caption
-        local caps = {}
-        for _, c in ipairs(w.captions) do
-            local _, rel = c:GetPoint(1)
-            caps[#caps + 1] = c.text .. ">" .. c.first.name
-                .. string.format("@%.0f", (c:GetLeft() or 0) - (w.tabs[1]:GetLeft() or 0))
-        end
+        -- the frames as the header's sheets: the console's, a gap, the widgets'
         local first = {}
-        for _, b in ipairs(w.tabs) do first[#first + 1] = string.format("%.0f", b:GetLeft() - w.tabs[1]:GetLeft()) end
-        print("  frame captions", table.concat(caps, " "), "tab lefts=" .. table.concat(first, ","))
-        -- the footer: the chips between the two rules, their caption over them
-        local c1, cn = w.chips[1], w.chips[#w.chips]
-        local d1, d2 = w.dividers[1], w.dividers[2]
-        print("  footer", "caption=" .. tostring(w.chipsCaption.text) .. " shown=" .. tostring(w.chipsCaption:IsShown()),
-            "preview|" .. string.format("%.0f", d1:GetLeft() - w.preview:GetRight()) .. "|chips "
-            .. string.format("%.0f", c1:GetLeft() - d1:GetRight()) .. " .. "
-            .. string.format("%.0f", d2:GetLeft() - cn:GetRight()) .. "|"
-            .. string.format("%.0f", w.reset:GetLeft() - d2:GetRight()) .. " reset",
-            "caption over chips=" .. tostring(w.chipsCaption:GetBottom() > c1:GetTop()
-                and w.chipsCaption:GetLeft() >= c1:GetLeft()),
-            "below the rule=" .. tostring(w.chipsCaption:GetTop() < (w:GetBottom() + 58 - 8)))
+        for _, b in ipairs(w.tabs) do
+            first[#first + 1] = (b.console and "c" or "w") .. string.format("%.0f", b:GetLeft() - w.tabs[1]:GetLeft())
+        end
+        print("  frame tabs", "lefts=" .. table.concat(first, ","), "note=" .. tostring(w.groups.text),
+            "in the header=" .. tostring(w.tabs[#w.tabs]:GetRight() < w.groups:GetLeft()))
+        -- the previews: two wells under the canvas, inside its card
+        local card, st = w.canvasCard, w.stage
+        local glow, show = w.glowChips, w.showChips
+        local ids = { glow = {}, show = {} }
+        for _, b in ipairs(w.chips) do
+            local well = b:GetParent():GetParent() == glow and "glow" or "show"
+            ids[well][#ids[well] + 1] = b.id
+        end
+        print("  chips", "glow=" .. table.concat(ids.glow, ","), "show=" .. table.concat(ids.show, ","),
+            "under the canvas=" .. tostring(glow:GetTop() < st:GetBottom() and show:GetTop() < glow:GetBottom()),
+            "in the card=" .. tostring(show:GetBottom() > card:GetBottom() and glow:GetRight() < card:GetRight()
+                and show:GetRight() < card:GetRight()))
+        print("  header", "title=" .. tostring(w.pageTitle.text), "crumb=" .. tostring(w.crumb.text),
+            "more=" .. tostring(w.more.tip), "zoom=" .. tostring(st.zoom.text.text),
+            "band=" .. tostring(card.title.text) .. "|" .. tostring(w.fit.text.text) .. "|" .. tostring(w.reset.text.text))
         print("  scope", "on the canvas=" .. tostring(w.stage.scope.text ~= nil and w.stage.scope.text ~= ""),
             "in the body=" .. tostring(w.body.scope ~= nil))
         -- a frame with no icons: no Icons heading
@@ -10996,13 +11020,13 @@ local function EditorPass()
             end
         end
         table.sort(icons)
-        print("canvas " .. tag, "shown=" .. tostring(cv:IsVisible()), "in editor=" .. tostring(cv:GetParent() == w),
+        print("canvas " .. tag, "shown=" .. tostring(cv:IsVisible()), "in editor=" .. tostring(cv:GetParent() == w.canvasCard),
             "keys=" .. tostring(w.keyboard), "copies=" .. copies, "scale=" .. string.format("%.2f", cv.holder.scale or 1),
             k .. " boxes, " .. chosen .. " labelled", "note=" .. tostring(cv.note.shown and cv.note.text))
         -- the copy's health: the button's colour, else (no unit yet: the
         -- game's white) the player's class
         local fill = cv.proxies[1] and cv.proxies[1].shown and cv.proxies[1].health.fill.color
-        print("  title=" .. tostring(cv.title.text), "icons shown=" .. table.concat(icons, ","),
+        print("  title=" .. tostring(w.canvasCard.title.text) .. "  >  " .. tostring(w.body.title.text), "icons shown=" .. table.concat(icons, ","),
             "health=" .. (fill and string.format("%.2f,%.2f,%.2f", fill[1], fill[2], fill[3]) or "-"))
     end
     canvas("unit")
@@ -11271,8 +11295,8 @@ local function EditorPass()
     E.Set(E.byId.unit, "level", { h = "center", v = "top", on = "frame", x = 3.0000001192093, y = -2.0000002384186 })
     print("  float offsets stored", "Inward shows " .. tostring(w.controls.x.value.text),
         "Up shows " .. tostring(w.controls.y.value.text))
-    -- Reset piece level with the piece's name, whatever is under it
-    local rp = w.controls.reset.points.TOPRIGHT
+    -- Reset piece at the foot of the piece's card, whatever is over it
+    local rp = w.controls.reset.points.BOTTOMRIGHT
     print("  reset piece at", rp and (tostring(rp[1] == w.controls.reset.parent and "body") .. "." .. tostring(rp[2])
         .. "," .. tostring(rp[3]) .. "," .. tostring(rp[4])) or "elsewhere")
     -- the view: the wheel zooms about the pointer, a drag off the box pans,
@@ -11365,6 +11389,11 @@ local function EditorPass()
         print("  view slow clicks", zoom())
         click(0.1)
         print("  view double click", zoom())
+        -- the canvas card's Fit does what the double click does; the zoom on its chip
+        wheel("in for Fit", midX, midY, 2)
+        local before = w.stage.zoom.text.text
+        w.fit.scripts.OnClick(w.fit)
+        print("  view Fit", "chip " .. tostring(before) .. "->" .. tostring(w.stage.zoom.text.text), zoom())
         -- another piece keeps the view; another tab fits
         wheel("in for pieces", midX, midY, 2)
         choose("unit", "mine")
@@ -11492,7 +11521,9 @@ local function EditorPass()
     local function chip(id) for _, b in ipairs(w.chips) do if b.id == id then b.scripts.OnClick(b) end end end
     local function previews(tag)
         local lit = {}
-        for _, b in ipairs(w.chips) do if E.preview[b.id] then lit[#lit + 1] = b.id end end
+        for _, b in ipairs(w.chips) do
+            if E.preview[b.id] then lit[#lit + 1] = b.id .. (b.foot:IsShown() and "_" or "") end
+        end
         local p = cv.proxies[1]
         local g, cc = p.glow, p.pieces.cc
         local edge, colour = nil, "-"
@@ -11657,7 +11688,8 @@ local function EditorPass()
     -- the footer's Preview is simulate.lua's; the slash word opens the window
     local was = ns.db.simParty
     w.preview.scripts.OnClick(w.preview)
-    print("editor preview", tostring(was) .. "->" .. tostring(ns.db.simParty), w.preview.text.text)
+    print("editor preview", tostring(was) .. "->" .. tostring(ns.db.simParty), w.preview.text.text,
+        "pill=" .. tostring(w.preview.tick:IsShown()))
     w.preview.scripts.OnClick(w.preview)
     w:Hide()
     w.scripts.OnHide(w)

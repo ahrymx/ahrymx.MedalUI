@@ -1,15 +1,20 @@
--- The unit-frame editor's window (art/settings/gen_editor.py, U3): the
--- frames as tabs (the console's, then the widgets), the chosen frame's
--- pieces down the left in groups, the canvas in the middle
--- (options/canvas.lua: the frame drawn large, the chosen piece boxed; drag
--- it to move the piece, the arrow keys nudge it), the chosen piece's
--- controls down the right under its tabs (Place, Look, Auras), one to a
--- line, applied as they change. Its footer has
--- the preview (simulate.lua's: a party, a raid, bosses and an arena to edit
--- out of a group) and the canvas's preview chips (editor.lua's E.preview:
--- each dispel type's glow, the aggro glow, the combat tint, crowd control,
--- a boss debuff, your buffs). editor.lua is the model: what the pieces are,
--- and where they go.
+-- The unit-frame editor's window, laid out as the Settings window
+-- (options/window.lua): a head bar (its name, Medalluin and the version,
+-- the x in its own cell); the chosen frame's pieces down the sidebar under
+-- their groups' headings (Frame, Texts, Icons, Auras), the chosen one lit,
+-- a changed one marked; a page header (the frame's name, the console's or
+-- the widgets' and whose, a (?) saying what the frame is) with the frames
+-- as its sheets, the console's then the widgets'. Under it two cards: the
+-- canvas (options/canvas.lua: the frame drawn large, the chosen piece
+-- boxed; drag it to move the piece, the arrow keys nudge it), its zoom,
+-- Fit and Reset frame in its band and the previews under it (editor.lua's
+-- E.preview: Glow, a dispel type's or none; Show, the aggro glow, the
+-- combat tint, crowd control, a boss debuff, your buffs and debuffs); and
+-- the chosen piece's, its name, Changed and Shown in its band, its tabs
+-- (Place, Look, Auras) over its rows, applied as they change, Reset piece
+-- at its foot. The footer has the preview (simulate.lua's: a party, a
+-- raid, bosses and an arena to edit out of a group) and Close. editor.lua
+-- is the model: what the pieces are, and where they go.
 --
 -- Opened by /mdlui edit, and by the button on each Unit Frames tab.
 local _, ns = ...
@@ -18,12 +23,21 @@ local UI = ns.OptionsUI
 local C = UI.colors
 local E = ns.editor
 
-local W, H = 1000, 620
-local PAD, LIST_W, BODY_W, TAB_H, FOOT = 14, 160, 270, 24, 58
-local ROW_H, HEAD_H, GAP, CHIP_H = 22, 16, 6, 24
-local TAB_Y = PAD + 24                  -- the frame tabs' top, under their group's caption
-local TOP = TAB_Y + TAB_H + 10          -- the list's, the canvas's and the body's top
-local PIECE_TAB_H = 22                  -- the piece's tabs (Place, Look, Auras)
+-- the Settings window's measures (options/window.lua)
+local W, H = 1040, 680
+local EDGE, BAR_H, SIDE_W, FOOT = 1, 34, 200, 40
+local X, RIGHT = EDGE + SIDE_W + 18, 16          -- the page's left, its right margin
+local HEAD_TOP, HEAD_H, STRIP_H = EDGE + BAR_H + 14, 50, 26
+local TOP = HEAD_TOP + HEAD_H + STRIP_H - 4 + 12  -- the cards' top, under the frames' tabs
+local BOTTOM = EDGE + FOOT + 14                   -- the cards' foot, over the footer
+local CARD_PAD, BAND_H, COL_GAP, ROW_GAP = 12, 36, 12, 4
+local ITEM_H, CAT_H = 24, 28                      -- the sidebar's rows: a piece, a group's heading
+local CANVAS_W = 480                              -- the canvas's card; the piece's takes the rest
+local BODY_W = W - X - RIGHT - CANVAS_W - COL_GAP
+local ROWS_W = BODY_W - 2 * CARD_PAD              -- a row's width in the piece's card
+local PIECE_TAB_H = 22                            -- the piece's tabs (Place, Look, Auras)
+local BODY_FOOT = 44                              -- the piece's card's foot: Reset piece
+local GAP = ROW_GAP
 
 local window, tabs, list, stage, body, chips
 local frame, piece        -- what is chosen: the frame (E.FRAMES) and its piece
@@ -242,8 +256,9 @@ local function Laid()
 end
 local laid
 
--- The piece's tabs across the body, in the settings window's look: the
--- chosen one lit, its foot open onto what it holds.
+-- The piece's tabs across its card, under the band: one well, as wide as
+-- the card, the chosen tab lit with a gold foot (the Settings window's
+-- segmented control). A piece with one tab has none.
 local function Strip(y)
     local strip = body.tabStrip
     local t, all = Tab()
@@ -251,63 +266,58 @@ local function Strip(y)
     strip:SetShown(#all > 1)
     if #all < 2 then return y end
     strip:ClearAllPoints()
-    strip:SetPoint("TOPLEFT", body, "TOPLEFT", 0, y)
-    strip:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, y)
-    local x = 0
+    strip:SetPoint("TOPLEFT", body, "TOPLEFT", CARD_PAD, y)
+    strip:SetPoint("TOPRIGHT", body, "TOPRIGHT", -CARD_PAD, y)
+    local w = math.floor(ROWS_W / #all)
     for i, one in ipairs(all) do
         local b = strip.tabs[i]
         b.id = one.id
         b.text:SetText(TAB_NAMES[one.id])
-        b:SetWidth(math.ceil(b.text:GetStringWidth()) + 24)
+        b:SetWidth(i < #all and w or ROWS_W - w * (#all - 1))
         b:ClearAllPoints()
-        b:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", x, 0)
+        b:SetPoint("TOPLEFT", strip, "TOPLEFT", w * (i - 1), 0)
         local on = one == t
-        local bg = on and C.selected or C.ink
-        b.bg:SetColorTexture(bg[1], bg[2], bg[3], 1)
-        for _, line in ipairs(b.edge) do
-            local c = on and C.gold or C.goldDark
-            line:SetColorTexture(c[1], c[2], c[3], 1)
-        end
-        b.edge[2]:SetShown(not on)
+        b.on = on
+        b.lit:SetShown(on)
+        b.foot:SetShown(on)
+        b.sep:SetShown(i > 1)
         local c = on and C.goldBright or C.dim
         b.text:SetTextColor(c[1], c[2], c[3])
         b:Show()
-        x = x + b:GetWidth() + 4
     end
-    return y - PIECE_TAB_H - 10
+    return y - PIECE_TAB_H - 8
 end
 
--- Shown, the tabs, and the chosen tab's controls, one to a line. Should a
--- tab ever hold more than the column (none does: the harness measures
--- every one), its lines close up rather than run into the footer.
+-- The chosen tab's controls, a row each, a hairline between them (Shown is
+-- in the card's band). Should a tab ever hold more than the card (none
+-- does: the harness measures every one), its rows close up rather than run
+-- into Reset piece.
 local function Lay()
     laid = Laid()
     local t = Tab()
     window.tab = t.id
+    local kind = E.PIECES[piece].type
     local function Down(gap)
         for _, c in pairs(controls) do c:Hide() end
-        local y = -30
-        if E.PIECES[piece].type ~= "cell" and E.PIECES[piece].type ~= "bar" then
-            local c = controls.shown
-            c:ClearAllPoints()
-            c:SetPoint("TOPLEFT", body, "TOPLEFT", 0, y)
-            c:Show()
-            y = y - c:GetHeight() - gap
-        end
-        y = Strip(y)
-        for _, field in ipairs(t.fields) do
+        if kind ~= "cell" and kind ~= "bar" then controls.shown:Show() end
+        local y = Strip(-(BAND_H + 10))
+        for i, field in ipairs(t.fields) do
             local c = controls[field]
             c:ClearAllPoints()
-            c:SetPoint("TOPLEFT", body, "TOPLEFT", 0, y)
+            c:SetPoint("TOPLEFT", body, "TOPLEFT", CARD_PAD, y)
+            c.hair:ClearAllPoints()
+            c.hair:SetPoint("BOTTOMLEFT", c, "TOPLEFT", -(CARD_PAD - 1), gap / 2)
+            c.hair:SetPoint("BOTTOMRIGHT", c, "TOPRIGHT", CARD_PAD - 1, gap / 2)
+            c.hair:SetShown(i > 1)
             c:Show()
             y = y - c:GetHeight() - gap
         end
         controls.reset:Show()
         return -(y + gap)
     end
-    -- (the body's height from the window's sizes: read off the body, it is
+    -- (the card's height from the window's sizes: read off the card, it is
     -- 0 until the game first lays it out)
-    if Down(GAP) > H - (TOP + 4) - FOOT then Down(2) end
+    if Down(GAP) > H - TOP - BOTTOM - BODY_FOOT then Down(1) end
 end
 
 -- ------------------------------------------------------------ choosing
@@ -339,20 +349,23 @@ local NOTES = {
     boss = "The Boss widget, while Console > Layout > Boss frames shows it.",
     arena = "The Arena widget's enemy frames.",
 }
-local function Scope()
+-- Whose the frame's places are: the console profile's, or every profile's.
+local function Whose()
     local profile = ns.db.consoleProfile
     for _, p in ipairs(ns.PROFILE_NAMES) do if p[1] == profile then profile = p[2] end end
-    local whose = ns.PER_PROFILE[frame.key] and ("Per profile: " .. profile .. ".")
-        or "Shared by every profile."
-    local shown = false
-    for _, b in ipairs(frame.buttons()) do if b:IsVisible() then shown = true end end
+    return ns.PER_PROFILE[frame.key] and ("Per profile: " .. profile) or "Shared by every profile"
+end
+-- The header's (?): what the frame is, and whose.
+local function About() return NOTES[frame.id] .. " " .. Whose() .. "." end
+-- Over the canvas: why a frame is not on screen now, else nothing.
+local function Scope()
+    for _, b in ipairs(frame.buttons()) do if b:IsVisible() then return "" end end
     -- the party is one or the other: the preview cannot show the one its
     -- layout does not use
-    local why = " Not on screen now: Preview shows it."
     local widget = ns.PartyWidgetLayout and ns.PartyWidgetLayout()
-    if frame.id == "partyWidget" and not widget then why = " Not on screen now: the party layout is Console."
-    elseif frame.id == "party" and widget then why = " Not on screen now: the party layout is Widget." end
-    return NOTES[frame.id] .. " " .. whose .. (shown and "" or why)
+    if frame.id == "partyWidget" and not widget then return "Not on screen now: the party layout is Console." end
+    if frame.id == "party" and widget then return "Not on screen now: the party layout is Widget." end
+    return "Not on screen now: Preview, below, shows it."
 end
 
 -- ------------------------------------------------------------ the list
@@ -364,23 +377,50 @@ local GROUPS = {
     { name = "Auras", types = { row = true } },
 }
 
--- The list's i-th line, made the first time it is wanted: a piece (its
--- name, lit when chosen, a mark when changed) or a group's heading.
+-- The sidebar's i-th line, made the first time it is wanted: a group's
+-- heading (its glyph and name, gold: every group is open), or a piece (its
+-- name; the chosen one lit, a faint gold fill and a gold bar at the
+-- sidebar's edge; a changed one with a gold mark at its right; another
+-- lifts under the pointer).
 local function List(i)
     local row = list.rows[i]
     if row then return row end
     row = CreateFrame("Button", nil, list)
-    row.lit = UI.Fill(row, "BACKGROUND", C.selected, 1)
+    row.lift = UI.Fill(row, "BACKGROUND", C.lift, 1)
+    row.lift:SetAllPoints()
+    row.lift:Hide()
+    row.lit = UI.Fill(row, "BACKGROUND", C.lit, 2)
     row.lit:SetAllPoints()
-    row.text = UI.Serif(row, 13, C.text)
-    row.text:SetPoint("LEFT", 10, 0)
-    row.head = UI.Plain(row, 10, C.goldDark)
-    row.head:SetPoint("BOTTOMLEFT", 8, 1)
-    -- a mark on a piece the player changed
+    row.bar = UI.Fill(row, "ARTWORK", C.goldBright)
+    row.bar:SetWidth(3)
+    row.bar:SetPoint("TOPLEFT", -6, 0)
+    row.bar:SetPoint("BOTTOMLEFT", -6, 0)
+    row.text = UI.Serif(row, 12, C.dim)
+    row.text:SetPoint("LEFT", 20, 0)
+    row.glyph = UI.Fill(row, "ARTWORK", C.goldBright)
+    row.glyph:SetSize(6, 6)
+    row.glyph:SetPoint("LEFT", 9, -3)
+    if row.glyph.SetRotation then row.glyph:SetRotation(math.pi / 4) end
+    row.head = UI.Plain(row, 10, C.gold)
+    row.head:SetPoint("LEFT", 25, -3)
     row.mark = UI.Fill(row, "ARTWORK", C.gold)
-    row.mark:SetSize(4, 4)
-    row.mark:SetPoint("RIGHT", -8, 0)
+    row.mark:SetSize(5, 5)
+    row.mark:SetPoint("RIGHT", -10, 0)
     row:SetScript("OnClick", function(self) if self.piece then Choose(frame.id, self.piece) end end)
+    row:SetScript("OnEnter", function(self)
+        if not self.piece or self.piece == piece then return end
+        self.lift:Show()
+        self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+        UI.Tip(self, E.PIECES[self.piece].label, E.Edits(frame, self.piece) and "Changed: Reset piece puts it back."
+            or "As its frame draws it.")
+    end)
+    row:SetScript("OnLeave", function(self)
+        self.lift:Hide()
+        if GameTooltip then GameTooltip:Hide() end
+        if not self.piece then return end
+        local c = self.piece == piece and C.goldBright or E.Edits(frame, self.piece) and C.text or C.dim
+        self.text:SetTextColor(c[1], c[2], c[3])
+    end)
     list.rows[i] = row
     return row
 end
@@ -392,9 +432,9 @@ function Refresh()
     if laid ~= Laid() then Lay() end
     for _, b in ipairs(tabs) do
         local on = b.frame == frame
-        local bg, text = on and C.selected or C.ink, on and C.goldBright or C.dim
-        b.bg:SetColorTexture(bg[1], bg[2], bg[3], 1)
-        b.text:SetTextColor(text[1], text[2], text[3])
+        b.foot:SetShown(on)
+        local c = on and C.goldBright or C.dim
+        b.text:SetTextColor(c[1], c[2], c[3])
     end
     -- the pieces under their group's heading; a group the frame has none
     -- of, no heading
@@ -410,44 +450,56 @@ function Refresh()
             head.piece = nil
             head.heading = group.name
             head:EnableMouse(false)
-            head:SetHeight(HEAD_H)
+            head:SetHeight(CAT_H)
             head.lit:Hide()
+            head.bar:Hide()
+            head.lift:Hide()
             head.mark:Hide()
             head.text:Hide()
             head.head:SetText(group.name:upper())
             head.head:Show()
+            head.glyph:Show()
             head:ClearAllPoints()
-            head:SetPoint("TOPLEFT", 4, y)
-            head:SetPoint("TOPRIGHT", -4, y)
+            head:SetPoint("TOPLEFT", 0, y)
+            head:SetPoint("TOPRIGHT", 0, y)
             head:Show()
-            y = y - HEAD_H - 4
+            y = y - CAT_H
             for _, id in ipairs(ids) do
                 i = i + 1
                 local row = List(i)
                 row.piece = id
                 row.heading = nil
                 row:EnableMouse(true)
-                row:SetHeight(ROW_H)
+                row:SetHeight(ITEM_H)
                 row.head:Hide()
+                row.glyph:Hide()
                 row.text:SetText(E.PIECES[id].label)
                 row.text:Show()
-                row.lit:SetShown(id == piece)
+                local on = id == piece
+                row.lit:SetShown(on)
+                row.bar:SetShown(on)
                 local edited = E.Edits(frame, id) ~= nil
-                local c = id == piece and C.goldBright or edited and C.text or C.dim
+                local c = on and C.goldBright or (edited or row.lift:IsShown()) and C.text or C.dim
                 row.text:SetTextColor(c[1], c[2], c[3])
                 row.mark:SetShown(edited)
                 row:ClearAllPoints()
-                row:SetPoint("TOPLEFT", 4, y)
-                row:SetPoint("TOPRIGHT", -4, y)
+                row:SetPoint("TOPLEFT", 6, y)
+                row:SetPoint("TOPRIGHT", -6, y)
                 row:Show()
-                y = y - ROW_H - 2
+                y = y - ITEM_H
             end
+            y = y - 4
         end
     end
     for k = i + 1, #list.rows do list.rows[k]:Hide() end
+    -- the header: the frame, the console's or the widgets' and whose
+    window.pageTitle:SetText(frame.name)
+    window.crumb:SetText((ns.PER_PROFILE[frame.key] and "Console" or "Widgets") .. "   \194\183   " .. Whose())
+    window.more.tip = About()
+    -- the canvas's card: the frame; the piece's: its name, Changed
+    window.canvasCard.title:SetText(frame.name)
     body.title:SetText(E.PIECES[piece].label)
-    -- (the canvas sets it as it draws, too: the room it leaves)
-    stage.scope:SetText(Scope())
+    body.changed:SetShown(E.Edits(frame, piece) ~= nil)
     for field, c in pairs(controls) do
         if c:IsShown() and c.Refresh then
             -- a hidden piece's other fields stay set, but wait
@@ -460,13 +512,14 @@ function Refresh()
             c:Refresh(enabled)
         end
     end
-    window.preview:SetText(ns.db.simParty and "Preview: on" or "Preview")
+    window.preview:Refresh(true)
     for _, b in ipairs(chips) do
         local on = E.preview[b.id] and true or false
-        local bg, text = on and C.selected or C.ink, on and C.goldBright or C.dim
-        b.bg:SetColorTexture(bg[1], bg[2], bg[3], 1)
-        b.text:SetTextColor(text[1], text[2], text[3])
-        for _, t in ipairs(b.edge) do t:SetShown(on) end
+        b.on = on
+        b.lit:SetShown(on)
+        b.foot:SetShown(on)
+        local c = on and C.goldBright or b.lift:IsShown() and C.text or C.dim
+        b.text:SetTextColor(c[1], c[2], c[3])
         if b.swatch then
             local key = b.id == "threat" and "threatColor" or ("dispelColor" .. b.id)
             b.swatch:SetColorTexture(ns.HexColor(ns.db[key]))
@@ -500,48 +553,93 @@ ns.On("PLAYER_REGEN_DISABLED", function() Keys(false) end)
 ns.On("PLAYER_REGEN_ENABLED", function() if window and window:IsShown() then Keys(true) end end)
 
 -- ------------------------------------------------------------ the chips
--- The canvas's previews (E.PREVIEWS), a chip each, across the footer: a
--- dispel type's and the aggro's with their colour's swatch.
-local function Chips(from, to)
-    chips = {}
-    local n = #E.PREVIEWS
-    local w = math.floor((to - from - (n - 1) * 4) / n)
-    -- (what the rounding leaves, either side alike)
-    from = from + math.floor((to - from - n * w - (n - 1) * 4) / 2)
-    for i, p in ipairs(E.PREVIEWS) do
-        local b = CreateFrame("Button", nil, window)
-        b:SetSize(w, CHIP_H)
-        b:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", from + (i - 1) * (w + 4), 10)
-        b.bg = UI.Fill(b, "BACKGROUND", C.ink, 1)
-        b.bg:SetAllPoints()
-        UI.Outline(b, "BORDER", C.goldDark, 0)
-        b.edge = UI.Outline(b, "OVERLAY", C.goldBright, 0)
-        b.id = p[1]
-        b.text = UI.Serif(b, 11, C.dim)
-        if p.dispel or p[1] == "threat" then
-            b.swatch = UI.Fill(b, "ARTWORK", C.gold)
-            b.swatch:SetSize(6, 6)
-            b.swatch:SetPoint("LEFT", 4, 0)
-            b.text:SetPoint("LEFT", b.swatch, "RIGHT", 3, 0)
-            b.text:SetPoint("RIGHT", -2, 0)
-        else
-            b.text:SetPoint("CENTER", 0, 0)
-        end
-        b.text:SetText(p[2])
-        b:SetScript("OnClick", function(self)
-            E.TogglePreview(self.id)
-            Refresh()
-        end)
-        b:SetScript("OnEnter", function(self)
-            UI.Tip(self, p[2], p.dispel and ("A " .. p[2] .. " debuff's glow on the canvas, in its colour (Unit "
-                .. "Frames > General > Glows). One type at a time.")
-                or p[1] == "threat" and "The aggro glow on the canvas, and the console's tint red."
-                or p[1] == "combat" and "The console's combat tint, on screen."
-                or "Shown on the canvas, as in play.")
-        end)
-        b:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
-        chips[i] = b
+-- The canvas's previews (E.PREVIEWS) under it, in two wells as the
+-- Settings window's segmented control, each name at its left: Glow, the
+-- dispel types' (one at a time), each with its colour's swatch; Show, the
+-- rest, the aggro's with its swatch. A chip on is lit with a gold foot.
+local DISPEL = {}
+for _, p in ipairs(E.PREVIEWS) do if p.dispel then DISPEL[p[1]] = true end end
+
+local function ChipTip(p)
+    if p.dispel then
+        return "A " .. p[2] .. " debuff's glow on the canvas, in its colour (Unit Frames > General > Glows). "
+            .. "One type at a time."
     end
+    if p[1] == "threat" then return "The aggro glow on the canvas, and the console's tint red." end
+    if p[1] == "combat" then return "The console's combat tint, on screen." end
+    return "Shown on the canvas, as in play."
+end
+
+local function Chips(parent, name, dispel)
+    local holder = CreateFrame("Frame", nil, parent)
+    holder:SetHeight(UI.SEG_H)
+    holder.name = UI.Plain(holder, 11, C.faint)
+    holder.name:SetPoint("LEFT", 0, 0)
+    holder.name:SetText(name)
+    local box = CreateFrame("Frame", nil, holder)
+    box:SetHeight(UI.SEG_H)
+    box:SetPoint("LEFT", 44, 0)
+    UI.Fill(box, "BACKGROUND", C.well, 1):SetAllPoints()
+    UI.Outline(box, "BORDER", C.lineStrong, 0)
+    local x, first = 0, true
+    for _, p in ipairs(E.PREVIEWS) do
+        if (p.dispel and true or false) == dispel then
+            local swatch = p.dispel or p[1] == "threat"
+            local b = CreateFrame("Button", nil, box)
+            b:SetSize(math.max(UI.SEG_MIN, UI.TextWidth(p[2]) + UI.SEG_PAD + (swatch and 11 or 0)), UI.SEG_H)
+            b:SetPoint("TOPLEFT", x, 0)
+            b.id = p[1]
+            b.lit = UI.Fill(b, "ARTWORK", C.lit, 1)
+            b.lit:SetPoint("TOPLEFT", 1, -1)
+            b.lit:SetPoint("BOTTOMRIGHT", -1, 1)
+            b.lift = UI.Fill(b, "ARTWORK", C.lift, 0)
+            b.lift:SetPoint("TOPLEFT", 1, -1)
+            b.lift:SetPoint("BOTTOMRIGHT", -1, 1)
+            b.lift:Hide()
+            b.foot = UI.Fill(b, "ARTWORK", C.goldBright, 2)
+            b.foot:SetHeight(2)
+            b.foot:SetPoint("BOTTOMLEFT", 1, 1)
+            b.foot:SetPoint("BOTTOMRIGHT", -1, 1)
+            if not first then
+                local sep = UI.Fill(b, "ARTWORK", C.line, 3)
+                sep:SetWidth(1)
+                sep:SetPoint("TOPLEFT", 0, -1)
+                sep:SetPoint("BOTTOMLEFT", 0, 1)
+            end
+            b.text = UI.Plain(b, 12, C.dim)
+            b.text:SetText(p[2])
+            if swatch then
+                b.swatch = UI.Fill(b, "ARTWORK", C.gold, 4)
+                b.swatch:SetSize(6, 6)
+                b.swatch:SetPoint("LEFT", 9, 0)
+                b.text:SetPoint("LEFT", b.swatch, "RIGHT", 5, 0)
+            else
+                b.text:SetPoint("CENTER", 0, 0)
+            end
+            b:SetScript("OnClick", function(self)
+                E.TogglePreview(self.id)
+                Refresh()
+            end)
+            b:SetScript("OnEnter", function(self)
+                if not self.on then
+                    self.lift:Show()
+                    self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+                end
+                UI.Tip(self, p[2], ChipTip(p))
+            end)
+            b:SetScript("OnLeave", function(self)
+                self.lift:Hide()
+                local c = self.on and C.goldBright or C.dim
+                self.text:SetTextColor(c[1], c[2], c[3])
+                if GameTooltip then GameTooltip:Hide() end
+            end)
+            chips[#chips + 1] = b
+            x, first = x + b:GetWidth(), false
+        end
+    end
+    box:SetWidth(x)
+    holder:SetWidth(44 + x)
+    return holder
 end
 
 -- ------------------------------------------------------------ the window
@@ -561,6 +659,299 @@ local function Grip(f)
     end)
 end
 
+-- A bar of the window's chrome (its head or its footer), a hairline on its
+-- inner edge.
+local function Bar(top)
+    local bar = CreateFrame("Frame", nil, window)
+    bar:SetPoint(top and "TOPLEFT" or "BOTTOMLEFT", EDGE, top and -EDGE or EDGE)
+    bar:SetPoint(top and "TOPRIGHT" or "BOTTOMRIGHT", -EDGE, top and -EDGE or EDGE)
+    bar:SetHeight(top and BAR_H or FOOT)
+    bar:SetFrameLevel(window:GetFrameLevel() + 5)
+    UI.Fill(bar, "BACKGROUND", C.chrome, 1):SetAllPoints()
+    local rule = UI.Fill(bar, "BORDER", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint(top and "BOTTOMLEFT" or "TOPLEFT", 0, 0)
+    rule:SetPoint(top and "BOTTOMRIGHT" or "TOPRIGHT", 0, 0)
+    return bar
+end
+
+-- The head: the window's name, Medalluin and the version; the x in its own
+-- cell, red under the pointer. All of it drags the window.
+local function Head()
+    local bar = Bar(true)
+    Grip(bar)
+    local text = UI.Serif(bar, 15, C.goldBright)
+    text:SetPoint("LEFT", 14, 0)
+    text:SetText("Unit Frame Editor")
+    local get = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+    local version = get and get("Medalluin", "Version")
+    local sub = UI.Plain(bar, 11, C.faint)
+    sub:SetPoint("LEFT", text, "RIGHT", 10, -1)
+    sub:SetText("Medalluin" .. (version and ("  \194\183  " .. version) or ""))
+    window.title, window.version = text, sub
+    local x = CreateFrame("Button", nil, bar)
+    x:SetSize(BAR_H, BAR_H - 1)
+    x:SetPoint("TOPRIGHT", 0, 0)
+    x.lit = UI.Fill(x, "BACKGROUND", C.red, 1)
+    x.lit:SetAllPoints()
+    x.lit:Hide()
+    local seam = UI.Fill(x, "BORDER", C.line)
+    seam:SetWidth(1)
+    seam:SetPoint("TOPLEFT", 0, 0)
+    seam:SetPoint("BOTTOMLEFT", 0, 0)
+    x.glyph = x:CreateTexture(nil, "ARTWORK")
+    x.glyph:SetTexture(ns.media .. "strips\\close")
+    x.glyph:SetSize(14, 14)
+    x.glyph:SetPoint("CENTER", 0, 0)
+    x.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    x:SetScript("OnClick", function() window:Hide() end)
+    x:SetScript("OnEnter", function(self)
+        self.lit:Show()
+        self.glyph:SetVertexColor(0.949, 0.847, 0.784, 1)
+    end)
+    x:SetScript("OnLeave", function(self)
+        self.lit:Hide()
+        self.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+    end)
+    window.closeX = x
+end
+
+-- The sidebar: the chosen frame's pieces (Refresh lays them).
+local function Sidebar()
+    local side = CreateFrame("Frame", nil, window)
+    side:SetPoint("TOPLEFT", EDGE, -(EDGE + BAR_H))
+    side:SetPoint("BOTTOMLEFT", EDGE, EDGE + FOOT)
+    side:SetWidth(SIDE_W)
+    UI.Fill(side, "BACKGROUND", C.chrome, 1):SetAllPoints()
+    local rule = UI.Fill(side, "BORDER", C.line)
+    rule:SetWidth(1)
+    rule:SetPoint("TOPRIGHT", 0, 0)
+    rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    list = CreateFrame("Frame", nil, side)
+    list:SetPoint("TOPLEFT", 0, -4)
+    list:SetPoint("BOTTOMRIGHT", -1, 4)
+    list.rows = {}
+    window.side = side
+end
+
+-- The page's header: the frame's name, the console's or the widgets' and
+-- whose, a (?) saying what the frame is; the frames as its sheets along its
+-- foot, the console's, then (a gap) the widgets'; a hairline under.
+local function Header()
+    local head = CreateFrame("Frame", nil, window)
+    head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -HEAD_TOP)
+    head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -RIGHT, -HEAD_TOP)
+    head:SetHeight(HEAD_H + STRIP_H - 4)
+    window.head = head
+    window.pageTitle = UI.Serif(head, 20, C.text)
+    window.pageTitle:SetPoint("TOPLEFT", 0, -2)
+    window.crumb = UI.Plain(head, 12, C.faint)
+    window.crumb:SetPoint("TOPLEFT", 0, -28)
+    local q = CreateFrame("Button", nil, head)
+    q:SetSize(22, 16)
+    q:SetPoint("LEFT", window.crumb, "RIGHT", 6, 0)
+    q.text = UI.Plain(q, 12, C.gold)
+    q.text:SetPoint("CENTER", 0, 0)
+    q.text:SetText("(?)")
+    q:SetScript("OnEnter", function(self)
+        self.text:SetTextColor(C.goldBright[1], C.goldBright[2], C.goldBright[3])
+        UI.Tip(self, window.pageTitle:GetText(), self.tip)
+    end)
+    q:SetScript("OnLeave", function(self)
+        self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3])
+        if GameTooltip then GameTooltip:Hide() end
+    end)
+    window.more = q
+    local rule = UI.Fill(head, "ARTWORK", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint("BOTTOMLEFT", 0, 0)
+    rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    tabs = {}
+    local left, group = 0, nil
+    for i, f in ipairs(E.FRAMES) do
+        local console = ns.PER_PROFILE[f.key] and true or false
+        if group ~= nil and console ~= group then left = left + 16 end
+        group = console
+        local b = CreateFrame("Button", nil, head)
+        b:SetHeight(STRIP_H)
+        b.lift = UI.Fill(b, "BACKGROUND", C.lift, 1)
+        b.lift:SetAllPoints()
+        b.lift:Hide()
+        b.text = UI.Serif(b, 13, C.dim)
+        b.text:SetPoint("CENTER", 0, 1)
+        b.text:SetText(f.name)
+        b:SetWidth(math.ceil(b.text:GetStringWidth()) + 28)
+        b.foot = UI.Fill(b, "OVERLAY", C.goldBright)
+        b.foot:SetHeight(2)
+        b.foot:SetPoint("BOTTOMLEFT", 8, 0)
+        b.foot:SetPoint("BOTTOMRIGHT", -8, 0)
+        b:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", left, 1)
+        left = left + b:GetWidth() + 2
+        b.frame, b.console = f, console
+        b:SetScript("OnClick", function(self) Choose(self.frame.id, piece) end)
+        b:SetScript("OnEnter", function(self)
+            if self.frame ~= frame then
+                self.lift:Show()
+                self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+            end
+            UI.Tip(self, self.frame.name, NOTES[self.frame.id] .. (self.console and " Per profile."
+                or " Shared by every profile."))
+        end)
+        b:SetScript("OnLeave", function(self)
+            self.lift:Hide()
+            local c = self.frame == frame and C.goldBright or C.dim
+            self.text:SetTextColor(c[1], c[2], c[3])
+            if GameTooltip then GameTooltip:Hide() end
+        end)
+        tabs[i] = b
+    end
+    -- what the gap between them means, at their right
+    window.groups = UI.Plain(head, 11, C.faint)
+    window.groups:SetPoint("BOTTOMRIGHT", 0, 7)
+    window.groups:SetText("Console: per profile  \194\183  Widgets: shared")
+end
+
+-- A card: a step lighter than the page, its title in a band across its
+-- top, a hairline under the band.
+local function Card(x, width, title)
+    local card = CreateFrame("Frame", nil, window)
+    card:SetPoint("TOPLEFT", window, "TOPLEFT", x, -TOP)
+    card:SetSize(width, H - TOP - BOTTOM)
+    UI.Fill(card, "BACKGROUND", C.raised, 1):SetAllPoints()
+    UI.Outline(card, "BORDER", C.line, 0)
+    local rule = UI.Fill(card, "ARTWORK", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint("TOPLEFT", 1, -BAND_H)
+    rule:SetPoint("TOPRIGHT", -1, -BAND_H)
+    card.title = UI.Serif(card, 14, C.text)
+    card.title:SetPoint("LEFT", card, "TOPLEFT", CARD_PAD, -BAND_H / 2)
+    card.title:SetText(title or "")
+    return card
+end
+
+-- A chip after a card's title: small, gold-edged.
+local function Chip(card, text)
+    local chip = CreateFrame("Frame", nil, card)
+    chip:SetHeight(14)
+    chip:SetPoint("LEFT", card.title, "RIGHT", 8, 0)
+    UI.Outline(chip, "BORDER", { C.gold[1], C.gold[2], C.gold[3], 0.45 }, 0)
+    chip.text = UI.Plain(chip, 10, C.gold)
+    chip.text:SetPoint("CENTER", 0, 0)
+    function chip:SetText(t)
+        self.text:SetText(t or "")
+        self:SetWidth(math.ceil(self.text:GetStringWidth() or 0) + 10)
+    end
+    chip:SetText(text)
+    return chip
+end
+
+-- The canvas's card: the frame's name, the zoom, Fit and Reset frame in
+-- its band; the canvas in a well; the previews under it.
+local function CanvasCard()
+    local card = Card(X, CANVAS_W)
+    window.canvasCard = card
+    local height = H - TOP - BOTTOM
+    stage = ns.EditorStage(card)
+    stage:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_PAD, -(BAND_H + 10))
+    stage:SetSize(CANVAS_W - 2 * CARD_PAD, height - BAND_H - 10 - 2 * (UI.SEG_H + 10) - 10)
+    stage.zoom = Chip(card, "100%")
+    local reset = UI.Button(card, "Reset frame", 86, 22, function() E.ResetFrame(frame) end,
+        "Every piece of this frame back to how it draws it.", "quiet")
+    reset:SetPoint("RIGHT", card, "TOPRIGHT", -8, -BAND_H / 2)
+    window.reset = reset
+    local fit = UI.Button(card, "Fit", 40, 22, function() if stage.Fit then stage.Fit() end end,
+        "The whole frame in view again, at the size that fits (or double-click the canvas).", "quiet")
+    fit:SetPoint("RIGHT", reset, "LEFT", -2, 0)
+    window.fit = fit
+    chips = {}
+    local glow = Chips(card, "Glow", true)
+    glow:SetPoint("TOPLEFT", stage, "BOTTOMLEFT", 0, -10)
+    local show = Chips(card, "Show", false)
+    show:SetPoint("TOPLEFT", glow, "BOTTOMLEFT", 0, -10)
+    window.glowChips, window.showChips = glow, show
+end
+
+-- The piece's card: its name, Changed and Shown in its band; its tabs, its
+-- rows (Lay); Reset piece at its foot.
+local function PieceCard()
+    body = Card(X + CANVAS_W + COL_GAP, BODY_W)
+    body.changed = Chip(body, "Changed")
+    local strip = CreateFrame("Frame", nil, body)
+    strip:SetHeight(PIECE_TAB_H)
+    UI.Fill(strip, "BACKGROUND", C.well, 1):SetAllPoints()
+    UI.Outline(strip, "BORDER", C.lineStrong, 0)
+    strip.tabs = {}
+    for i = 1, 3 do
+        local b = CreateFrame("Button", nil, strip)
+        b:SetHeight(PIECE_TAB_H)
+        b.lit = UI.Fill(b, "ARTWORK", C.lit, 1)
+        b.lit:SetPoint("TOPLEFT", 1, -1)
+        b.lit:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.lift = UI.Fill(b, "ARTWORK", C.lift, 0)
+        b.lift:SetPoint("TOPLEFT", 1, -1)
+        b.lift:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.lift:Hide()
+        b.foot = UI.Fill(b, "ARTWORK", C.goldBright, 2)
+        b.foot:SetHeight(2)
+        b.foot:SetPoint("BOTTOMLEFT", 1, 1)
+        b.foot:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.sep = UI.Fill(b, "ARTWORK", C.line, 3)
+        b.sep:SetWidth(1)
+        b.sep:SetPoint("TOPLEFT", 0, -1)
+        b.sep:SetPoint("BOTTOMLEFT", 0, 1)
+        b.text = UI.Plain(b, 12, C.dim)
+        b.text:SetPoint("CENTER", 0, 0)
+        b:SetScript("OnClick", function(self)
+            tab = self.id
+            Lay()
+            Refresh()
+        end)
+        b:SetScript("OnEnter", function(self)
+            if self.on then return end
+            self.lift:Show()
+            self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+        end)
+        b:SetScript("OnLeave", function(self)
+            self.lift:Hide()
+            local c = self.on and C.goldBright or C.dim
+            self.text:SetTextColor(c[1], c[2], c[3])
+        end)
+        b:Hide()
+        strip.tabs[i] = b
+    end
+    body.tabStrip = strip
+    -- the foot: a hairline over it, a word on when changes apply, Reset piece
+    local rule = UI.Fill(body, "ARTWORK", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint("BOTTOMLEFT", 1, BODY_FOOT)
+    rule:SetPoint("BOTTOMRIGHT", -1, BODY_FOOT)
+    body.applied = UI.Plain(body, 11, C.faint)
+    body.applied:SetPoint("BOTTOMLEFT", CARD_PAD, 16)
+    body.applied:SetText("Applied as you change it")
+end
+
+-- The footer: the preview (a party, a raid, bosses and an arena to edit
+-- out of a group) at its left, Close at its right.
+local function Footer()
+    local bar = Bar(false)
+    window.foot = bar
+    local spec = { kind = "check", key = "simParty", label = "Preview",
+        tip = "Simulated party, raid, bosses and arena enemies to edit out of a group; their panel sets what "
+            .. "they show." }
+    local preview = UI.Switch(bar, spec)
+    preview:SetPoint("LEFT", 14, 0)
+    preview.text = UI.Plain(bar, 12, C.text)
+    preview.text:SetPoint("LEFT", preview, "RIGHT", 10, 0)
+    preview.text:SetText("Preview")
+    preview.line = UI.Plain(bar, 11, C.faint)
+    preview.line:SetPoint("LEFT", preview.text, "RIGHT", 10, 0)
+    preview.line:SetText("A party, a raid, bosses and an arena to edit out of a group")
+    window.preview = preview
+    local close = UI.Button(bar, "Close", 64, 26, function() window:Hide() end, nil, "quiet")
+    close:SetPoint("RIGHT", -8, 0)
+    window.close = close
+end
+
 local function Window()
     if window then return end
     window = CreateFrame("Frame", "MedalluinEditor", UIParent)
@@ -576,7 +967,10 @@ local function Window()
     else
         window:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
     end
-    UI.Skin(window, C.panel)
+    -- the page's tone; a hairline edge, a faint gold ring outside it
+    UI.Fill(window, "BACKGROUND", C.page, 1):SetAllPoints()
+    UI.Outline(window, "BORDER", C.lineStrong, 0)
+    UI.Outline(window, "BORDER", { C.gold[1], C.gold[2], C.gold[3], 0.35 }, -1)
     window:Hide()
     if UISpecialFrames then table.insert(UISpecialFrames, "MedalluinEditor") end
     window:SetScript("OnShow", function()
@@ -590,106 +984,15 @@ local function Window()
     end)
     window:SetScript("OnKeyDown", Key)
 
-    local title = CreateFrame("Frame", nil, window)
-    title:SetHeight(28)
-    title:SetPoint("CENTER", window, "TOP", 0, 0)
-    title:SetFrameLevel(window:GetFrameLevel() + 5)
-    UI.Skin(title, C.ink)
-    local text = UI.Serif(title, 15, C.goldBright)
-    text:SetPoint("CENTER", 0, 0)
-    text:SetText("Unit Frame Editor")
-    title:SetWidth(math.ceil(text:GetStringWidth()) + 44)
-    Grip(title)
+    Head()
+    Sidebar()
+    Header()
+    CanvasCard()
+    PieceCard()
+    Footer()
 
-    local x = CreateFrame("Button", nil, window)
-    x:SetSize(20, 20)
-    x:SetPoint("TOPRIGHT", -8, -6)
-    x.text = UI.Serif(x, 14, C.gold)
-    x.text:SetPoint("CENTER", 0, 1)
-    x.text:SetText("x")
-    x:SetScript("OnClick", function() window:Hide() end)
-
-    -- the frames, as tabs: the console's (per profile), then the widgets
-    -- (shared), each group under its caption
-    tabs = {}
-    window.captions = {}
-    local left, group = PAD, nil
-    for i, f in ipairs(E.FRAMES) do
-        local console = ns.PER_PROFILE[f.key] and true or false
-        if console ~= group then
-            if group ~= nil then left = left + 10 end
-            group = console
-            local cap = UI.Plain(window, 9, C.goldDark)
-            cap:SetPoint("BOTTOMLEFT", window, "TOPLEFT", left + 2, -(TAB_Y - 2))
-            cap:SetText(console and "CONSOLE" or "WIDGETS")
-            window.captions[#window.captions + 1] = cap
-            cap.first = f
-        end
-        local b = CreateFrame("Button", nil, window)
-        b:SetHeight(TAB_H)
-        b.bg = UI.Fill(b, "BACKGROUND", C.ink, 1)
-        b.bg:SetAllPoints()
-        UI.Outline(b, "BORDER", C.goldDark, 0)
-        b.text = UI.Serif(b, 12, C.dim)
-        b.text:SetPoint("CENTER", 0, 0)
-        b.text:SetText(f.name)
-        b:SetWidth(math.ceil(b.text:GetStringWidth()) + 24)
-        b:SetPoint("TOPLEFT", window, "TOPLEFT", left, -TAB_Y)
-        left = left + b:GetWidth() + 4
-        b.frame = f
-        b:SetScript("OnClick", function(self) Choose(self.frame.id, piece) end)
-        tabs[i] = b
-    end
-    local rule = UI.Fill(window, "ARTWORK", C.gold)
-    rule:SetHeight(1)
-    rule:SetPoint("TOPLEFT", PAD, -(TAB_Y + TAB_H))
-    rule:SetPoint("TOPRIGHT", -PAD, -(TAB_Y + TAB_H))
-
-    -- the frame's pieces, in groups (Refresh lays them)
-    list = CreateFrame("Frame", nil, window)
-    list:SetPoint("TOPLEFT", PAD, -TOP)
-    list:SetPoint("BOTTOMLEFT", PAD, FOOT)
-    list:SetWidth(LIST_W)
-    UI.Skin(list, C.ink)
-    list.rows = {}
-
-    -- the chosen piece's controls, down the right: its name and Reset
-    -- piece, Shown, its tabs, the chosen tab's controls
-    body = CreateFrame("Frame", nil, window)
-    body:SetPoint("TOPRIGHT", window, "TOPRIGHT", -PAD - 4, -(TOP + 4))
-    body:SetPoint("BOTTOMRIGHT", -PAD - 4, FOOT)
-    body:SetWidth(BODY_W)
-    body.title = UI.Serif(body, 16, C.goldBright)
-    body.title:SetPoint("TOPLEFT", 0, -2)
-    local strip = CreateFrame("Frame", nil, body)
-    strip:SetHeight(PIECE_TAB_H)
-    strip.tabs = {}
-    for i = 1, 3 do
-        local b = CreateFrame("Button", nil, strip)
-        b:SetHeight(PIECE_TAB_H)
-        b.bg = UI.Fill(b, "BACKGROUND", C.ink, 1)
-        b.bg:SetAllPoints()
-        b.edge = UI.Outline(b, "BORDER", C.goldDark, 0)
-        b.text = UI.Serif(b, 12, C.dim)
-        b.text:SetPoint("CENTER", 0, 0)
-        b:SetScript("OnClick", function(self)
-            tab = self.id
-            Lay()
-            Refresh()
-        end)
-        b:Hide()
-        strip.tabs[i] = b
-    end
-    strip.rule = UI.Fill(strip, "ARTWORK", C.gold)
-    strip.rule:SetHeight(1)
-    strip.rule:SetPoint("BOTTOMLEFT", 0, 0)
-    strip.rule:SetPoint("BOTTOMRIGHT", 0, 0)
-    body.tabStrip = strip
-
-    -- the canvas, between
-    stage = ns.EditorStage(window)
-    stage:SetPoint("TOPLEFT", list, "TOPRIGHT", 10, 0)
-    stage:SetSize(W - 2 * PAD - LIST_W - 10 - 14 - BODY_W - 4, H - TOP - FOOT)
+    -- the piece's controls: Shown a switch in the card's band; the rest a
+    -- row each (the Settings window's rows), a hairline over each but the first
     local specs = Specs()
     for field, spec in pairs(specs) do
         if type(spec.tip) == "function" then
@@ -697,52 +1000,27 @@ local function Window()
             spec.tip = nil
             spec.tipFn = fn
         end
-        -- one line each, the label at the left (the settings window's rows)
         local c
-        if spec.kind == "check" then
-            c = UI.Check(body, spec, BODY_W, true)
+        if field == "shown" then
+            c = UI.Switch(body, spec, "Shown")
+            c:SetPoint("RIGHT", body, "TOPRIGHT", -CARD_PAD, -BAND_H / 2)
+        elseif spec.kind == "check" then
+            c = UI.Check(body, spec, ROWS_W, true)
         elseif spec.kind == "choice" then
-            c = UI.Choice(body, spec, BODY_W, true)
+            c = UI.Choice(body, spec, ROWS_W, true)
         else
-            c = UI.Slider(body, spec, BODY_W, true)
+            c = UI.Slider(body, spec, ROWS_W, true)
+        end
+        if field ~= "shown" then
+            c.hair = c:CreateTexture(nil, "BACKGROUND")
+            UI.Paint(c.hair, C.line)
+            c.hair:SetHeight(1)
         end
         controls[field] = c
     end
-    controls.reset = UI.Button(body, "Reset piece", 110, 22, function() E.ResetPiece(frame, piece) end,
+    controls.reset = UI.Button(body, "Reset piece", 96, 24, function() E.ResetPiece(frame, piece) end,
         "This piece back to how its frame draws it.")
-    -- level with the piece's name: under the controls, a long list ran it
-    -- into the footer (2026-11-13: the buffs')
-    controls.reset:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, 0)
-
-    -- the footer: Preview | the canvas's chips, under their caption |
-    -- Reset frame, Close
-    local foot = UI.Fill(window, "ARTWORK", C.line)
-    foot:SetHeight(1)
-    foot:SetPoint("BOTTOMLEFT", PAD, FOOT - 8)
-    foot:SetPoint("BOTTOMRIGHT", -PAD, FOOT - 8)
-    window.preview = UI.Button(window, "Preview", 100, 24, function() ns.SetOption("simParty", not ns.db.simParty) end,
-        "Simulated party, raid, bosses and arena enemies to edit out of a group; their panel sets what "
-        .. "they show.")
-    window.preview:SetPoint("BOTTOMLEFT", PAD, 10)
-    window.preview.SetText = function(self, t) self.text:SetText(t) end
-    local close = UI.Button(window, "Close", 96, 24, function() window:Hide() end, nil, "quiet")
-    close:SetPoint("BOTTOMRIGHT", -PAD, 10)
-    local reset = UI.Button(window, "Reset frame", 100, 24, function() E.ResetFrame(frame) end,
-        "Every piece of this frame back to how it draws it.")
-    reset:SetPoint("RIGHT", close, "LEFT", -8, 0)
-    window.reset = reset
-    local from, to = PAD + 100 + 18, W - PAD - 96 - 8 - 100 - 18
-    window.dividers = {}
-    for i, x in ipairs({ from - 9, to + 9 }) do
-        local d = UI.Fill(window, "ARTWORK", C.line)
-        d:SetSize(1, 20)
-        d:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", x, 12)
-        window.dividers[i] = d
-    end
-    Chips(from, to)
-    window.chipsCaption = UI.Plain(window, 9, C.goldDark)
-    window.chipsCaption:SetPoint("BOTTOMLEFT", chips[1], "TOPLEFT", 2, 4)
-    window.chipsCaption:SetText("SHOW ON THE CANVAS")
+    controls.reset:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -CARD_PAD, 10)
 
     -- its parts, by name (the harness reads them)
     window.tabs, window.list, window.body, window.controls = tabs, list, body, controls
@@ -788,7 +1066,7 @@ E.ui = {
     SetPlace = SetPlace,
     Mirrored = function() return Mirrored() end,
     Window = function() return window end,
-    -- what the frame is and whose, over the canvas
+    -- why the frame is not on screen now, over the canvas ("" while it is)
     Scope = function() return frame and Scope() or "" end,
     Refresh = function() Refresh() end,
 }

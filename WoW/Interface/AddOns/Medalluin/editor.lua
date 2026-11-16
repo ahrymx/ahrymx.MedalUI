@@ -724,7 +724,7 @@ ns.On("PLAYER_LOGIN", function() E.ApplyAll() end)
 
 -- ------------------------------------------------------------ previews
 -- What the editor's canvas shows on its copies besides the frame (the
--- footer's chips, options/editor.lua; drawn by options/canvas.lua): a
+-- chips under it, options/editor.lua; drawn by options/canvas.lua): a
 -- dispel type's glow (one at a time), the aggro glow, the console's combat
 -- tint, crowd control, a boss debuff, buffs, debuffs. The frames on screen are
 -- not touched, but for the tint, which is the console's.
