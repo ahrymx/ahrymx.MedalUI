@@ -255,23 +255,35 @@ local function EntryTooltip(owner, entry, hint)
     GameTooltip:Show()
 end
 
--- The radial's own round button on a list cell: the icon in a circle mask under the rim art, or a
--- drawn rim when the client has no rim art (RadialMenu.lua RoundStyle). size is the rim's.
+-- The radial's own round button on a list cell: the icon in a circle mask over an ink well, under the
+-- rim art (Radial.lua RoundStyle; the drawn rim is FlareUI's fallback, unused here). size is the rim's.
 local function MakeRound(cell, size)
     local rm = RM()
     local style = rm and rm.RoundStyle and rm.RoundStyle()
     local iconSize = style and size * style.iconFactor or size * (1 - 2 * (rm and rm.ROUND_BORDER_FRACTION or 0.06))
     cell.Icon:SetSize(iconSize, iconSize)
     local mask = cell:CreateMaskTexture()
-    mask:SetAtlas(style and style.mask or "CircleMaskScalable")
+    if style then
+        mask:SetTexture(style.mask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    else
+        mask:SetAtlas("CircleMaskScalable")
+    end
     mask:SetAllPoints(cell.Icon)
     cell.Icon:AddMaskTexture(mask)
     local rim
     if style then
+        local well = cell:CreateTexture(nil, "BACKGROUND", nil, 1)
+        well:SetColorTexture(1, 1, 1)
+        local c = rm.ROUND_BORDER_COLOR
+        well:SetVertexColor(c[1], c[2], c[3])
+        well:SetSize(size, size)
+        well:SetPoint("CENTER", cell.Icon, "CENTER")
+        local wellMask = cell:CreateMaskTexture()
+        wellMask:SetTexture(style.mask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        wellMask:SetAllPoints(well)
+        well:AddMaskTexture(wellMask)
         rim = cell:CreateTexture(nil, "OVERLAY", nil, 1)
-        rim:SetAtlas(style.idle)
-        local t = style.idleTint
-        if t then rim:SetVertexColor(t[1], t[2], t[3]) end
+        rim:SetTexture(style.idle)
     else
         rim = cell:CreateTexture(nil, "BORDER")
         rim:SetColorTexture(1, 1, 1)

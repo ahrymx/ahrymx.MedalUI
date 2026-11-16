@@ -55,41 +55,35 @@ local STICK_KEYS_CVAR = "GamePadStickAxisButtons"
 local PAD_COMBO_STICKS = { "L3", "R3" }                  -- a controller key's stick press ...
 local PAD_COMBO_SIDES = { "TOP", "LT", "RT", "LTRT" }    -- ... and the triggers held (ns.ParsePadCombo)
 
-local ATLAS_POINTER       = "Radial_Wheel_Select_Pointer"
-local ATLAS_CIRCLE_MASK   = "CircleMaskScalable"
-local ATLAS_CANCEL_ICON   = "Radial_Wheel_Icon_Close"
-local ATLAS_CANCEL_PAD    = "gamepad-xb-32x-rstick"   -- the Gamepad UI: the aiming stick, as Blizzard's ping wheel
-local ATLAS_CANCEL_SELECT = "Radial_Wheel_Select_Close"
+-- Medalluin's own wheel art (art/radial/gen_radial.py), in FlareUI's layout; textures, not atlases
+local ART_POINTER       = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Pointer"
+local ART_CIRCLE_MASK   = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Mask"
+local ART_CANCEL_ICON   = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Cancel"
+local ATLAS_CANCEL_PAD  = "gamepad-xb-32x-rstick"   -- the Gamepad UI: the aiming stick, as Blizzard's ping wheel
+local ART_CANCEL_SELECT = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\CancelGlow"
 local CANCEL_ICON_SIZE    = 24
 local CANCEL_SELECT_SIZE  = 48
 local CANCEL_ALPHA_IDLE   = 0.5
-local POINTER_SIZE = 84   -- turned to the raw atan2 angle, as Blizzard's
+local POINTER_SIZE = 112  -- turned to the raw atan2 angle, as Blizzard's: drawn pointing right
 
 local DEAD_ZONE_SQ = 500          -- cursor closer than this to the centre selects nothing
 local ICON_SIZE    = 46
 -- radius from the button count: 90 up to four buttons, then 7.5 more per button (150 at twelve)
 local RADIUS_MIN, RADIUS_FLAT_BUTTONS, RADIUS_PER_BUTTON = 90, 4, 7.5
 local ROUND_SIZE   = 52           -- outer diameter of a round button
-local ROUND_BORDER = 3            -- rim thickness for the drawn fallback
+local ROUND_BORDER = 3            -- the rim's gold band
 local ROUND_ICON   = ROUND_SIZE - ROUND_BORDER * 2
 
--- The first rim style whose atlases the client has (they are not in the API export, so it is
--- checked in the client). The azerite rim has its own padding, hence the smaller icon.
-local ROUND_STYLES = {
-    {
-        mask = "talents-node-circle-mask",
-        idle = "talents-node-circle-gray",
-        idleTint = { 0.92, 0.76, 0.52 },   -- warms the neutral silver towards the UI's bronze
-        iconFactor = 1.00,
-    },
-    {
-        mask = "CircleMaskScalable",
-        idle = "Azerite-Trait-Ring",
-        iconFactor = 0.74,
-    },
+-- The round button's look: the icon in a circle mask over an ink well, under a gold rim that
+-- brightens on the aimed button (with a glow behind it). Our own files, so always there.
+local ROUND_STYLE = {
+    mask = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Mask",
+    idle = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Rim",
+    lit = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\RimLit",
+    glow = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\RimGlow", glowSize = 80,
+    iconFactor = ROUND_ICON / ROUND_SIZE,
 }
-local RIM_TINT_NONE = { 1, 1, 1 }
-local BORDER_COLOR         = { 0.45, 0.33, 0.19 }   -- the drawn fallback rim, the panel frames' brown
+local BORDER_COLOR         = { 0.071, 0.067, 0.063 }   -- the ink well under the icon (Medalluin's ink)
 local ICON_SCALE_IDLE      = 0.88   -- the hovered button is full size
 
 -- tinted as Blizzard's action buttons; the portrait-mask swipe stays inside the round icon
@@ -100,19 +94,22 @@ local TINT_OUT_OF_RANGE = { 0.8, 0.1, 0.1 }
 local SWIPE_TEXTURE = "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask"
 
 -- Ping wheel look. Blizzard's divider and slice-light art exists for four slices only, so FlareUI
--- ships its own and cuts the light to any slice width with two rotated half-plane masks.
+-- ships its own and cuts the light to any slice width with two rotated half-plane masks. Those
+-- (Divider, SliceGlow, HalfMask, Dot) are FlareUI's; the backdrop, rings, pointer and X are ours.
 local MEDIA = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\"
 local PING = {
-    BG_ATLAS = "Radial_Wheel_BG",
-    DIVIDER = MEDIA .. "Divider.tga", RING = MEDIA .. "Ring.tga",
+    BACKDROP = MEDIA .. "Backdrop",
+    OUTER = MEDIA .. "OuterRing", OUTER_SPAN = 360 / 179,   -- the texture's size over its ring's radius
+    DIVIDER = MEDIA .. "Divider.tga", RING = MEDIA .. "Hub",
     GLOW = MEDIA .. "SliceGlow.tga", MASK = MEDIA .. "HalfMask.tga",
     BG_FACTOR = 3.1, BG_MIN = 300,      -- backdrop size against the button radius
     RING_SIZE = 56, HUB = 24,           -- the hub ring, and where the dividers start
     GLOW_SIZE = 400,                    -- the light's inner edge meets the hub ring at this size
     DIVIDER_THICKNESS = 4,
-    DIVIDER_COLOR = { 0.58, 0.44, 0.25, 0.85 },   -- frame bronze, dimmed
-    RING_COLOR = { 0.45, 0.33, 0.19, 1 },
-    LIT_COLOR = { 1, 0.80, 0.25 },
+    DIVIDER_COLOR = { 0.541, 0.439, 0.204, 0.85 },   -- Medalluin's dark gold
+    RING_COLOR = { 1, 1, 1, 1 },                     -- the hub art carries its colours
+    LIT_COLOR = { 0.878, 0.722, 0.290 },             -- Medalluin's bright gold
+    LABEL_COLOR = { 0.949, 0.918, 0.824 },           -- Medalluin's text
     GLOW_ALPHA = 0.5,
     LIT_DIVIDER_ALPHA = 0.7,
     -- Blizzard_RadialWheel.lua's timings: fade in / out while the icons glide SLIDE px
@@ -125,7 +122,7 @@ local PING = {
     DOT_STEP = math.rad(13),           -- between two dots, round the rim
     DOT_GAP = 6,                       -- outside the rim
     DOT_COLOR = { 0.85, 0.85, 0.85, 0.55 },
-    DOT_COLOR_ON = { 1, 0.80, 0.25, 1 },
+    DOT_COLOR_ON = { 0.878, 0.722, 0.290, 1 },
 }
 
 local STUCK_OPEN_SECONDS = 20     -- see the guard in UpdateSelection
@@ -161,22 +158,9 @@ local function RadialRadius(count)
     return RADIUS_MIN + math_max(0, count - RADIUS_FLAT_BUTTONS) * RADIUS_PER_BUTTON
 end
 
--- false: no style available, the drawn rim takes over
-local roundStyle
+-- (FlareUI picked among client atlases here, with a drawn fallback; our art always exists)
 local function RoundStyle()
-    if roundStyle ~= nil then return roundStyle or nil end
-    local exists = C_Texture and (C_Texture.GetAtlasExists
-        or (C_Texture.GetAtlasInfo and function(name) return C_Texture.GetAtlasInfo(name) ~= nil end))
-    if exists then
-        for _, style in ipairs(ROUND_STYLES) do
-            if exists(style.mask) and exists(style.idle) then
-                roundStyle = style
-                return style
-            end
-        end
-    end
-    roundStyle = false
-    return nil
+    return ROUND_STYLE
 end
 
 -- profile options; the radials themselves are account-wide, in global
@@ -727,7 +711,14 @@ local function CreateRadialButton(index, parent)
 
     local style = RoundStyle()
 
-    -- fallback rim without rim art: a colour disc clipped to a circle (RimArt otherwise)
+    -- the aimed button's glow, behind everything of it
+    button.RimGlow = button:CreateTexture(nil, "BACKGROUND", nil, -1)
+    button.RimGlow:SetTexture(style.glow)
+    button.RimGlow:SetPoint("CENTER")
+    button.RimGlow:SetSize(style.glowSize, style.glowSize)
+    button.RimGlow:Hide()
+
+    -- the ink well: a colour disc clipped to a circle, under the icon (FlareUI's drawn fallback rim)
     button.Rim = button:CreateTexture(nil, "BACKGROUND")
     button.Rim:SetColorTexture(1, 1, 1)
     button.Rim:SetPoint("CENTER")
@@ -735,7 +726,7 @@ local function CreateRadialButton(index, parent)
     button.Rim:Hide()
 
     button.RimMask = button:CreateMaskTexture()
-    button.RimMask:SetAtlas(ATLAS_CIRCLE_MASK)
+    button.RimMask:SetTexture(ART_CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     button.RimMask:SetAllPoints(button.Rim)
     button.Rim:AddMaskTexture(button.RimMask)
 
@@ -743,7 +734,7 @@ local function CreateRadialButton(index, parent)
     button.Icon = button:CreateTexture(nil, "ARTWORK")
 
     button.Mask = button:CreateMaskTexture()
-    button.Mask:SetAtlas(style and style.mask or ATLAS_CIRCLE_MASK)
+    button.Mask:SetTexture(style.mask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     button.Mask:SetAllPoints(button.Icon)
 
     button.RimArt = button:CreateTexture(nil, "OVERLAY", nil, 1)
@@ -772,6 +763,7 @@ local function CreateRadialButton(index, parent)
     button.Placed:SetPoint("TOPRIGHT", button, "TOPRIGHT", 0, 0)
     button.Placed:Hide()
     button.Label = button.Front:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    button.Label:SetTextColor(PING.LABEL_COLOR[1], PING.LABEL_COLOR[2], PING.LABEL_COLOR[3])
     button.Label:SetShadowColor(0, 0, 0, 1)
     button.Label:SetShadowOffset(1, -1)
     button.Label:Hide()
@@ -852,21 +844,16 @@ local function ApplyButtonShape(button)
     local style = RoundStyle()
     button.Icon:ClearAllPoints()
     button.Icon:SetPoint("CENTER")
-    local size = style and (ROUND_SIZE * style.iconFactor) or ROUND_ICON
+    local size = ROUND_SIZE * style.iconFactor
     button.Icon:SetSize(size, size)
     if not button.masked then
         button.Icon:AddMaskTexture(button.Mask)
         button.masked = true
     end
-    button.RimArt:SetShown(style ~= nil)
-    button.Rim:SetShown(style == nil)
-    if style then
-        button.RimArt:SetAtlas(style.idle)
-        local t = style.idleTint or RIM_TINT_NONE
-        button.RimArt:SetVertexColor(t[1], t[2], t[3])
-    else
-        button.Rim:SetVertexColor(BORDER_COLOR[1], BORDER_COLOR[2], BORDER_COLOR[3])
-    end
+    button.RimArt:Show()
+    button.RimArt:SetTexture(button.lit and style.lit or style.idle)
+    button.Rim:Show()
+    button.Rim:SetVertexColor(BORDER_COLOR[1], BORDER_COLOR[2], BORDER_COLOR[3])
 end
 
 -- icon files get the border crop; atlases carry their own coordinates
@@ -882,6 +869,9 @@ end
 
 local function SetButtonSelected(button, selected)
     button:SetScale(selected and 1 or ICON_SCALE_IDLE)
+    button.lit = selected or nil
+    button.RimArt:SetTexture(selected and ROUND_STYLE.lit or ROUND_STYLE.idle)
+    button.RimGlow:SetShown(selected)
     button.Label:SetShown(selected and ShowNames() and (button.Label:GetText() or "") ~= "")
 end
 
@@ -1117,6 +1107,7 @@ function RM:LayoutPing(count, radius, interval, frame)
 
     local sliced = count >= 2
     local outer = radius + ICON_SIZE * 0.9
+    p.Outer:SetSize(outer * PING.OUTER_SPAN, outer * PING.OUTER_SPAN)
     for i = 1, math_max(count, #p.Dividers) do
         local line = p.Dividers[i]
         if sliced and i <= count then
@@ -1176,18 +1167,18 @@ end
 function RM.BuildRadialArt(radial)
     -- the cancel X and its highlight; the pointer above all, hidden while the X is selected
     radial.CancelSelect = radial:CreateTexture(nil, "ARTWORK")
-    radial.CancelSelect:SetAtlas(ATLAS_CANCEL_SELECT)
+    radial.CancelSelect:SetTexture(ART_CANCEL_SELECT)
     radial.CancelSelect:SetSize(CANCEL_SELECT_SIZE, CANCEL_SELECT_SIZE)
     radial.CancelSelect:SetPoint("CENTER")
     radial.CancelSelect:Hide()
 
     radial.CancelIcon = radial:CreateTexture(nil, "OVERLAY", nil, 1)
-    radial.CancelIcon:SetAtlas(ATLAS_CANCEL_ICON)
+    radial.CancelIcon:SetTexture(ART_CANCEL_ICON)
     radial.CancelIcon:SetSize(CANCEL_ICON_SIZE, CANCEL_ICON_SIZE)
     radial.CancelIcon:SetPoint("CENTER")
 
     radial.Pointer = radial:CreateTexture(nil, "OVERLAY", nil, 2)
-    radial.Pointer:SetAtlas(ATLAS_POINTER)
+    radial.Pointer:SetTexture(ART_POINTER)
     radial.Pointer:SetSize(POINTER_SIZE, POINTER_SIZE)
     radial.Pointer:SetPoint("CENTER")
 
@@ -1195,8 +1186,13 @@ function RM.BuildRadialArt(radial)
     local p = { Dividers = {} }
     radial.Ping = p
     p.Background = radial:CreateTexture(nil, "BACKGROUND", nil, 1)
-    p.Background:SetAtlas(PING.BG_ATLAS)
+    p.Background:SetTexture(PING.BACKDROP)
     p.Background:SetPoint("CENTER")
+
+    -- a thin gold ring where the slots' light ends (sized by LayoutPing)
+    p.Outer = radial:CreateTexture(nil, "BACKGROUND", nil, 2)
+    p.Outer:SetTexture(PING.OUTER)
+    p.Outer:SetPoint("CENTER")
 
     p.Glow = radial:CreateTexture(nil, "BACKGROUND", nil, 3)
     p.Glow:SetTexture(PING.GLOW)
@@ -1447,7 +1443,12 @@ local function OpenRadial(radialID, mode)
     local scale = tonumber(Option("scale", 1)) or 1
     radial:SetScale(scale)
     local padIcon = ns.IsGamepadUI() and C_Texture.GetAtlasInfo(ATLAS_CANCEL_PAD)
-    radial.CancelIcon:SetAtlas(padIcon and ATLAS_CANCEL_PAD or ATLAS_CANCEL_ICON)
+    if padIcon then
+        radial.CancelIcon:SetAtlas(ATLAS_CANCEL_PAD)
+    else
+        radial.CancelIcon:SetTexture(ART_CANCEL_ICON)
+        radial.CancelIcon:SetTexCoord(0, 1, 0, 1)
+    end
 
     -- the secure layer measures from the same point
     local x, y

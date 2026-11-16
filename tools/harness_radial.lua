@@ -770,3 +770,38 @@ mdluiRadialToggleEditor()
 print("radial editor binding", "shown=" .. tostring(win:IsShown()), "header=" .. tostring(BINDING_HEADER_MDLUI_RADIAL))
 mdluiRadialToggleEditor()
 print("radial editor binding again", "shown=" .. tostring(win:IsShown()), "tab=" .. shownTabs())
+
+-- ---- round 3: the wheel's own art (art/radial/gen_radial.py), in FlareUI's layout
+local function artName(path) return path and (tostring(path):match("([^\\]+)$")) or tostring(path) end
+local wheelArt = _G.mdluiRadial
+print("radial art wheel", "pointer=" .. artName(wheelArt.Pointer.texture), "atlas=" .. tostring(wheelArt.Pointer.atlas),
+    "size=" .. tostring(wheelArt.Pointer.w), "cancel=" .. artName(wheelArt.CancelIcon.texture)
+    .. "/" .. tostring(wheelArt.CancelIcon.atlas),
+    "cancel lit=" .. artName(wheelArt.CancelSelect.texture), "hub=" .. artName(wheelArt.Ping.Ring.texture),
+    "backdrop=" .. artName(wheelArt.Ping.Background.texture), "outer=" .. artName(wheelArt.Ping.Outer.texture))
+local sample = RM.CreateSample(UIParent)
+RM.DrawSample(sample)
+local sw = sample.wheel
+local b1, b2 = sw.buttons[1], sw.buttons[2]
+local function rimOf(b)
+    return artName(b.RimArt.texture) .. " glow=" .. tostring(b.RimGlow:IsShown()) .. " scale=" .. tostring(b.scale)
+end
+local count = #sw.buttons
+local radius = 90 + math.max(0, count - 4) * 7.5
+print("radial art buttons", "count=" .. count, "aimed=" .. rimOf(b1), "idle=" .. rimOf(b2),
+    "well=" .. tostring(b1.Rim:IsShown()) .. ":" .. table.concat(b1.Rim.vertex, ","),
+    "mask=" .. artName(b1.Mask.texture), "icon=" .. tostring(b1.Icon.w))
+print("radial art outer ring", "size=" .. string.format("%.1f", sw.Ping.Outer.w),
+    "ring radius=" .. string.format("%.1f", sw.Ping.Outer.w * 179 / 360), "want=" .. string.format("%.1f", radius + 46 * 0.9))
+print("radial art colours", "slice=" .. table.concat(sw.Ping.Glow.vertex, ","),
+    "label=" .. table.concat(b1.Label.textColor, ","),
+    "lit edge=" .. table.concat(sw.Ping.Dividers[1].vertex, ","), "edge=" .. table.concat(sw.Ping.Dividers[3].vertex, ","))
+-- the editor's list icons: the same rim and mask over an ink well
+local rowCell = host.buttonList.cells[1]
+local arts, wells = {}, 0
+for _, r in ipairs(rowCell.all_ or {}) do
+    if r.texture and tostring(r.texture):find("mdlui_RadialMenu") then arts[#arts + 1] = r.kind .. ":" .. artName(r.texture) end
+    if r.kind == "Texture" and r.color and r.vertex and r.vertex[1] == 0.071 then wells = wells + 1 end
+end
+table.sort(arts)
+print("radial art editor icon", "art=" .. table.concat(arts, ","), "wells=" .. wells)

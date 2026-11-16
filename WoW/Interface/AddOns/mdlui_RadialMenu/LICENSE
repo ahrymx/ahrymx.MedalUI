@@ -27,5 +27,6 @@ Scope
 This addon is forked from the radial menu of FlareUI
 (https://github.com/malkkav/FlareUI), whose source code is MIT licensed as
 above. FlareUI's Media/Art, Media/Bars and Media/Icons are not licensed for
-reuse, and none of them is included here. The textures in art/radial come from
-FlareUI's Media/Radial, which its license covers.
+reuse, and none of them is included here. Four textures in art/radial come from
+FlareUI's Media/Radial, which its license covers: Divider, SliceGlow, HalfMask
+and Dot. The others are AhryMX's, drawn by Medalluin's art/radial/gen_radial.py.
