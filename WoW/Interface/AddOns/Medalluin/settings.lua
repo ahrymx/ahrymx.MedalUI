@@ -72,6 +72,7 @@ local DEFAULTS = {
     chat = true,            -- the chat in a box on the left strip, the quest tracker over it
     chatClassColors = true, -- a speaker's name in the chat in their class's colour (strips/chat.lua)
     chatLevels = true,      -- and their level before it, "[60:Name]", when it is known
+    chatHistory = 500,      -- the lines of each chat window kept for the next session, per character (0: none)
     side = true,            -- the chat panel's mirror on the right strip: the meter, the loot, the auras
     sideAuras = true,       -- its Auras tab
     sideMeter = true,       -- its Meter tab

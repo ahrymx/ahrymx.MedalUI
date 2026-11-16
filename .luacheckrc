@@ -83,7 +83,7 @@ read_globals = {
     "issecretvalue", "AnchorUtil", "issecrettable", "canaccesstable", "geterrorhandler", "GetBuildInfo", "C_ActionBar", "C_CurveUtil", "CurveConstants", "Enum", "UnitHealthPercent", "UnitPowerPercent",
     "UnitCastingDuration", "UnitChannelDuration", "ActionButton_UpdateCooldownNumberHidden",
     -- the chat (strips/chat.lua) and the player's buffs (strips/buffs.lua)
-    "ChatFrame1", "CHAT_FRAMES", "CHAT_FRAME_TEXTURES", "NUM_CHAT_WINDOWS", "GENERAL_CHAT_DOCK",
+    "ChatFrame1", "ChatFrame2", "ItemRefTooltip", "SetItemRef", "IsVoiceTranscription", "GetChatWindowInfo", "CHAT_FRAMES", "CHAT_FRAME_TEXTURES", "NUM_CHAT_WINDOWS", "GENERAL_CHAT_DOCK",
     "FCFDock_GetSelectedWindow", "FCFDock_UpdateTabs", "FCFTab_UpdateAlpha", "FCFTab_UpdateColors", "FCF_DockFrame", "FCF_UnDockFrame",
     "C_UnitAuras", "C_LossOfControl",
     -- the side panel (strips/side.lua): the meter and the loot log

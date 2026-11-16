@@ -570,24 +570,25 @@ ns.window.Scroller = Scroller
 -- SetOwner, and an anchor ns.Tip takes. The windows' (w.Beside,
 -- ns.window.Outside), the side panel's (ns.side.Beside).
 local placing                                  -- PlaceTip's own SetPoint (the hook below)
-local function PlaceTip(frame, owner, side)
+local function PlaceTip(frame, owner, side, tip)
+    tip = tip or GameTooltip                   -- or another: the chat's clicked links (ItemRefTooltip)
     placing = true
-    GameTooltip:ClearAllPoints()
-    local k = frame:GetEffectiveScale() / GameTooltip:GetEffectiveScale()
+    tip:ClearAllPoints()
+    local k = frame:GetEffectiveScale() / tip:GetEffectiveScale()
     if side == "down" then
         -- under the frame, below the owner: its centre across, in the tooltip's scale
         local l, r, fl, fr = owner:GetLeft(), owner:GetRight(), frame:GetLeft(), frame:GetRight()
         local dx = l and r and fl and fr and ((l + r) - (fl + fr)) / 2 * k or 0
-        GameTooltip:SetPoint("TOP", frame, "BOTTOM", dx, -BESIDE)
+        tip:SetPoint("TOP", frame, "BOTTOM", dx, -BESIDE)
         placing = false
         return
     end
     local top, edge = owner:GetTop(), frame:GetTop()
     local dy = top and edge and (top - edge) * k or 0
     if side > 0 then
-        GameTooltip:SetPoint("TOPRIGHT", frame, "TOPLEFT", -BESIDE, dy)
+        tip:SetPoint("TOPRIGHT", frame, "TOPLEFT", -BESIDE, dy)
     else
-        GameTooltip:SetPoint("TOPLEFT", frame, "TOPRIGHT", BESIDE, dy)
+        tip:SetPoint("TOPLEFT", frame, "TOPRIGHT", BESIDE, dy)
     end
     placing = false
 end
@@ -611,25 +612,36 @@ end
 local marks = setmetatable({}, { __mode = "k" })    -- frame: { side, at }
 function ns.window.Mark(frame, side, at) marks[frame] = { side = side, at = at } end
 
-local function Facing(frame)
-    local m = marks[frame]
+local function Facing(frame, m)
+    m = m or marks[frame]                       -- the mark of the frame it stands beside for (at)
     if m and type(m.side) == "function" then return m.side() end
     if m and m.side == "down" then return "down" end
     local l, r, w = frame:GetLeft(), frame:GetRight(), UIParent:GetWidth()
-    if not (l and r and w and w > 0) then return marks[frame] and marks[frame].side or 1 end
+    if not (l and r and w and w > 0) then return m and m.side or 1 end
     return (l + r) / 2 * frame:GetEffectiveScale() > w * UIParent:GetEffectiveScale() / 2 and 1 or -1
 end
 
--- the marked frame owner is inside (or the one it marks), or nil
+-- the marked frame owner is inside (or the one it marks), and its mark; or nil
 local function Marked(owner)
     local f = owner
     while f and not marks[f] do f = f.GetParent and f:GetParent() end
-    return f and (marks[f].at or f)
+    if f then return marks[f].at or f, marks[f] end
 end
 
+-- tip (a tooltip of its own, not GameTooltip: ItemRefTooltip) beside the
+-- marked frame owner is inside, its top level with the frame's; false when
+-- owner is in none
+function ns.window.PlaceOutside(tip, owner)
+    local f, m = Marked(owner)
+    if not f then return false end
+    PlaceTip(f, f, Facing(f, m), tip)
+    return true
+end
+function ns.window.Unmark(frame) marks[frame] = nil end
+
 function ns.window.Outside(owner, fallback)
-    local f = Marked(owner)
-    if f then return ns.window.Beside(f, owner, Facing(f)) end
+    local f, m = Marked(owner)
+    if f then return ns.window.Beside(f, owner, Facing(f, m)) end
     GameTooltip:SetOwner(owner, type(fallback) == "string" and fallback or "ANCHOR_RIGHT")
 end
 
@@ -642,10 +654,10 @@ end
 -- the mouse, placed back beside the frame. The tooltip's C methods alone.
 -- Not under the mouse: a tooltip fading out, or parked by mdlui_Tooltips.
 local function Own(owner)
-    local f = owner and Marked(owner)
+    local f, m = Marked(owner)
     if not f then return end
     if GameTooltip.SetAnchorType then GameTooltip:SetAnchorType("ANCHOR_NONE") end
-    PlaceTip(f, owner, Facing(f))
+    PlaceTip(f, owner, Facing(f, m))
 end
 hooksecurefunc(GameTooltip, "SetOwner", function(_, owner) Own(owner) end)
 hooksecurefunc(GameTooltip, "SetPoint", function(self)
@@ -655,7 +667,7 @@ hooksecurefunc(GameTooltip, "SetPoint", function(self)
 end)
 -- for mdlui_Tooltips: true when the tooltip owner shows stands beside a
 -- window of ours, placed here (its cursor-following leaves it alone)
-function Medalluin_TooltipBeside(owner) return owner ~= nil and Marked(owner) ~= nil end
+function Medalluin_TooltipBeside(owner) return owner ~= nil and (Marked(owner)) ~= nil end
 
 -- ---------------------------------------------------------- decoration
 -- A divider: a gold rule each side of a diamond, or of a word.

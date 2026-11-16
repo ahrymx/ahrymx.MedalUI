@@ -1160,7 +1160,19 @@ function ns.OptionPages()
                         "A speaker's name in their class's colour, whatever the game's own chat settings say."),
                     Check("chatLevels", "Levels",
                         "A speaker's level before their name, \"[60:Name]\", when it is known: from the game for "
-                        .. "the line, else from your group, target, nameplates, guild, friends or a /who.")),
+                        .. "the line, else from your group, target, nameplates, guild, friends or a /who. It is "
+                        .. "coloured by how it compares with yours, grey to red.")),
+                Group("History",
+                    Choice("chatHistory", "Lines kept", {
+                        { 0, "Off", "Every session starts with empty chat windows." },
+                        { 100, "100", "The last 100 lines of each window." },
+                        { 250, "250", "The last 250 lines of each window." },
+                        { 500, "500", "The last 500 lines of each window." },
+                        { 1000, "1000", "The last 1000 lines of each window." },
+                    }, "How many of each chat window's lines come back at your next login, dimmed under a "
+                        .. "divider, and in the chat log. Kept for each character; not the combat log."),
+                    Button("Clear saved history", function() if ns.chatLog then ns.chatLog.Clear() end end,
+                        "Forget the saved lines, and this session's so far: the next login starts empty.")),
                 Switched(Check("chatImmersion", "Bare when idle",
                         "Left alone, the chat drops its box, tabs and buttons, each message on a faint band of "
                         .. "its own over the world. The box comes back while you type, point at it or scroll up."),

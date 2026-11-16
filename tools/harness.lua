@@ -1744,7 +1744,10 @@ local function ChatWindow(i)
     box.w, box.h = 5, 32
     box.altArrows = true                    -- the template's ignoreArrows
     f.said = {}
-    function f:AddMessage(text, ...) table.insert(self.said, { text = text, n = select("#", ...), r = ... }) end
+    function f:AddMessage(text, ...)
+        local r, g, b = ...
+        table.insert(self.said, { text = text, n = select("#", ...), r = r, g = g, b = b })
+    end
     box:SetPoint("TOPLEFT", f, "BOTTOMLEFT", -5, -2)
     box:SetPoint("RIGHT", f.ScrollBar, "RIGHT", 8, 0)
     for _, k in ipairs({ "Left", "Mid", "Right" }) do new("Texture", box, name .. "EditBox" .. k) end
@@ -1779,6 +1782,18 @@ local function ChatWindow(i)
     return f
 end
 for i = 1, NUM_CHAT_WINDOWS do ChatWindow(i) end
+-- a clicked link's tooltip, at the screen's foot (ItemRef.xml), and the
+-- click that shows it where it last was (ItemRef.lua: ANCHOR_PRESERVE);
+-- a modified click puts the link in the edit box instead
+ItemRefTooltip = new("Frame", UIParent, "ItemRefTooltip")
+ItemRefTooltip.w, ItemRefTooltip.h = 220, 90
+ItemRefTooltip:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 80)
+ItemRefTooltip:Hide()
+function SetItemRef(link)
+    if IsModifiedClick and IsModifiedClick("CHATLINK") then return end
+    ItemRefTooltip.link = link
+    ItemRefTooltip:Show()
+end
 GENERAL_CHAT_DOCK = new("Frame", UIParent, "GeneralDockManager")
 GENERAL_CHAT_DOCK.h = 26
 -- along the top of ChatFrame1's background, which runs past its right
@@ -8735,13 +8750,17 @@ if stripsPass then
         lw.scripts.OnUpdate(lw, 0.01)
         logState("left")
         -- another window's lines are not this one's; choosing it shows them
-        ChatFrame2:AddMessage("in the combat log")
+        ChatFrame3:AddMessage("in chat 3")
         lw.scripts.OnUpdate(lw, 0.01)
         logState("another window's line")
         local wasSelected = SELECTED_CHAT_FRAME
+        SELECTED_CHAT_FRAME = ChatFrame3
+        lw.scripts.OnUpdate(lw, 0.01)
+        logState("ChatFrame3 chosen")
+        -- the combat log is no chat the log reads: chosen, the log stays on the general window
         SELECTED_CHAT_FRAME = ChatFrame2
         lw.scripts.OnUpdate(lw, 0.01)
-        logState("ChatFrame2 chosen")
+        logState("the combat log chosen")
         SELECTED_CHAT_FRAME = wasSelected
         lw.scripts.OnUpdate(lw, 0.01)
         -- the last thousand kept
@@ -8771,7 +8790,157 @@ if stripsPass then
         logState("closed")
         logButton.scripts.OnClick(logButton, "LeftButton")
         logState("again")
+
+        -- a tab for each chat window across the log's top (not the combat
+        -- log): the chat's own window marked as it opens; a tab shows its
+        -- window's lines, whatever the chat has chosen
+        do
+            local function tabsState(tag)
+                local list = {}
+                for _, b in ipairs(log.tabs.buttons) do
+                    if b.shown then
+                        table.insert(list, (b.selected and "*" or "") .. tostring(b.label.text)
+                            .. string.format("@%.0f", resolve(b)[1] - resolve(log.tabs:GetParent())[1]))
+                    end
+                end
+                print("chat log tabs " .. tag, table.concat(list, " "),
+                    string.format("row width=%.0f fit=%s", log.tabs.w or 0, tostring(log.tabs:GetNumPoints() == 1)))
+            end
+            for i = 4, NUM_CHAT_WINDOWS do _G["ChatFrame" .. i]:Hide() end
+            logButton.scripts.OnClick(logButton, "LeftButton")
+            logButton.scripts.OnClick(logButton, "LeftButton")
+            lw.scripts.OnUpdate(lw, 0.01)
+            tabsState("opened")
+            logState("tabs opened")
+            local second = log.tabs.buttons[2]
+            second.scripts.OnClick(second, "LeftButton")
+            lw.scripts.OnUpdate(lw, 0.01)
+            tabsState("second clicked")
+            logState("second tab")
+            -- the chat's choice changes; the tab's stays
+            SELECTED_CHAT_FRAME = ChatFrame1
+            lw.scripts.OnUpdate(lw, 0.01)
+            logState("chat chose General, tab kept")
+            second.scripts.OnEnter(second)
+            print("chat log tab tip", tipSpec())
+            -- renamed, and a window more: the tabs follow
+            _G.ChatFrame3Tab.Text:SetText("Trade and LookingForGroup")
+            for i = 4, 9 do _G["ChatFrame" .. i]:Show() end
+            hear("UPDATE_CHAT_WINDOWS")
+            tabsState("renamed, six more")
+            for i = 4, 9 do _G["ChatFrame" .. i]:Hide() end
+            _G.ChatFrame3Tab.Text:SetText("Chat 3")
+            hear("UPDATE_CHAT_WINDOWS")
+            -- closed and opened again: on the chat's own window
+            lw.close.scripts.OnClick(lw.close, "LeftButton")
+            logButton.scripts.OnClick(logButton, "LeftButton")
+            lw.scripts.OnUpdate(lw, 0.01)
+            tabsState("reopened")
+            SELECTED_CHAT_FRAME = wasSelected
+        end
         logButton.scripts.OnClick(logButton, "LeftButton")
+
+        -- a link's tooltip stands outside the box, at its right, as a docked
+        -- window's do: hovered (GameTooltip, owned by the window) and clicked
+        -- (ItemRefTooltip); a modified click shows nothing, and a window torn
+        -- out of the box is left to the game
+        do
+            local function at(tip)
+                local p, rel, rp, x, y = tip:GetPoint(1)
+                local name = rel == chat.box and "chat box" or rel and (rel.name or "?") or "nil"
+                return string.format("%s %s %s %+.0f,%+.0f", tostring(p), name, tostring(rp), x or 0, y or 0)
+            end
+            local modified = IsModifiedClick
+            IsModifiedClick = function() return false end
+            GameTooltip:SetOwner(ChatFrame1, "ANCHOR_CURSOR")
+            print("chat link hovered", at(GameTooltip))
+            GameTooltip:Hide()
+            SetItemRef("item:19019", "[Thunderfury]", "LeftButton", ChatFrame1)
+            print("chat link clicked", "shown=" .. tostring(ItemRefTooltip:IsShown()), at(ItemRefTooltip))
+            ItemRefTooltip:Hide()
+            ItemRefTooltip:ClearAllPoints()
+            ItemRefTooltip:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 80)
+            IsModifiedClick = function() return true end
+            SetItemRef("item:19019", "[Thunderfury]", "LeftButton", ChatFrame1)
+            IsModifiedClick = function() return false end
+            print("chat link shift-clicked", "shown=" .. tostring(ItemRefTooltip:IsShown()), at(ItemRefTooltip))
+            SetItemRef("item:19019", "[Thunderfury]", "LeftButton", ChatFrame2)
+            print("chat link in a torn-out window", "docked=" .. tostring(ChatFrame2.isDocked), at(ItemRefTooltip))
+            ItemRefTooltip:Hide()
+            IsModifiedClick = modified
+        end
+
+        -- the level in the colour of its difficulty against yours
+        do
+            local difficulty = GetQuestDifficultyColor
+            GetQuestDifficultyColor = function(level)
+                local d = level - 31
+                if d >= 5 then return { r = 1, g = 0.1, b = 0.1 } end
+                if d >= -2 then return { r = 1, g = 1, b = 0 } end
+                if d >= -8 then return { r = 0.25, g = 0.75, b = 0.25 } end
+                return { r = 0.5, g = 0.5, b = 0.5 }
+            end
+            ns.chatLevels.Low, ns.chatLevels.Even, ns.chatLevels.High = 10, 31, 40
+            ChatFrame1.said = {}
+            for _, who in ipairs({ "Low", "Even", "High" }) do
+                ChatFrame1:AddMessage("|Hplayer:" .. who .. "|h[" .. who .. "]|h: hi", 1, 1, 1)
+            end
+            for _, line in ipairs(ChatFrame1.said) do print("chat level colour", tostring(line.text)) end
+            GetQuestDifficultyColor = difficulty
+        end
+
+        -- the saved history: each window's last chatHistory lines as shown,
+        -- links kept but a player's line ID, at logout; back at the next
+        -- login, dimmed under a divider, in the window and the log
+        do
+            local hist, clock = MedalluinCharDB, time
+            time = function() return 1763320800 end
+            log.Clear()
+            for n = 1, 600 do ChatFrame1:AddMessage("said " .. n, 1, 0.5, 0) end
+            ChatFrame1:AddMessage("|Hplayer:Bob-Medalluin:101:CHANNEL:1|h[Bob]|h: linked", 1, 1, 1)
+            ChatFrame1:AddMessage("|HBNplayer:Kay:1:107|h[Kay]|h: |Kq7|k battle.net", 1, 1, 1)
+            ChatFrame1:AddMessage(secret(), 1, 1, 1)
+            ChatFrame2:AddMessage("a combat log line")
+            log.Save()
+            local saved = hist.chatHistory
+            local windows = {}
+            for n, w in pairs(saved.windows) do table.insert(windows, n .. "=" .. tostring(w.name) .. ":" .. #w.lines) end
+            table.sort(windows)
+            local lines = saved.windows[1].lines
+            print("chat history saved", "at=" .. tostring(saved.saved), table.concat(windows, " "),
+                "first=" .. tostring(lines[1][1]), string.format("colour=%s,%s,%s", tostring(lines[1][2]),
+                    tostring(lines[1][3]), tostring(lines[1][4])))
+            print("chat history saved links", lines[#lines - 1][1], "|", lines[#lines][1])
+            -- the next login
+            ChatFrame1.said = {}
+            wipe(log.logs[ChatFrame1])
+            log.Clear()
+            hist.chatHistory = saved
+            log.Restore(true)
+            local said = ChatFrame1.said
+            print("chat history restored", "window lines=" .. #said, "first=" .. tostring(said[1] and said[1].text),
+                "second=" .. tostring(said[2] and said[2].text),
+                string.format("second colour=%.2f,%.2f,%.2f", said[2].r or -1, said[2].g or -1, said[2].b or -1),
+                "log=" .. #log.logs[ChatFrame1], "log first=" .. tostring(log.logs[ChatFrame1][1]),
+                "log second=" .. tostring(log.logs[ChatFrame1][2]), "held=" .. #log.raw[ChatFrame1])
+            -- the window renamed since: its lines are someone else's
+            ChatFrame1.said = {}
+            saved.windows[1].name = "Trade"
+            log.Restore(true)
+            print("chat history renamed window", "window lines=" .. #ChatFrame1.said)
+            -- off: nothing kept, nothing saved
+            ns.SetOption("chatHistory", 0)
+            ChatFrame1:AddMessage("while off")
+            log.Save()
+            print("chat history off", "saved=" .. tostring(hist.chatHistory), "held=" .. #(log.raw[ChatFrame1] or {}))
+            ns.SetOption("chatHistory", 500)
+            ChatFrame1:AddMessage("on again")
+            log.Save()
+            print("chat history on again", "lines=" .. #hist.chatHistory.windows[1].lines)
+            log.Clear()
+            print("chat history cleared", "saved=" .. tostring(hist.chatHistory), "held=" .. #(log.raw[ChatFrame1] or {}))
+            time = clock
+        end
     end
 
     -- the timeless buffs above the medallion; a right click cancels one

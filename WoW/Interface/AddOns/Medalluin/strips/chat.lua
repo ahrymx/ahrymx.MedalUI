@@ -373,6 +373,8 @@ end
 local function Dress(frame)
     if not frame or dressed[frame] then return end
     dressed[frame] = true
+    -- its links' tooltips stand outside the box, as a docked window's do
+    ns.window.Mark(frame, -1, chatBox)
     for _, t in ipairs(Textures(frame)) do Gone(t) end
     Gone(frame.ResizeButton)            -- the panel is a fixed size
     EditBox(frame)
@@ -390,6 +392,7 @@ end
 local function Undress(frame)
     if not frame or not dressed[frame] or frame == ChatFrame1 then return end
     dressed[frame] = nil
+    ns.window.Unmark(frame)
     if frame.medalluinClamp then frame:SetClampRectInsets(unpack(frame.medalluinClamp)) end
     for _, t in ipairs(Textures(frame)) do Back(t, true) end
     Back(frame.ResizeButton, not frame.isLocked)
@@ -435,8 +438,9 @@ end
 local TAG = "|Hchannel:channel:(%d+)|h%[%d+%.[^%]]*%]|h"
 
 -- A speaker's name in their class's colour, after their level: "[60:Name]"
--- (Chat > Names). The class, and a level, come from the line's sender (the
--- link's line ID gives its GUID); else the level is what this session saw
+-- (Chat > Names), the level coloured by how it compares with yours. The
+-- class, and a level, come from the line's sender (the link's line ID
+-- gives its GUID); else the level is what this session saw
 -- of them by name: the group, the target, the mouseover, nameplates, the
 -- guild, friends and /who. Unknown, a name keeps the game's colour and has
 -- no level. Anything secret is left as it came.
@@ -478,7 +482,13 @@ local function Speaker(link, data, shown, close)
                 (shown:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")))
         end
     end
-    if ns.db.chatLevels and level then shown = level .. ":" .. shown end
+    if ns.db.chatLevels and level then
+        -- the level in the colour of its difficulty against yours (grey, green, yellow, orange, red)
+        local Difficulty = GetCreatureDifficultyColor or GetQuestDifficultyColor
+        local c = Difficulty and Difficulty(level)
+        local tag = c and c.r and format("|cff%02x%02x%02x%d|r", c.r * 255, c.g * 255, c.b * 255, level) or level
+        shown = tag .. ":" .. shown
+    end
     return link .. "[" .. shown .. "]" .. close
 end
 
@@ -494,7 +504,7 @@ local function Tags(frame)
     -- what is shown is kept for the log too (strips/chatlog.lua)
     frame.AddMessage = function(self, text, ...)
         text = Short(text)
-        if ns.chatLog then ns.chatLog.Add(self, text) end
+        if ns.chatLog then ns.chatLog.Add(self, text, ...) end
         return add(self, text, ...)
     end
 end
@@ -793,6 +803,19 @@ local function Build()
     Measure()
     Place()
     Sweep()
+    -- last session's lines, back in their windows (strips/chatlog.lua)
+    if ns.chatLog and ns.chatLog.Restore then ns.chatLog.Restore() end
+    -- A link clicked in a docked window opens Blizzard's ItemRefTooltip at
+    -- the screen's foot (ANCHOR_PRESERVE: where it last was); it stands
+    -- beside the box instead, as a hovered one does. Dragged, it stays
+    -- where it is put until the next click. A modified click puts the link
+    -- in the edit box and shows nothing.
+    if SetItemRef then
+        hooksecurefunc("SetItemRef", function(_, _, _, frame)
+            if not frame or ns.IsSecret(frame) or IsModifiedClick() then return end
+            if ItemRefTooltip and ItemRefTooltip:IsShown() then ns.window.PlaceOutside(ItemRefTooltip, frame) end
+        end)
+    end
     -- Blizzard re-places the chat frame from its saved layout and Edit Mode
     hooksecurefunc(ChatFrame1, "SetPoint", function()
         if not placing then Place() end

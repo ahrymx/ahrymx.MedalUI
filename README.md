@@ -35,6 +35,8 @@ The medallion console: the party on wings around a large player and target, with
 
 The bottom corners carry a strip each. The left one holds your portrait medallion and the micro menu under the chat box. The queue eye takes the portrait's place while you are queued, and a vehicle exit takes the backpack's on the right. Immersion Mode (Shared > Visibility & fading) leaves the idle chat bare, each message on a band of its own, with its box back while you type or point at it; it fades the side panel when idle too.
 
+The chat box names a speaker in their class colour, after their level in its difficulty colour against yours. A link's tooltip stands to the right of the box, hovered or clicked, as every docked window's does. Each window's last 500 lines come back at your next login, dimmed under a divider (Chat > History: Off to 1000, per character). The Log button in the chat's drawer opens a copyable log, with a tab for each chat window.
+
 ![The chat box with its tabs, above the left strip's portrait and micro menu](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/chat.png)
 
 ### Side panel
