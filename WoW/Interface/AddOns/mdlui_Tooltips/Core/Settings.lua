@@ -71,7 +71,6 @@ local DEFAULTS = {
     barHeight = 8,
     barTexture = nil,
     -- The editor's frame treatment, independent of the tooltips it previews.
-    editorStyle = "native",
     -- "ALT", "CTRL", or "NONE". Shift is the game's comparison key.
     originalKey = "ALT",
     bodyFont = nil,
@@ -105,13 +104,6 @@ function ns.restyles(option)
     return ns.option("layout") ~= "blizzard" and ns.option(option) and true or false
 end
 
-function ns.editorStyle()
-    if ns.option("editorStyle") == "flat" then
-        return "flat"
-    end
-    return "native"
-end
-
 -- Counts setting changes, so a panel drawn before one is drawn again.
 ns.settingsVersion = 0
 local function changed() ns.settingsVersion = ns.settingsVersion + 1 end
@@ -139,6 +131,12 @@ end
 
 function ns.resetOptions()
     mdlui_TooltipsDB = {}
+    changed()
+end
+
+-- Every setting as saved in db (a copy taken earlier: the editor's Undo).
+function ns.restoreOptions(db)
+    mdlui_TooltipsDB = type(db) == "table" and db or {}
     changed()
 end
 

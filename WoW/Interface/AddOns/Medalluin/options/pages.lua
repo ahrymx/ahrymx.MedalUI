@@ -182,7 +182,7 @@ local MODULES = {
     cdm = { "side-timeless", "The game's Cooldown Manager, its spells as medallions." },
     cc = { "mouse", "The game's Click Casting, each binding with its keycaps." },
     npc = { "social", "Gossip, quests, vendors, trainers, flights and mail." },
-    tooltips = { "help", "Tooltips reskinned, with a live style editor.", addon = true },
+    tooltips = { "help", "Tooltips reskinned, with a live sample of each kind.", addon = true },
     radial = { "radial", "Hold a key, sweep, release: radial menus of spells, items and markers.", addon = true },
 }
 local SCOPES = { "Shared by every profile.", "Kept per profile." }
@@ -1465,23 +1465,23 @@ function ns.OptionPages()
         {
             id = "tooltips", name = "Tooltips (ext)",
             intro = "Provided by the optional mdlui_Tooltips companion addon.",
-            more = "Enable mdlui_Tooltips in your AddOns list to reskin tooltips and open its style editor "
-                .. "and options.",
+            more = "Enable mdlui_Tooltips in your AddOns list to reskin tooltips and open its window.",
             enabled = function() return SlashCmdList and SlashCmdList.MDLUI_TOOLTIPS ~= nil end,
             groups = {
                 Group("mdlui_Tooltips",
-                    Button("Open style editor", function()
+                    Button("Open mdlui_Tooltips", function()
                         if SlashCmdList and SlashCmdList.MDLUI_TOOLTIPS then
                             if ns.CloseOptions then ns.CloseOptions() end
                             SlashCmdList.MDLUI_TOOLTIPS("")
                         end
-                    end, "Closes this window and opens mdlui_Tooltips' live style editor (/mdltip)."),
+                    end, "Closes this window and opens the mdlui_Tooltips window: each kind of tooltip's look, with a "
+                        .. "live sample (/mdltip)."),
                     Button("Tooltip options", function()
                         if SlashCmdList and SlashCmdList.MDLUI_TOOLTIPS then
                             if ns.CloseOptions then ns.CloseOptions() end
                             SlashCmdList.MDLUI_TOOLTIPS("options")
                         end
-                    end, "Closes this window and opens mdlui_Tooltips' options in the game's AddOns settings "
+                    end, "Closes this window and opens the mdlui_Tooltips window on its Options page "
                         .. "(/mdltip options).")),
             },
         },

@@ -196,7 +196,7 @@ files["WoW/Interface/AddOns/mdlui_Tooltips/**/*.lua"] = {
         ColorPickerFrame = { other_fields = true },
     },
     read_globals = {
-        "GetInboxItem", "GetInboxItemLink", "ATTACHMENTS_MAX_RECEIVE",
+        "GetInboxItem", "PlaySound", "SOUNDKIT", "GameFontNormal", "GetInboxItemLink", "ATTACHMENTS_MAX_RECEIVE",
         "date", "tinsert", "issecretvalue", "canaccesstable", "debugprofilestop", "hooksecurefunc", "geterrorhandler", "debugstack",
         "CreateFrame", "CreateColor", "UIParent", "GameTooltip", "GameTooltipStatusBar", "ItemRefTooltip", "GameTooltipText",
         "GameTooltipHeaderText", "QuestScrollFrame", "GameFontHighlightSmall", "UISpecialFrames", "ShowUIPanel", "HideUIPanel",

@@ -1,52 +1,64 @@
--- The /mdltip style editor: a live sample panel and the controls for its parts.
+-- The mdlui_Tooltips window (/mdltip), laid out as Medalluin's Settings window, as the radial
+-- editor and the Unit Frame Editor are:
+--   the head       the title, a faint line saying what the page is for, the x in its own cell
+--   the sidebar    TOOLTIPS: each kind there are samples of (one the game keeps, by the layout
+--                  or its own Restyle, dimmed); SETTINGS: All tooltips, Options
+--   a kind's page  its name, chips (Restyled, Follows cursor), a line; two sheets:
+--                    Style  the sample, its examples in its card's band (click a part of it to
+--                           pick that part); the part chosen: font, size, colour, outline,
+--                           caps; Look up, a tooltip by ID or a shift-clicked link
+--                    Panel  Restyle & place, the kind's panel, its details, its colours
+--   All tooltips   fonts, the panel, bars, school colours: what every kind shares
+--   Options        the layout, the modifiers, placement and scale, every kind's two switches
+--   the footer     Reset all fonts and colors; "Changed since it opened", Undo changes, Close
+-- Each group is a card of rows (UI/Panel.lua): a label, a line saying what it does, the
+-- control; the long explanation in the row's tooltip. A changed row's label is gold, with a
+-- reset beside its control. Dragged by its head or any bare part; where it is left is kept
+-- (mdlui_TooltipsDB.editorPoint). ns.openEditor([where]): a kind ("item", ...), "all" or
+-- "options"; nothing: the page shown last.
 local _, ns = ...
 local ui = ns.ui
 local L, fillText = ns.L, ns.util.fill
-if not (ui and ui.renderPreview) then
+if not (ui and ui.renderPreview and ns.Panel) then
     return
 end
+local Panel, C = ns.Panel, ns.PanelColors
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
-local WIDTH = 820
--- The window keeps one height; the controls column scrolls within it.
-local EDITOR_HEIGHT = 720
--- Below the controls column: a gap, then the buttons along the bottom.
-local BUTTONS_SPACE = 50
-local PREVIEW_TOP = 118
-local PREVIEW_WIDTH = 460
+local RESET_ICON = "Interface\\Buttons\\UI-RefreshButton"
+-- the Settings window's measures (as mdlui_RadialMenu/UI/Window.lua's)
+local W, H = 1040, 680
+local EDGE, BAR_H, SIDE_W, FOOT = 1, 34, 200, 40
+local X, RIGHT = EDGE + SIDE_W + 18, 16                  -- the page's left, its right margin
+local HEAD_TOP, HEAD_H, STRIP_H = EDGE + BAR_H + 14, 50, 26
+local SHEET_TOP = HEAD_TOP + HEAD_H + STRIP_H - 4 + 12   -- a kind's sheets, under the tabs
+local PAGE_TOP = HEAD_TOP + HEAD_H + 12                  -- All tooltips and Options, under the header
+local BOTTOM = EDGE + FOOT + 14
+local PAGE_W = W - X - RIGHT
+local GAP = 12
+local COL_W = math.floor((PAGE_W - GAP) / 2)
+local SAMPLE_W = 470
+local SIDE_CARD_W = PAGE_W - SAMPLE_W - GAP
+local BAND_H, PAD, ROW_H = Panel.BAND_H, Panel.CARD_PAD, Panel.ROW_H
 -- Room around the panel for its rarity halo and the Equipped tag above it.
 local PREVIEW_MARGIN = 26
 local SCROLL_STEP = 40
-local CONTROLS_X = PREVIEW_WIDTH + 34
-local CONTROLS_WIDTH = WIDTH - CONTROLS_X - 18
-local CONTROLS_TOP = PREVIEW_TOP + 10
-local LABEL_WIDTH = 86
--- Resets have their own gutter, so a changed label never runs into its icon.
-local FIELD_WIDTH = CONTROLS_WIDTH - LABEL_WIDTH - 24
-local SIZE_MIN, SIZE_MAX = 8, 30
-local MENU_ROWS, MENU_ROW_HEIGHT = 12, 20
-local BACKGROUND = { .055, .045, .05 }
-local FIELD = { .10, .085, .085 }
-local FIELD_HOVER = { .16, .13, .12 }
-local LINE = { .32, .26, .19 }
-local GOLD = { .93, .80, .52 }
-local RESET_ICON = "Interface\\Buttons\\UI-RefreshButton"
-local skin = ns.EditorSkin.create()
+local KIND_ROW = 30                                      -- a row of Options' Every kind
+
+local function Range(low, high, step)
+    local t = {}
+    for v = low, high, step or 1 do t[#t + 1] = v end
+    return t
+end
+local PERCENT = function(v) return v .. "%" end
+local PLAIN = function(v) return tostring(v) end
+
 local BACKDROP_STYLES = {
     { text = "Gilded" },
     { value = "slate", text = "Slate" },
     { value = "native", text = "Blizzard border" },
     { value = "flat", text = "Flat" },
     { value = "dialogue", text = "DialogueUI" },
-}
-local BAR_STYLES = {
-    { value = "well", text = "Well" },
-    { value = "plain", text = "Plain" },
-}
-local OUTLINES = {
-    { value = "NONE", text = "None" },
-    { value = "OUTLINE", text = "Outline" },
-    { value = "THICKOUTLINE", text = "Thick outline" },
 }
 
 -- The samples, from UI/Samples.lua, for the types this client has.
@@ -57,154 +69,35 @@ for _, sampleType in ipairs(ns.editorSampleTypes and ns.editorSampleTypes() or {
 end
 -- For tests/: every tooltip type's samples, in the editor's order.
 ns.editorSamples = { tooltipTypes = TOOLTIP_TYPES, order = TYPE_ORDER }
-local MAX_SAMPLES = 0
-for _, tooltipType in pairs(TOOLTIP_TYPES) do MAX_SAMPLES = math.max(MAX_SAMPLES, #tooltipType.samples) end
 
--- Building blocks -----------------------------------------------------------
-
-local function fill(parent, layer, color, alpha)
-    local tex = parent:CreateTexture(nil, layer)
-    tex:SetTexture(WHITE)
-    tex:SetVertexColor(color[1], color[2], color[3], alpha or 1)
-    return tex
-end
-
-local function background(frame, color, alpha)
-    local tex = fill(frame, "BACKGROUND", color, alpha)
-    tex:SetAllPoints()
-    return tex
-end
-
-local function outline(frame, color, alpha)
-    local edges = {}
-    for index, points in ipairs({
-        { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
-        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" },
-    }) do
-        local edge = fill(frame, "BORDER", color, alpha)
-        edge:SetPoint(points[1])
-        edge:SetPoint(points[2])
-        if index <= 2 then edge:SetHeight(1) else edge:SetWidth(1) end
-        edges[index] = edge
+-- The kinds in the sidebar, each its line under the page's title and the setting that restyles
+-- it; its Follow cursor is that setting's entry's (ns.TOOLTIP_TYPES).
+local KINDS = {
+    { "item", "itemPanels", "Bags, links, loot and equipment." },
+    { "spell", "spellPanels", "The spellbook, action bars and talents." },
+    { "unit", "unitPanels", "Players, NPCs and creatures." },
+    { "object", "objectPanels", "Herbs, ore, chests and other objects." },
+    { "aura", "auraPanels", "Buffs and debuffs, yours and others'." },
+    { "quest", "questPanels", "Quest links, the quest log and quest givers." },
+    { "macro", "macroPanels", "Macros on your bars." },
+    { "mail", "mailPanels", "Letters in your mailbox." },
+}
+local SIDEBAR, KIND = {}, {}
+for _, k in ipairs(KINDS) do
+    if TOOLTIP_TYPES[k[1]] then
+        local kind = { key = k[1], restyle = k[2], line = k[3], label = TOOLTIP_TYPES[k[1]].label }
+        for _, entry in ipairs(ns.TOOLTIP_TYPES) do
+            if entry.restyle == k[2] then kind.cursor = entry.cursor end
+        end
+        SIDEBAR[#SIDEBAR + 1] = kind.key
+        KIND[kind.key] = kind
     end
-    return edges
 end
 
-local function text(parent, template, value)
-    local font = parent:CreateFontString(nil, "ARTWORK", template)
-    font:SetJustifyH("LEFT")
-    if value then font:SetText(L[value]) end
-    return font
-end
-
--- A string given a font file keeps it through SetFontObject.
-local function plainFont(font)
-    local path, size, flags = GameFontHighlightSmall:GetFont()
-    ui.setFont(font, path, size, flags)
-end
-
-local function editorButton(parent, label, width, onClick, template)
-    local button = CreateFrame("Button", nil, parent, template or "UIPanelButtonTemplate")
-    local parts = skin.templateParts(button)
-    button:SetSize(width, 22)
-    button.bg = background(button, FIELD)
-    local edges = outline(button, LINE)
-    button.label = text(button, "GameFontHighlightSmall", label)
-    button.label:SetPoint("CENTER")
-    local paint = skin:button(button, button.bg, edges, parts)
-    button:HookScript("OnEnter", function(self) self.hovered = true paint() end)
-    button:HookScript("OnLeave", function(self) self.hovered = false paint() end)
-    button:SetScript("OnClick", onClick)
-    function button:SetSelected(selected)
-        self.selected = selected
-        paint()
-    end
-    return button
-end
-
-local function editorTab(parent, label, width, onClick)
-    local tab = CreateFrame("Button", nil, parent, "MinimalTabTemplate")
-    tab:SetWidth(width)
-    tab.label = tab.Text
-    tab.label:SetText(L[label])
-    skin:tab(tab, background(tab, FIELD), outline(tab, LINE))
-    tab:SetScript("OnClick", onClick)
-    return tab
-end
-
--- The window -----------------------------------------------------------------
-
-local editor = CreateFrame("Frame", "mdlui_TooltipsEditor", UIParent)
-editor:SetWidth(WIDTH)
-editor:SetPoint("CENTER")
--- Below the color picker, which the editor opens.
-editor:SetFrameStrata("HIGH")
-editor:SetToplevel(true)
-editor:SetClampedToScreen(true)
-editor:EnableMouse(true)
-editor:SetMovable(true)
-editor:RegisterForDrag("LeftButton")
-editor:SetScript("OnDragStart", editor.StartMoving)
-editor:SetScript("OnDragStop", editor.StopMovingOrSizing)
-editor:Hide()
-tinsert(UISpecialFrames, "mdlui_TooltipsEditor")
-skin:surface(editor, background(editor, BACKGROUND), outline(editor, LINE), true)
-
--- The native border is a child frame; its title bar covers regions drawn on
--- the editor itself. Keep the title above it in either appearance.
-local titleContainer = CreateFrame("Frame", nil, editor)
-titleContainer:SetPoint("TOPLEFT")
-titleContainer:SetPoint("TOPRIGHT")
-titleContainer:SetHeight(32)
-titleContainer:SetFrameLevel(editor:GetFrameLevel() + 2)
-local heading = text(titleContainer, "GameFontNormalLarge", "mdlui_Tooltips Style Editor")
-heading:SetPoint("TOPLEFT", 16, -14)
-local subheading = text(editor, "GameFontDisableSmall",
-    "Click any part of the sample to restyle it. Tooltips use the new look the next time they open.")
-subheading:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -4)
-local close = CreateFrame("Button", nil, editor, "UIPanelCloseButton")
-close:SetPoint("TOPRIGHT", -2, -2)
-skin:bind(function(native)
-    -- Leave room inside the native frame for the scrollbar's arrow buttons.
-    editor:SetWidth(WIDTH + (native and 16 or 0))
-    heading:ClearAllPoints()
-    heading:SetFontObject(native and "GameFontNormal" or "GameFontNormalLarge")
-    if native then heading:SetPoint("TOP", 0, -5) else heading:SetPoint("TOPLEFT", 16, -14) end
-    subheading:ClearAllPoints()
-    if native then subheading:SetPoint("TOPLEFT", editor, "TOPLEFT", 16, -34)
-    else subheading:SetPoint("TOPLEFT", heading, "BOTTOMLEFT", 0, -4) end
-end)
-
--- The controls column scrolls, so the window keeps its size whatever the
--- tooltip type shown has to set.
-local column = CreateFrame("ScrollFrame", nil, editor)
-column:SetPoint("TOPLEFT", CONTROLS_X, -CONTROLS_TOP)
-column:SetSize(CONTROLS_WIDTH, EDITOR_HEIGHT - CONTROLS_TOP - BUTTONS_SPACE)
-column:SetClipsChildren(true)
-local content = CreateFrame("Frame", nil, column)
-content:SetSize(CONTROLS_WIDTH, 1)
-column:SetScrollChild(content)
-local columnBar = CreateFrame("Slider", nil, editor)
-columnBar:SetOrientation("VERTICAL")
-columnBar:SetPoint("TOPLEFT", column, "TOPRIGHT", 6, 0)
-columnBar:SetPoint("BOTTOMLEFT", column, "BOTTOMRIGHT", 6, 0)
-columnBar:SetWidth(6)
-columnBar:SetValueStep(1)
-local columnTrack = fill(columnBar, "BACKGROUND", LINE, .6)
-columnTrack:SetAllPoints()
-columnBar:SetThumbTexture(WHITE)
-local columnThumb = columnBar:GetThumbTexture()
-columnThumb:SetWidth(6)
-columnThumb:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], .7)
-columnBar:Hide()
-columnBar:SetScript("OnValueChanged", function(_, offset) column:SetVerticalScroll(math.floor(offset + .5)) end)
-skin:scrollbar(columnBar, columnTrack, 6, SCROLL_STEP)
-column:EnableMouseWheel(true)
-column:SetScript("OnMouseWheel", function(_, delta)
-    if columnBar:IsShown() then columnBar:SetValue(columnBar:GetValue() - delta * SCROLL_STEP) end
-end)
-
-local state = { tooltipType = "item", sample = 1, selected = "title", saved = {} }
+-- What the window shows: the page (a kind's key, "all" or "options"), a kind's sheet, and the
+-- kind's sample, the part chosen and an ID looked up; each kind's kept while another shows.
+local state = { page = SIDEBAR[1], sheet = "style", tooltipType = SIDEBAR[1], sample = 1,
+    selected = TOOLTIP_TYPES[SIDEBAR[1]] and TOOLTIP_TYPES[SIDEBAR[1]].first, saved = {} }
 local controls = {}
 local refresh, refreshLookup
 
@@ -220,75 +113,359 @@ local function switchTooltipType(tooltipType)
     state.sample = saved.sample or 1
     state.selected = saved.selected or TOOLTIP_TYPES[tooltipType].first
     state.lookup = saved.lookup
-    refresh()
 end
 
--- The sample ----------------------------------------------------------------
+-- A region's tooltip: its title, the explanation, a gold warning under it (each text, or a
+-- function giving it, or nil).
+local function Tip(region, title, text, warning)
+    region:HookScript("OnEnter", function(self)
+        local function read(v) if type(v) == "function" then return v() end return v end
+        local t, said, warn = read(title), read(text), read(warning)
+        if not (t or said) then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L[t or ""], 1, 1, 1)
+        if said then GameTooltip:AddLine(L[said], nil, nil, nil, true) end
+        if warn then GameTooltip:AddLine(L[warn], 1, .82, 0, true) end
+        GameTooltip:Show()
+    end)
+    region:HookScript("OnLeave", function() GameTooltip:Hide() end)
+end
 
-local host = CreateFrame("Frame", nil, editor)
-host:SetPoint("TOPLEFT", 16, -PREVIEW_TOP)
-host:SetWidth(PREVIEW_WIDTH)
+-- The window -----------------------------------------------------------------
+
+local editor = CreateFrame("Frame", "mdlui_TooltipsEditor", UIParent)
+editor:SetSize(W, H)
+-- Below the color picker, which the editor opens.
+editor:SetFrameStrata("HIGH")
+editor:SetToplevel(true)
+editor:SetClampedToScreen(true)
+editor:EnableMouse(true)
+editor:SetMovable(true)
+editor:Hide()
+tinsert(UISpecialFrames, "mdlui_TooltipsEditor")
+-- the page's tone; a hairline edge, a faint gold ring outside it
+Panel.Fill(editor, "BACKGROUND", C.page, 1):SetAllPoints()
+Panel.Outline(editor, "BORDER", C.lineStrong, 0)
+Panel.Outline(editor, "BORDER", { C.gold[1], C.gold[2], C.gold[3], 0.35 }, -1)
+
+local function Remember()
+    local point, _, relative, x, y = editor:GetPoint()
+    if not (point and x and y) then return end
+    if type(mdlui_TooltipsDB) ~= "table" then mdlui_TooltipsDB = {} end
+    mdlui_TooltipsDB.editorPoint = { point, relative, math.floor(x + 0.5), math.floor(y + 0.5) }
+end
+
+-- where it was left, else a little above the screen's middle
+local placed = false
+local function Place()
+    if placed then return end
+    placed = true
+    editor:ClearAllPoints()
+    local at = type(mdlui_TooltipsDB) == "table" and mdlui_TooltipsDB.editorPoint
+    if type(at) == "table" and type(at[1]) == "string" and tonumber(at[3]) and tonumber(at[4]) then
+        editor:SetPoint(at[1], UIParent, at[2] or at[1], at[3], at[4])
+    else
+        editor:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+    end
+end
+
+-- a region that drags the window; where it is left is kept
+local function Grip(region)
+    region:EnableMouse(true)
+    region:RegisterForDrag("LeftButton")
+    region:SetScript("OnDragStart", function() editor:StartMoving() end)
+    region:SetScript("OnDragStop", function()
+        editor:StopMovingOrSizing()
+        if editor.SetUserPlaced then editor:SetUserPlaced(false) end
+        Remember()
+    end)
+end
+Grip(editor)
+
+-- a bar of the window's chrome (its head or footer), a hairline on its inner edge
+local function Bar(top)
+    local bar = CreateFrame("Frame", nil, editor)
+    bar:SetPoint(top and "TOPLEFT" or "BOTTOMLEFT", EDGE, top and -EDGE or EDGE)
+    bar:SetPoint(top and "TOPRIGHT" or "BOTTOMRIGHT", -EDGE, top and -EDGE or EDGE)
+    bar:SetHeight(top and BAR_H or FOOT)
+    bar:SetFrameLevel(editor:GetFrameLevel() + 5)
+    Panel.Fill(bar, "BACKGROUND", C.ink, 1):SetAllPoints()
+    local rule = Panel.Fill(bar, "BORDER", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint(top and "BOTTOMLEFT" or "TOPLEFT", 0, 0)
+    rule:SetPoint(top and "BOTTOMRIGHT" or "TOPRIGHT", 0, 0)
+    return bar
+end
+
+-- the head: the title, the subtitle, the x (red under the pointer)
+local headBar = Bar(true)
+Grip(headBar)
+local title = Panel.Serif(headBar, 15, C.goldBright)
+title:SetPoint("LEFT", 14, 0)
+title:SetText("mdlui_Tooltips")
+local subtitle = Panel.Plain(headBar, 11, C.faint)
+subtitle:SetPoint("LEFT", title, "RIGHT", 10, -1)
+local closeX = CreateFrame("Button", nil, headBar)
+closeX:SetSize(BAR_H, BAR_H - 1)
+closeX:SetPoint("TOPRIGHT", 0, 0)
+local closeLit = Panel.Fill(closeX, "BACKGROUND", C.red, 1)
+closeLit:SetAllPoints()
+closeLit:Hide()
+local closeSeam = Panel.Fill(closeX, "BORDER", C.line)
+closeSeam:SetWidth(1)
+closeSeam:SetPoint("TOPLEFT", 0, 0)
+closeSeam:SetPoint("BOTTOMLEFT", 0, 0)
+closeX.glyph = closeX:CreateTexture(nil, "ARTWORK")
+closeX.glyph:SetTexture(Panel.ART .. "Close")
+closeX.glyph:SetSize(14, 14)
+closeX.glyph:SetPoint("CENTER", 0, 0)
+closeX.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+closeX:SetScript("OnClick", function() editor:Hide() end)
+closeX:SetScript("OnEnter", function(self)
+    closeLit:Show()
+    self.glyph:SetVertexColor(0.949, 0.847, 0.784, 1)
+end)
+closeX:SetScript("OnLeave", function(self)
+    closeLit:Hide()
+    self.glyph:SetVertexColor(C.dim[1], C.dim[2], C.dim[3], 1)
+end)
+
+-- The sidebar ----------------------------------------------------------------
+
+local side = CreateFrame("Frame", nil, editor)
+side:SetPoint("TOPLEFT", EDGE, -(EDGE + BAR_H))
+side:SetPoint("BOTTOMLEFT", EDGE, EDGE + FOOT)
+side:SetWidth(SIDE_W)
+Panel.Fill(side, "BACKGROUND", C.ink, 1):SetAllPoints()
+local sideRule = Panel.Fill(side, "BORDER", C.line)
+sideRule:SetWidth(1)
+sideRule:SetPoint("TOPRIGHT", 0, 0)
+sideRule:SetPoint("BOTTOMRIGHT", 0, 0)
+
+local nav = {}
+local ShowPage
+local navY = 18
+local function NavHeading(text)
+    local fs = Panel.Serif(side, 11, C.goldDark)
+    fs:SetPoint("LEFT", side, "TOPLEFT", 16, -navY)
+    fs:SetText(L[text]:upper())
+    local rule = Panel.Fill(side, "ARTWORK", C.line)
+    rule:SetHeight(1)
+    rule:SetPoint("LEFT", fs, "RIGHT", 8, 0)
+    rule:SetPoint("RIGHT", side, "TOPRIGHT", -14, -navY)
+    navY = navY + 22
+end
+local function NavButton(key, label)
+    local b = CreateFrame("Button", nil, side)
+    b:SetPoint("TOPLEFT", 1, -(navY - 12))
+    b:SetPoint("TOPRIGHT", -1, -(navY - 12))
+    b:SetHeight(24)
+    b.mark = Panel.Fill(b, "BACKGROUND", C.selected, 1)
+    b.mark:SetAllPoints()
+    b.bar = Panel.Fill(b, "ARTWORK", C.gold)
+    b.bar:SetWidth(3)
+    b.bar:SetPoint("TOPLEFT", 0, 0)
+    b.bar:SetPoint("BOTTOMLEFT", 0, 0)
+    Panel.Inset(Panel.Fill(b, "HIGHLIGHT", C.lift), 0, 0)
+    b.label = Panel.Serif(b, 13, C.text)
+    b.label:SetPoint("LEFT", 24, 0)
+    b.label:SetText(L[label])
+    b.note = Panel.Plain(b, 10, C.faint)
+    b.note:SetPoint("RIGHT", -12, 0)
+    b:SetScript("OnClick", function()
+        Panel.Sound("click")
+        ShowPage(key)
+    end)
+    nav[key] = b
+    navY = navY + 26
+    return b
+end
+NavHeading("Tooltips")
+for _, key in ipairs(SIDEBAR) do
+    local b = NavButton(key, KIND[key].label)
+    Tip(b, KIND[key].label, function()
+        if ns.option("layout") == "blizzard" then
+            return "The Blizzard layout (Options) keeps the game's own tooltip for every kind."
+        elseif not ns.restyles(KIND[key].restyle) then
+            return "Not restyled: this kind keeps the game's own tooltip. Its Panel sheet turns it on."
+        end
+    end)
+end
+navY = navY + 12
+NavHeading("Settings")
+NavButton("all", "All tooltips")
+NavButton("options", "Options")
+
+-- The header -------------------------------------------------------------------
+
+local head = CreateFrame("Frame", nil, editor)
+head:SetPoint("TOPLEFT", editor, "TOPLEFT", X, -HEAD_TOP)
+head:SetPoint("TOPRIGHT", editor, "TOPRIGHT", -RIGHT, -HEAD_TOP)
+head:SetHeight(HEAD_H + STRIP_H - 4)
+local pageTitle = Panel.Serif(head, 20, C.text)
+pageTitle:SetPoint("TOPLEFT", 0, -2)
+pageTitle:SetWordWrap(false)
+local chips = { Panel.Chip(head, ""), Panel.Chip(head, "") }
+chips[1]:SetPoint("LEFT", pageTitle, "RIGHT", 12, 0)
+chips[2]:SetPoint("LEFT", chips[1], "RIGHT", 6, 0)
+local crumb = Panel.Plain(head, 12, C.faint)
+crumb:SetPoint("TOPLEFT", 0, -28)
+crumb:SetWordWrap(false)
+local headRule = Panel.Fill(head, "ARTWORK", C.line)
+headRule:SetHeight(1)
+headRule:SetPoint("BOTTOMLEFT", 0, 0)
+headRule:SetPoint("BOTTOMRIGHT", 0, 0)
+local sheetTabs = {}
+do
+    local x = 0
+    for _, s in ipairs({ { "style", "Style" }, { "panel", "Panel" } }) do
+        local b = Panel.SheetTab(head, L[s[2]])
+        b:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", x, 1)
+        x = x + b:GetWidth() + 2
+        b:SetScript("OnClick", function()
+            Panel.Sound("click")
+            ShowPage(state.tooltipType, s[1])
+        end)
+        sheetTabs[s[1]] = b
+    end
+end
+
+-- The footer -------------------------------------------------------------------
+
+local footBar = Bar(false)
+local resetAll = Panel.UButton(footBar, L["Reset all fonts and colors"], 190, 26, "danger")
+resetAll:SetPoint("LEFT", 11, 0)
+Tip(resetAll, "Reset all fonts and colors", "Every part's font, size, color, outline and caps; the fonts, outline "
+    .. "and band strengths every kind shares; each kind's panel; and the stat, armor, class and school colors. "
+    .. "Which kinds are restyled and the details shown stay as they are.")
+local closeButton = Panel.UButton(footBar, L["Close"], 64, 26, "quiet")
+closeButton:SetPoint("RIGHT", -8, 0)
+closeButton:SetScript("OnClick", function() editor:Hide() end)
+local undoButton = Panel.UButton(footBar, L["Undo changes"], 120, 26)
+undoButton:SetPoint("RIGHT", closeButton, "LEFT", -6, 0)
+Tip(undoButton, "Undo changes", "Every setting back as it was when the window opened.")
+local changedPill = CreateFrame("Frame", nil, footBar)
+changedPill:SetHeight(24)
+changedPill:SetPoint("RIGHT", undoButton, "LEFT", -10, 0)
+Panel.Fill(changedPill, "BACKGROUND", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.10 }, 1):SetAllPoints()
+Panel.Outline(changedPill, "BORDER", { C.goldBright[1], C.goldBright[2], C.goldBright[3], 0.35 }, 0)
+do
+    local dot = changedPill:CreateTexture(nil, "ARTWORK")
+    dot:SetTexture(Panel.ART .. "Round")
+    dot:SetSize(7, 7)
+    dot:SetPoint("LEFT", 10, 0)
+    dot:SetVertexColor(C.goldBright[1], C.goldBright[2], C.goldBright[3], 1)
+    changedPill.text = Panel.Plain(changedPill, 11, C.goldBright)
+    changedPill.text:SetPoint("LEFT", dot, "RIGHT", 7, 0)
+    changedPill.text:SetText(L["Changed since it opened"])
+    changedPill:SetWidth(10 + 7 + 7 + math.ceil(changedPill.text:GetStringWidth() or 0) + 10)
+end
+changedPill:Hide()
+
+-- Since the window opened: what was saved then (Undo puts it back), and the settings' count.
+local opened, openedVersion
+local function Copy(t)
+    if type(t) ~= "table" then return t end
+    local out = {}
+    for k, v in pairs(t) do out[k] = Copy(v) end
+    return out
+end
+undoButton:SetScript("OnClick", function()
+    local point = type(mdlui_TooltipsDB) == "table" and mdlui_TooltipsDB.editorPoint
+    local saved = Copy(opened) or {}
+    saved.editorPoint = point
+    ns.restoreOptions(saved)
+    openedVersion = ns.settingsVersion
+    refresh()
+end)
+resetAll:SetScript("OnClick", function()
+    ns.resetStyles()
+    refresh()
+end)
+
+-- The pages ----------------------------------------------------------------------
+
+local SHEET_H = H - SHEET_TOP - BOTTOM
+local PAGE_H = H - PAGE_TOP - BOTTOM
+local styleSheet = CreateFrame("Frame", nil, editor)
+styleSheet:SetPoint("TOPLEFT", editor, "TOPLEFT", X, -SHEET_TOP)
+styleSheet:SetSize(PAGE_W, SHEET_H)
+-- the pages that scroll: their bar in the right margin
+local panelSheet = Panel.Scroller(editor, PAGE_W + 12, SHEET_H)
+panelSheet:SetPoint("TOPLEFT", editor, "TOPLEFT", X, -SHEET_TOP)
+local allPage = Panel.Scroller(editor, PAGE_W + 12, PAGE_H)
+allPage:SetPoint("TOPLEFT", editor, "TOPLEFT", X, -PAGE_TOP)
+local optionsPage = Panel.Scroller(editor, PAGE_W + 12, PAGE_H)
+optionsPage:SetPoint("TOPLEFT", editor, "TOPLEFT", X, -PAGE_TOP)
+
+-- The sample (the Style sheet's left) ------------------------------------------------
+
+local sampleCard = Panel.Card(styleSheet, L["Sample"], SAMPLE_W, SHEET_H)
+sampleCard:SetPoint("TOPLEFT")
+local host = CreateFrame("Frame", nil, sampleCard)
+host:SetPoint("TOPLEFT", 8, -(BAND_H + 8))
+host:SetPoint("BOTTOMRIGHT", -8, 8)
 host:SetClipsChildren(true)
-skin:surface(host, background(host, { .02, .016, .02 }), outline(host, LINE, .8))
+Panel.Fill(host, "BACKGROUND", { .02, .016, .02 }, 1):SetAllPoints()
+Panel.Outline(host, "BORDER", C.line, 0)
 -- Stands in for the game's tooltip; the panel pins itself to it.
 local anchor = CreateFrame("Frame", nil, host)
 anchor:SetSize(1, 1)
 anchor:SetPoint("TOPLEFT", PREVIEW_MARGIN, -PREVIEW_MARGIN)
-local typeTabs = {}
-for index, tooltipType in ipairs(TYPE_ORDER) do
-    local tab = editorTab(editor, TOOLTIP_TYPES[tooltipType].label, 64, function() switchTooltipType(tooltipType) end)
-    tab:SetPoint("BOTTOMLEFT", host, "TOPLEFT", (index - 1) * 68, 34)
-    typeTabs[tooltipType] = tab
-end
-local examplesLabel = text(editor, "GameFontNormalSmall", "Examples:")
-examplesLabel:SetPoint("BOTTOMLEFT", host, "TOPLEFT", 0, 11)
-local sampleTabs = {}
-for index = 1, MAX_SAMPLES do
-    local tab = editorButton(editor, "", 56, function()
-        state.sample, state.lookup = index, nil
+
+-- each kind's examples, a segment in the sample card's band; none lit while an ID is looked up
+local examples = {}
+for _, key in ipairs(SIDEBAR) do
+    local labels = {}
+    for i, sample in ipairs(TOOLTIP_TYPES[key].samples) do labels[i] = L[sample.label] end
+    local function pick(i)
+        state.sample, state.lookup = i, nil
         refresh()
-    end, "UIMenuButtonStretchTemplate")
-    if index == 1 then tab:SetPoint("LEFT", examplesLabel, "RIGHT", 8, 0)
-    else tab:SetPoint("LEFT", sampleTabs[index - 1], "RIGHT", 4, 0) end
-    sampleTabs[index] = tab
+    end
+    local seg = Panel.Segment(sampleCard, labels, pick, 11, 36, 14)
+    -- a long row of examples, smaller, to stay clear of the card's title
+    if seg:GetWidth() > SAMPLE_W - 110 then
+        seg:Hide()
+        seg = Panel.Segment(sampleCard, labels, pick, 10, 28, 10)
+    end
+    Panel.InBand(sampleCard, seg)
+    seg:Hide()
+    examples[key] = seg
 end
 
 local overlay = CreateFrame("Frame", nil, host)
 overlay:SetAllPoints()
 overlay:EnableMouse(true)
-local failure = text(overlay, "GameFontRedSmall")
+local failure = Panel.Plain(overlay, 11, { 1, .3, .25 })
 failure:SetPoint("TOPLEFT", 12, -12)
-failure:SetWidth(PREVIEW_WIDTH - 24)
-local hint = text(overlay, "GameFontDisableSmall")
+failure:SetWidth(SAMPLE_W - 40)
+local hint = Panel.Plain(overlay, 10, C.faint)
 hint:SetPoint("BOTTOMLEFT", 10, 8)
 
-local scrollBar = CreateFrame("Slider", nil, host)
-scrollBar:SetOrientation("VERTICAL")
-scrollBar:SetPoint("TOPRIGHT", -3, -3)
-scrollBar:SetPoint("BOTTOMRIGHT", -3, 3)
-scrollBar:SetWidth(8)
-scrollBar:SetValueStep(1)
-local scrollTrack = fill(scrollBar, "BACKGROUND", LINE, .6)
-scrollTrack:SetAllPoints()
-scrollBar:SetThumbTexture(WHITE)
-local scrollThumbTexture = scrollBar:GetThumbTexture()
-scrollThumbTexture:SetWidth(8)
-scrollThumbTexture:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], .7)
-scrollBar:Hide()
+local function ScrollBar(vertical)
+    local bar = CreateFrame("Slider", nil, host)
+    bar:SetOrientation(vertical and "VERTICAL" or "HORIZONTAL")
+    if vertical then
+        bar:SetPoint("TOPRIGHT", -3, -3)
+        bar:SetPoint("BOTTOMRIGHT", -3, 3)
+        bar:SetWidth(6)
+    else
+        bar:SetPoint("BOTTOMLEFT", 8, 4)
+        bar:SetPoint("BOTTOMRIGHT", -20, 4)
+        bar:SetHeight(6)
+    end
+    bar:SetValueStep(1)
+    Panel.Fill(bar, "BACKGROUND", C.line, 1):SetAllPoints()
+    bar:SetThumbTexture(WHITE)
+    local thumb = bar:GetThumbTexture()
+    if vertical then thumb:SetWidth(6) else thumb:SetHeight(6) end
+    thumb:SetVertexColor(C.goldDark[1], C.goldDark[2], C.goldDark[3], 1)
+    bar:Hide()
+    return bar, thumb
+end
+local scrollBar, scrollThumbTexture = ScrollBar(true)
+local horizontalBar, horizontalThumb = ScrollBar(false)
 local scrolledFor
-local horizontalBar = CreateFrame("Slider", nil, host)
-horizontalBar:SetOrientation("HORIZONTAL")
-horizontalBar:SetPoint("BOTTOMLEFT", 8, 4)
-horizontalBar:SetPoint("BOTTOMRIGHT", -20, 4)
-horizontalBar:SetHeight(8)
-horizontalBar:SetValueStep(1)
-local horizontalTrack = fill(horizontalBar, "BACKGROUND", LINE, .6)
-horizontalTrack:SetAllPoints()
-horizontalBar:SetThumbTexture(WHITE)
-local horizontalThumb = horizontalBar:GetThumbTexture()
-horizontalThumb:SetHeight(8)
-horizontalThumb:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], .7)
-horizontalBar:Hide()
 
 local function scrollTo(offset)
     anchor:ClearAllPoints()
@@ -296,12 +473,6 @@ local function scrollTo(offset)
 end
 scrollBar:SetScript("OnValueChanged", function(_, offset) scrollTo(math.floor(offset + .5)) end)
 horizontalBar:SetScript("OnValueChanged", function() scrollTo(scrollBar:GetValue()) end)
-skin:scrollbar(scrollBar, scrollTrack, 8, SCROLL_STEP)
-skin:bind(function(native)
-    scrollBar:ClearAllPoints()
-    scrollBar:SetPoint("TOPRIGHT", native and -12 or -3, native and -8 or -3)
-    scrollBar:SetPoint("BOTTOMRIGHT", native and -12 or -3, native and 8 or 3)
-end)
 overlay:EnableMouseWheel(true)
 overlay:SetScript("OnMouseWheel", function(_, delta)
     if IsShiftKeyDown() and horizontalBar:IsShown() then
@@ -361,7 +532,7 @@ local function paintHighlights()
             tex:SetPoint("TOPLEFT", hit.region, "TOPLEFT", -3, 2)
             tex:SetPoint("BOTTOMRIGHT", hit.region, "BOTTOMRIGHT", 3, -2)
             if selected then
-                tex:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], .16)
+                tex:SetVertexColor(C.goldBright[1], C.goldBright[2], C.goldBright[3], .16)
             else
                 tex:SetVertexColor(1, 1, 1, .07)
             end
@@ -458,14 +629,13 @@ local function drawSample()
     end
     offset = math.min(offset, range)
     scrollBar:SetValue(offset)
-    scrollBar:UpdateScrollMetrics(host:GetHeight(), sampleHeight)
     scrollTo(offset)
 end
 
+-- A part picked: in the sample, or from the part card's list. One the example shown lacks
+-- is looked for in the kind's others.
 local function selectPart(key)
     state.selected = key
-    -- The part's settings head the column.
-    columnBar:SetValue(0)
     if not hasPart(key) and not state.lookup then
         for index = 1, #samples() do
             if index ~= state.sample then
@@ -482,207 +652,150 @@ overlay:SetScript("OnMouseDown", function()
     if hovered then selectPart(hovered) end
 end)
 
--- Dropdowns ------------------------------------------------------------------
+-- Rows -----------------------------------------------------------------------------
 
-local catcher = CreateFrame("Button", nil, editor)
-catcher:SetAllPoints(UIParent)
-catcher:SetFrameStrata("FULLSCREEN_DIALOG")
-catcher:EnableMouse(true)
-catcher:RegisterForClicks("AnyUp")
-catcher:Hide()
-local menu = CreateFrame("Frame", nil, catcher)
-menu:SetFrameStrata("FULLSCREEN_DIALOG")
-menu:EnableMouse(true)
-menu:EnableMouseWheel(true)
-skin:surface(menu, background(menu, { .07, .06, .06 }), outline(menu, LINE))
-local scrollThumb = fill(menu, "ARTWORK", GOLD, .5)
-scrollThumb:SetWidth(2)
-menu.rows = {}
-
-local function closeMenu()
-    catcher:Hide()
-    menu.owner = nil
-end
-catcher:SetScript("OnClick", closeMenu)
-
-local function fillMenu()
-    local items, offset = menu.items, menu.offset
-    local current = menu.owner.current()
-    for index = 1, MENU_ROWS do
-        local row = menu.rows[index]
-        local item = items[index + offset]
-        if item then
-            row.item = item
-            if item.font then
-                ui.setFont(row.label, item.font, 13)
-            else
-                plainFont(row.label)
-            end
-            row.label:SetText(L[item.text])
-            if item.value == current then
-                row.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-            else
-                row.label:SetTextColor(.90, .87, .80)
-            end
-            row:Show()
-        else
-            row:Hide()
-        end
-    end
-    local shown = math.min(#items, MENU_ROWS)
-    if #items > MENU_ROWS then
-        local track = shown * MENU_ROW_HEIGHT - 4
-        local length = math.max(12, track * MENU_ROWS / #items)
-        scrollThumb:ClearAllPoints()
-        scrollThumb:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -2,
-            -2 - (track - length) * offset / (#items - MENU_ROWS))
-        scrollThumb:SetHeight(length)
-        scrollThumb:Show()
-    else
-        scrollThumb:Hide()
-    end
-    menu:SetHeight(shown * MENU_ROW_HEIGHT + 4)
+-- What a row's reset clears: saved gives the stored value, nil while the setting is at its default.
+local function partSetting(field)
+    return {
+        saved = function() return ns.elementSetting(state.selected, field) end,
+        reset = function() ns.setElementSetting(state.selected, field, nil) end,
+    }
 end
 
-for index = 1, MENU_ROWS do
-    local row = CreateFrame("Button", nil, menu)
-    row:SetHeight(MENU_ROW_HEIGHT)
-    row:SetPoint("TOPLEFT", 2, -2 - (index - 1) * MENU_ROW_HEIGHT)
-    row:SetPoint("TOPRIGHT", -6, -2 - (index - 1) * MENU_ROW_HEIGHT)
-    local glow = fill(row, "HIGHLIGHT", GOLD, .12)
-    glow:SetAllPoints()
-    row.label = text(row, "GameFontHighlightSmall")
-    row.label:SetPoint("LEFT", 8, 0)
-    row.label:SetPoint("RIGHT", -4, 0)
-    row.label:SetWordWrap(false)
-    row:SetScript("OnClick", function(self)
-        local owner = menu.owner
-        closeMenu()
-        owner.pick(self.item.value)
+local function optionSetting(key)
+    return {
+        saved = function() return ns.savedOption(key) end,
+        reset = function() ns.setOption(key, nil) end,
+    }
+end
+
+-- A row's control put at its right, after a reset while it is changed (setting), its words
+-- clear of both; fill() shows the saved value. available(): false fades the row and turns its
+-- control off (control.SetEnabled), as a kind left to the game, or DialogueUI missing.
+local function Finish(row, control, width, fill, setting, available)
+    local reset
+    if setting then
+        reset = CreateFrame("Button", nil, row)
+        reset:SetSize(14, 14)
+        reset:SetNormalTexture(RESET_ICON)
+        reset:SetHighlightTexture(RESET_ICON, "ADD")
+        reset:SetScript("OnClick", function()
+            Panel.Sound("click")
+            setting.reset()
+            refresh()
+        end)
+        Tip(reset, "Reset to default")
+    end
+    row:Hold(control, width + (setting and 22 or 0))
+    if reset then reset:SetPoint("RIGHT", row, "RIGHT", -(width + 8), 0) end
+    controls[#controls + 1] = {
+        refresh = function()
+            local on = not available or available()
+            if fill then fill() end
+            if control.SetEnabled then control:SetEnabled(on) end
+            if control.Paint_ then control:Paint_() end
+            row:SetAlpha(on and 1 or 0.45)
+            local changed = setting and setting.saved() ~= nil
+            if reset then reset:SetShown(changed and on) end
+            local c = changed and C.gold or C.text
+            row.label:SetTextColor(c[1], c[2], c[3])
+        end,
+    }
+end
+
+-- spec: { label, line, tip, warning, setting, available }
+local function NewRow(card, n, spec)
+    local row = Panel.CardRow(card, n, L[spec[1]], spec[2] and L[spec[2]])
+    Tip(row, spec[1], spec.tip, spec.warning)
+    return row
+end
+
+local function SwitchRow(card, n, spec, get, set)
+    local row = NewRow(card, n, spec)
+    local switch = Panel.Switch(row, function(self)
+        set(self:GetChecked() and true or false)
         refresh()
     end)
-    menu.rows[index] = row
+    Tip(switch, spec[1], spec.tip, spec.warning)
+    Finish(row, switch, 36, function() switch:SetOn(get()) end, spec.setting, spec.available)
+    row.switch = switch
+    return row
 end
 
-menu:SetScript("OnMouseWheel", function(_, delta)
-    local last = math.max(0, #menu.items - MENU_ROWS)
-    menu.offset = math.max(0, math.min(last, menu.offset - delta))
-    fillMenu()
-end)
+-- An option on or off; its default is saved as no setting.
+local function OptionSwitch(card, n, spec, key)
+    spec.setting = spec.setting or optionSetting(key)
+    return SwitchRow(card, n, spec, function() return ns.option(key) end, function(on)
+        ns.setOption(key, nil)
+        if ns.option(key) ~= on then ns.setOption(key, on) end
+    end)
+end
 
-local function openMenu(owner)
-    local items = owner.items()
-    menu.owner, menu.items, menu.offset = owner, items, 0
-    for index, item in ipairs(items) do
-        if item.value == owner.current() then
-            menu.offset = math.max(0, math.min(index - 1, #items - MENU_ROWS))
-            break
+-- values: the answers saved (nil the default), labels: their short words
+local function SegmentRow(card, n, spec, values, labels, get, set)
+    local row = NewRow(card, n, spec)
+    local translated = {}
+    for i, label in ipairs(labels) do translated[i] = L[label] end
+    local seg = Panel.Segment(row, translated, function(i)
+        set(values[i])
+        refresh()
+    end, 11, 40, 16)
+    for _, b in ipairs(seg.buttons) do Tip(b, spec[1], spec.tip, spec.warning) end
+    Finish(row, seg, seg:GetWidth(), function()
+        local now, at = get(), nil
+        for i = 1, #labels do if values[i] == now then at = i end end
+        seg:SetValue(at)
+    end, spec.setting, spec.available)
+    row.segment = seg
+    return row
+end
+
+local function SliderRow(card, n, spec, values, text, get, set)
+    local row = NewRow(card, n, spec)
+    local st = Panel.Slider(row, values, text, get, function(v)
+        set(v)
+        refresh()
+    end)
+    for _, region in ipairs({ st.plus, st.minus, st.track }) do Tip(region, spec[1], spec.tip, spec.warning) end
+    Finish(row, st, st:GetWidth(), function() st:Fill() end, spec.setting, spec.available)
+    row.slider = st
+    return row
+end
+
+-- items() lists { value, text, font }; current() is the chosen value, nil for the default;
+-- pick(value) saves a choice. Each font is shown in its own face.
+local MENU_ROWS = 16
+local function ChoiceRow(card, n, spec, width, items, current, pick)
+    local row = NewRow(card, n, spec)
+    local drop = Panel.Choice(row, width, function(_, root)
+        local list = items()
+        if root.SetScrollMode and #list > MENU_ROWS then root:SetScrollMode(MENU_ROWS * 20) end
+        for _, item in ipairs(list) do
+            local entry = root:CreateRadio(L[item.text], function() return item.value == current() end, function()
+                pick(item.value)
+                refresh()
+            end)
+            if item.font and entry and entry.AddInitializer then
+                entry:AddInitializer(function(button)
+                    local fs = button.fontString
+                    if fs and fs.SetFont then fs:SetFont(item.font, 13, "") end
+                end)
+            end
         end
-    end
-    menu:ClearAllPoints()
-    menu:SetPoint("TOPLEFT", owner, "BOTTOMLEFT", 0, -2)
-    menu:SetWidth(owner:GetWidth())
-    catcher:Show()
-    menu:SetFrameLevel(catcher:GetFrameLevel() + 10)
-    fillMenu()
-end
-
--- items() lists { value, text, font }; current() is the chosen value, nil for
--- the default; pick(value) saves a choice.
-local function dropdown(width, items, current, pick)
-    local button = CreateFrame("Button", nil, content)
-    button:SetSize(width, 22)
-    button.bg = background(button, FIELD)
-    local edges = outline(button, LINE)
-    button.label = text(button, "GameFontHighlightSmall")
-    button.label:SetPoint("LEFT", 8, 0)
-    button.label:SetPoint("RIGHT", -20, 0)
-    button.label:SetWordWrap(false)
-    local arrow = text(button, "GameFontNormalSmall", "v")
-    arrow:SetPoint("RIGHT", -8, 0)
-    skin:field(button, button.bg, edges, arrow)
-    button.items, button.current, button.pick = items, current, pick
-    button:SetScript("OnEnter", function(self)
-        self.bg:SetVertexColor(FIELD_HOVER[1], FIELD_HOVER[2], FIELD_HOVER[3], 1)
     end)
-    button:SetScript("OnLeave", function(self)
-        self.bg:SetVertexColor(FIELD[1], FIELD[2], FIELD[3], 1)
-    end)
-    button:SetScript("OnClick", function(self)
-        if menu.owner == self then closeMenu() else openMenu(self) end
-    end)
-    button.refresh = function()
+    Tip(drop, spec[1], spec.tip, spec.warning)
+    Finish(row, drop, width, function()
         local value, shown = current(), nil
         for _, item in ipairs(items()) do
             if item.value == value then shown = item break end
         end
-        if shown and shown.font then
-            ui.setFont(button.label, shown.font, 13)
-        else
-            plainFont(button.label)
-        end
-        button.label:SetText(shown and L[shown.text] or fillText(L["%s (not installed)"], tostring(value)))
-    end
-    controls[#controls + 1] = button
-    return button
+        drop:SetValueText(shown and L[shown.text] or fillText(L["%s (not installed)"], tostring(value)))
+    end, spec.setting, spec.available)
+    row.choice, row.items = drop, items
+    return row
 end
 
-local function fontItems(defaultText)
-    local items = { { text = defaultText } }
-    for _, name in ipairs(ns.fontNames()) do
-        items[#items + 1] = { value = name, text = name, font = ns.fontPath(name) }
-    end
-    return items
-end
-
--- Other controls -------------------------------------------------------------
-
-local function slider(width, current, set, low, high, suffix)
-    local holder = CreateFrame("Frame", nil, content)
-    holder:SetSize(width, 22)
-    local bar = CreateFrame("Slider", nil, holder, "MinimalSliderTemplate")
-    local parts = skin.templateParts(bar)
-    bar:SetOrientation("HORIZONTAL")
-    bar:SetPoint("LEFT", 0, 0)
-    bar:SetSize(width - 46, 16)
-    bar:SetMinMaxValues(low or SIZE_MIN, high or SIZE_MAX)
-    bar:SetValueStep(1)
-    if bar.SetObeyStepOnDrag then bar:SetObeyStepOnDrag(true) end
-    local track = fill(bar, "BACKGROUND", LINE)
-    track:SetPoint("LEFT")
-    track:SetPoint("RIGHT")
-    track:SetHeight(4)
-    bar:SetThumbTexture(WHITE)
-    local thumb = bar:GetThumbTexture()
-    thumb:SetSize(8, 16)
-    thumb:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1)
-    local value = text(holder, "GameFontHighlight")
-    value:SetPoint("RIGHT", 0, 0)
-    value:SetJustifyH("RIGHT")
-    bar:SetScript("OnValueChanged", function(self, number)
-        if self.updating then return end
-        number = math.floor(number + .5)
-        if number ~= current() then
-            set(number)
-            refresh()
-        end
-    end)
-    bar:EnableMouseWheel(true)
-    bar:SetScript("OnMouseWheel", function(self, delta) self:SetValue(self:GetValue() + delta) end)
-    local updateSteppers = skin:slider(bar, track, parts)
-    skin:bind(function(native)
-        value:SetFontObject(native and "GameFontNormal" or "GameFontHighlight")
-    end)
-    holder.refresh = function()
-        bar.updating = true
-        bar:SetValue(current())
-        bar.updating = false
-        updateSteppers()
-        value:SetText(current() .. (suffix or ""))
-    end
-    controls[#controls + 1] = holder
-    return holder
-end
+-- Colors -------------------------------------------------------------------------
 
 -- Both color picker interfaces; cancelling restores the saved color.
 local function pickColor(start, apply, restore)
@@ -712,28 +825,128 @@ local function pickColor(start, apply, restore)
     end
 end
 
+local function hexColor(hex)
+    return { tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255 }
+end
+
+-- A group of colors as a row of swatches, each its own setting (prefix .. key): a click picks
+-- one, a right-click puts back its default. note(), if given, says why the colors shown may not
+-- be the ones chosen.
+local function SwatchRow(card, n, spec, list, prefix, colorOf, note)
+    spec.setting = {
+        saved = function()
+            for _, choice in ipairs(list) do
+                if ns.savedOption(prefix .. choice.key) ~= nil then return true end
+            end
+        end,
+        reset = function()
+            for _, choice in ipairs(list) do ns.setOption(prefix .. choice.key, nil) end
+        end,
+    }
+    local row = NewRow(card, n, spec)
+    local holder = CreateFrame("Frame", nil, row)
+    holder:SetSize(#list * 26 - 4, 18)
+    local swatches = {}
+    for index, choice in ipairs(list) do
+        local key = prefix .. choice.key
+        local sw = Panel.Swatch(holder, function(_, mouse)
+            if mouse == "RightButton" then
+                ns.setOption(key, nil)
+                refresh()
+                return
+            end
+            local saved = ns.savedOption(key)
+            pickColor(colorOf(choice.key) or ns.Palette.roles.neutral,
+                function(color) ns.setOption(key, color) end,
+                function() ns.setOption(key, saved) end)
+        end)
+        sw:SetPoint("LEFT", (index - 1) * 26, 0)
+        Tip(sw, choice.label, "Click to choose its color; right-click for the default.", note)
+        swatches[choice.key] = sw
+    end
+    Finish(row, holder, holder:GetWidth(), function()
+        for key, sw in pairs(swatches) do
+            local color = colorOf(key) or ns.Palette.roles.neutral
+            sw:SetColor(color[1], color[2], color[3], 1)
+        end
+    end, spec.setting, spec.available)
+    row.swatches = swatches
+    return row
+end
+
+-- Cards -----------------------------------------------------------------------------
+
+local function CardHeight(rows) return BAND_H + 4 + rows * ROW_H + 8 end
+
+-- a card of rows: build(card, n) adds row n of count
+local function RowsCard(parent, cardTitle, width, count, build)
+    local card = Panel.Card(parent, L[cardTitle], width, CardHeight(count))
+    for n = 1, count do build(card, n) end
+    return card
+end
+
+-- The part chosen (the Style sheet's right) -----------------------------------------
+
 local function selectedElement()
     return ns.ELEMENT_BY_KEY[state.selected]
 end
 
-local function colorControl()
-    local holder = CreateFrame("Frame", nil, content)
-    holder:SetSize(FIELD_WIDTH, 22)
-    local swatch = CreateFrame("Button", nil, holder)
-    swatch:SetSize(22, 22)
-    swatch:SetPoint("LEFT")
-    outline(swatch, LINE)
-    local chip = fill(swatch, "ARTWORK", { 1, 1, 1 })
-    chip:SetPoint("TOPLEFT", 3, -3)
-    chip:SetPoint("BOTTOMRIGHT", -3, 3)
-    local status = text(holder, "GameFontHighlightSmall")
-    status:SetPoint("LEFT", swatch, "RIGHT", 8, 0)
-    local automatic = editorButton(holder, "Automatic", 80, function()
-        ns.setElementSetting(state.selected, "color", nil)
-        refresh()
-    end)
-    automatic:SetPoint("RIGHT")
-    swatch:SetScript("OnClick", function()
+local function fontItems(defaultText)
+    local items = { { text = defaultText } }
+    for _, name in ipairs(ns.fontNames()) do
+        items[#items + 1] = { value = name, text = name, font = ns.fontPath(name) }
+    end
+    return items
+end
+
+local PART_FOOT = 48
+local partCard = Panel.Card(styleSheet, "", SIDE_CARD_W, CardHeight(5) + PART_FOOT)
+partCard:SetPoint("TOPRIGHT")
+partCard.note:SetText(L["the part chosen"])
+-- every part this kind has, and the ones every kind shares
+local partPicker = Panel.Choice(partCard, 130, function(_, root)
+    for _, element in ipairs(ns.ELEMENTS) do
+        local kind = element.tooltipType or "item"
+        if kind == state.tooltipType or kind == "shared" then
+            local key = element.key
+            root:CreateRadio(L[element.label], function() return state.selected == key end, function()
+                selectPart(key)
+            end)
+        end
+    end
+end)
+Panel.InBand(partCard, partPicker)
+Tip(partPicker, "Part", "Every part this kind of tooltip has. Or click one in the sample.")
+controls[#controls + 1] = { refresh = function()
+    local element = selectedElement()
+    partCard.title:SetText(element and L[element.label] or "")
+    partPicker:SetValueText(fillText(L["Part: %s"], element and L[element.label] or "?"))
+end }
+
+ChoiceRow(partCard, 1, { "Font", "Its typeface", tip = "The part's font. The first choice follows the text or name "
+    .. "font every kind shares (All tooltips).", setting = partSetting("font") }, 150, function()
+    return fontItems(selectedElement().title and "Name font" or "Text font")
+end, function()
+    return ns.elementSetting(state.selected, "font")
+end, function(name)
+    ns.setElementSetting(state.selected, "font", name)
+end)
+
+SliderRow(partCard, 2, { "Size", "In points", tip = "The part's text size, before the text size every kind "
+    .. "shares (All tooltips) scales it.", setting = partSetting("size") }, Range(8, 30), PLAIN, function()
+    return ns.elementSetting(state.selected, "size") or selectedElement().size
+end, function(size)
+    ns.setElementSetting(state.selected, "size", size ~= selectedElement().size and size or nil)
+end)
+
+-- the part's color: its own, or Automatic (the quality's, the school's, its kind's), faint
+do
+    local row = NewRow(partCard, 3, { "Color", "Automatic unless chosen",
+        tip = "A color of its own for the part. Automatic takes what the tooltip says: the item's quality, "
+            .. "the spell's school, the unit's reaction." })
+    local holder = CreateFrame("Frame", nil, row)
+    holder:SetSize(150, 22)
+    local swatch = Panel.Swatch(holder, function()
         local key = state.selected
         local saved = ns.elementSetting(key, "color")
         local start = type(saved) == "table" and saved or ns.ELEMENT_BY_KEY[key].color
@@ -741,53 +954,59 @@ local function colorControl()
             function(color) ns.setElementSetting(key, "color", color) end,
             function() ns.setElementSetting(key, "color", saved) end)
     end)
-    holder.refresh = function()
+    swatch:SetPoint("RIGHT")
+    Tip(swatch, "Color", "Click to choose the part's color.")
+    local automatic = Panel.UButton(holder, L["Automatic"], 74, 20, "quiet")
+    automatic:SetPoint("RIGHT", swatch, "LEFT", -6, 0)
+    automatic:SetScript("OnClick", function()
+        ns.setElementSetting(state.selected, "color", nil)
+        refresh()
+    end)
+    Tip(automatic, "Automatic", "The color the tooltip gives the part, not one of its own.")
+    local status = Panel.Plain(holder, 11, C.dim)
+    status:SetPoint("RIGHT", swatch, "LEFT", -8, 0)
+    Finish(row, holder, 150, function()
         local saved = ns.elementSetting(state.selected, "color")
         local custom = type(saved) == "table"
         local color = custom and saved or selectedElement().color
-        chip:SetVertexColor(color[1], color[2], color[3], custom and 1 or .35)
-        status:SetText(custom and L["Custom"] or L["Automatic"])
+        swatch:SetColor(color[1], color[2], color[3], custom and 1 or .35)
+        status:SetText(custom and "" or L["Automatic"])
         automatic:SetShown(custom)
-    end
-    controls[#controls + 1] = holder
-    return holder
+    end, partSetting("color"))
+    row.swatch, row.automatic = swatch, automatic
 end
 
-local function checkbox(label, key, description, isAvailable, warning)
-    local button = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-    button:SetSize(22, 22)
-    if isAvailable then button:SetMotionScriptsWhileDisabled(true) end
-    local caption = text(button, "GameFontHighlightSmall", label)
-    caption:SetPoint("LEFT", button, "RIGHT", 2, 1)
-    button:SetHitRectInsets(0, -(caption:GetStringWidth() + 6), 0, 0)
-    button:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L[label], 1, 1, 1)
-        GameTooltip:AddLine(L[description], nil, nil, nil, true)
-        if warning then GameTooltip:AddLine(L[warning], 1, .82, 0, true) end
-        GameTooltip:Show()
-    end)
-    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    -- A key can depend on the tooltip type shown.
-    local function keyOf() return type(key) == "function" and key() or key end
-    button:SetScript("OnClick", function(self)
-        local checked = self:GetChecked() and true or false
-        ns.setOption(keyOf(), nil)
-        if ns.option(keyOf()) ~= checked then ns.setOption(keyOf(), checked) end
-        refresh()
-    end)
-    button.refresh = function()
-        button:SetChecked(ns.option(keyOf()))
-        local available = not isAvailable or isAvailable()
-        button:SetEnabled(available)
-        caption:SetFontObject(available and "GameFontHighlightSmall" or "GameFontDisableSmall")
-        if available and ns.savedOption(keyOf()) ~= nil then caption:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) end
-    end
-    controls[#controls + 1] = button
-    return button
-end
+SegmentRow(partCard, 4, { "Outline", "Round its letters", tip = "An outline round the part's letters. Global "
+    .. "follows the outline every kind shares (All tooltips).", setting = partSetting("outline") },
+    { nil, "NONE", "OUTLINE", "THICKOUTLINE" }, { "Global", "None", "Thin", "Thick" },
+    function() return ns.elementSetting(state.selected, "outline") end,
+    function(value) ns.setElementSetting(state.selected, "outline", value) end)
 
--- Looking up by ID -------------------------------------------------------------
+-- the part's default is saved as no setting
+SwitchRow(partCard, 5, { "All caps", "Capital letters only", tip = "The part in capital letters. Names are, "
+    .. "by default.", setting = partSetting("caps") }, function()
+    local caps = ns.elementSetting(state.selected, "caps")
+    if caps == nil then caps = selectedElement().title == true end
+    return caps
+end, function(on)
+    ns.setElementSetting(state.selected, "caps", on ~= (selectedElement().title == true) and on or nil)
+end)
+
+local resetPart = Panel.UButton(partCard, L["Reset part"], 90, 24, "secondary")
+resetPart:SetPoint("BOTTOMLEFT", PAD, 12)
+resetPart:SetScript("OnClick", function()
+    ns.resetElement(state.selected)
+    refresh()
+end)
+Tip(resetPart, "Reset part", "The part's font, size, color, outline and caps back to their defaults.")
+local partNote = Panel.Plain(partCard, 10, C.faint)
+partNote:SetPoint("LEFT", resetPart, "RIGHT", 10, 0)
+partNote:SetPoint("RIGHT", partCard, "RIGHT", -PAD, 0)
+partNote:SetHeight(PART_FOOT - 8)
+partNote:SetJustifyV("MIDDLE")
+controls[#controls + 1] = { refresh = function() partNote:SetText(L[selectedElement().note or ""]) end }
+
+-- Looking up by ID ---------------------------------------------------------------------
 
 local function applyLookup(entry)
     local tooltipType = state.tooltipType
@@ -796,23 +1015,19 @@ local function applyLookup(entry)
         local linked = entry:match(TOOLTIP_TYPES[candidate].noun .. ":(%d+)")
         if linked then id, tooltipType = linked, candidate break end
     end
-    if tooltipType ~= state.tooltipType then switchTooltipType(tooltipType) end
+    if tooltipType ~= state.tooltipType and KIND[tooltipType] then
+        ShowPage(tooltipType, "style")
+    end
     state.lookup = id and tonumber(id) or nil
     refresh()
 end
 
-local lookupLabel = text(editor, "GameFontHighlightSmall")
-lookupLabel:SetPoint("BOTTOMLEFT", host, "TOPRIGHT", 18, 11)
-local lookupBox = CreateFrame("EditBox", nil, editor)
-lookupBox:SetSize(CONTROLS_WIDTH - LABEL_WIDTH - 70, 22)
-lookupBox:SetPoint("BOTTOMLEFT", host, "TOPRIGHT", 18 + LABEL_WIDTH, 6)
-skin:field(lookupBox, background(lookupBox, FIELD), outline(lookupBox, LINE))
-lookupBox:SetFontObject("GameFontHighlightSmall")
-lookupBox:SetTextInsets(8, 8, 0, 0)
-lookupBox:SetAutoFocus(false)
+local lookupCard = Panel.Card(styleSheet, L["Look up"], SIDE_CARD_W, CardHeight(1))
+lookupCard:SetPoint("TOPRIGHT", partCard, "BOTTOMRIGHT", 0, -GAP)
+local lookupRow = Panel.CardRow(lookupCard, 1, "", L["Or shift-click a link into it"])
+local lookupBox = Panel.Search(lookupRow, 120, 22, L["ID"])
 lookupBox:SetMaxLetters(255)
-local lookupPlaceholder = text(lookupBox, "GameFontDisableSmall", "ID, or shift-click a link")
-lookupPlaceholder:SetPoint("LEFT", 8, 0)
+lookupRow:Hold(lookupBox, 120)
 lookupBox:SetScript("OnEnterPressed", function(self)
     self:ClearFocus()
     applyLookup(self:GetText())
@@ -821,15 +1036,14 @@ lookupBox:SetScript("OnEscapePressed", function(self)
     self:ClearFocus()
     refresh()
 end)
-lookupBox:SetScript("OnEditFocusGained", function() lookupPlaceholder:Hide() end)
-lookupBox:SetScript("OnEditFocusLost", function(self)
-    lookupPlaceholder:SetShown(self:GetText() == "")
-end)
-local lookupClear = editorButton(editor, "Clear", 62, function()
+Tip(lookupBox, "Look up", "Type an ID and press Enter, or shift-click a link while the box has the cursor: "
+    .. "the sample shows that tooltip.")
+local lookupClear = Panel.UButton(lookupCard, L["Clear"], 56, 20, "quiet")
+Panel.InBand(lookupCard, lookupClear)
+lookupClear:SetScript("OnClick", function()
     state.lookup = nil
     refresh()
 end)
-lookupClear:SetPoint("LEFT", lookupBox, "RIGHT", 8, 0)
 
 if ChatEdit_InsertLink then
     hooksecurefunc("ChatEdit_InsertLink", function(link)
@@ -841,538 +1055,515 @@ if ChatEdit_InsertLink then
 end
 
 refreshLookup = function()
-    local hidden = TOOLTIP_TYPES[state.tooltipType].noLookup == true
-    lookupLabel:SetShown(not hidden)
-    lookupBox:SetShown(not hidden)
-    lookupLabel:SetText(L[TOOLTIP_TYPES[state.tooltipType].label:sub(1, -2) .. " ID"])
+    local tooltipType = TOOLTIP_TYPES[state.tooltipType]
+    lookupCard:SetShown(tooltipType.noLookup ~= true)
+    lookupCard.note:SetText(fillText(L["any %s by its ID"], L[tooltipType.noun]))
+    lookupRow.label:SetText(L[tooltipType.label:sub(1, -2) .. " ID"])
     if not lookupBox:HasFocus() then
         lookupBox:SetText(state.lookup and tostring(state.lookup) or "")
-        lookupPlaceholder:SetShown(state.lookup == nil)
     end
-    lookupClear:SetShown(state.lookup ~= nil and not hidden)
+    lookupClear:SetShown(state.lookup ~= nil)
 end
 
--- The controls column ----------------------------------------------------------
+-- A kind's Panel sheet ------------------------------------------------------------------
 
--- The column lists, in order, the part selected, what every tooltip shares,
--- what the tooltip type shown keeps for itself, and what only that type has.
--- Each entry is a frame of its own; one with shown() appears only while it
--- says so, and the column lays out the entries shown on every refresh.
-local entries = {}
-
-local function entry(height, shown)
-    local holder = CreateFrame("Frame", nil, content)
-    holder:SetSize(CONTROLS_WIDTH, height)
-    entries[#entries + 1] = { holder = holder, height = height, shown = shown }
-    return holder, entries[#entries]
-end
-
--- shown() for an entry of some tooltip types alone.
-local function forTypes(...)
-    local wanted = {}
-    for _, tooltipType in ipairs({ ... }) do wanted[tooltipType] = true end
-    return function() return wanted[state.tooltipType] == true end
-end
-
--- title is text, or a function giving it, for one that names the type shown.
-local function section(title, shown, first)
-    local top = first and 0 or 8
-    local holder = entry(top + 26, shown)
-    local label = text(holder, "GameFontNormal")
-    label:SetPoint("TOPLEFT", 0, -top)
-    local rule = fill(holder, "ARTWORK", LINE)
-    rule:SetPoint("TOPLEFT", 0, -top - 16)
-    rule:SetSize(CONTROLS_WIDTH, 1)
-    controls[#controls + 1] = {
-        refresh = function()
-            -- Hidden sections still refresh, and a title function can return nil.
-            local name = title
-            if type(title) == "function" then name = title() end
-            label:SetText(name and L[name] or "")
-        end,
-    }
-end
-
--- What a row's reset button clears: saved gives the stored value, nil while
--- the setting is at its default.
-local function partSetting(field)
-    return {
-        saved = function() return ns.elementSetting(state.selected, field) end,
-        reset = function() ns.setElementSetting(state.selected, field, nil) end,
-    }
-end
-
--- key can be a function, for a setting kept per tooltip type.
-local function optionSetting(key)
-    local function keyOf() return type(key) == "function" and key() or key end
-    return {
-        saved = function() return ns.savedOption(keyOf()) end,
-        reset = function() ns.setOption(keyOf(), nil) end,
-    }
-end
-
--- A label, the control beside it, and, once the setting is changed, the label
--- in gold with a button to put it back.
-local function row(label, control, setting, shown, stacked)
-    local holder = entry(stacked and 54 or 30, shown)
-    local caption = text(holder, "GameFontHighlightSmall", label)
-    caption:SetPoint("TOPLEFT", 0, -5)
-    control:SetParent(holder)
-    control:ClearAllPoints()
-    control:SetPoint("TOPLEFT", stacked and 0 or LABEL_WIDTH, stacked and -24 or 0)
-    if not setting then return end
-    local button = CreateFrame("Button", nil, holder)
-    button:SetSize(16, 16)
-    button:SetPoint("TOPRIGHT", holder, "TOPLEFT", CONTROLS_WIDTH, -3)
-    button:SetNormalTexture(RESET_ICON)
-    button:SetHighlightTexture(RESET_ICON, "ADD")
-    button:SetScript("OnClick", function()
-        setting.reset()
-        refresh()
-    end)
-    button:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText(L["Reset to default"], 1, 1, 1)
-        GameTooltip:Show()
-    end)
-    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    controls[#controls + 1] = {
-        refresh = function()
-            local changed = setting.saved() ~= nil
-            button:SetShown(changed)
-            if changed then caption:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) else caption:SetTextColor(1, 1, 1) end
-        end,
-    }
-end
-
--- Checkboxes two to a line, each { label, key, description, shown, isAvailable,
--- warning }: those shown close up, so a type's own come out without gaps. A
--- warning is a gold line under the description.
-local function toggles(list, shown)
-    local holder, item = entry(0, shown)
-    local boxes = {}
-    for index, toggle in ipairs(list) do
-        local box = checkbox(toggle[1], toggle[2], toggle[3], toggle[5], toggle[6])
-        box:SetParent(holder)
-        boxes[index] = { box = box, shown = toggle[4] }
-    end
-    -- The height is what the boxes shown take, so it is worked out at layout.
-    item.layout = function()
-        local count = 0
-        for _, entryBox in ipairs(boxes) do
-            local visible = not entryBox.shown or entryBox.shown()
-            entryBox.box:SetShown(visible)
-            if visible then
-                local side = count % 2
-                entryBox.box:ClearAllPoints()
-                entryBox.box:SetPoint("TOPLEFT", side * (CONTROLS_WIDTH / 2), -math.floor(count / 2) * 26)
-                count = count + 1
-            end
-        end
-        return count > 0 and math.ceil(count / 2) * 26 + 4 or 0
-    end
-end
-
--- The part selected ------------------------------------------------------------
-
-section("Selected Part", nil, true)
-local pickerHolder = entry(26)
-local partPicker = dropdown(CONTROLS_WIDTH, function()
-    local items = {}
-    for _, element in ipairs(ns.ELEMENTS) do
-        local tooltipType = element.tooltipType or "item"
-        if tooltipType == state.tooltipType or tooltipType == "shared" then
-            items[#items + 1] = { value = element.key, text = element.label }
-        end
-    end
-    return items
-end, function() return state.selected end, function(key) selectPart(key) end)
-partPicker:SetParent(pickerHolder)
-partPicker:SetPoint("TOPLEFT")
-local noteHolder = entry(28)
-local partNote = text(noteHolder, "GameFontDisableSmall")
-partNote:SetPoint("TOPLEFT")
-partNote:SetWidth(CONTROLS_WIDTH)
-partNote:SetHeight(24)
-partNote:SetJustifyV("TOP")
-
-row("Font", dropdown(FIELD_WIDTH, function()
-    return fontItems(selectedElement().title and "Name font" or "Text font")
-end, function()
-    return ns.elementSetting(state.selected, "font")
-end, function(name)
-    ns.setElementSetting(state.selected, "font", name)
-end), partSetting("font"))
-
-row("Size", slider(FIELD_WIDTH, function()
-    return ns.elementSetting(state.selected, "size") or selectedElement().size
-end, function(size)
-    ns.setElementSetting(state.selected, "size", size ~= selectedElement().size and size or nil)
-end), partSetting("size"))
-
-row("Color", colorControl(), partSetting("color"))
-
-row("Outline", dropdown(FIELD_WIDTH, function()
-    local items = { { text = "Same as global settings" } }
-    for _, item in ipairs(OUTLINES) do items[#items + 1] = item end
-    return items
-end, function()
-    return ns.elementSetting(state.selected, "outline")
-end, function(value)
-    ns.setElementSetting(state.selected, "outline", value)
-end), partSetting("outline"))
-
--- The part's default is saved as no setting.
-local allCaps = CreateFrame("CheckButton", nil, content, "UICheckButtonTemplate")
-allCaps:SetSize(22, 22)
-local allCapsLabel = text(allCaps, "GameFontHighlightSmall", "All caps")
-allCapsLabel:SetPoint("LEFT", allCaps, "RIGHT", 2, 1)
-allCaps:SetHitRectInsets(0, -(allCapsLabel:GetStringWidth() + 6), 0, 0)
-allCaps:SetScript("OnClick", function(self)
-    local checked = self:GetChecked() and true or false
-    if checked == (selectedElement().title == true) then
-        ns.setElementSetting(state.selected, "caps", nil)
-    else
-        ns.setElementSetting(state.selected, "caps", checked)
-    end
-    refresh()
-end)
-allCaps.refresh = function()
-    local caps = ns.elementSetting(state.selected, "caps")
-    if caps == nil then caps = selectedElement().title == true end
-    allCaps:SetChecked(caps)
-end
-controls[#controls + 1] = allCaps
-row("Letters", allCaps, partSetting("caps"))
-
-local resetHolder = entry(32)
-local resetPart = editorButton(resetHolder, "Reset this part", 120, function()
-    ns.resetElement(state.selected)
-    refresh()
-end)
-resetPart:SetPoint("TOPLEFT", LABEL_WIDTH, 0)
-
--- Color groups share picker, cancel, and reset behavior. Their swatches
--- sit below the label, clear of its reset button.
-local function hexColor(hex)
-    return { tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255 }
-end
-
--- note, if given, says why the colors shown may not be the ones chosen.
-local function colorSwatches(list, prefix, colorOf, note)
-    local holder = CreateFrame("Frame", nil, content)
-    holder:SetSize(CONTROLS_WIDTH, 22)
-    local chips = {}
-    for index, choice in ipairs(list) do
-        local key = prefix .. choice.key
-        local swatch = CreateFrame("Button", nil, holder)
-        swatch:SetSize(22, 22)
-        swatch:SetPoint("LEFT", (index - 1) * 28, 0)
-        outline(swatch, LINE)
-        local chip = fill(swatch, "ARTWORK", { 1, 1, 1 })
-        chip:SetPoint("TOPLEFT", 3, -3)
-        chip:SetPoint("BOTTOMRIGHT", -3, 3)
-        swatch:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-        swatch:SetScript("OnClick", function(_, button)
-            if button == "RightButton" then
-                ns.setOption(key, nil)
-                refresh()
-                return
-            end
-            local saved = ns.savedOption(key)
-            pickColor(colorOf(choice.key) or ns.Palette.roles.neutral,
-                function(color) ns.setOption(key, color) end,
-                function() ns.setOption(key, saved) end)
-        end)
-        swatch:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(L[choice.label], 1, 1, 1)
-            GameTooltip:AddLine(L["Click to choose its color; right-click for the default."], nil, nil, nil, true)
-            local why = note and note()
-            if why then GameTooltip:AddLine(why, 1, .82, 0, true) end
-            GameTooltip:Show()
-        end)
-        swatch:SetScript("OnLeave", function() GameTooltip:Hide() end)
-        chips[choice.key] = chip
-    end
-    holder.refresh = function()
-        for key, chip in pairs(chips) do
-            local color = colorOf(key) or ns.Palette.roles.neutral
-            chip:SetVertexColor(color[1], color[2], color[3], 1)
-        end
-    end
-    controls[#controls + 1] = holder
-    return holder
-end
-
-local function colorGroupSetting(list, prefix)
-    return {
-        saved = function()
-            for _, choice in ipairs(list) do
-                if ns.savedOption(prefix .. choice.key) ~= nil then return true end
-            end
-        end,
-        reset = function()
-            for _, choice in ipairs(list) do ns.setOption(prefix .. choice.key, nil) end
-        end,
-    }
-end
-
--- Every tooltip ------------------------------------------------------------------
-
-section("All Tooltips")
-row("Global scale", slider(FIELD_WIDTH, function()
-    return math.floor(ns.tooltipScale() * 100 + .5)
-end, function(percent)
-    ns.setOption("tooltipScale", percent ~= 100 and percent / 100 or nil)
-end, 50, 150, "%"), optionSetting("tooltipScale"))
-row("Text font", dropdown(FIELD_WIDTH, function()
-    return fontItems("Game default")
-end, function() return ns.option("bodyFont") end, function(name)
-    ns.setOption("bodyFont", name)
-end), optionSetting("bodyFont"))
-row("Name font", dropdown(FIELD_WIDTH, function()
-    local locale = GetLocale()
-    return fontItems(locale ~= "koKR" and locale ~= "zhCN" and locale ~= "zhTW"
-        and (ns.Game.addonInstalled("Medalluin") and "Marcellus SC (Medalluin)"
-            or ns.Game.addonInstalled("EllesmereUI") and "Expressway Bold (EllesmereUI)")
-        or "Game default")
-end, function() return ns.option("titleFont") end, function(name)
-    ns.setOption("titleFont", name)
-end), optionSetting("titleFont"))
-row("Outline", dropdown(FIELD_WIDTH, function() return OUTLINES end, function()
-    return ns.option("outline")
-end, function(value)
-    ns.setOption("outline", value ~= "NONE" and value or nil)
-end), optionSetting("outline"))
--- A scale on every part's own size, in steps of 5%; the default is saved as no setting.
-row("Text size", slider(FIELD_WIDTH, function()
-    return math.floor(ns.option("fontScale") * 100 + .5)
-end, function(percent)
-    percent = math.floor(percent / 5 + .5) * 5
-    ns.setOption("fontScale", percent ~= 100 and percent / 100 or nil)
-end, 80, 150, "%"), optionSetting("fontScale"))
--- Gilded, the default, is Medalluin's gold frame and ink; Slate its quieter
--- shading. DialogueUI's art shows only while that addon is installed.
-row("Panel style", dropdown(FIELD_WIDTH, function() return BACKDROP_STYLES end, function()
-    return ns.option("backdropStyle")
-end, function(value)
-    ns.setOption("backdropStyle", value)
-end), optionSetting("backdropStyle"))
--- One look for every bar: health, time left, durability, Medalluin's. Each
--- keeps its own color, which says what the bar is for.
-row("Bar style", dropdown(FIELD_WIDTH, function() return BAR_STYLES end, function()
-    return ns.option("barStyle")
-end, function(value)
-    ns.setOption("barStyle", value ~= "well" and value or nil)
-end), optionSetting("barStyle"))
-row("Bar height", slider(FIELD_WIDTH, function() return ns.option("barHeight") end, function(value)
-    ns.setOption("barHeight", value ~= 8 and value or nil)
-end, 4, 16), optionSetting("barHeight"))
-row("Bar texture", dropdown(FIELD_WIDTH, function()
-    local items = { { text = "Flat" } }
-    for _, name in ipairs(ns.barTextureNames()) do
-        if name ~= "Flat" then items[#items + 1] = { value = name, text = name } end
-    end
-    return items
-end, function() return ns.option("barTexture") end, function(name)
-    ns.setOption("barTexture", name)
-end), optionSetting("barTexture"))
-
--- Shared by every tooltip type. The default is saved as no setting.
-local function panelSize(key, low, high)
-    return slider(FIELD_WIDTH, function() return ns.option(key) end, function(value)
-        ns.setOption(key, nil)
-        if ns.option(key) ~= value then ns.setOption(key, value) end
-    end, low, high)
-end
-row("Padding", panelSize("padding", 8, 32), optionSetting("padding"))
-row("Min width", panelSize("minWidth", 120, 400), optionSetting("minWidth"))
-toggles({
-    { "Icon on the right", "iconRight",
-        "Moves the item or spell icon, and the item level badge under it, to the right of the name." },
-    { "Tint the panel", "qualityTint",
-        "Washes the panel in the item's quality color, or the spell's school or resource. Off, "
-            .. "every panel is neutral; the name keeps its quality color." },
-    { "Separators", "separators",
-        "The gold dividers between sections and the thin rules above other addons' rows. Off, "
-            .. "they are hidden along with the space around them." },
-})
-row("School colors", colorSwatches(ns.Palette.SCHOOLS, "schoolColor", ns.Palette.school),
-    colorGroupSetting(ns.Palette.SCHOOLS, "schoolColor"), nil, true)
-
--- The tooltip type shown -----------------------------------------------------------
-
--- Settings kept per tooltip type, named for the one shown.
-local function bandKey(edge)
-    return function() return "header" .. edge .. "Alpha" .. ns.TYPE_SUFFIX[state.tooltipType] end
-end
-local function typeKey(name)
-    return function() return name .. ns.TYPE_SUFFIX[state.tooltipType] end
-end
-
-section(function() return fillText(L["%s Panel"], L[TOOLTIP_TYPES[state.tooltipType].label]) end)
-toggles({
-    { "Show icon", typeKey("icon"), "The icon or portrait in the header, for the kind of tooltip shown." },
-})
-
--- A default value is saved as no setting, so it keeps following the backdrop.
-local function bandOpacity(edge)
-    local key = bandKey(edge)
-    -- What the tooltip type shows with no setting of its own.
-    local function fallback() return ns.option("header" .. edge .. "Alpha") or ui.defaultHeaderAlpha() end
-    return slider(FIELD_WIDTH, function()
-        return math.floor((ns.headerAlpha(state.tooltipType, edge) or ui.defaultHeaderAlpha()) * 100 + .5)
-    end, function(percent)
-        local alpha = percent / 100
-        ns.setOption(key(), math.abs(alpha - fallback()) > .001 and alpha or nil)
-    end, 0, 100, "%")
-end
-row("Band top", bandOpacity("Top"), optionSetting(bandKey("Top")))
-row("Band bottom", bandOpacity("Bottom"), optionSetting(bandKey("Bottom")))
-
--- The default opacity is saved as no setting.
-local function typeOpacity(name, default)
-    local key = typeKey(name)
-    return slider(FIELD_WIDTH, function()
-        return math.floor((ns.option(key()) or default) * 100 + .5)
-    end, function(percent)
-        ns.setOption(key(), math.abs(percent / 100 - default) > .001 and percent / 100 or nil)
-    end, 0, 100, "%")
-end
-row("Backdrop", typeOpacity("backdropAlpha", ns.BACKDROP_ALPHA), optionSetting(typeKey("backdropAlpha")))
-row("Glow", typeOpacity("glowAlpha", 1), optionSetting(typeKey("glowAlpha")))
-
--- What only the type shown has ---------------------------------------------------------
-
-local DETAILS = { item = "Item Details", spell = "Spell Details", unit = "Unit Details", object = "Object Details",
-    quest = "Quest Details" }
-section(function() return DETAILS[state.tooltipType] end, function() return DETAILS[state.tooltipType] ~= nil end)
-local items, spells, units = forTypes("item"), forTypes("spell"), forTypes("unit")
+-- What only some kinds have, each { label, key, line, explanation, kinds, available, warning }.
 -- The spell power rows read spell descriptions, which not every language's reading covers yet.
 local function coefficients() return ns.Locale.features.coefficients == true end
-toggles({
-    { "Quest parchment", "questParchment", "DialogueUI's brown parchment for quest tooltips, Quest Items, "
-        .. "and items that begin a quest, with darker ink for readability. Requires DialogueUI to be installed.",
-        forTypes("item", "quest"), function() return ns.Game.addonInstalled("DialogueUI") end },
-    { "Level badge", "itemLevelBadge", "The item level on a plate under the icon, for equipment.", items },
-    { "Level badge", "unitLevelBadge",
-        "The level on a plate under the portrait. Off, the level stays in the info line.", units },
-    { "Stat markers", "statMarkers", "The small diamond before each stat; enchants use a green one.", items },
-    { "Stat colors", "statColors",
-        "Each kind of stat in its color below, and the school colors. Off, every stat is parchment.", items },
-    { "Armor colors", "armorColors", "Cloth, leather, mail, and plate under the item's name, each in its color "
-        .. "below. A type you cannot wear stays red. Off, they take the quality color.", items },    { "Abbreviated Equip Effects", "liteWording", "Where the game's own item tooltip shows, in the Blizzard layout or with "
-        .. "items not restyled, its Equip effects are shortened, as +1% Critical Strike Chance, and the game's "
-        .. "colors kept, but for spell power and chance on hit effects in their stat colors. Hold the default "
-        .. "tooltip modifier for the full wording.", items },
-    { "Swap Damage Stats", "swapDamage", "A weapon's damage on the large line, with its speed and damage per "
-        .. "second on the small one under it.", items },
-    { "Disenchant", "disenchant", "Green, blue, and purple armor and weapons list what they disenchant into, "
-        .. "with each result's chance and the Enchanting it needs; with Auctionator, the expected value.", items },
-    { "Sell price", "sellPrice", "The vendor price in the footer; for a stack, the price of one and of the "
-        .. "whole stack.", items },
-    { "Spell power (Experimental)", "spellPower", "Under the description, each amount's spell power coefficient "
-        .. "and its split into base and spell power. No game API has coefficients: they come from Forever's client "
-        .. "data, and ones marked ~ are estimates.", spells, coefficients,
-        "Experimental: not all values are correct yet." },
-    { "Rates", "spellRates", "Under the spell power breakdown, the average a cast deals or heals per second "
-        .. "and per mana. Per second, what lands at once counts over the cast time (instants as the 1.5 sec "
-        .. "global cooldown) and what comes over time over its duration. Crits and talents do not count.", spells,
-        coefficients },
-    { "Health bar", "unitHealthBar", "The game's own health bar at the bottom of player and NPC panels. The "
-        .. "game fills it, so it stays live without the addon reading health, which WoW Forever keeps from "
-        .. "addons.", units },
-    { "Gathering", "gatheringLoot", "What a herb or ore node holds: its yield over all the times it can be "
-        .. "gathered, then the stone, gems, and other herbs it may give and the chance each time. On a dead "
-        .. "creature that can be skinned, the Skinning it needs and the leather, hides, and scales it may give. "
-        .. "From Classic's loot tables.", forTypes("object", "unit") },
-    { "IDs", "showIDs", "The item's, spell's, or NPC's ID at the bottom of its panel, under other addons' rows.",
-        forTypes("item", "spell", "unit") },
-})
+local function dialogue() return ns.Game.addonInstalled("DialogueUI") end
+local DETAILS = {
+    { "Quest parchment", "questParchment", "DialogueUI's parchment", "DialogueUI's brown parchment for quest "
+        .. "tooltips, Quest Items, and items that begin a quest, with darker ink for readability. Requires "
+        .. "DialogueUI to be installed.", { item = true, quest = true }, dialogue },
+    { "Level badge", "itemLevelBadge", "The item level under the icon",
+        "The item level on a plate under the icon, for equipment.", { item = true } },
+    { "Level badge", "unitLevelBadge", "The level under the portrait",
+        "The level on a plate under the portrait. Off, the level stays in the info line.", { unit = true } },
+    { "Stat markers", "statMarkers", "A diamond before each stat",
+        "The small diamond before each stat; enchants use a green one.", { item = true } },
+    { "Stat colors", "statColors", "Each kind of stat in its color",
+        "Each kind of stat in its color (Colors, below), and the school colors. Off, every stat is parchment.",
+        { item = true } },
+    { "Armor colors", "armorColors", "Cloth, leather, mail and plate", "Cloth, leather, mail, and plate under "
+        .. "the item's name, each in its color (Colors, below). A type you cannot wear stays red. Off, they take "
+        .. "the quality color.", { item = true } },
+    { "Abbreviated Equip Effects", "liteWording", "+1% Critical Strike Chance", "Where the game's own item "
+        .. "tooltip shows, in the Blizzard layout or with items not restyled, its Equip effects are shortened, as "
+        .. "+1% Critical Strike Chance, and the game's colors kept, but for spell power and chance on hit effects "
+        .. "in their stat colors. Hold the default tooltip modifier for the full wording.", { item = true } },
+    { "Swap Damage Stats", "swapDamage", "Damage large, speed under it", "A weapon's damage on the large line, "
+        .. "with its speed and damage per second on the small one under it.", { item = true } },
+    { "Disenchant", "disenchant", "What it breaks into", "Green, blue, and purple armor and weapons list what "
+        .. "they disenchant into, with each result's chance and the Enchanting it needs; with Auctionator, the "
+        .. "expected value.", { item = true } },
+    { "Sell price", "sellPrice", "The vendor's price in the footer", "The vendor price in the footer; for a "
+        .. "stack, the price of one and of the whole stack.", { item = true } },
+    { "Spell power (Experimental)", "spellPower", "Coefficients, base and bonus", "Under the description, each "
+        .. "amount's spell power coefficient and its split into base and spell power. No game API has "
+        .. "coefficients: they come from Forever's client data, and ones marked ~ are estimates.",
+        { spell = true }, coefficients, "Experimental: not all values are correct yet." },
+    { "Rates", "spellRates", "Per second and per mana", "Under the spell power breakdown, the average a cast "
+        .. "deals or heals per second and per mana. Per second, what lands at once counts over the cast time "
+        .. "(instants as the 1.5 sec global cooldown) and what comes over time over its duration. Crits and "
+        .. "talents do not count.", { spell = true }, coefficients },
+    { "Health bar", "unitHealthBar", "The game's bar at the foot", "The game's own health bar at the bottom of "
+        .. "player and NPC panels. The game fills it, so it stays live without the addon reading health, which "
+        .. "WoW Forever keeps from addons.", { unit = true } },
+    { "Gathering", "gatheringLoot", "What a node or a skinning holds", "What a herb or ore node holds: its "
+        .. "yield over all the times it can be gathered, then the stone, gems, and other herbs it may give and "
+        .. "the chance each time. On a dead creature that can be skinned, the Skinning it needs and the leather, "
+        .. "hides, and scales it may give. From Classic's loot tables.", { object = true, unit = true } },
+    { "IDs", "showIDs", "Its ID at the foot", "The item's, spell's, or NPC's ID at the bottom of its panel, under "
+        .. "other addons' rows.", { item = true, spell = true, unit = true } },
+}
+-- The rows that show only while the details key is held.
+local HELD = { disenchant = true, spellPower = true, spellRates = true, gatheringLoot = true, showIDs = true }
 
-row("Stat colors", colorSwatches(ns.Stats.CATEGORIES, "statColor", function(key)
-    return hexColor((ns.Stats.categoryColors(key)))
-end), colorGroupSetting(ns.Stats.CATEGORIES, "statColor"), items, true)
-row("Armor colors", colorSwatches(ns.Palette.ARMOR, "armorColor", ns.Palette.armorColor),
-    colorGroupSetting(ns.Palette.ARMOR, "armorColor"), items, true)
-row("Class colors", colorSwatches(ns.Palette.CLASSES, "classColor", ns.Palette.classColor, function()
-    if ns.Palette.addonClassColors() then
-        return L["Your class colors addon sets these; the colors chosen here apply without it."]
-    end
-end),
-    colorGroupSetting(ns.Palette.CLASSES, "classColor"), units, true)
+local COLORS = {
+    item = {
+        { "Stat colors", "Each kind of stat", ns.Stats.CATEGORIES, "statColor", function(key)
+            return hexColor((ns.Stats.categoryColors(key)))
+        end },
+        { "Armor colors", "Cloth, leather, mail, plate", ns.Palette.ARMOR, "armorColor", ns.Palette.armorColor },
+    },
+    unit = {
+        { "Class colors", "Each class's names and bars", ns.Palette.CLASSES, "classColor", ns.Palette.classColor,
+            function()
+                if ns.Palette.addonClassColors() then
+                    return L["Your class colors addon sets these; the colors chosen here apply without it."]
+                end
+            end },
+    },
+}
 
--- Lays out the entries shown, top to bottom, and sizes the scroll to them.
-local function layoutColumn()
-    local y = 0
-    for _, item in ipairs(entries) do
-        local visible = not item.shown or item.shown()
-        local height = visible and (item.layout and item.layout() or item.height) or 0
-        if height > 0 then
-            item.holder:ClearAllPoints()
-            item.holder:SetPoint("TOPLEFT", 0, -y)
-            item.holder:SetHeight(height)
-            item.holder:Show()
-            y = y + height
-        else
-            item.holder:Hide()
-        end
-    end
-    content:SetHeight(y + 8)
-    local range = math.max(0, math.ceil(y + 8 - column:GetHeight()))
-    columnBar:SetMinMaxValues(0, range)
-    columnBar:SetShown(range > 0)
-    if range > 0 then
-        columnThumb:SetHeight(math.max(24, columnBar:GetHeight() * column:GetHeight() / (y + 8)))
-    end
-    columnBar:SetValue(math.min(columnBar:GetValue(), range))
-    columnBar:UpdateScrollMetrics(column:GetHeight(), y + 8)
-    column:SetVerticalScroll(math.min(columnBar:GetValue(), range))
+local function notBlizzard() return ns.option("layout") ~= "blizzard" end
+local BLIZZARD_WARNING = function()
+    if not notBlizzard() then return "The Blizzard layout (Options) keeps the game's tooltip for every kind." end
 end
 
-editor:SetHeight(EDITOR_HEIGHT)
-host:SetHeight(EDITOR_HEIGHT - PREVIEW_TOP - 16)
+local kindPanels = {}
+local function BuildKindPanel(key)
+    local kind = KIND[key]
+    local suffix = ns.TYPE_SUFFIX[key]
+    local f = CreateFrame("Frame", nil, panelSheet.content)
+    f:SetPoint("TOPLEFT")
+    f:SetSize(PAGE_W, 1)
+    -- the left: Restyle & place, then the kind's panel
+    local placeRows = kind.cursor and 2 or 1
+    local place = RowsCard(f, "Restyle & place", COL_W, placeRows, function(card, n)
+        if n == 1 then
+            OptionSwitch(card, 1, { "Restyle", "The mdlui panel; off, the game's tooltip",
+                tip = "Draws the mdlui_Tooltips panel for this kind. Off, it keeps the game's own tooltip, with the "
+                    .. "details modifier's rows added to it.", available = notBlizzard, warning = BLIZZARD_WARNING },
+                kind.restyle)
+        else
+            OptionSwitch(card, 2, { "Follow cursor", "At the pointer, not the corner",
+                tip = "Shows this kind's tooltip at the cursor when the game would put it in its default corner; bags "
+                    .. "and other panels keep theirs. Off, its position is left to the game and other addons." },
+                kind.cursor)
+        end
+    end)
+    place:SetPoint("TOPLEFT")
+    local function bandOpacity(edge)
+        local own = "header" .. edge .. "Alpha" .. suffix
+        -- what the kind shows with no setting of its own
+        local function fallback() return ns.option("header" .. edge .. "Alpha") or ui.defaultHeaderAlpha() end
+        return function()
+            return math.floor((ns.headerAlpha(key, edge) or ui.defaultHeaderAlpha()) * 100 + .5)
+        end, function(percent)
+            local alpha = percent / 100
+            ns.setOption(own, math.abs(alpha - fallback()) > .001 and alpha or nil)
+        end, own
+    end
+    local function opacity(name, default)
+        local own = name .. suffix
+        return function()
+            return math.floor((ns.option(own) or default) * 100 + .5)
+        end, function(percent)
+            ns.setOption(own, math.abs(percent / 100 - default) > .001 and percent / 100 or nil)
+        end, own
+    end
+    local panelCard = RowsCard(f, fillText(L["%s panel"], L[kind.label]), COL_W, 5, function(card, n)
+        if n == 1 then
+            OptionSwitch(card, 1, { "Show icon", "The icon or portrait in the header",
+                tip = "The icon or portrait in the header, for this kind of tooltip." }, "icon" .. suffix)
+        elseif n <= 3 then
+            local edge = n == 2 and "Top" or "Bottom"
+            local get, set, own = bandOpacity(edge)
+            SliderRow(card, n, { n == 2 and "Band top" or "Band bottom",
+                n == 2 and "The header band's strength" or "The footer band's strength",
+                tip = "How strong the band of shade is at the panel's " .. (n == 2 and "top" or "bottom")
+                    .. ". With none of its own, this kind follows the strength every kind shares.",
+                setting = optionSetting(own) }, Range(0, 100, 5), PERCENT, get, set)
+        else
+            local name, default = n == 4 and "backdropAlpha" or "glowAlpha", n == 4 and ns.BACKDROP_ALPHA or 1
+            local get, set, own = opacity(name, default)
+            SliderRow(card, n, { n == 4 and "Backdrop" or "Glow", n == 4 and "The panel's ink" or "The halo round it",
+                tip = n == 4 and "How solid the panel's ink is." or "How bright the halo round the panel is: an "
+                    .. "item's quality, a spell's school.", setting = optionSetting(own) },
+                Range(0, 100, 5), PERCENT, get, set)
+        end
+    end)
+    panelCard:SetPoint("TOPLEFT", place, "BOTTOMLEFT", 0, -GAP)
+    local leftH = place:GetHeight() + GAP + panelCard:GetHeight()
+    -- the right: the kind's details, then its colors
+    local rows = {}
+    for _, d in ipairs(DETAILS) do
+        if d[5][key] then rows[#rows + 1] = d end
+    end
+    local rightH, above = 0, nil
+    if #rows > 0 then
+        local details = RowsCard(f, "Details", COL_W, #rows, function(card, n)
+            local d = rows[n]
+            local function warning()
+                if d[6] and not d[6]() then
+                    return d[7] or (d[2] == "questParchment" and "DialogueUI is not installed."
+                        or "This language's spell descriptions are not read yet.")
+                end
+                return d[7]
+            end
+            local row = OptionSwitch(card, n, { d[1], d[3], tip = d[4], available = d[6], warning = warning }, d[2])
+            if HELD[d[2]] then row.held = true end
+        end)
+        details:SetPoint("TOPLEFT", f, "TOPLEFT", COL_W + GAP, 0)
+        controls[#controls + 1] = { refresh = function()
+            details.note:SetText(ns.option("detailsKey") == "ALWAYS" and L["the marked ones always shown"]
+                or L["the marked ones while the details key is held"])
+        end }
+        rightH, above = details:GetHeight(), details
+    end
+    local groups = COLORS[key]
+    if groups then
+        local colors = RowsCard(f, "Colors", COL_W, #groups, function(card, n)
+            local g = groups[n]
+            SwatchRow(card, n, { g[1], g[2], tip = "Click a swatch to choose its color; right-click for its "
+                .. "default." }, g[3], g[4], g[5], g[6])
+        end)
+        if above then
+            colors:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -GAP)
+            rightH = rightH + GAP + colors:GetHeight()
+        else
+            colors:SetPoint("TOPLEFT", f, "TOPLEFT", COL_W + GAP, 0)
+            rightH = colors:GetHeight()
+        end
+    end
+    f.height = math.max(leftH, rightH)
+    -- the details shown only while the key is held carry a mark after their label
+    for _, card in ipairs({ f:GetChildren() }) do
+        for _, row in ipairs({ card:GetChildren() }) do
+            if row.held and row.label then row.label:SetText(row.label:GetText() .. "  \194\183") end
+        end
+    end
+    kindPanels[key] = f
+    return f
+end
 
-local resetAll = editorButton(editor, "Reset all fonts and colors", 170, function()
-    ns.resetStyles()
+-- All tooltips -------------------------------------------------------------------------
+
+do
+    local at = allPage.content
+    local fonts = RowsCard(at, "Fonts", COL_W, 4, function(card, n)
+        if n == 1 then
+            ChoiceRow(card, 1, { "Text font", "Every kind's body text", tip = "The font of every tooltip's text, "
+                .. "where a part has none of its own.", setting = optionSetting("bodyFont") }, 150, function()
+                return fontItems("Game default")
+            end, function() return ns.option("bodyFont") end, function(name) ns.setOption("bodyFont", name) end)
+        elseif n == 2 then
+            ChoiceRow(card, 2, { "Name font", "Names and titles", tip = "The font of every tooltip's name, where a "
+                .. "part has none of its own.", setting = optionSetting("titleFont") }, 150, function()
+                local locale = GetLocale()
+                return fontItems(locale ~= "koKR" and locale ~= "zhCN" and locale ~= "zhTW"
+                    and (ns.Game.addonInstalled("Medalluin") and "Marcellus SC (Medalluin)"
+                        or ns.Game.addonInstalled("EllesmereUI") and "Expressway Bold (EllesmereUI)")
+                    or "Game default")
+            end, function() return ns.option("titleFont") end, function(name) ns.setOption("titleFont", name) end)
+        elseif n == 3 then
+            SegmentRow(card, 3, { "Outline", "Round every part's letters", tip = "An outline round the letters of "
+                .. "every part without its own.", setting = optionSetting("outline") },
+                { "NONE", "OUTLINE", "THICKOUTLINE" }, { "None", "Thin", "Thick" },
+                function() return ns.option("outline") end,
+                function(value) ns.setOption("outline", value ~= "NONE" and value or nil) end)
+        else
+            -- a scale on every part's own size, in steps of 5%; the default is saved as no setting
+            SliderRow(card, 4, { "Text size", "Every part's size, scaled", tip = "Scales every part's own text "
+                .. "size.", setting = optionSetting("fontScale") }, Range(80, 150, 5), PERCENT, function()
+                return math.floor(ns.option("fontScale") * 100 + .5)
+            end, function(percent)
+                ns.setOption("fontScale", percent ~= 100 and percent / 100 or nil)
+            end)
+        end
+    end)
+    fonts:SetPoint("TOPLEFT")
+    -- One look for every bar: health, time left, durability, Medalluin's. Each keeps its own
+    -- color, which says what the bar is for.
+    local bars = RowsCard(at, "Bars", COL_W, 3, function(card, n)
+        if n == 1 then
+            SegmentRow(card, 1, { "Bar style", "Health, time left, durability", tip = "Well: sunken, with a lit "
+                .. "fill. Plain: a flat track.", setting = optionSetting("barStyle") }, { "well", "plain" },
+                { "Well", "Plain" }, function() return ns.option("barStyle") end,
+                function(value) ns.setOption("barStyle", value ~= "well" and value or nil) end)
+        elseif n == 2 then
+            SliderRow(card, 2, { "Bar height", "In pixels", tip = "How tall every bar is.",
+                setting = optionSetting("barHeight") }, Range(4, 16), PLAIN, function()
+                return ns.option("barHeight")
+            end, function(value) ns.setOption("barHeight", value ~= 8 and value or nil) end)
+        else
+            ChoiceRow(card, 3, { "Bar texture", "The fill's texture", tip = "The texture every bar's fill is drawn "
+                .. "with; the game's own health bar keeps its own.", setting = optionSetting("barTexture") }, 150,
+                function()
+                    local items = { { text = "Flat" } }
+                    for _, name in ipairs(ns.barTextureNames()) do
+                        if name ~= "Flat" then items[#items + 1] = { value = name, text = name } end
+                    end
+                    return items
+                end, function() return ns.option("barTexture") end, function(name) ns.setOption("barTexture", name) end)
+        end
+    end)
+    bars:SetPoint("TOPLEFT", fonts, "BOTTOMLEFT", 0, -GAP)
+    -- Shared by every kind; the default is saved as no setting.
+    local function panelSize(key)
+        return function() return ns.option(key) end, function(value)
+            ns.setOption(key, nil)
+            if ns.option(key) ~= value then ns.setOption(key, value) end
+        end
+    end
+    local panel = RowsCard(at, "Panel", COL_W, 6, function(card, n)
+        if n == 1 then
+            -- Gilded, the default, is Medalluin's gold frame and ink; Slate its quieter shading.
+            -- DialogueUI's art shows only while that addon is installed.
+            ChoiceRow(card, 1, { "Panel style", "Its frame and ink", tip = "Gilded: Medalluin's gold frame and "
+                .. "ink. Slate: its quieter shading. DialogueUI's art shows only while that addon is installed.",
+                setting = optionSetting("backdropStyle") }, 150, function() return BACKDROP_STYLES end,
+                function() return ns.option("backdropStyle") end,
+                function(value) ns.setOption("backdropStyle", value) end)
+        elseif n == 2 then
+            local get, set = panelSize("padding")
+            SliderRow(card, 2, { "Padding", "Inside the panel's edge", tip = "The room between the panel's edge "
+                .. "and what it shows.", setting = optionSetting("padding") }, Range(8, 32), PLAIN, get, set)
+        elseif n == 3 then
+            local get, set = panelSize("minWidth")
+            SliderRow(card, 3, { "Min width", "The least a panel is", tip = "How wide a panel is at least, "
+                .. "however little it shows.", setting = optionSetting("minWidth") }, Range(120, 400, 10), PLAIN,
+                get, set)
+        elseif n == 4 then
+            OptionSwitch(card, 4, { "Icon on the right", "The icon and its badge", tip = "Moves the item or spell "
+                .. "icon, and the item level badge under it, to the right of the name." }, "iconRight")
+        elseif n == 5 then
+            OptionSwitch(card, 5, { "Tint the panel", "In the quality's color", tip = "Washes the panel in the "
+                .. "item's quality color, or the spell's school or resource. Off, every panel is neutral; the name "
+                .. "keeps its quality color." }, "qualityTint")
+        else
+            OptionSwitch(card, 6, { "Separators", "The gold dividers", tip = "The gold dividers between sections "
+                .. "and the thin rules above other addons' rows. Off, they are hidden along with the space around "
+                .. "them." }, "separators")
+        end
+    end)
+    panel:SetPoint("TOPLEFT", at, "TOPLEFT", COL_W + GAP, 0)
+    local schools = RowsCard(at, "Colors", COL_W, 1, function(card)
+        SwatchRow(card, 1, { "School colors", "Holy, fire, nature, frost...", tip = "Each school's color: "
+            .. "spells, damage, resistances." }, ns.Palette.SCHOOLS, "schoolColor", ns.Palette.school)
+    end)
+    schools:SetPoint("TOPLEFT", panel, "BOTTOMLEFT", 0, -GAP)
+    allPage:SetContentHeight(math.max(fonts:GetHeight() + GAP + bars:GetHeight(),
+        panel:GetHeight() + GAP + schools:GetHeight()))
+end
+
+-- Options -------------------------------------------------------------------------------
+
+local kindRows = {}
+do
+    local at = optionsPage.content
+    local layout = RowsCard(at, "Layout", COL_W, 1, function(card)
+        SegmentRow(card, 1, { "Tooltips", "Restyled, or the game's", tip = "mdlui_Tooltips: the panel for each "
+            .. "kind turned on (its page, or Every kind). Blizzard: the game's own tooltips. Item Equip effects "
+            .. "are shortened, and the details modifier adds disenchant results, the spell power breakdown and "
+            .. "rates, gathering contents, and IDs.", setting = optionSetting("layout") }, { "pretty", "blizzard" },
+            { "mdlui_Tooltips", "Blizzard" }, function() return ns.option("layout") end,
+            function(value) ns.setOption("layout", value ~= "pretty" and value or nil) end)
+    end)
+    layout:SetPoint("TOPLEFT")
+    local modifiers = RowsCard(at, "Modifiers", COL_W, 2, function(card, n)
+        if n == 1 then
+            SegmentRow(card, 1, { "The game's tooltip", "Held, it shows instead", tip = "Hold it to see the game's "
+                .. "own tooltip instead of the panel. Never: the panel always.", setting = optionSetting("originalKey") },
+                { "CTRL", "ALT", "NONE" }, { "Ctrl", "Alt", "Never" }, function() return ns.option("originalKey") end,
+                function(value) ns.setOption("originalKey", value ~= "ALT" and value or nil) end)
+        else
+            SegmentRow(card, 2, { "Details", "Disenchant, coefficients, IDs", tip = "Shift: hold it to see "
+                .. "disenchant results, the spell power breakdown and rates, gathering contents, and IDs. Always: "
+                .. "they always show. Each can still be turned off on its kind's Panel sheet.",
+                setting = optionSetting("detailsKey") }, { "SHIFT", "ALWAYS" }, { "Shift", "Always" },
+                function() return ns.option("detailsKey") end,
+                function(value) ns.setOption("detailsKey", value ~= "SHIFT" and value or nil) end)
+        end
+    end)
+    modifiers:SetPoint("TOPLEFT", layout, "BOTTOMLEFT", 0, -GAP)
+    local placement = RowsCard(at, "Placement", COL_W, 2, function(card, n)
+        if n == 1 then
+            OptionSwitch(card, 1, { "Not in combat", "Following the cursor pauses", tip = "Use the default tooltip "
+                .. "position during combat, then resume following the cursor afterward." }, "cursorDisableInCombat")
+        else
+            SliderRow(card, 2, { "Global scale", "Every panel's size", tip = "Scales every mdlui_Tooltips panel, "
+                .. "including text, icons, spacing, and bars. 100% is the default. Individual text settings are "
+                .. "preserved.", setting = optionSetting("tooltipScale") }, Range(50, 150, 5), PERCENT, function()
+                return math.floor(ns.tooltipScale() * 100 + .5)
+            end, function(percent)
+                ns.setOption("tooltipScale", percent ~= 100 and percent / 100 or nil)
+            end)
+        end
+    end)
+    placement:SetPoint("TOPLEFT", modifiers, "BOTTOMLEFT", 0, -GAP)
+
+    -- Every kind of tooltip, its Restyle and its Follow cursor: a row each, the two switches in
+    -- columns headed in the band. A kind without one of them shows a dash there.
+    local list = ns.TOOLTIP_TYPES
+    local every = Panel.Card(at, L["Every kind"], COL_W, BAND_H + 4 + #list * KIND_ROW + 8)
+    every:SetPoint("TOPLEFT", at, "TOPLEFT", COL_W + GAP, 0)
+    local CURSOR_X, RESTYLE_X = PAD, PAD + 36 + 26
+    for i, label in ipairs({ "Cursor", "Restyle" }) do
+        local fs = Panel.Plain(every, 10, C.faint)
+        fs:SetText(L[label])
+        fs:SetPoint("CENTER", every, "TOPRIGHT", -((i == 1 and CURSOR_X or RESTYLE_X) + 18), -BAND_H / 2)
+    end
+    for i, entry in ipairs(list) do
+        local row = Panel.CardRow(every, i, L[entry.label], nil, (i - 1) * KIND_ROW, KIND_ROW)
+        row.entry = entry
+        local function switchFor(key, x, tip, available)
+            if not key then
+                local dash = Panel.Plain(row, 12, C.faint)
+                dash:SetText("-")
+                dash:SetPoint("CENTER", row, "RIGHT", -(x - PAD + 18), 0)
+                return
+            end
+            local switch = Panel.Switch(row, function(self)
+                local on = self:GetChecked() and true or false
+                ns.setOption(key, nil)
+                if ns.option(key) ~= on then ns.setOption(key, on) end
+                refresh()
+            end)
+            switch:SetPoint("RIGHT", row, "RIGHT", -(x - PAD), 0)
+            Tip(switch, entry.label, tip, available and BLIZZARD_WARNING)
+            controls[#controls + 1] = { refresh = function()
+                local on = not available or available()
+                switch:SetEnabled(on)
+                switch:SetOn(ns.option(key))
+            end }
+            return switch
+        end
+        row.restyle = switchFor(entry.restyle, RESTYLE_X, entry.restyle
+            and "Draws the mdlui_Tooltips panel. Off, this kind keeps the game's own tooltip, with the details "
+                .. "modifier's rows added to it." or nil, notBlizzard)
+        row.cursor = switchFor(entry.cursor, CURSOR_X, "Shows this kind's tooltip at the cursor when the game "
+            .. "would put it in its default corner; bags and other panels keep theirs. Off, its position is left "
+            .. "to the game and other addons.")
+        row.label:SetWidth(COL_W - 2 * PAD - 120)
+        if not entry.restyle then
+            row.label:SetTextColor(C.dim[1], C.dim[2], C.dim[3])
+            Tip(row, entry.label, "Not restyled yet; this kind keeps the game's own tooltip.")
+        end
+        kindRows[i] = row
+    end
+    optionsPage:SetContentHeight(math.max(every:GetHeight(),
+        layout:GetHeight() + modifiers:GetHeight() + placement:GetHeight() + 2 * GAP))
+end
+
+-- Pages ------------------------------------------------------------------------------------
+
+local PAGE_LINES = {
+    all = { "All tooltips", "What every kind shares: fonts, the panel, bars and the school colors.",
+        "Click any part of the sample to restyle it" },
+    options = { "Options", "Which tooltips are restyled, where they open, and the keys that change them.",
+        "How every tooltip behaves" },
+}
+
+-- a kind's page (on a sheet: "style" or "panel"; the one shown last when nil), "all" or "options"
+ShowPage = function(to, sheet)
+    if KIND[to] then
+        switchTooltipType(to)
+        state.page = to
+        state.sheet = sheet or state.sheet
+    elseif to == "all" or to == "options" then
+        state.page = to
+    end
     refresh()
-end)
-resetAll:SetPoint("BOTTOMLEFT", editor, "BOTTOMLEFT", CONTROLS_X, 16)
-local moreOptions = editorButton(editor, "More options", 100, function()
-    if ns.openSettings() then editor:Hide() end
-end)
-moreOptions:SetPoint("BOTTOMRIGHT", editor, "BOTTOMRIGHT", -18, 16)
+end
 
--- Wiring ---------------------------------------------------------------------
+local function Chip(chip, text)
+    chip:SetShown(text ~= nil)
+    if text then chip:SetText(L[text]) end
+end
 
 refresh = function()
-    drawSample()
-    for tooltipType, tab in pairs(typeTabs) do tab:SetSelected(tooltipType == state.tooltipType) end
-    for index, tab in ipairs(sampleTabs) do
-        local sample = samples()[index]
-        tab:SetShown(sample ~= nil)
-        if sample then
-            tab.label:SetText(L[sample.label])
-            tab:SetWidth(math.max(56, tab.label:GetStringWidth() + 16))
-            tab:SetSelected(not state.lookup and index == state.sample)
-        end
+    local page = state.page
+    local kind = KIND[page]
+    -- the header
+    head:SetHeight(kind and HEAD_H + STRIP_H - 4 or HEAD_H)
+    for key, b in pairs(sheetTabs) do
+        b:SetShown(kind ~= nil)
+        b:SetOn(key == state.sheet)
     end
-    refreshLookup()
-    partNote:SetText(L[selectedElement().note or ""])
-    layoutColumn()
+    if kind then
+        pageTitle:SetText(L[kind.label])
+        crumb:SetText(L[kind.line])
+        subtitle:SetText(L["Click any part of the sample to restyle it"])
+        local restyled = ns.restyles(kind.restyle)
+        Chip(chips[1], restyled and "Restyled" or "The game's tooltip")
+        Chip(chips[2], restyled and kind.cursor and ns.option(kind.cursor) and "Follows cursor" or nil)
+    else
+        local lines = PAGE_LINES[page]
+        pageTitle:SetText(L[lines[1]])
+        crumb:SetText(L[lines[2]])
+        subtitle:SetText(L[lines[3]])
+        Chip(chips[1], nil)
+        Chip(chips[2], nil)
+    end
+    -- the pages
+    local style, panel = kind and state.sheet == "style", kind and state.sheet == "panel"
+    styleSheet:SetShown(style and true or false)
+    panelSheet:SetShown(panel and true or false)
+    allPage:SetShown(page == "all")
+    optionsPage:SetShown(page == "options")
+    for key, seg in pairs(examples) do
+        seg:SetShown(key == state.tooltipType)
+        if key == state.tooltipType then seg:SetValue(not state.lookup and state.sample or nil) end
+    end
+    if panel then
+        local f = kindPanels[page] or BuildKindPanel(page)
+        for key, other in pairs(kindPanels) do other:SetShown(key == page) end
+        panelSheet:SetContentHeight(f.height)
+    end
+    -- the sidebar: the page shown lit; a kind left to the game dimmed
+    for key, b in pairs(nav) do
+        local on = key == page
+        b.mark:SetShown(on)
+        b.bar:SetShown(on)
+        local game = KIND[key] and not ns.restyles(KIND[key].restyle)
+        local c = on and C.goldBright or game and C.faint or C.text
+        b.label:SetTextColor(c[1], c[2], c[3])
+        b.note:SetText(game and L["game's"] or "")
+    end
+    if style then
+        drawSample()
+        refreshLookup()
+    end
     for _, control in ipairs(controls) do control.refresh() end
-    paintHighlights()
-    showHint()
+    if style then
+        paintHighlights()
+        showHint()
+    end
+    changedPill:SetShown(openedVersion ~= nil and ns.settingsVersion ~= openedVersion)
 end
 
-function ns.refreshEditorStyle()
-    closeMenu()
-    skin:refresh()
-end
-
-editor:SetScript("OnShow", function() ns.refreshEditorStyle() refresh() end)
-editor:SetScript("OnHide", closeMenu)
+editor:SetScript("OnShow", function()
+    opened = Copy(type(mdlui_TooltipsDB) == "table" and mdlui_TooltipsDB or {})
+    openedVersion = ns.settingsVersion
+    Panel.Sound("open")
+    refresh()
+end)
+editor:SetScript("OnHide", function()
+    Panel.Sound("close")
+    GameTooltip:Hide()
+end)
 editor:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 editor:RegisterEvent("QUEST_DATA_LOAD_RESULT")
 editor:SetScript("OnEvent", function(_, event, id, success)
@@ -1386,7 +1577,25 @@ editor:SetScript("OnEvent", function(_, event, id, success)
     end
 end)
 
-function ns.openEditor()
-    editor:Show()
+-- For tests/: the window's pages and pieces.
+ns.editorWindow = { frame = editor, state = state, nav = nav, sheetTabs = sheetTabs, examples = examples,
+    partCard = partCard, partPicker = partPicker, lookupCard = lookupCard, lookupBox = lookupBox,
+    kindPanels = kindPanels, allPage = allPage, optionsPage = optionsPage, kindRows = kindRows,
+    undo = undoButton, resetAll = resetAll, changed = changedPill, overlay = overlay,
+    select = function(key) selectPart(key) end, show = function(to, sheet) ShowPage(to, sheet) end }
+
+-- Opens the window: a kind's page ("item", ...; on its sheet shown last), "all", "options", or
+-- nothing for the page shown last.
+function ns.openEditor(where)
+    Place()
+    if KIND[where] then
+        switchTooltipType(where)
+        state.page = where
+    elseif where == "all" or where == "options" then
+        state.page = where
+    end
+    -- shown already: what it was opened with stays Undo's
+    if not editor:IsShown() then editor:Show() end
     editor:Raise()
+    refresh()
 end

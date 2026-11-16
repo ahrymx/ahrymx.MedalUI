@@ -26,6 +26,8 @@ function Region:GetThumbTexture()
     return self.thumb
 end
 local ADDON = "WoW/Interface/AddOns/mdlui_Tooltips/"
+-- a dropdown keeps the function that fills its menu (the window's checks read it)
+function Region:SetupMenu(fn) self.menuFn = fn end
 
 -- ------------------------------------------------------------ stubs
 Enum = Enum or {}
@@ -521,3 +523,136 @@ do
     end
     QuestieLoader, C_Map.GetAreaInfo, C_Reputation.GetFactionDataByID = nil, area, faction
 end
+
+-- ------------------------------------------------------------ the window (UI/Editor.lua)
+-- What its controls read of the client, stubbed only from here on, so the lines above stay
+-- as they were: a dropdown's menu, a button's font string, an edit box's focus.
+if not Region.GenerateMenu then function Region:GenerateMenu() end end
+if not Region.SetChecked then function Region:SetChecked(on) self.checked = on and true or false end end
+if not Region.GetChecked then function Region:GetChecked() return self.checked end end
+if not Region.HasFocus then function Region:HasFocus() return false end end
+-- a slider as the game's: its value 0 until set, kept in its range, OnValueChanged told
+local setValue = Region.SetValue
+function Region:SetValue(v)
+    if self.kind ~= "Slider" then return setValue(self, v) end
+    v = math.max(self.min or v, math.min(self.max or v, v))
+    local was = self.value
+    setValue(self, v)
+    if was ~= v and self.scripts.OnValueChanged then self.scripts.OnValueChanged(self, v) end
+end
+function Region:GetValue() return self.value or (self.kind == "Slider" and 0 or nil) end
+local function menuOf(drop)
+    local out, root = {}, {}
+    function root:CreateRadio(text, isSelected, pick)
+        out[#out + 1] = { text = text, on = isSelected(), pick = pick }
+    end
+    function root:SetScrollMode() end
+    drop.menuFn(drop, root)
+    return out
+end
+local E = ns.editorWindow
+if not E then
+    print("tooltips window missing")
+    return
+end
+local DB = function() return mdlui_TooltipsDB or {} end
+local function shown(r) return r:IsShown() and "on" or "off" end
+-- as the game: a check button turns itself over before its OnClick
+local function click(b, mouse)
+    if b.kind == "CheckButton" then b:SetChecked(not b:GetChecked()) end
+    if b.scripts.OnClick then b.scripts.OnClick(b, mouse or "LeftButton") end
+end
+-- the card rows of a frame, by label
+local function rowsOf(frame, out)
+    out = out or {}
+    for _, child in ipairs({ frame:GetChildren() }) do
+        if child.label and child.label.GetText and (child.label:GetText() or "") ~= "" then
+            out[(child.label:GetText() or ""):gsub("  \194\183$", "")] = child
+        end
+        rowsOf(child, out)
+    end
+    return out
+end
+SlashCmdList.MDLUI_TOOLTIPS("")
+print("tooltips window", "shown=" .. shown(E.frame), "page=" .. E.state.page, "sheet=" .. E.state.sheet,
+    "nav=" .. (function() local n = 0 for _ in pairs(E.nav) do n = n + 1 end return n end)())
+-- every kind's two sheets, All tooltips and Options
+for _, key in ipairs(ns.editorSamples.order) do
+    if E.nav[key] then
+        E.show(key, "style")
+        local seg = E.examples[key]
+        local panel = E.kindPanels[key]
+        E.show(key, "panel")
+        panel = E.kindPanels[key]
+        local labels = {}
+        for label in pairs(rowsOf(panel)) do labels[#labels + 1] = label end
+        table.sort(labels)
+        print("tooltips window kind", key, "examples=" .. #seg.buttons, "rows=" .. table.concat(labels, ","))
+    end
+end
+E.show("item", "style")
+print("tooltips window style", "part=" .. tostring(E.state.selected), "card=" .. tostring(E.partCard.title:GetText()),
+    "picker=" .. #menuOf(E.partPicker), "lookup=" .. shown(E.lookupCard))
+-- a part picked from the card's list
+local entries = menuOf(E.partPicker)
+for _, e in ipairs(entries) do if e.text == "Stats" then e.pick() end end
+print("tooltips window picked", "part=" .. tostring(E.state.selected), "card=" .. tostring(E.partCard.title:GetText()))
+-- the part card writes its part's settings
+local part = rowsOf(E.partCard)
+click(part["All caps"].switch)
+part.Size.slider.plus.scripts.OnClick(part.Size.slider.plus)
+click(part.Outline.segment.buttons[3])
+local fonts = menuOf(part.Font.choice)
+fonts[2].pick()
+local style = DB().styles and DB().styles[E.state.selected] or {}
+print("tooltips window part wrote", "caps=" .. tostring(style.caps), "size=" .. tostring(style.size),
+    "outline=" .. tostring(style.outline), "font=" .. tostring(style.font),
+    "gold=" .. table.concat(part.Size.label.textColor, ",", 1, 2))
+-- a kind's Panel sheet: Restyle, a band, its details
+E.show("item", "panel")
+local itemRows = rowsOf(E.kindPanels.item)
+click(itemRows.Restyle.switch)
+click(itemRows["Sell price"].switch)
+itemRows["Band top"].slider.minus.scripts.OnClick(itemRows["Band top"].slider.minus)
+print("tooltips window panel wrote", "itemPanels=" .. tostring(DB().itemPanels), "sellPrice=" .. tostring(DB().sellPrice),
+    "bandTop=" .. tostring(DB().headerTopAlphaItems), "dimmed=" .. tostring(E.nav.item.note:GetText()))
+-- a colour: the picker, then right-click to its default
+local stat = itemRows["Stat colors"]
+local first
+for key, sw in pairs(stat.swatches) do first = first or key click(sw) break end
+ColorPickerFrame.rgb = { .1, .2, .3 }
+ColorPickerFrame.info.swatchFunc()
+local picked = DB()["statColor" .. first]
+click(stat.swatches[first], "RightButton")
+print("tooltips window swatch", "picked=" .. (picked and table.concat(picked, ",") or "nil"),
+    "after right click=" .. tostring(DB()["statColor" .. first]))
+-- DialogueUI missing: Quest parchment off, with its reason
+local parchment = itemRows["Quest parchment"]
+print("tooltips window parchment", "enabled=" .. tostring(parchment.switch:IsEnabled()),
+    "alpha=" .. tostring(parchment:GetAlpha()))
+-- All tooltips and Options
+E.show("all")
+local all = rowsOf(E.allPage)
+click(all.Separators.switch)
+menuOf(all["Panel style"].choice)[2].pick()
+print("tooltips window all", "shown=" .. shown(E.allPage), "separators=" .. tostring(DB().separators),
+    "backdrop=" .. tostring(DB().backdropStyle))
+SlashCmdList.MDLUI_TOOLTIPS("options")
+local opts = rowsOf(E.optionsPage)
+click(opts.Tooltips.segment.buttons[2])
+click(opts["The game's tooltip"].segment.buttons[1])
+print("tooltips window options", "page=" .. E.state.page, "shown=" .. shown(E.optionsPage), "layout=" .. tostring(DB().layout),
+    "originalKey=" .. tostring(DB().originalKey), "kinds=" .. #E.kindRows,
+    "nav item=" .. tostring(E.nav.item.note:GetText()))
+-- Undo: as it was opened (the place kept)
+DB().editorPoint = { "CENTER", "CENTER", 10, 20 }
+print("tooltips window changed", "pill=" .. shown(E.changed))
+click(E.undo)
+local left = {}
+for k in pairs(DB()) do left[#left + 1] = k end
+table.sort(left)
+print("tooltips window undo", "saved=" .. table.concat(left, ","), "pill=" .. shown(E.changed))
+-- the AddOns page's button, and the close
+E.frame:Hide()
+ns.openSettings()
+print("tooltips window settings", "shown=" .. shown(E.frame), "page=" .. E.state.page)

@@ -55,7 +55,7 @@ Tooltips\Mail.lua
 mdlui\Medalluin.lua
 UI\Options.lua
 UI\Samples.lua
-UI\EditorSkin.lua
+UI\Panel.lua
 UI\Editor.lua
 Integration\Native.lua
 Integration\Placement.lua
