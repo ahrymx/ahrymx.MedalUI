@@ -15,7 +15,7 @@ Runs on **WoW Forever** (`16001`) and **Retail** (`120105`).
 
 The console sits at the bottom: player and target on its wings, action bars in between. The overhead row at the top holds the boss, pet, focus and target-of-target frames.
 
-![The Reticule console with its minimap bay](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/central-console.png)
+![The Reticule console with its action bars, and the overhead's boss, pet, focus and target-of-target frames above](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/console-overhead.png)
 
 - **Two profiles:** the slim **Reticule** (default), or the round **Arena** below.
 - **Reticule:** the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console. Its Minimal OoC Mode fades the console away out of combat, leaving your player and target frames faint until combat brings it back.
@@ -27,7 +27,7 @@ The console sits at the bottom: player and target on its wings, action bars in b
 
 The medallion console: the party on wings around a large player and target, with the minimap in its ring.
 
-![The Arena console with its action bars, and the overhead's boss, pet, focus and target-of-target frames above](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/console-overhead.png)
+![The Arena console with the minimap in its ring](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/central-console.png)
 
 ---
 
