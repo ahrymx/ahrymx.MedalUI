@@ -250,7 +250,7 @@ files["WoW/Interface/AddOns/mdlui_Tooltips/**/*.lua"] = {
         "UnitClass", "UnitRace", "UnitFactionGroup", "UnitReaction", "UnitIsUnit", "UnitIsPlayer",
         "UnitHealth", "UnitHealthMax", "UnitIsTapDenied", "UnitIsPVP", "UnitIsDeadOrGhost", "UnitIsDND",
         "UnitIsAFK", "UnitCreatureType", "UnitClassification",
-        "LibStub", "Auctionator", "QuestieLoader",
+        "LibStub", "Auctionator", "QuestieLoader", "GetFactionInfoByID", "REPUTATION", "ITEM_MIN_LEVEL",
     },
 }
 

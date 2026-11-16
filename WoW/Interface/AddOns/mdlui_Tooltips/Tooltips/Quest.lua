@@ -24,6 +24,8 @@ local DONE_COLOR = colors.done
 local FAILED_COLOR = { 1, .35, .30 }
 local EXTRAS_RULE = { .50, .50, .54 }
 local REPEAT_COLOR = { .45, .70, 1 }
+local REQUIRES_COLOR = { .62, .60, .56 }
+local CHAIN_COLOR = { .62, .60, .56 }
 local QUEST_ICON = "Interface\\Icons\\INV_Misc_Book_08"
 local TAGS = ns.Locale.questTags
 -- Questie writes the tag as a suffix on the level: "[27D] The Fury Runs Deep".
@@ -40,6 +42,7 @@ local function questKey(_, data)
     return readable(data.id)
 end
 
+local fromQuestie, questieWords
 local function completeModel(model, questID, game)
     -- The quest log's tooltip names no level.
     if questID and not model.level then model.level = game.questLevel(questID) end
@@ -55,6 +58,21 @@ local function completeModel(model, questID, game)
     if model.completed then
         for _, objective in ipairs(model.objectives) do objective.completed = true end
     end
+    -- Where the quest is (Questie's Started by, Ended by and Found in) has a
+    -- group of its own, in that order; the other labeled rows stay extras.
+    local words = questieWords(game)
+    local order = {}
+    for index = 1, 3 do
+        order[words.labels[index]] = index
+        order[L[LABELS[index]]] = order[L[LABELS[index]]] or index
+    end
+    local where, kept = model.where or {}, {}
+    for _, row in ipairs(model.extras) do
+        if order[row.left] then where[#where + 1] = row else kept[#kept + 1] = row end
+    end
+    model.where, model.extras = where, kept
+    fromQuestie(model, questID, game, words)
+    table.sort(model.where, function(a, b) return (order[a.left] or 4) < (order[b.left] or 4) end)
     model.color = game.difficultyColor(model.level) or QUEST_GOLD
     model.icon = model.icon or QUEST_ICON
     return model
@@ -88,7 +106,7 @@ end
 
 -- Questie's words, in the language it is set to: its phrases, the separator
 -- it puts after a label (" : " in French), and its labels.
-local function questieWords(game)
+function questieWords(game)
     local words = {}
     for _, phrase in ipairs({ "You are on this quest", "Complete", "Failed", "You have completed this quest",
         "This quest is repeatable", "You have not done this quest", "Your progress", "Objectives", "Instance",
@@ -98,6 +116,106 @@ local function questieWords(game)
     words.labels = {}
     for index, label in ipairs(LABELS) do words.labels[index] = game.questieText(label) end
     return words
+end
+
+-- Questie's database --------------------------------------------------------------
+
+-- What its lines leave out (a quest link's tooltip has little), from Questie's
+-- database when it is loaded: never over what the lines said.
+local PLACE = "|cff9a9282"                  -- where an NPC stands, after their name
+
+-- The first ID in a list of Questie's (or the ID itself).
+local function firstId(list)
+    if type(list) == "number" then return list end
+    if type(list) ~= "table" then return end
+    for key, value in pairs(list) do
+        if type(value) == "number" then return value end
+        if type(key) == "number" and value == true then return key end
+    end
+end
+
+local function named(game, kind, id)
+    local name = id and game.questieField(kind, id, "name")
+    if type(name) == "string" and name ~= "" then return name end
+end
+
+-- Who starts or ends it: the first NPC, with where they stand; else the
+-- object, else the item.
+local function giver(game, by)
+    if type(by) ~= "table" then return end
+    local npc = firstId(by.NPC)
+    local name = named(game, "NPC", npc)
+    if name then
+        local area = game.areaName(game.questieField("NPC", npc, "zoneID"))
+        return area and area ~= name and name .. "  " .. PLACE .. area .. "|r" or name
+    end
+    return named(game, "Object", firstId(by.GameObject)) or named(game, "Item", firstId(by.Item))
+end
+
+local function questName(game, id)
+    local name = named(game, "Quest", id)
+    if name then return name end
+    local quest = game.questieQuest(id)
+    return quest and type(quest.name) == "string" and quest.name or nil
+end
+
+-- An objective's words: its own text, else what it asks for, by name.
+local OBJECTIVE_KINDS = { monster = "NPC", killcredit = "NPC", object = "Object", item = "Item" }
+local function objectiveText(game, objective)
+    if type(objective) ~= "table" then return end
+    if type(objective.Text) == "string" and objective.Text ~= "" then return objective.Text end
+    local kind = OBJECTIVE_KINDS[objective.Type]
+    return kind and named(game, kind, objective.Id)
+end
+
+function fromQuestie(model, id, game, words)
+    local quest = id and game.questieQuest(id)
+    if not quest then return end
+    if not model.level and type(quest.level) == "number" and quest.level > 0 then model.level = quest.level end
+    if not model.zone and type(quest.zoneOrSort) == "number" then model.zone = game.areaName(quest.zoneOrSort) end
+    if not model.requires and type(quest.requiredLevel) == "number" and quest.requiredLevel > 1 then
+        model.requires = quest.requiredLevel
+    end
+    if #model.description == 0 and type(quest.objectivesText) == "table" then
+        for _, text in ipairs(quest.objectivesText) do
+            if type(text) == "string" and trim(text) ~= "" then model.description[#model.description + 1] = trim(text) end
+        end
+    end
+    -- not on the quest: what it asks, unticked (ticked once it is done)
+    if #model.objectives == 0 and type(quest.ObjectiveData) == "table" then
+        for _, objective in ipairs(quest.ObjectiveData) do
+            local text = objectiveText(game, objective)
+            if text then
+                model.objectives[#model.objectives + 1] = { left = text, right = "", completed = model.completed and true or false }
+            end
+        end
+    end
+    local said = {}
+    for _, row in ipairs(model.where) do said[row.left] = true end
+    for index, by in ipairs({ quest.Starts, quest.Finisher }) do
+        local label = words.labels[index]
+        local who = not said[label] and giver(game, by)
+        if who then model.where[#model.where + 1] = { left = label, right = who } end
+    end
+    -- the quest before it and the one after, by name
+    local before = firstId(quest.preQuestSingle)
+    local after = type(quest.nextQuestInChain) == "number" and quest.nextQuestInChain > 0 and quest.nextQuestInChain
+    local chain = { before = before and questName(game, before), after = after and questName(game, after) }
+    if chain.before or chain.after then model.chain = chain end
+    if quest.IsRepeatable == true then model.repeatable = true end
+    -- the reputation it gives, ahead of the other rows
+    if type(quest.reputationReward) == "table" then
+        local rows = {}
+        for _, pair in ipairs(quest.reputationReward) do
+            local faction, amount = type(pair) == "table" and pair[1], type(pair) == "table" and pair[2]
+            local name = game.factionName(faction)
+            if name then
+                if type(amount) == "number" and amount ~= 0 then name = name .. "  " .. PLACE .. string.format("%+d", amount) .. "|r" end
+                rows[#rows + 1] = { left = REPUTATION or L["Reputation"], right = name }
+            end
+        end
+        for index = #rows, 1, -1 do table.insert(model.extras, 1, rows[index]) end
+    end
 end
 
 -- The text after a label, trimmed: "" for the label alone; nil without it.
@@ -208,6 +326,7 @@ end
 local function badges(model)
     local list = {}
     if model.level then list[#list + 1] = { util.fill(TOOLTIP_UNIT_LEVEL, model.level), model.color } end
+    if model.requires then list[#list + 1] = { util.fill(ITEM_MIN_LEVEL, model.requires), REQUIRES_COLOR } end
     for _, tag in ipairs(model.tags) do list[#list + 1] = { tag, PARCHMENT } end
     if model.completed then
         list[#list + 1] = { L["Completed"], DONE_COLOR }
@@ -298,6 +417,23 @@ local function questView(model)
     if #model.objectives > 0 then
         sections[#sections + 1] = objectivesSection(model, styles, #sections > 0)
     end
+    -- where it is, and the quests either side of it, each under its caption
+    local function captioned(label)
+        return { caption = label, style = styles.questCaption, color = colors.caption, before = #sections > 0 and 4 or 0 }
+    end
+    if model.where and #model.where > 0 then
+        sections[#sections + 1] = { separator = captioned(L["Where"]), kind = "rows", rows = model.where,
+            style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
+    end
+    local chain = model.chain
+    if chain and (chain.before or chain.after) then
+        local rows = {}
+        if chain.before then rows[#rows + 1] = { left = "\194\171  " .. chain.before, color = CHAIN_COLOR } end
+        rows[#rows + 1] = { left = "\226\128\162  " .. model.name, color = QUEST_GOLD }
+        if chain.after then rows[#rows + 1] = { left = "\194\187  " .. chain.after, color = CHAIN_COLOR } end
+        sections[#sections + 1] = { separator = captioned(L["Chain"]), kind = "rows", rows = rows,
+            style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
+    end
     if #model.extras > 0 then
         sections[#sections + 1] = { separator = #sections > 0 and { rule = EXTRAS_RULE } or { space = 4 },
             kind = "rows", rows = model.extras, style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
@@ -318,11 +454,11 @@ local function renderQuest(panel, tooltip, model)
     ui.renderView(panel, tooltip, questView(model))
 end
 
-ui.questModel = function(fields)
+ui.questModel = function(fields, questID)
     for _, list in ipairs({ "description", "objectives", "tags", "extras" }) do
         fields[list] = fields[list] or {}
     end
-    return completeModel(fields, nil, ns.Game)
+    return completeModel(fields, questID, ns.Game)
 end
 ui.defineTooltipType(QUEST, { read = readQuest, render = renderQuest, key = questKey, option = "questPanels" })
 

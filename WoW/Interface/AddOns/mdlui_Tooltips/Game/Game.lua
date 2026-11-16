@@ -489,6 +489,54 @@ function game.questieText(phrase)
     return phrase
 end
 
+-- Questie's database, once Questie has loaded it; nil without it. Read from its
+-- modules directly, as above: ImportModule would create an empty one.
+function game.questieDB()
+    local modules = QuestieLoader and QuestieLoader._modules
+    local db = type(modules) == "table" and not isSecret(modules) and modules.QuestieDB
+    if type(db) == "table" and type(db.GetQuest) == "function" then return db end
+end
+
+-- A quest as Questie's database has it (a table of its fields), or nil.
+function game.questieQuest(id)
+    local db = game.questieDB()
+    if not db or isSecret(id) or type(id) ~= "number" then return end
+    local ok, quest = pcall(db.GetQuest, id)
+    if ok and type(quest) == "table" and not isSecret(quest) then return quest end
+end
+
+-- One field of a quest, NPC, object or item in Questie's database (kind
+-- "Quest", "NPC", "Object" or "Item"); nil when it has none, or fails.
+function game.questieField(kind, id, field)
+    local db = game.questieDB()
+    local query = db and db["Query" .. kind .. "Single"]
+    if type(query) ~= "function" or isSecret(id) or type(id) ~= "number" then return end
+    local ok, value = pcall(query, id, field)
+    if ok and not isSecret(value) then return value end
+end
+
+-- An area's name (a zone or subzone, by its area ID), or nil.
+function game.areaName(id)
+    if isSecret(id) or type(id) ~= "number" or id <= 0 or not (C_Map and C_Map.GetAreaInfo) then return end
+    local ok, name = pcall(C_Map.GetAreaInfo, id)
+    if ok and type(name) == "string" and not isSecret(name) and name ~= "" then return name end
+end
+
+-- A faction's name, by its ID, or nil.
+function game.factionName(id)
+    if isSecret(id) or type(id) ~= "number" then return end
+    local name
+    if C_Reputation and C_Reputation.GetFactionDataByID then
+        local ok, data = pcall(C_Reputation.GetFactionDataByID, id)
+        if ok and type(data) == "table" and not isSecret(data) then name = data.name end
+    end
+    if not name and GetFactionInfoByID then
+        local ok, found = pcall(GetFactionInfoByID, id)
+        if ok then name = found end
+    end
+    if type(name) == "string" and not isSecret(name) and name ~= "" then return name end
+end
+
 -- The tooltip processor --------------------------------------------------------
 
 -- The addon's one hand in the game's tooltip processor: a single post-call for

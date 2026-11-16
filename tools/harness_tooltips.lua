@@ -457,3 +457,67 @@ for _, sample in ipairs(byKey.item.samples) do
         for _, r in ipairs(m[list] or {}) do print("DEBUG", sample.label, list, (r.left:gsub("|", "!"))) end
     end
 end
+
+-- ------------------------------------------------------------ quests from Questie
+-- A quest link's lines say little; Questie's database, when it is loaded, gives
+-- what they leave out (the zone, the level it needs, who starts and ends it,
+-- the quests either side, what it asks, the reputation), under WHERE and CHAIN.
+-- Never over what the lines said; without Questie, or with it failing, the card
+-- is the lines' alone.
+do
+    local function card(label, model)
+        local panel = ui.renderPreview(anchor, model, byKey.quest.dataType)
+        local out = {}
+        for _, t in ipairs(texts(panel)) do
+            if t.text and t.text ~= "" then out[#out + 1] = plain(t.text) end
+        end
+        print("tooltips questie " .. label, table.concat(out, " | "))
+    end
+    -- the screenshot's link: a title, completed, and the date
+    local function link()
+        return { name = "Bride of the Embalmer", completed = true,
+            extras = { { left = "Completed on", right = "Thursday, November 12, 2026 at 20:20" } } }
+    end
+    card("none", ui.questModel(link(), 253))
+    local quests = {
+        [253] = { name = "Bride of the Embalmer", level = 30, requiredLevel = 25, zoneOrSort = 10,
+            objectivesText = { "Find Eliza's grave. Retrieve the Embalmer's Heart from her." },
+            ObjectiveData = { { Type = "item", Id = 2 } }, Starts = { NPC = { 264 } }, Finisher = { NPC = { 264 } },
+            preQuestSingle = { 252 }, nextQuestInChain = 0, reputationReward = { { 72, 250 } } },
+        [66] = { name = "The Legend of Stalvan", level = 26, requiredLevel = 20, zoneOrSort = 10, specialFlags = 1,
+            IsRepeatable = true, ObjectiveData = { { Type = "monster", Id = 313, Text = nil } },
+            Starts = { NPC = { 265 } }, Finisher = { GameObject = { 61 } }, preQuestSingle = {}, nextQuestInChain = 67 },
+    }
+    local npcs = { [264] = { name = "Ello Ebonlocke", zoneID = 42 }, [265] = { name = "Madame Eva", zoneID = 10 },
+        [313] = { name = "Theocritus" } }
+    local db = {
+        GetQuest = function(id) return quests[id] end,
+        QueryQuestSingle = function(id, field)
+            if field == "name" then return ({ [252] = "The Embalmer's Revenge", [67] = "The Legend of Stalvan (part 3)" })[id] end
+        end,
+        QueryNPCSingle = function(id, field) return npcs[id] and npcs[id][field] end,
+        QueryObjectSingle = function(id, field) if id == 61 and field == "name" then return "A Weathered Grave" end end,
+        QueryItemSingle = function(id, field) if id == 2 and field == "name" then return "Embalmer's Heart" end end,
+    }
+    QuestieLoader = { _modules = { QuestieDB = db } }
+    C_Map = C_Map or {}
+    C_Reputation = C_Reputation or {}
+    local area, faction = C_Map.GetAreaInfo, C_Reputation.GetFactionDataByID
+    C_Map.GetAreaInfo = function(id) return ({ [10] = "Duskwood", [42] = "Darkshire" })[id] end
+    C_Reputation.GetFactionDataByID = function(id) return id == 72 and { name = "Stormwind" } or nil end
+    card("completed", ui.questModel(link(), 253))
+    card("not taken", ui.questModel({ name = "The Legend of Stalvan" }, 66))
+    -- what the lines said stays: their zone, their objectives, their Started by
+    card("lines said more", ui.questModel({ name = "Bride of the Embalmer", zone = "The Stockade", active = true,
+        objectives = { { left = "Embalmer's Heart", right = "0/1", completed = false } },
+        extras = { { left = "Started by", right = "Someone Else" }, { left = "Found in", right = "Raven Hill" } } }, 253))
+    -- a quest Questie does not have, and a database that fails
+    card("unknown quest", ui.questModel(link(), 999))
+    db.GetQuest = function() error("broken") end
+    card("failing", ui.questModel(link(), 253))
+    -- the editor's sample: its Started by and Found in under WHERE
+    for _, sample in ipairs(byKey.quest.samples) do
+        if sample.label == "New" then card("sample New", sample.build()) end
+    end
+    QuestieLoader, C_Map.GetAreaInfo, C_Reputation.GetFactionDataByID = nil, area, faction
+end
