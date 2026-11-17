@@ -832,7 +832,7 @@ function ns.OptionPages()
                     AllOn("visibility", Concat({
                         Tip("A faded console still works: its keys press, and its buttons click unless it is faded to "
                             .. "0% with On mouseover unticked. Binding keys, "
-                            .. "a spell on the pointer, Edit Mode and Simulate party frames bring it back.",
+                            .. "a spell on the pointer, your casts, Edit Mode and Simulate party frames bring it back.",
                         Switched(Check("consoleFade", "Fade when idle",
                                     "Fade the console while none of what is ticked here is so."), "Visibility",
                                 Opacity("consoleFadedAlpha", "Faded opacity",

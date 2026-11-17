@@ -131,14 +131,25 @@ local function Minimal()
 end
 ns.ConsoleMinimal = Minimal
 
+-- Casting or channelling: the player's cast bar is on the console
+-- (a secret answer counts as one)
+local function Casting()
+    local cast = UnitCastingInfo and UnitCastingInfo("player")
+    if ns.IsSecret(cast) or cast ~= nil then return true end
+    local channel = UnitChannelInfo and UnitChannelInfo("player")
+    return ns.IsSecret(channel) or channel ~= nil
+end
+
 -- Whether the console shows at its full opacity now. Binding keys, a spell
--- or item on the cursor, Edit Mode's movers and the party preview always
--- want it whole: they are about what is on it.
+-- or item on the cursor, a cast, Edit Mode's movers and the party preview
+-- always want it whole: they are about what is on it. (A cast is not one
+-- that wakes it in a fight for the mouse, ns.Untouchable: a console at 0%
+-- taken out of the pointer's way for the fight stays so through a cast.)
 function ns.ConsoleWanted()
     local db = ns.db
     local minimal = Minimal()
     if not (db.consoleFade or minimal) then return true end
-    if ns.keybinding or (GetCursorInfo and GetCursorInfo()) or db.simParty
+    if ns.keybinding or (GetCursorInfo and GetCursorInfo()) or db.simParty or Casting()
         or (ns.ConsoleMoversShown and ns.ConsoleMoversShown()) then
         return true
     end
@@ -266,6 +277,11 @@ ns.On("PLAYER_REGEN_DISABLED", function() inCombat = true; Update() end)
 ns.On("PLAYER_REGEN_ENABLED", function() inCombat = false; Update() end)
 ns.On("PLAYER_TARGET_CHANGED", function() Update() end)
 ns.On("GROUP_ROSTER_UPDATE", function() Update() end)
+-- a cast starts or ends: at once, not at the next look
+for _, e in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_CHANNEL_START",
+    "UNIT_SPELLCAST_CHANNEL_STOP", "UNIT_SPELLCAST_EMPOWER_START", "UNIT_SPELLCAST_EMPOWER_STOP" }) do
+    ns.On(e, function(_, unit) if unit == "player" then Update() end end)
+end
 ns.On("PLAYER_ENTERING_WORLD", function()
     inCombat = UnitAffectingCombat("player") and true or false
     Update(true)

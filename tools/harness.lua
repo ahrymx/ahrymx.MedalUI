@@ -12447,6 +12447,19 @@ function FadePass()
     say("out of combat, 0.6s")
     set("consoleFadeOut", 0)
     set("consoleFadeIn", 0)
+    -- a cast of yours wakes it (its cast bar is on it), heard at once; the
+    -- target's does not
+    casting = true
+    fire("UNIT_SPELLCAST_START", "player")
+    say("you cast")
+    casting = false
+    fire("UNIT_SPELLCAST_STOP", "player")
+    say("your cast over")
+    casting, castUnit = true, "target"
+    fire("UNIT_SPELLCAST_START", "target")
+    say("the target casts")
+    casting, castUnit = false, "player"
+    fire("UNIT_SPELLCAST_STOP", "target")
 
     -- each tick, and with it unticked
     local function tick(tag, key, on, off)
