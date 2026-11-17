@@ -15580,31 +15580,31 @@ if args.inspect then
     print("inspect.name", d.name.text, "|", d.line.text)
     print("inspect.model", "unit=" .. tostring(d.model.unit))
     local f = page.fit
-    print("inspect.fit", string.format("slot=%d pitch=%d top=%d cols=%d divider=%s", f.size, f.pitch, f.top, f.cols,
-        tostring(f.divider)))
-    -- the summary
+    print("inspect.fit", string.format("slot=%d pitch=%d top=%d cols=%d", f.size, f.pitch, f.top, f.cols))
+    -- the details: each part's rows, left and right
     local sm = page.summary
-    local cells = {}
-    for _, c in ipairs(sm.cells) do table.insert(cells, c.label.text .. "=" .. tostring(c.value.text)) end
-    print("inspect.ribbon", "ilvl=" .. sm.badge.value.text, table.concat(cells, " "))
-    for _, side in ipairs({ "left", "right" }) do
-        local rows = {}
-        for _, r in ipairs(sm.columns[side]) do
-            table.insert(rows, r.shown == false and "(hidden)" or (r.label.text .. "=" .. r.value.text))
+    local function parts(tag)
+        for _, part in ipairs(sm.parts) do
+            local rows = {}
+            for _, r in ipairs(part.rows) do
+                table.insert(rows, r.label.text .. "=" .. tostring(r.value.text)
+                    .. (r.stripe.shown == false and "" or "~") .. "@" .. tostring(select(5, r:GetPoint(1)))
+                    .. "/" .. tostring(r.w))
+            end
+            print(tag .. " " .. part.name, table.concat(rows, " "))
         end
-        print("inspect.rows " .. side, table.concat(rows, " "))
     end
-    -- no guild: its rows close up
+    parts("inspect.details")
+    print("inspect.foot", page.footHeight)
+    -- no guild: says so, the rows where they were
     local guild = GetGuildInfo
     GetGuildInfo = function() end
     fire("INSPECT_READY", "guid")
     frame()
-    local rows = {}
-    for _, r in ipairs(sm.columns.left) do
-        table.insert(rows, r.shown == false and "(hidden)" or (r.label.text .. "@" .. tostring(select(5, r:GetPoint(1)))))
-    end
-    print("inspect.rows unguilded", table.concat(rows, " "))
+    parts("inspect.details unguilded")
     GetGuildInfo = guild
+    fire("INSPECT_READY", "guid")
+    frame()
     -- a spec not chosen yet: the game names the starter one after the class
     if GetInspectSpecialization then
         local spec, info = GetInspectSpecialization, GetSpecializationInfoByID
@@ -15612,16 +15612,16 @@ if args.inspect then
         GetSpecializationInfoByID = function(id) if id == 999 then return 999, (UnitClass("target")) end end
         fire("INSPECT_READY", "guid")
         frame()
-        print("inspect.starter spec", d.line.text, "talents=" .. sm.cells[1].value.text)
+        print("inspect.starter spec", d.line.text, "talents=" .. sm.parts[1].rows[2].value.text)
         GetInspectSpecialization, GetSpecializationInfoByID = spec, info
     end
-    -- the tabs: Character, Talents (Forever's trees), PvP
+    -- the tabs: Character, Talents (Forever's trees)
     local tabs = {}
     for _, p in ipairs(I.W.pages) do
         table.insert(tabs, p.key .. (p.available and "" or "(none)") .. "/" .. tostring(p.glyph))
     end
     print("inspect.tabs", table.concat(tabs, " "))
-    local talents, pvp = I.talents, I.pvp
+    local talents = I.talents
     if talents.available then
         I.W.Select(talents)
         frame()
@@ -15664,14 +15664,8 @@ if args.inspect then
         fire("INSPECT_READY", "guid")
         frame()
         trees("inspect.talents not come")
-        print("inspect.talents ribbon", "talents=" .. tostring(sm.cells[1].value.text))
+        print("inspect.talents row", "talents=" .. tostring(sm.parts[1].rows[2].value.text))
         talentWorld.inspectValid = true
-    end
-    if pvp.available then
-        I.W.Select(pvp)
-        frame()
-        print("inspect.pvp", pvp.level.text, "|", pvp.kills.text, "emblem=" .. tostring(pvp.emblem.atlas),
-            "rated=" .. tostring(pvp.details.nothing.shown and pvp.details.nothing.text or pvp.details.title.text))
     end
     I.W.Select(page)
     frame()
@@ -15827,10 +15821,51 @@ if characterPass then
     end
     local function fit(tag)
         local f = pageOf("character").fit
-        print(tag, string.format("slot=%d pitch=%d top=%d cols=%d divider=%s", f.size, f.pitch, f.top, f.cols,
-            tostring(f.divider)), string.format("size=%dx%d", w.w, w.h))
+        print(tag, string.format("slot=%d pitch=%d top=%d cols=%d", f.size, f.pitch, f.top, f.cols),
+            string.format("size=%dx%d", w.w, w.h))
     end
     fit("char.fit")
+    -- the uplift: the crest in the class's colour over the wash, the stage
+    -- (its ground, light, floor, frame and brackets), each slot's plate,
+    -- glow and hairline, the belt's fading rules and points
+    local function uplift(tag, d)
+        print(tag .. " head", "wash h=" .. tostring(d.wash.h), "crest=" .. tostring(d.crest), "divider="
+            .. tostring(d.divider), "belt=" .. tostring(d.belt))
+        local st = d.stage
+        local light = st.light.vertex or {}
+        print(tag .. " stage", string.format("%dx%d", st.w or -1, st.h or -1),
+            string.format("light=%.2f,%.2f,%.2f@%.2f %dx%d %s", light[1] or -1, light[2] or -1, light[3] or -1,
+                light[4] or -1, st.light.w or -1, st.light.h or -1, tostring(st.light.texture):match("[^\\]+$")),
+            "floor=" .. tostring(st.floor),
+            "edges=" .. #st.edges, "brackets=" .. #st.brackets)
+        local out = {}
+        for _, b in ipairs(d.slots) do
+            local p1 = b.plate.points and (b.plate.points.CENTER or {})
+            table.insert(out, b.slotName .. (b.plate.shown == false and "" or ("[" .. b.level.text .. "@"
+                .. tostring(p1 and p1[2]) .. "]")) .. (b.wire and "~" or ""))
+        end
+        print(tag .. " slots", table.concat(out, " "))
+        local w = {}
+        for _, b in ipairs(d.weapons) do
+            if b.shown ~= false then
+                local p1 = b.plate.points and (b.plate.points.CENTER or {})
+                table.insert(w, b.slotName .. "@" .. tostring(p1 and p1[2]))
+            end
+        end
+        print(tag .. " weapons", "plates " .. table.concat(w, " "))
+    end
+    uplift("char.uplift", pageOf("character").doll)
+    -- a short screen: the divider first, then the crest, before bigger slots
+    do
+        local pg = pageOf("character")
+        local kept = pg.doll.height
+        for _, more in ipairs({ 10, 40, 100 }) do
+            pg.Fit(pg.height + more)
+            local f = pg.fit
+            print("char.fit +" .. more, string.format("slot=%d pitch=%d top=%d", f.size, f.pitch, f.top))
+        end
+        pg.Fit(kept)
+    end
     -- the medallion over the window's margin: the portrait lifted to the
     -- window's strata, the medallion's art copied over it
     local function medallion(tag)

@@ -86,7 +86,6 @@ spells\trainers.lua
 spells\spellbook.lua
 spells\talents.lua
 inspect\talents.lua
-inspect\pvp.lua
 professions\window.lua
 professions\camping.lua
 professions\altdata.lua

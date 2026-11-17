@@ -12,7 +12,7 @@
 -- slots are Blizzard's own (InspectHeadSlot and the rest), taken onto it as
 -- the character page takes the player's; the Talents (inspect/talents.lua,
 -- Forever's trees, where Blizzard sends you to its talents frame instead)
--- and PvP (inspect/pvp.lua). Blizzard's Guild page has none.
+-- its PvP is in the Character page's details. Blizzard's Guild page has none.
 --
 -- Docked, it and the strip's other windows close each other (exclusive):
 -- the spellbook, the talents, the professions and the quest log.

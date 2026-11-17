@@ -1,22 +1,32 @@
 -- The inspect window's page (inspect/window.lua): the character page's
 -- doll (character/paperdoll.lua, ns.character.Doll) for the unit inspected,
--- and in its details a summary in the stats' look, as a target's stats
--- cannot be read:
+-- and in its details, as a target's stats cannot be read, what can be, in
+-- the stats' rows (two columns, striped), each part under its heading:
 --
---     Talents    PvP     [ 62 ]    Health    Mana         <- the ribbon
---     31/20/0    7        ilvl     4,210     3,580
---   Guild      <Guild>          Guild rank     Officer
---   Race       Night Elf        Realm          Pyrewood
+--   ------------------------- < Summary > -------------------------
+--   Item level        23       |   Talents           0/4/22
+--   Health         1,183       |   Energy               100
+--   Race           Dwarf       |   Faction         Alliance
+--   Guild                         <Silver Hand>  Officer
+--   --------------------------- < PvP > ---------------------------
+--   Honor level        1       |   Honorable kills      234
+--   Rank                                        Knight (6)    (ranks only)
+--   Best rating                                  3v3 1,840    (rated only)
+--
+-- Each client has its own lines, so the details keep one height and the
+-- doll the rest: a line that reads nothing says "--".
 --
 -- The talents are the points in each tree where the inspection told them
--- (inspect/talents.lua on Forever, or the old trees), else the spec's name;
--- PvP is the honour level the inspection told, else the rank on a client
--- with ranks, else the unit's honour level. The item level is the game's
--- own reckoning where it has one for an inspection, else the slots'
--- average, as the game counts it: every slot but the shirt and the tabard,
--- an empty one as nothing, a two-hander with nothing in the off hand
--- twice. A cell that reads nothing says "--"; a row that reads nothing is
--- left out, and its column closes up.
+-- (inspect/talents.lua on Forever, or the old trees), else the spec's name.
+-- The honour level is the one the inspection told, else the unit's; the
+-- kills are the inspection's lifetime honourable kills (they come with
+-- INSPECT_HONOR_UPDATE). The rank is the old ranks' title, on a client
+-- with them. The best rating is the best of the inspection's
+-- rated brackets, where the client has them (CanPlayerUsePVPTalentUI, as
+-- Blizzard's inspect PvP page asks). The item level is the game's own
+-- reckoning where it has one for an inspection, else the slots' average, as
+-- the game counts it: every slot but the shirt and the tabard, an empty one
+-- as nothing, a two-hander with nothing in the off hand twice.
 local _, ns = ...
 
 local Unit = ns.inspect.Unit
@@ -24,7 +34,7 @@ local R = ns.character.ribbon
 local TWO_HAND = { INVTYPE_2HWEAPON = true }
 local MAIN, OFF = 16, 17
 
-local page, doll, ribbon, cells, badge, columns
+local page, doll, columns
 
 local function Whole(v)
     if ns.IsSecret(v) then
@@ -59,20 +69,50 @@ local function Talents(unit)
     end
 end
 
-local function PvP(unit)
+local function Honor(unit)
     -- the honour level the inspection told (GetInspectHonorData's seventh)
     if GetInspectHonorData then
         local level = select(7, GetInspectHonorData())
         if type(level) == "number" and level > 0 then return tostring(level) end
     end
-    if UnitPVPRank and GetPVPRankInfo then
-        local _, number = GetPVPRankInfo(UnitPVPRank(unit) or 0, unit)
-        if type(number) == "number" and number > 0 then return tostring(number) end
-    end
     if UnitHonorLevel then
         local level = UnitHonorLevel(unit)
         if type(level) == "number" and level > 0 then return tostring(level) end
     end
+end
+
+local function Kills()
+    local hks = GetInspectHonorData and select(5, GetInspectHonorData())
+    if type(hks) == "number" then return Whole(hks) end
+end
+
+-- the old ranks' title and number
+local function Rank(unit)
+    local name, number = GetPVPRankInfo(UnitPVPRank(unit) or 0, unit)
+    if type(number) == "number" and number > 0 and name then return format("%s (%d)", name, number) end
+end
+
+-- the best of the rated brackets, with its name
+local function Rated()
+    if not (C_SpecializationInfo and C_SpecializationInfo.CanPlayerUsePVPTalentUI
+        and C_SpecializationInfo.CanPlayerUsePVPTalentUI()) then return end
+    local best, which
+    local function Add(name, rating)
+        if type(rating) == "number" and rating > 0 and (not best or rating > best) then best, which = rating, name end
+    end
+    if GetInspectArenaData then
+        for i, name in ipairs({ "2v2", "3v3" }) do
+            local ok, rating = pcall(GetInspectArenaData, i)
+            if ok then Add(name, rating) end
+        end
+    end
+    local P = C_PaperDollInfo or {}
+    for name, fn in pairs({ Shuffle = P.GetInspectRatedSoloShuffleData, Blitz = P.GetInspectRatedBGBlitzData,
+        RBG = P.GetInspectRatedBGData }) do
+        local d = fn()
+        if d then Add(name, d.rating) end
+    end
+    if best then return format("%s  %s", which, Whole(best)) end
 end
 
 local function EquipLoc(link)
@@ -110,24 +150,46 @@ local function PowerName(unit)
     return token and _G[token] or "Power"
 end
 
-local RIBBON = {
-    { "Talents", Talents },
-    { "PvP", PvP },
-    { "Health", function(unit) return Whole(UnitHealthMax(unit)) end },
-    { PowerName, function(unit) return Whole(UnitPowerMax(unit)) end },
-}
-local function Guild(unit) return GetGuildInfo and (GetGuildInfo(unit)) or nil end
-local LEFT = {
-    { "Guild", Guild },
-    { "Race", function(unit) return (UnitRace(unit)) end },
-}
-local RIGHT = {
-    { "Guild rank", function(unit) return GetGuildInfo and select(2, GetGuildInfo(unit)) or nil end },
-    { "Realm", function(unit)
-        local _, realm = UnitName(unit)
-        if realm and realm ~= "" then return realm end
-        return GetRealmName and GetRealmName() or nil
-    end },
+-- the guild and the rank there, on one line
+local function Guild(unit)
+    if not GetGuildInfo then return end
+    local name, rank = GetGuildInfo(unit)
+    if type(name) ~= "string" or name == "" then return "No guild" end
+    if type(rank) == "string" and rank ~= "" then
+        local d = ns.colors.dim
+        return format("<%s>  |cff%02x%02x%02x%s|r", name, d[1] * 255, d[2] * 255, d[3] * 255, rank)
+    end
+    return format("<%s>", name)
+end
+
+-- the old ranks, on a client that has them and not the honour levels that
+-- followed them
+local function Ranked() return UnitPVPRank ~= nil and GetPVPRankInfo ~= nil and UnitHonorLevel == nil end
+local function RatedHere()
+    return C_SpecializationInfo and C_SpecializationInfo.CanPlayerUsePVPTalentUI ~= nil
+end
+
+-- each part: its heading, and its lines: a pair (left, right), or one
+-- entry across the whole width; a line with a "when" that says no on this
+-- client is left out
+local PARTS = {
+    { "Summary", {
+        { { "Item level", function(unit) return ItemLevel(unit) end }, { "Talents", Talents } },
+        { { "Health", function(unit) return Whole(UnitHealthMax(unit)) end },
+            { PowerName, function(unit) return Whole(UnitPowerMax(unit)) end } },
+        { { "Race", function(unit) return (UnitRace(unit)) end },
+            { "Faction", function(unit)
+                -- its name in the client's language, else the English one
+                local faction, name = UnitFactionGroup(unit)
+                return name or faction
+            end } },
+        { wide = { "Guild", Guild } },
+    } },
+    { "PvP", {
+        { { "Honor level", Honor }, { "Honorable kills", Kills } },
+        { wide = { "Rank", Rank }, when = Ranked },
+        { wide = { "Best rating", Rated }, when = RatedHere },
+    } },
 }
 
 -- a secret (a health on the clients that hide it) is shown as it is: it
@@ -144,52 +206,65 @@ local function Label(entry, unit)
 end
 
 -- -------------------------------------------------------------- details
-local function Fill(rows, entries, side, unit)
-    local y = R.height + 3 + R.gap
-    for i, entry in ipairs(entries) do
-        local r = rows[i]
-        local text = Read(entry[2], unit)
-        r:SetShown(text ~= nil)
-        if text then
-            r.label:SetText(Label(entry, unit))
-            r.value:SetText(text)
-            r:ClearAllPoints()
-            r:SetPoint(side < 0 and "TOPLEFT" or "TOPRIGHT", r:GetParent(), side < 0 and "TOPLEFT" or "TOPRIGHT",
-                0, -y)
-            y = y + R.row
-        end
-    end
+local HEADING = 22 + 8                          -- a heading, and the gap under it
+local BETWEEN = 14                              -- between one part and the next
+
+local function Fill(row, unit)
+    row.label:SetText(Label(row.entry, unit))
+    row.value:SetText(Read(row.entry[2], unit) or "--")
 end
 
 local function Details(foot)
-    ribbon, cells, badge = ns.character.Ribbon(foot)
-    columns = { left = ns.character.Rows(foot, LEFT, -1), right = ns.character.Rows(foot, RIGHT, 1) }
-    local rows = math.max(#LEFT, #RIGHT)
-    local split = foot:CreateTexture(nil, "ARTWORK")
-    split:SetColorTexture(0.541, 0.439, 0.204, 1)
-    split:SetSize(1, rows * R.row - 4)
-    split:SetPoint("TOP", foot, "TOP", 0, -(R.height + 3 + R.gap + 2))
-    page.footHeight = R.height + 3 + R.gap + rows * R.row
-    page.summary = { ribbon = ribbon, cells = cells, badge = badge, columns = columns }
+    columns = {}
+    local y = 0
+    for i, part in ipairs(PARTS) do
+        if i > 1 then y = y + BETWEEN end
+        local heading = ns.window.Ribbon(foot, part[1])
+        heading:SetPoint("TOPLEFT", 0, -y)
+        heading:SetPoint("TOPRIGHT", 0, -y)
+        y = y + HEADING
+        local rows, k = {}, 0
+        for _, line in ipairs(part[2]) do
+            if not line.when or line.when() then
+                k = k + 1
+                local entries = line.wide and { line.wide } or line
+                for j, entry in ipairs(entries) do
+                    local side = j == 1 and -1 or 1
+                    local r = ns.character.Rows(foot, { entry }, side)[1]
+                    r.entry = entry
+                    r.stripe:SetShown(k % 2 == 1)
+                    if line.wide then r:SetWidth(ns.character.width) end
+                    r:SetPoint(side < 0 and "TOPLEFT" or "TOPRIGHT", 0, -y)
+                    table.insert(rows, r)
+                end
+                if not line.wide then
+                    local split = ns.window.Hair(foot, true)
+                    split:SetHeight(R.row - 4)
+                    split:SetPoint("TOP", foot, "TOP", 0, -(y + 2))
+                end
+                y = y + R.row
+            end
+        end
+        columns[i] = { name = part[1], rows = rows }
+    end
+    page.footHeight = y
+    page.summary = { parts = columns }
 end
 
 local function Refresh()
     local unit = Unit()
     doll.Refresh()
-    for i, entry in ipairs(RIBBON) do
-        cells[i].label:SetText(Label(entry, unit))
-        cells[i].value:SetText(Read(entry[2], unit) or "--")
+    for _, part in ipairs(columns) do
+        for _, r in ipairs(part.rows) do Fill(r, unit) end
     end
-    badge.value:SetText(Read(ItemLevel, unit) or "--")
-    Fill(columns.left, LEFT, -1, unit)
-    Fill(columns.right, RIGHT, 1, unit)
 end
 
 page = {
     key = "inspect", label = "Inspect", tip = "Their gear", glyph = "character", frame = "InspectPaperDollFrame",
     order = 1, height = ns.character.dollHeight,
     events = { "INSPECT_READY", "UNIT_INVENTORY_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE",
-        "GET_ITEM_INFO_RECEIVED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "PLAYER_GUILD_UPDATE" },
+        "GET_ITEM_INFO_RECEIVED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "PLAYER_GUILD_UPDATE",
+        "INSPECT_HONOR_UPDATE" },
     Build = function(body, foot)
         doll.Build(body)
         Details(foot)

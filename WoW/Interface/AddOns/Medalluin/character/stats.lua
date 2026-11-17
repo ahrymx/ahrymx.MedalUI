@@ -18,10 +18,14 @@
 -- number serves every class.
 local _, ns = ...
 
-local ROW, RIBBON, BADGE, GAP = 18, 42, 50, 6
+local ROW, RIBBON, BADGE, GAP = 22, 50, 58, 10
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local SCHOOLS = { "Arcane", "Fire", "Frost", "Nature", "Shadow" }
+-- each school's box: its tint
+local SCHOOL_COLOR = { Arcane = { 0.6, 0.45, 1 }, Fire = { 1, 0.36, 0.16 }, Frost = { 0.36, 0.66, 1 },
+    Nature = { 0.32, 0.86, 0.36 }, Shadow = { 0.67, 0.3, 0.84 } }
+local BOX = 28                                  -- a resistance's box, its height
 local SCHOOL_CLASS = { Arcane = 6, Fire = 2, Frost = 4, Nature = 3, Shadow = 5 }   -- Enum.Damageclass
 
 local function Best(...)
@@ -169,11 +173,11 @@ end
 -- ------------------------------------------------------------- the ribbon
 local function Cell(foot, i)
     local c = CreateFrame("Frame", nil, foot)
-    c.label = ns.Text(c, 11)
-    c.label:SetPoint("TOP", 0, -5)
+    c.label = ns.Text(c, 12)
+    c.label:SetPoint("TOP", 0, -7)
     c.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    c.value = ns.Text(c, 15)
-    c.value:SetPoint("BOTTOM", 0, 5)
+    c.value = ns.Text(c, 17)
+    c.value:SetPoint("BOTTOM", 0, 7)
     c.index = i
     return c
 end
@@ -201,7 +205,7 @@ local function Ribbon(foot)
     bWell:SetPoint("TOPLEFT", 1, -1)
     bWell:SetPoint("BOTTOMRIGHT", -1, 1)
     bWell:SetColorTexture(0.24, 0.16, 0.08, 1)
-    b.value = ns.Text(b, 18)
+    b.value = ns.Text(b, 21)
     b.value:SetPoint("CENTER", 0, 4)
     b.value:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
     b.label = ns.Text(b, 10)
@@ -231,34 +235,57 @@ local function Rows(foot, entries, side)
         local half = ns.character.width / 2
         r:SetWidth(half - 8)
         r.side = side
-        r.label = ns.Text(r, 12)
+        -- every other row on a faint stripe (Fill shows it)
+        r.stripe = r:CreateTexture(nil, "BACKGROUND")
+        r.stripe:SetAllPoints()
+        r.stripe:SetColorTexture(1, 0.93, 0.75, 0.04)
+        r.stripe:Hide()
+        r.label = ns.Text(r, 13)
         r.label:SetPoint("LEFT", 4, 0)
         r.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-        r.value = ns.Text(r, 12)
+        r.value = ns.Text(r, 13)
         r.value:SetPoint("RIGHT", -4, 0)
         list[i] = r
     end
     return list
 end
 
+-- The five resistances: a row of boxes across the panel, each edged in
+-- gold, its ground tinted in its school's colour, its value in the middle;
+-- the school in its tooltip.
 local function Resist(foot)
     local frame = CreateFrame("Frame", nil, foot)
-    frame:SetHeight(16)
+    frame:SetHeight(BOX)
     frame:SetPoint("BOTTOMLEFT")
     frame:SetPoint("BOTTOMRIGHT")
     frame.cells = {}
-    local each = ns.character.width / #SCHOOLS
+    local gap = 6
+    local w = math.floor((ns.character.width - (#SCHOOLS - 1) * gap) / #SCHOOLS)
+    local x = math.floor((ns.character.width - #SCHOOLS * w - (#SCHOOLS - 1) * gap) / 2)
     for i, school in ipairs(SCHOOLS) do
         local c = CreateFrame("Frame", nil, frame)
-        c:SetSize(each, 16)
-        c:SetPoint("LEFT", (i - 1) * each, 0)
-        c.icon = c:CreateTexture(nil, "ARTWORK")
-        c.icon:SetSize(14, 14)
-        c.icon:SetPoint("RIGHT", c, "CENTER", -1, 0)
-        c.icon:SetAtlas("UI-Character-Info-Resistance-" .. school)
-        c.value = ns.Text(c, 12)
-        c.value:SetPoint("LEFT", c, "CENTER", 2, 0)
+        c:SetSize(w, BOX)
+        c:SetPoint("TOPLEFT", frame, "TOPLEFT", x, 0)
+        x = x + w + gap
+        local col = SCHOOL_COLOR[school]
+        c.edge = c:CreateTexture(nil, "BACKGROUND", nil, -2)
+        c.edge:SetAllPoints()
+        c.edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        c.well = c:CreateTexture(nil, "BACKGROUND", nil, -1)
+        c.well:SetPoint("TOPLEFT", 1, -1)
+        c.well:SetPoint("BOTTOMRIGHT", -1, 1)
+        c.well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
+        c.tint = c:CreateTexture(nil, "BACKGROUND", nil, 0)
+        c.tint:SetAllPoints(c.well)
+        c.tint:SetColorTexture(col[1], col[2], col[3], 0.28)
+        c.value = ns.Text(c, 14)
+        c.value:SetPoint("CENTER", 0, 0)
         c.school = school
+        c:EnableMouse(true)
+        c:SetScript("OnEnter", function(self)
+            ns.Tip(self, ns.window.OutsideTop, { title = format("%s resistance", school), color = col })
+        end)
+        c:SetScript("OnLeave", function() GameTooltip:Hide() end)
         frame.cells[i] = c
     end
     return frame
@@ -272,15 +299,14 @@ function stats.Build(foot)
     columns = { left = Rows(foot, layout.left, -1), right = Rows(foot, layout.right, 1) }
     local rows = math.max(#layout.left, #layout.right)
     stats.height = RIBBON + 3 + GAP + rows * ROW
-    -- a gold rule down between the two columns
-    local split = foot:CreateTexture(nil, "ARTWORK")
-    split:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    split:SetSize(1, rows * ROW - 4)
+    -- a gold rule down between the two columns, fading at both ends
+    local split = ns.window.Hair(foot, true)
+    split:SetHeight(rows * ROW - 4)
     split:SetPoint("TOP", foot, "TOP", 0, -(RIBBON + 3 + GAP + 2))
     stats.split = split
     if layout.resist then
         resist = Resist(foot)
-        stats.height = stats.height + GAP + 16
+        stats.height = stats.height + GAP + BOX
     end
     stats.ribbon, stats.badge, stats.columns, stats.resist = ribbon, badge, columns, resist
     stats.forever = layout == FOREVER
@@ -292,12 +318,14 @@ ns.character.ribbon = { height = RIBBON, row = ROW, gap = GAP }
 
 -- One column: the rows that read, top down; the rest hidden.
 local function Fill(rows, entries, side)
-    local y = RIBBON + 3 + GAP
+    local y, k = RIBBON + 3 + GAP, 0
     for i, entry in ipairs(entries) do
         local r = rows[i]
         local text = Read(entry)
         r:SetShown(text ~= nil)
         if text then
+            k = k + 1
+            r.stripe:SetShown(k % 2 == 1)
             r.label:SetText(Label(entry))
             r.value:SetText(text)
             r:ClearAllPoints()

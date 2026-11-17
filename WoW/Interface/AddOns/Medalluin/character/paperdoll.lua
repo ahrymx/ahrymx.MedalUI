@@ -5,19 +5,17 @@
 --
 --   Name, Title of the Realm
 --   Class (Spec)  Level N
---   ------------------- <> --------------------
---   [head]                          [hands]
---   [neck]                          [waist]
---    ...           the model          ...
---   [wrist]                         [trinket]
---   -------- [main] [off] [ranged] [ammo] -------
+--   [head]  +----------------------+  [hands]
+--   [neck] -|                      |- [waist]
+--    ...    |      the model       |    ...
+--   [wrist] +----------------------+  [trinket]
+--            [main] [off] [ranged] [ammo]
 --   ...the details...
 --   (medallion)  [Talents] [Spellbook] [Professions]
 --
 -- The window is the screen's height, and the page spreads out over what it
--- has (Fit): a divider under the name first, then bigger slots, then room
--- between them, then what is left in three, above the name, round the
--- divider and under the weapons.
+-- has (Fit): bigger slots first, then room between them, then what is left
+-- under the weapons; the name stays at the top.
 --
 -- The gear slots are Blizzard's own (CharacterHeadSlot and the rest), taken
 -- off its hidden window as the bags window takes the bag slots off the bag
@@ -30,8 +28,8 @@ local _, ns = ...
 local SLOT, PITCH, GAP = 34, 39, 6             -- the least: a slot, a row, the weapons' gap
 local SLOT_MAX, SPREAD = 46, 26                 -- the most: a slot, and room added between rows
 local HEAD = 40                                 -- the name and the class line
-local DIVIDER = 22                              -- the divider under them, with its room
-local BELT = 8                                  -- between the weapons row and its rules
+local STAGE = 10                                -- between a column and the stage, a hairline across
+local BRACKET = 14                              -- the stage's corner brackets' arms
 local LEFT = { "Head", "Neck", "Shoulder", "Back", "Chest", "Shirt", "Tabard", "Wrist" }
 local RIGHT = { "Hands", "Waist", "Legs", "Feet", "Finger0", "Finger1", "Trinket0", "Trinket1" }
 local BOTTOM = { "MainHand", "SecondaryHand", "Ranged", "Ammo" }
@@ -39,8 +37,12 @@ local BOTTOM = { "MainHand", "SecondaryHand", "Ranged", "Ammo" }
 local PLAIN = { Shirt = true, Tabard = true, Ammo = true }
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
+local LINE = { 0.227, 0.196, 0.141 }            -- an empty slot's edge
+-- the stage's soft light (art/character/gen_glow.py): white, fading out
+-- smoothly from its middle, tinted and stretched as each light needs
+local GLOW = "character\\glow"
 local TURN = 0.012                              -- the model's turn, in radians per pixel dragged
-local SWITCH = 22 + 6                           -- the details' switch, and the gap under it
+local SWITCH = 22 + 10                          -- the details' switch, and the gap under it
 local VIEWS = { { "stats", "Stats", "Your stats." }, { "titles", "Titles", "Wear a title you have earned." },
     { "sets", "Sets", "Your equipment sets." } }
 
@@ -57,7 +59,7 @@ local views, view = {}, "stats"                 -- the details' parts, and the o
 --   -> { Build(body), Fit(h), Refresh(), SetModel(), slots, weapons, model }
 function ns.character.Doll(spec)
     local d = {}
-    local body, name, line, model, divider, belt
+    local body, name, line, model, wash
     local size, pitch, cols = SLOT, PITCH, HEAD     -- a slot, a row, the columns' top: Fit's
     local slots, weapons = {}, {}
     local placing = false
@@ -92,12 +94,35 @@ function ns.character.Doll(spec)
     end
     d.ItemLevel = ItemLevel
 
-    -- the edge in the item's quality, its level under it
+    -- The edge in the item's quality, its level on a plate at the slot's inner foot; an empty slot's
+    -- (Blizzard's empty art) dimmed, its edge a plain line.
     local function Paint(btn)
         local slot = btn:GetID()
-        btn.edge:SetColorTexture(Quality(slot))
+        local q = GetInventoryItemLink(Unit(), slot) and GetInventoryItemQuality(Unit(), slot)
+        local r, g, b = Quality(slot)
+        local filled = q ~= nil
+        if filled then btn.edge:SetColorTexture(r, g, b) else btn.edge:SetColorTexture(LINE[1], LINE[2], LINE[3]) end
+        local icon = Icon(btn)
+        if icon then
+            icon:SetDesaturated(not filled)
+            icon:SetAlpha(filled and 1 or 0.45)
+        end
         local level = not PLAIN[btn.slotName] and ItemLevel(slot)
-        btn.level:SetText(level and level > 0 and tostring(level) or "")
+        local text = level and level > 0 and tostring(level) or ""
+        btn.level:SetText(text)
+        btn.plate:SetShown(text ~= "")
+        btn.plate:SetWidth(math.floor((btn.level:GetStringWidth() or 0) + 8))
+    end
+
+    -- the level's plate at the slot's foot, hanging half out on the side
+    -- toward the model (a weapon's toward the row's middle)
+    local function PlatePlace(btn, inward)
+        btn.plate:ClearAllPoints()
+        if inward == 0 then
+            btn.plate:SetPoint("CENTER", btn, "BOTTOM", 0, 1)
+        else
+            btn.plate:SetPoint("CENTER", btn, inward < 0 and "BOTTOMLEFT" or "BOTTOMRIGHT", inward < 0 and 2 or -2, 1)
+        end
     end
 
     -- Blizzard's slot art (its frame, its quality ring) gives way to an edge
@@ -105,6 +130,8 @@ function ns.character.Doll(spec)
     local function Restyle(btn)
         ns.Mute(btn:GetNormalTexture())
         ns.Mute(btn.IconBorder)
+        -- the slot's own frame art (its corner pips)
+        ns.Mute(_G[btn:GetName() .. "Frame"])
     end
 
     local function Style(btn, slotName)
@@ -118,8 +145,20 @@ function ns.character.Doll(spec)
         end
         btn.edge = btn:CreateTexture(nil, "BACKGROUND", nil, -1)
         btn.edge:SetAllPoints()
-        btn.level = ns.Text(btn, 11)
-        btn.level:SetPoint("BOTTOM", 0, 2)
+        btn.plate = CreateFrame("Frame", nil, btn)
+        btn.plate:SetSize(20, 13)
+        btn.plate:SetFrameLevel(btn:GetFrameLevel() + 3)
+        local plateEdge = btn.plate:CreateTexture(nil, "BACKGROUND")
+        plateEdge:SetAllPoints()
+        plateEdge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        local plateWell = btn.plate:CreateTexture(nil, "BACKGROUND", nil, 1)
+        plateWell:SetPoint("TOPLEFT", 1, -1)
+        plateWell:SetPoint("BOTTOMRIGHT", -1, 1)
+        plateWell:SetColorTexture(0.055, 0.05, 0.04, 0.95)
+        btn.level = ns.Text(btn.plate, 10)
+        btn.level:SetPoint("CENTER", 0, 0)
+        btn.level:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+        PlatePlace(btn, 1)
         Restyle(btn)
         -- Shift-click with no chat box open: the chat opened with its link (the
         -- game's slot puts it only into a box being typed in)
@@ -147,6 +186,10 @@ function ns.character.Doll(spec)
             btn:SetSize(size, size)
             btn:SetPoint(col < 0 and "TOPLEFT" or "TOPRIGHT", body, col < 0 and "TOPLEFT" or "TOPRIGHT",
                 0, -(cols + (btn.row - 1) * pitch))
+            PlatePlace(btn, -col)
+            -- a hairline from the slot across to the stage
+            btn.wire:ClearAllPoints()
+            btn.wire:SetPoint(col < 0 and "LEFT" or "RIGHT", btn, col < 0 and "RIGHT" or "LEFT", 0, 0)
         end
         local shown = {}
         for _, btn in ipairs(weapons) do
@@ -160,21 +203,9 @@ function ns.character.Doll(spec)
             btn:SetSize(size, size)
             btn:SetPoint("TOPLEFT", body, "TOPLEFT", x, -y)
             x = x + size + GAP
-        end
-        -- a gold rule out from each side of the row, to the columns
-        if belt then
-            local mid = -(y + size / 2)
-            local reach = (width - across) / 2 - BELT - (size + GAP)
-            for i, rule in ipairs(belt) do
-                rule:ClearAllPoints()
-                rule:SetWidth(math.max(0, reach))
-                rule:SetShown(reach > 0)
-                if i == 1 then
-                    rule:SetPoint("TOPLEFT", body, "TOPLEFT", size + GAP, mid)
-                else
-                    rule:SetPoint("TOPRIGHT", body, "TOPRIGHT", -(size + GAP), mid)
-                end
-            end
+            -- the plate under the weapon's middle: at a corner, the
+            -- next weapon's would meet it
+            PlatePlace(btn, 0)
         end
         placing = false
     end
@@ -187,7 +218,14 @@ function ns.character.Doll(spec)
         btn:SetFrameLevel(body:GetFrameLevel() + 2)
         Style(btn, slotName)
         btn.side, btn.row = side, row
-        if side then table.insert(slots, btn) else table.insert(weapons, btn) end
+        if side then
+            btn.wire = body:CreateTexture(nil, "ARTWORK")
+            btn.wire:SetSize(STAGE, 1)
+            btn.wire:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
+            table.insert(slots, btn)
+        else
+            table.insert(weapons, btn)
+        end
         hooksecurefunc(btn, "SetPoint", function()
             if not placing then Place() end
         end)
@@ -195,19 +233,90 @@ function ns.character.Doll(spec)
     end
 
     -- ------------------------------------------------------------ model
-    -- The unit, turned by dragging across it.
+    -- The unit, turned by dragging across it, on a stage: dark at its top
+    -- and warming down, a light in the class's colour behind them; framed
+    -- in gold, a bracket at each corner, a hairline across from each slot.
+    local stage
     local function Frame()
         model:ClearAllPoints()
-        model:SetPoint("TOPLEFT", body, "TOPLEFT", size + GAP, -cols)
-        model:SetPoint("BOTTOMRIGHT", body, "TOPRIGHT", -(size + GAP), -(cols + (#LEFT - 1) * pitch + size))
+        model:SetPoint("TOPLEFT", body, "TOPLEFT", size + STAGE, -cols)
+        model:SetPoint("BOTTOMRIGHT", body, "TOPRIGHT", -(size + STAGE), -(cols + (#LEFT - 1) * pitch + size))
+    end
+
+    -- a soft light on the stage: the glow texture, tinted (Light sizes and
+    -- places it)
+    local function Glow(parent, sub, alpha)
+        local t = parent:CreateTexture(nil, "BACKGROUND", nil, sub)
+        t:SetTexture(ns.media .. GLOW)
+        t:SetBlendMode("ADD")
+        t.alpha = alpha
+        return t
+    end
+
+    local function Stage()
+        stage = CreateFrame("Frame", nil, body)
+        stage:SetAllPoints(model)
+        stage:SetFrameLevel(body:GetFrameLevel())
+        local ground = stage:CreateTexture(nil, "BACKGROUND", nil, -8)
+        ground:SetAllPoints()
+        if ground.SetGradient and CreateColor then
+            ground:SetColorTexture(1, 1, 1, 1)
+            -- VERTICAL runs bottom to top: warm at the floor, dark above
+            ground:SetGradient("VERTICAL", CreateColor(0.15, 0.13, 0.1, 1), CreateColor(0.047, 0.043, 0.035, 1))
+        else
+            ground:SetColorTexture(0.1, 0.09, 0.07, 1)
+        end
+        stage.ground = ground
+        stage.light = Glow(stage, 1, 0.16)
+        -- the frame: a line round it, a bracket at each corner
+        stage.edges = {}
+        for i, at in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+            local t = stage:CreateTexture(nil, "BORDER")
+            t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.7)
+            if i <= 2 then
+                t:SetHeight(1)
+                t:SetPoint(at .. "LEFT")
+                t:SetPoint(at .. "RIGHT")
+            else
+                t:SetWidth(1)
+                t:SetPoint("TOP" .. at)
+                t:SetPoint("BOTTOM" .. at)
+            end
+            stage.edges[i] = t
+        end
+        stage.brackets = {}
+        for _, corner in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
+            for _, across in ipairs({ true, false }) do
+                local t = stage:CreateTexture(nil, "ARTWORK")
+                t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+                t:SetSize(across and BRACKET or 2, across and 2 or BRACKET)
+                t:SetPoint(corner)
+                table.insert(stage.brackets, t)
+            end
+        end
+    end
+
+    -- the stage's light, laid to its size (Fit's numbers: the
+    -- frame may not be laid out yet), the light in the unit's class colour
+    local function Light()
+        local w = ns.character.width - 2 * (size + STAGE)
+        local h = (#LEFT - 1) * pitch + size
+        stage.w, stage.h = w, h
+        local _, class = UnitClass(Unit())
+        local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+        local light = stage.light
+        light:ClearAllPoints()
+        light:SetSize(w * 0.95, h * 0.8)
+        light:SetPoint("CENTER", stage, "CENTER", 0, h * 0.06)
+        local r, g, b = c and c.r or GOLD[1], c and c.g or GOLD[2], c and c.b or GOLD[3]
+        light:SetVertexColor(r, g, b, light.alpha)
     end
 
     local function Model()
         model = CreateFrame("PlayerModel", nil, body)
-        local well = model:CreateTexture(nil, "BACKGROUND")
-        well:SetAllPoints()
-        well:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.05)
+        model:SetFrameLevel(body:GetFrameLevel() + 1)
         Frame()
+        Stage()
         model:EnableMouse(true)
         model:SetScript("OnMouseDown", function(self, button)
             if button == "LeftButton" then self.from = GetCursorPosition() end
@@ -225,34 +334,43 @@ function ns.character.Doll(spec)
         if model then model:SetUnit(Unit()) end
     end
 
+    -- a gold wash fading down the head
+    local function Wash()
+        wash = body:CreateTexture(nil, "BACKGROUND", nil, -7)
+        wash:SetPoint("TOPLEFT")
+        wash:SetPoint("TOPRIGHT")
+        if wash.SetGradient and CreateColor then
+            wash:SetColorTexture(1, 1, 1, 1)
+            wash:SetGradient("VERTICAL", CreateColor(GOLD[1], GOLD[2], GOLD[3], 0),
+                CreateColor(GOLD[1], GOLD[2], GOLD[3], 0.12))
+        else
+            wash:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.05)
+        end
+    end
+
     -- -------------------------------------------------------------- fit
-    -- The page has h, at least page.height: the divider first, then bigger
-    -- slots (nine of them stand in a column with the weapons), then room
-    -- between the rows (seven gaps), then the rest in three: above the name,
-    -- round the divider, under the weapons.
+    -- The page has h, at least page.height: bigger slots first (nine of
+    -- them stand in a column with the weapons), then room between the rows
+    -- (seven gaps), up to twice the usual most; what is left goes under the
+    -- weapons. The name stays at the top, so it stands where it does in
+    -- every window the doll is in.
     function d.Fit(h)
+        d.height = h
         local p = spec.page
         local extra = math.max(0, h - p.height)
-        local shown = extra >= DIVIDER
-        local room = shown and DIVIDER or 0
-        extra = extra - room
         size = math.min(SLOT_MAX, SLOT + math.floor(extra / 9))
         extra = extra - 9 * (size - SLOT)
-        local spare = math.min(SPREAD, math.floor(extra / 7))
-        extra = extra - 7 * spare
+        local spare = math.min(2 * SPREAD, math.floor(extra / 7))
         pitch = size + (PITCH - SLOT) + spare
-        local top = math.floor(extra / 3)
-        room = room + top
-        cols = top + HEAD + room
+        local top = 1
+        cols = top + HEAD + top
         name:ClearAllPoints()
         name:SetPoint("TOP", 0, -(top + 2))
-        divider:SetShown(shown)
-        divider:ClearAllPoints()
-        divider:SetPoint("TOPLEFT", body, "TOPLEFT", 40, -(top + HEAD + (room - 12) / 2))
-        divider:SetPoint("TOPRIGHT", body, "TOPRIGHT", -40, -(top + HEAD + (room - 12) / 2))
+        wash:SetHeight(top + HEAD + top / 2)
         Frame()
+        Light()
         Place()
-        p.fit = { size = size, pitch = pitch, top = top, cols = cols, divider = shown }
+        p.fit = { size = size, pitch = pitch, top = top, cols = cols }
     end
 
     -- ------------------------------------------------------------- head
@@ -272,18 +390,22 @@ function ns.character.Doll(spec)
         end
     end
 
+    -- the class (and spec) in the class's colour, the level dim after it
     local function ClassLine()
         local unit = Unit()
-        local className = UnitClass(unit)
+        local className, class = UnitClass(unit)
         local s = Spec(unit)
-        local who = s and format("%s (%s)", className, s) or className
-        return format("%s  Level %d", who or "", UnitLevel(unit) or 0)
+        local who = s and format("%s (%s)", className, s) or className or ""
+        local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+        if c then who = format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, who) end
+        return format("%s  Level %d", who, UnitLevel(unit) or 0)
     end
 
     function d.Refresh()
         local unit = Unit()
         name:SetText(UnitPVPName(unit) or UnitName(unit))
         line:SetText(ClassLine())
+        Light()
         for _, btn in ipairs(slots) do Paint(btn) end
         for _, btn in ipairs(weapons) do Paint(btn) end
         Place()
@@ -296,13 +418,7 @@ function ns.character.Doll(spec)
         line = ns.Text(body, 12)
         line:SetPoint("TOP", name, "BOTTOM", 0, -4)
         line:SetTextColor(unpack(ns.colors.dim))
-        divider = ns.character.Ornament(body)
-        belt = {}
-        for i = 1, 2 do
-            belt[i] = body:CreateTexture(nil, "ARTWORK")
-            belt[i]:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-            belt[i]:SetHeight(1)
-        end
+        Wash()
         for i, s in ipairs(LEFT) do Take(s, -1, i) end
         for i, s in ipairs(RIGHT) do Take(s, 1, i) end
         for _, s in ipairs(BOTTOM) do
@@ -316,7 +432,7 @@ function ns.character.Doll(spec)
         Model()
         d.Fit(spec.page.height)
         d.slots, d.weapons, d.model = slots, weapons, model
-        d.name, d.line = name, line
+        d.name, d.line, d.stage, d.wash = name, line, stage, wash
     end
 
     return d
@@ -329,11 +445,12 @@ ns.character.dollHeight = HEAD + #LEFT * PITCH + GAP + SLOT
 -- Stats, Titles, Sets across the top; each part has the same room, the
 -- stats' (the tallest), so the window keeps its height between them. A
 -- client without titles or sets has no button for them.
+local switch                                    -- the details' switch: joined segments
 local function Mark(key)
     view = key
     for k, v in pairs(views) do
         v.frame:SetShown(k == key)
-        v.button.mark:SetShown(k == key)
+        switch:Set(k, { selected = k == key })
     end
 end
 
@@ -349,18 +466,22 @@ local function Details(foot)
         local part = ns.character[v[1]]
         if v[1] == "stats" or part.available then table.insert(keys, v) end
     end
-    local w, gap = 80, 4
-    local x = (ns.character.width - #keys * w - (#keys - 1) * gap) / 2
+    -- Stats, Titles, Sets joined, centred over the details
+    local w = 90
+    local items = {}
+    for _, v in ipairs(keys) do
+        table.insert(items, { key = v[1], label = v[2], group = "views", click = function() Show(v[1]) end,
+            tip = function() return v[3] end })
+    end
+    switch = ns.window.Segments(foot, { height = 22, items = items })
+    switch:SetSize(#keys * w - (#keys - 1), 22)
+    switch:SetPoint("TOP", foot, "TOP", 0, 0)
     local height
     for _, v in ipairs(keys) do
         local key = v[1]
         local frame = CreateFrame("Frame", nil, foot)
         frame:SetPoint("TOPLEFT", 0, -SWITCH)
-        local button = ns.character.Button(foot, w, function() Show(key) end, function() return v[3] end)
-        button.label:SetText(v[2])
-        button:SetPoint("TOPLEFT", x, 0)
-        x = x + w + gap
-        views[key] = { frame = frame, button = button }
+        views[key] = { frame = frame, button = switch.byKey[key] }
         if key == "stats" then
             -- the stats draw first: their height is everyone's
             stats.Build(frame)
@@ -371,7 +492,7 @@ local function Details(foot)
         frame:SetSize(ns.character.width, height)
     end
     page.footHeight = SWITCH + height
-    page.views = views
+    page.views, page.switch = views, switch
     Mark(view)
 end
 
@@ -505,4 +626,5 @@ page = {
     end,
 }
 doll = ns.character.Doll{ prefix = "Character", Unit = function() return "player" end, page = page }
+page.doll = doll
 ns.CharacterPage(page)
