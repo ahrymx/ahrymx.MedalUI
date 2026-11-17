@@ -18590,13 +18590,11 @@ if profPass then
                 local rank = c.rank.text ~= "" and (c.rank.text .. "(" .. c3(c.rank.textColor) .. ")"
                     .. (c.rank.shown and ((c.rank.points.TOP or {})[1] == c.bar and "" or "!loose") or ":tip"))
                     or "rank=-"
-                print(tag .. i, (c.pillar and "pillar" or "line") .. string.format("@%d,%d", x, y)
+                print(tag .. i, (c.pillar and "pillar" or "medal") .. string.format("@%d,%d", x, y)
                     .. (c.pillar and ("w" .. c.w) or "") .. (c.hair and c.hair.shown and "~" or ""),
                     c.name.text, c.icon.desaturated and "dim" or "lit",
-                    c.bar.shown and (c.bar.text.text .. (c.bar.points.RIGHT and ">" .. tostring(
-                        c.bar.points.RIGHT[1] == c.unlearn and "x" or c.bar.points.RIGHT[1] == c.spells[1] and "s1"
-                        or c.bar.points.RIGHT[1] == c.spells[2] and "s2" or "?") or ""))
-                        or ("none: " .. c.none.text),
+                    c.bar and (c.bar.shown and c.bar.text.text or ("none: " .. c.none.text))
+                        or (c.value.text .. " dial=" .. c.dial.lit .. "/" .. #c.dial.ticks),
                     rank, "spells=" .. table.concat(spells, ","), "unlearn=" .. tostring(c.unlearn.shown))
             end
         end
@@ -18686,7 +18684,7 @@ if profPass then
         local c = pageOf("overview").cards[i]
         fire("SKILL_LINES_CHANGED")
         frame()
-        print(tag, c.name.text, c.bar.text.text, c.rank.shown and (c.rank.text .. "(" .. c3(c.rank.textColor) .. ")")
+        print(tag, c.name.text, c.bar and c.bar.text.text or c.value.text, c.rank.shown and (c.rank.text .. "(" .. c3(c.rank.textColor) .. ")")
             or "rank=-")
     end
     local smithInfo = P.info[1]
@@ -18911,6 +18909,20 @@ if profPass then
         print(tag, "need=" .. ov.height, "window=" .. w.h, "primary@" .. y(ov.heads.primary), "secondary@" .. y(ov.heads.secondary),
             "camp@" .. y(ov.heads.camp) .. "/" .. y(ov.camp), table.concat(cards, " "),
             "portrait@" .. -portrait[4] .. "/" .. ov.banner.h, "split@" .. y(ov.split) .. "h" .. ov.split.h)
+        -- what Fit shared out: the pillars' height, the cooldowns' room and
+        -- its hourglass, Camping's foot against the body's; the notches
+        local c1, bar = ov.cards[1], ov.cards[1].bar
+        local ticks = {}
+        for _, t in ipairs(bar.ticks) do
+            if t.shown then table.insert(ticks, t.points.TOP[3]) end
+        end
+        local _, _, _, _, campY = ov.camp:GetPoint()
+        print(tag .. " fit", "room=" .. tostring(ov.room), "pillar=" .. c1.h, "cool=" .. ov.cooldowns.h,
+            "glass=" .. tostring(ov.cooldowns.glass.shown), "campFoot=" .. (-campY + ov.campH) .. "/" .. ov.body.h,
+            "notches=" .. table.concat(ticks, ",") .. " lit=" .. tostring(bar.lit and bar.lit.shown),
+            string.format("sleek=%s fill=(%.2f,%.2f,%.2f) text=(%.2f,%.2f,%.2f)", tostring(bar.sleek),
+                bar.bar.barColor and bar.bar.barColor[1] or -1, bar.bar.barColor and bar.bar.barColor[2] or -1,
+                bar.bar.barColor and bar.bar.barColor[3] or -1, unpack(bar.text.textColor)))
         local slots, tiles = {}, {}
         for _, s in ipairs(ov.camp.slots) do
             table.insert(slots, s.spec.name .. "=" .. s.time.text .. (s.icon.desaturated and "(grey)" or ""))
@@ -18993,15 +19005,24 @@ if profPass then
         frame()
         click(pageOf("overview").tab)
         frame()
-        -- the banner's Alts: counted, named in its tooltip; none, no button
+        -- the Alts, in the band beside the medallion: counted, named in its
+        -- tooltip and beside it; none, neither. The band has no ornament.
         local function alts(tag)
-            local a = ov.banner.alts
-            local _, _, _, x, y = a:GetPoint(1)
-            print(tag, "button=" .. tostring(a.shown), a.label.text, "@" .. x .. "," .. y,
+            local f = ov.alts
+            local a = f.button
+            local p, rel, _, x, y = a:GetPoint(1)
+            local ornament = 0
+            for _, k in ipairs({ ov.band:GetChildren() }) do
+                if k ~= f then ornament = ornament + 1 end
+            end
+            print(tag, "button=" .. tostring(a.shown), a.label.text, p .. "@" .. x .. "," .. y,
+                "inBand=" .. tostring(f:GetParent() == ov.band and (rel == nil or rel == f)),
+                "others=" .. ornament, "span=" .. tostring(a.points.LEFT ~= nil and a.points.RIGHT ~= nil
+                    and a.points.RIGHT[3] == 0) .. ":" .. tostring(f.who == nil and "alone" or "names"),
                 "glyph=" .. tostring(a.glyph.texture))
         end
         alts("prof.alts")
-        beside("prof.tip alts", ov.banner.alts)
+        beside("prof.tip alts", ov.alts.button)
         overview("prof.alts")
         local aw = function()
             local f = _G.MedalluinAlt
@@ -19026,12 +19047,12 @@ if profPass then
         local function row(R, name)
             for _, r in ipairs(R.parts.char) do if r.shown and r.alt.name == name then return r end end
         end
-        click(ov.banner.alts)
+        click(ov.alts.button)
         local R = chars("prof.alt roster")
         beside("prof.tip char", row(R, "Barkhide"))
         click(row(R, "Medalluin"))
         print("prof.alt open", aw())
-        click(ov.banner.alts)
+        click(ov.alts.button)
         chars("prof.alt roster again")
         click(row(R, "Barkhide"))
         print("prof.alt other", aw())
@@ -19236,6 +19257,11 @@ if profPass then
             ov.Refresh()
             print("prof.cool none", "rows=" .. #ns.alts.Cooldowns(), "none=" .. tostring(cd.none.shown),
                 cd.none.text, "h=" .. cd:GetHeight())
+            -- the 30s tick refreshes the times alone: the room, and the
+            -- hourglass, stay as laid out
+            local before = cd:GetHeight() .. "/" .. tostring(cd.glass.shown)
+            cd.Refresh()
+            print("prof.cool tick", "before=" .. before, "after=" .. cd:GetHeight() .. "/" .. tostring(cd.glass.shown))
             T.GetAllRecipeIDs, T.GetRecipeInfo, T.GetBaseProfessionInfo, T.GetRecipeCooldown = was[1], was[2], was[3],
                 was[4]
             C_Spell.GetSpellCooldown, C_Timer.After, GetTime, T.GetRecipeSchematic = was[5], was[6], was[7], was[8]

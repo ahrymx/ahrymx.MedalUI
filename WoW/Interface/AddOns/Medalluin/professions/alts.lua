@@ -1030,7 +1030,8 @@ function W.Banner(body)
     local ink = ns.colors.ink
     if b.ground.SetGradient and CreateColor then
         b.ground:SetColorTexture(1, 1, 1, 1)
-        b.ground:SetGradient("VERTICAL", CreateColor(0.16, 0.13, 0.086, 1), CreateColor(ink[1], ink[2], ink[3], 1))
+        -- VERTICAL runs bottom to top: warm gold at its foot, ink above
+        b.ground:SetGradient("VERTICAL", CreateColor(0.27, 0.21, 0.1, 1), CreateColor(ink[1], ink[2], ink[3], 1))
     else
         b.ground:SetColorTexture(ink[1], ink[2], ink[3], 1)
     end
@@ -1044,7 +1045,7 @@ function W.Banner(body)
     b.shine:SetPoint("TOPRIGHT", b.rule)
     b.shine:SetHeight(1)
     b.shine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.8)
-    b.portrait = ns.window.Ring(b, PORTRAIT)
+    b.portrait = ns.window.Ring(b, PORTRAIT, true)
     b.portrait:SetTexCoord(0, 1, 0, 1)
     b.portrait:SetPoint("CENTER", b, "TOP", 0, -(STRIP + 1))
     b.name = ns.Text(b, 16)
@@ -1055,22 +1056,6 @@ function W.Banner(body)
     b.what = ns.Text(b, 12)
     b.what:SetPoint("TOP", b.name, "BOTTOM", 0, -6)
     b.what:SetTextColor(unpack(ns.colors.dim))
-    -- the alts: counted, named in its tooltip; a click, the Characters tab
-    b.alts = ns.window.Button(b, 74, function() W.OpenRoster() end, function()
-        local names = {}
-        for _, a in ipairs(W.Alts()) do table.insert(names, a.name) end
-        return "Your alts: " .. table.concat(names, ", ") .. ".\nClick: every character, its professions, "
-            .. "items and notes."
-    end)
-    b.alts:SetHeight(22)
-    b.alts:SetPoint("TOPLEFT", 8, -6)
-    b.alts.glyph = b.alts:CreateTexture(nil, "ARTWORK")
-    b.alts.glyph:SetSize(14, 14)
-    b.alts.glyph:SetPoint("LEFT", 8, 0)
-    b.alts.glyph:SetTexture(ns.media .. "strips\\social")
-    b.alts.label:ClearAllPoints()
-    b.alts.label:SetPoint("LEFT", b.alts.glyph, "RIGHT", 6, 0)
-    b.alts.label:SetTextColor(unpack(GOLD))
     -- a click opens the playing character's own window (its notes, items)
     b:EnableMouse(true)
     b:SetScript("OnMouseUp", function(_, mouse) if mouse == "LeftButton" then W.OpenMine() end end)
@@ -1091,9 +1076,43 @@ function W.Banner(body)
         local guild = GetGuildInfo and GetGuildInfo("player")
         local what = (race and (race .. " ") or "") .. (className or "")
         b.what:SetText(guild and guild ~= "" and format("%s  ·  <%s>", what, guild) or what)
-        local n = #W.Alts()
-        b.alts:SetShown(n > 0)
-        b.alts.label:SetText(format("Alts  %d", n))
+        -- the portrait's rim and its halo in the class's colour
+        local c = Color(class)
+        b.portrait.rim:SetColorTexture(c[1], c[2], c[3], 1)
+        for _, g in ipairs(b.portrait.glows) do g:SetColorTexture(c[1], c[2], c[3], g.alpha) end
     end
     return b
+end
+
+-- -------------------------------------------------- the Alts, in the band
+-- In the Overview's margin beside the medallion, across all of it: the
+-- button, counted, the alts named in its tooltip; a click, the Characters
+-- tab. No alts: no button, the margin empty.
+function W.AltsButton(band)
+    local f = CreateFrame("Frame", nil, band)
+    f:SetAllPoints()
+    f.button = ns.window.Button(f, 92, function() W.OpenRoster() end, function()
+        local names = {}
+        for _, a in ipairs(W.Alts()) do table.insert(names, a.name) end
+        return "Your alts: " .. table.concat(names, ", ") .. ".\nClick: every character, its professions, "
+            .. "items and notes."
+    end)
+    local a = f.button
+    a:SetHeight(22)
+    a:SetPoint("LEFT", 0, 0)
+    a:SetPoint("RIGHT", 0, 0)
+    -- the glyph and the count centred together
+    a.label:ClearAllPoints()
+    a.label:SetPoint("CENTER", 10, 0)
+    a.label:SetTextColor(unpack(GOLD))
+    a.glyph = a:CreateTexture(nil, "ARTWORK")
+    a.glyph:SetSize(14, 14)
+    a.glyph:SetPoint("RIGHT", a.label, "LEFT", -6, 0)
+    a.glyph:SetTexture(ns.media .. "strips\\social")
+    function f.Refresh()
+        local n = #W.Alts()
+        a:SetShown(n > 0)
+        a.label:SetText(format("Alts  %d", n))
+    end
+    return f
 end

@@ -60,26 +60,88 @@ local function Well(f, inset)
     return edge, well
 end
 
--- A bar in an ink well with a gold edge, its words over it.
-local function Bar(parent, width)
+-- A bar in an ink well with a gold edge, its words over it. b.notches
+-- (optional, values between min and max): a dark tick at each, and the
+-- part filled past the last one passed a shade lighter. sleek: a flat
+-- bronze fill, a sheen on its upper half and a bright top edge, its words
+-- cream (the professions' pillars), so they read over it.
+local NOTCH = { 0.07, 0.06, 0.04 }
+local WHITE8 = "Interface\\Buttons\\WHITE8X8"
+local BRONZE = { 0.42, 0.31, 0.11 }
+local CREAM = { 1, 0.95, 0.82 }
+local function Bar(parent, width, height, sleek)
     local holder = CreateFrame("Frame", nil, parent)
-    holder:SetSize(width, BAR_H)
+    holder:SetSize(width, height or BAR_H)
+    holder.ticks = {}
     Well(holder, 1)
     local bar = CreateFrame("StatusBar", nil, holder)
     bar:SetPoint("TOPLEFT", 1, -1)
     bar:SetPoint("BOTTOMRIGHT", -1, 1)
-    bar:SetStatusBarTexture(ns.bar)
+    bar:SetStatusBarTexture(sleek and WHITE8 or ns.bar)
     holder.bar = bar
+    holder.sleek = sleek
+    if sleek then
+        local fill = bar:GetStatusBarTexture()
+        local sheen = bar:CreateTexture(nil, "ARTWORK", nil, 2)
+        sheen:SetColorTexture(1, 1, 1, 0.08)
+        sheen:SetPoint("TOPLEFT", fill, "TOPLEFT")
+        sheen:SetPoint("BOTTOMRIGHT", fill, "RIGHT")
+        local top = bar:CreateTexture(nil, "ARTWORK", nil, 3)
+        top:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.55)
+        top:SetHeight(1)
+        top:SetPoint("TOPLEFT", fill, "TOPLEFT")
+        top:SetPoint("TOPRIGHT", fill, "TOPRIGHT")
+        holder.sheen, holder.top = sheen, top
+    end
     holder.text = ns.Text(bar, 11)
     holder.text:SetPoint("CENTER", 0, 0)
+    if sleek then holder.text:SetTextColor(CREAM[1], CREAM[2], CREAM[3]) end
     function holder:Fill(b)
         local lo, hi, cur = b.min or 0, b.max or 1, b.cur or 0
         if hi <= lo then lo, hi, cur = 0, 1, 1 end
         self.bar:SetMinMaxValues(lo, hi)
         self.bar:SetValue(cur)
-        local c = b.color or GOLD
-        self.bar:SetStatusBarColor(c[1] * ns.mute, c[2] * ns.mute, c[3] * ns.mute)
+        local c = b.color or (self.sleek and BRONZE or GOLD)
+        local mute = self.sleek and 1 or ns.mute
+        self.bar:SetStatusBarColor(c[1] * mute, c[2] * mute, c[3] * mute)
         self.text:SetText(b.text or "")
+        self:Notch(b.notches, lo, hi, cur)
+    end
+    function holder:Notch(list, lo, hi, cur)
+        if not list and #self.ticks == 0 then return end    -- a plain bar makes nothing
+        local inner = self:GetWidth() - 2
+        local from = lo
+        local n = 0
+        for _, v in ipairs(list or {}) do
+            if v > lo and v < hi then
+                n = n + 1
+                local t = self.ticks[n]
+                if not t then
+                    t = self.bar:CreateTexture(nil, "OVERLAY", nil, -1)
+                    t:SetWidth(2)
+                    t:SetColorTexture(NOTCH[1], NOTCH[2], NOTCH[3], 1)
+                    self.ticks[n] = t
+                end
+                t:ClearAllPoints()
+                t:SetPoint("TOP", self.bar, "TOPLEFT", math.floor(inner * (v - lo) / (hi - lo) + 0.5), 0)
+                t:SetPoint("BOTTOM", self.bar, "BOTTOMLEFT", math.floor(inner * (v - lo) / (hi - lo) + 0.5), 0)
+                t:Show()
+                if v <= cur then from = v end
+            end
+        end
+        for i = n + 1, #self.ticks do self.ticks[i]:Hide() end
+        if not self.lit then
+            self.lit = self.bar:CreateTexture(nil, "ARTWORK", nil, 1)
+            self.lit:SetColorTexture(1, 0.89, 0.6, 0.12)
+        end
+        local x0, x1 = inner * (from - lo) / (hi - lo), inner * (math.min(cur, hi) - lo) / (hi - lo)
+        self.lit:SetShown(n > 0 and x1 - x0 >= 1)
+        if n > 0 then
+            self.lit:ClearAllPoints()
+            self.lit:SetPoint("TOPLEFT", self.bar, "TOPLEFT", math.floor(x0 + 0.5), 0)
+            self.lit:SetPoint("BOTTOMLEFT", self.bar, "BOTTOMLEFT", math.floor(x0 + 0.5), 0)
+            self.lit:SetWidth(math.max(1, math.floor(x1 - x0 + 0.5)))
+        end
     end
     return holder
 end

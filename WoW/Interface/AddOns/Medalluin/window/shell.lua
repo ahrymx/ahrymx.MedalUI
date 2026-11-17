@@ -228,7 +228,10 @@ end
 -- bags' round mask, strips/bags.lua). A mask texture, not SetMask: a
 -- texture SetMask has rounded refuses tex coords, and the icon trims its
 -- border with them.
-local function Ring(parent, size)
+-- glow: soft gold discs under the rim (a lit medallion); icon.glows, to
+-- recolour.
+local GLOWS = { { 10, 0.13 }, { 18, 0.08 }, { 28, 0.04 } }     -- each disc: how much wider, its alpha
+local function Ring(parent, size, glow)
     local function Disc(sub, grow)
         local t = parent:CreateTexture(nil, "ARTWORK", nil, sub)
         t:SetSize(size + grow, size + grow)
@@ -248,6 +251,17 @@ local function Ring(parent, size)
     well:SetPoint("CENTER", icon)
     icon:SetTexCoord(GAME_ICON, 1 - GAME_ICON, GAME_ICON, 1 - GAME_ICON)
     icon.rim, icon.well = rim, well
+    if glow then
+        rim:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        icon.glows = {}
+        for i, g in ipairs(GLOWS) do
+            local t = Disc(1 - i, g[1])
+            t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], g[2])
+            t:SetPoint("CENTER", icon)
+            t.alpha = g[2]
+            icon.glows[i] = t
+        end
+    end
     return icon
 end
 ns.window.Ring = Ring
@@ -701,6 +715,59 @@ local function Ornament(parent, label)
     return f
 end
 ns.window.Ornament = Ornament
+
+-- A section's heading: its word on a gilded plate, a gold point at each
+-- end, and a rule from each point fading out to the page's edge.
+local RIBBON = 22
+local function Ribbon(parent, label)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetHeight(RIBBON)
+    f.label = ns.Text(f, 12)
+    f.label:SetText(label)
+    f.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    f.label:SetPoint("CENTER", 0, 0)
+    local plate = CreateFrame("Frame", nil, f)
+    plate:SetSize(math.floor((f.label:GetStringWidth() or 0) + 36), RIBBON - 2)
+    plate:SetPoint("CENTER")
+    plate:SetFrameLevel(f:GetFrameLevel())
+    local edge = plate:CreateTexture(nil, "BORDER")
+    edge:SetAllPoints()
+    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    local fill = plate:CreateTexture(nil, "BORDER", nil, 1)
+    fill:SetPoint("TOPLEFT", 1, -1)
+    fill:SetPoint("BOTTOMRIGHT", -1, 1)
+    fill:SetColorTexture(0.2, 0.165, 0.1, 1)
+    local shine = plate:CreateTexture(nil, "BORDER", nil, 2)
+    shine:SetPoint("TOPLEFT", 2, -2)
+    shine:SetPoint("TOPRIGHT", -2, -2)
+    shine:SetHeight(1)
+    shine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.3)
+    f.plate, f.points = plate, {}
+    for i, side in ipairs({ -1, 1 }) do
+        local tip = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+        tip:SetSize(11, 11)
+        tip:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        tip:SetRotation(math.pi / 4)
+        tip:SetPoint("CENTER", plate, side < 0 and "LEFT" or "RIGHT", 0, 0)
+        f.points[i] = tip
+        local rule = f:CreateTexture(nil, "BACKGROUND")
+        rule:SetHeight(1)
+        rule:SetPoint(side < 0 and "LEFT" or "RIGHT")
+        rule:SetPoint(side < 0 and "RIGHT" or "LEFT", plate, side < 0 and "LEFT" or "RIGHT", side * 9, 0)
+        if rule.SetGradient and CreateColor then
+            local lit = CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            local clear = CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0)
+            rule:SetColorTexture(1, 1, 1, 1)
+            rule:SetGradient("HORIZONTAL", side < 0 and clear or lit, side < 0 and lit or clear)
+        else
+            rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
+        end
+        f[side < 0 and "left" or "right"] = rule
+    end
+    return f
+end
+ns.window.Ribbon = Ribbon
+ns.window.RIBBON = RIBBON
 
 -- The chat box's frame, and the quest tracker's when there is no chat box
 -- (strips/chat.lua, quests/tracker.lua): the windows' gold trim, the
