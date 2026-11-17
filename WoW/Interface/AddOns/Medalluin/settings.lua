@@ -330,11 +330,20 @@ local PROFILES = {
     arena = {},
     reticule = { rows = 3 },
 }
+-- Arena is set aside (2026-11-17): not chosen, and an install on it moved to
+-- the Reticule once (Migrate), each character's bars with it at its next
+-- login (bars/skills.lua). Medalluin_ArenaOpen (the harness's, testing the
+-- console as it stands) lets it through.
+local WIP = { arena = true }
+local function Open(profile) return not WIP[profile] or Medalluin_ArenaOpen == true end
+ns.ProfileOpen = Open
 ns.PROFILE_NAMES = {
     { "reticule", "Reticule (default)", "Flush-top player/target wings, dynamic square minimap / 2x5 Bar 7 bay, "
         .. "split Action Bars 2 & 3, and party frames in a row under the console." },
-    { "arena", "Arena", "The classic round medallion console with integrated party wings, and a large player "
-        .. "and target." },
+    -- set aside till its redesign after 1.0: shown, dimmed, not chosen (WIP)
+    { "arena", "Arena (WIP)", "The classic round medallion console with integrated party wings, and a large "
+        .. "player and target. Out of date, and to be redesigned after 1.0, so it cannot be chosen.",
+        wip = not Open("arena") or nil },
 }
 -- the ids the profiles had, and what they are now
 local OLD_IDS = { default = "arena", light = "reticule" }
@@ -427,7 +436,8 @@ ns.SHARED = SHARED
 function ns.SharedOf(key) return SHARED_OF[key] end
 
 local function Profile()
-    return MedalluinDB and PROFILES[MedalluinDB.consoleProfile] and MedalluinDB.consoleProfile or "reticule"
+    local p = MedalluinDB and MedalluinDB.consoleProfile
+    return PROFILES[p] and Open(p) and p or "reticule"
 end
 
 -- Where the player's choice for an option is kept.
@@ -506,7 +516,10 @@ local reloadAsked               -- a switch in combat: its reload asked for when
 -- Medalluin's own controls (the side panel's column buttons). Choosing the
 -- profile switches to it.
 function ns.SetOption(key, value)
-    if key == "consoleProfile" then SwitchProfile(value) end
+    if key == "consoleProfile" then
+        if not Open(value) then return end      -- set aside: not chosen, nothing told
+        SwitchProfile(value)
+    end
     -- a shared option: the frames that follow it hear their change too
     local followers, before = SHARED[key], {}
     for _, k in ipairs(followers or {}) do before[k] = ns.db[k] end
@@ -533,7 +546,7 @@ end
 -- Switching profile brings back that profile's own choices; the global
 -- options stay as they are.
 function SwitchProfile(profile)
-    if not PROFILES[profile] or profile == Profile() then return end
+    if not PROFILES[profile] or not Open(profile) or profile == Profile() then return end
     -- and its own skills on the bars (bars/skills.lua), and keys on them
     -- (keybind.lua)
     if ns.SwitchSkills then ns.SwitchSkills(Profile(), profile) end
@@ -597,6 +610,12 @@ local function Migrate(fresh)
     -- an install that never chose was on the medallion, the default until
     -- 0.44: it stays there; a new one starts on the Reticule
     if not fresh and db.consoleProfile == nil then db.consoleProfile = "arena" end
+    -- one set aside: the Reticule (its options, skills and keys, as a switch
+    -- brings them); each character's bars follow at its login (arenaLeft)
+    if db.consoleProfile and not Open(db.consoleProfile) then
+        db.consoleProfile = "reticule"
+        db.arenaLeft = true
+    end
     for name in pairs(PROFILES) do db.profiles[name] = db.profiles[name] or {} end
     -- the overhead's Boss frames checkbox became Boss frames: Overhead,
     -- Vertical or Both; turned off, the bosses were not on the overhead

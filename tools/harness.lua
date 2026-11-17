@@ -2296,6 +2296,9 @@ StaticPopupDialogs = {}
 SlashCmdList = {}
 function ReloadUI() end
 function StaticPopup_Show() end
+-- Arena is set aside (settings.lua) but the passes still play it as it
+-- stands; the profiles pass closes it to see it set aside
+Medalluin_ArenaOpen = true
 MedalluinDB = profilesPass and args[3] == "saved" and { consoleProfile = "light",
         -- the overhead's options, per profile until 2026-11-15: the profile in
         -- use (light, now reticule) gives the shared ones; arena's are dropped
@@ -9174,6 +9177,38 @@ if profilesPass then
     login({ global = {}, profiles = { default = { rows = 2 } } }, {})
     print("profiles upgrade", "saved=" .. tostring(MedalluinDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
         "rows=" .. tostring(ns.db.rows), "built=" .. applied)
+    -- Arena set aside: an install on it moved to the Reticule, its choice
+    -- dimmed and refused; each character's bars at its first login after
+    -- (Arena's kept under Arena, the Reticule's back), said once
+    Medalluin_ArenaOpen = false
+    login({ consoleProfile = "arena", global = {}, profiles = { arena = { rows = 2 }, reticule = { rows = 1 } } },
+        { layouts = { reticule = { ["1"] = { [1] = { "spell", 133 } } } } })
+    -- (the option's choice is dimmed by wip, set at load from the same
+    -- test: open here, so the passes may pick it)
+    local wip = {}
+    for _, p in ipairs(ns.PROFILE_NAMES) do
+        if not ns.ProfileOpen(p[1]) then table.insert(wip, p[1] .. (p.wip and ":dim" or ":lit at load")) end
+    end
+    print("profiles arena set aside", "saved=" .. tostring(MedalluinDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
+        "rows=" .. tostring(ns.db.rows), "left=" .. tostring(MedalluinDB.arenaLeft), "built=" .. applied,
+        "wip=" .. table.concat(wip, ","))
+    ns.SetOption("consoleProfile", "arena")
+    print("profiles arena refused", "profile=" .. ns.db.consoleProfile, "saved=" .. tostring(MedalluinDB.consoleProfile))
+    local said, switched, switch = {}, {}, ns.SwitchSkills
+    local print_ = print
+    ns.SwitchSkills = function(from, to) table.insert(switched, from .. ">" .. to) end
+    print = function(...)
+        local line = table.concat({ ... }, " ")
+        if line:find("set aside", 1, true) then table.insert(said, "said") else print_(...) end
+    end
+    for _ = 1, 2 do
+        for _, f in ipairs(events.PLAYER_LOGIN or {}) do f.scripts.OnEvent(f, "PLAYER_LOGIN") end
+    end
+    print = print_
+    ns.SwitchSkills = switch
+    print("profiles arena bars", "switched=" .. table.concat(switched, ","), "said=" .. #said,
+        "char left=" .. tostring(MedalluinCharDB.arenaLeft))
+    Medalluin_ArenaOpen = true
     -- the old ids, wherever they key something; one already under its new
     -- id wins; a second login changes nothing
     local function idState(tag)

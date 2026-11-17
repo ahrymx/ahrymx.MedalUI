@@ -188,6 +188,18 @@ ns.On("ADDON_LOADED", function(_, name)
     MedalluinCharDB.layouts = MedalluinCharDB.layouts or {}
 end)
 
+-- The account moved off Arena (settings.lua, set aside till its redesign):
+-- each character, at its first login after, keeps Arena's skills under
+-- Arena and takes the Reticule's back, as a switch would (none saved: the
+-- bars as they are). Once each, said once each.
+ns.On("PLAYER_LOGIN", function()
+    if not (MedalluinDB and MedalluinDB.arenaLeft and MedalluinCharDB) or MedalluinCharDB.arenaLeft then return end
+    MedalluinCharDB.arenaLeft = true
+    Say("the Arena console is set aside till its redesign after 1.0; you are on the Reticule. Its options, "
+        .. "skills and keys are the ones you chose on it; Arena's are kept.")
+    ns.SwitchSkills("arena", ns.db.consoleProfile)
+end)
+
 -- At logout the bars are the profile's, or, with a switch still waiting for
 -- combat to end, the profile's they were before it.
 ns.On("PLAYER_LOGOUT", function()
