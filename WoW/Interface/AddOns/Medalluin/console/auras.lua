@@ -1106,17 +1106,19 @@ local function ScanUnitAuras(b)
         end
     end
 
-    -- 3. Buffs: yours, or all (the row's From); not the timeless ones on
-    -- the player frame
-    local liveBuffs = b.buffWidgets and Live(b, b.buffWidgets, Shows(b, "buffs"),
-        ns.RowFrom(b, "buffs") == "all" and "HELPFUL" or "HELPFUL|PLAYER", ns.RowMax(b, "buffs"),
-        unit == "player")
+    -- 3. Buffs: yours, or all (the row's From); an enemy's all, whatever
+    -- From says, as you cast none on it (the player and the target share
+    -- one From); not the timeless ones on the player frame
+    local buffFilter = (ns.RowFrom(b, "buffs") == "all" or UnitCanAttack("player", unit)) and "HELPFUL"
+        or "HELPFUL|PLAYER"
+    local liveBuffs = b.buffWidgets and Live(b, b.buffWidgets, Shows(b, "buffs"), buffFilter,
+        ns.RowMax(b, "buffs"), unit == "player")
     if b.buffWidgets and not liveBuffs then
         local list, filter
         if Shows(b, "buffs") and Auras and Auras.GetAuraDataByIndex then
             -- (not the timeless ones on the player frame)
-            list, filter = List(unit, ns.RowFrom(b, "buffs") == "all" and "HELPFUL" or "HELPFUL|PLAYER",
-                ns.RowMax(b, "buffs"), unit == "player" and function(aura) return IsTimeless(unit, aura) end)
+            list, filter = List(unit, buffFilter, ns.RowMax(b, "buffs"),
+                unit == "player" and function(aura) return IsTimeless(unit, aura) end)
             if not list then refused = true end
         else
             list = {}

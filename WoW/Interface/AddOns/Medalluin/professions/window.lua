@@ -732,10 +732,20 @@ local function Want()
 end
 
 -- Closing is at once; opening waits for the frame's end, by when Blizzard
--- has turned to the page it opens on.
+-- has turned to the page it opens on. Blizzard reopens on the profession
+-- last open, which our Overview tab does not change: closed on Overview,
+-- the book's own way in (its key, the micro button: ToggleProfessionsBook)
+-- opens on Overview again. A profession's spell opens that profession.
 local waiting
+local leftOnOverview                    -- the window closed on Overview
+local byBook                            -- opened by ToggleProfessionsBook
 local function Sync()
-    if not ProfessionsFrame:IsShown() then W.SetShown(false) return end
+    if not ProfessionsFrame:IsShown() then
+        if W.window:IsShown() then leftOnOverview = W.Current() == overview end
+        byBook = nil
+        W.SetShown(false)
+        return
+    end
     if waiting then return end
     waiting = true
     C_Timer.After(0, function()
@@ -743,6 +753,8 @@ local function Sync()
         if not ProfessionsFrame:IsShown() then return end
         W.Retab()
         local p = Want()
+        if byBook and leftOnOverview and not W.window:IsShown() then p = overview end
+        byBook = nil
         if W.Current() ~= p then W.Select(p) end
         W.SetShown(true)
         -- one window on the right strip: the spellbook's or talents' frame
@@ -760,6 +772,9 @@ local function Adopt()
     if not f or W.adopted then return end
     W.adopted = true
     ns.Park(f)
+    if ToggleProfessionsBook then
+        hooksecurefunc("ToggleProfessionsBook", function() byBook = true; Sync() end)
+    end
     for _, frame in ipairs({ f, f.BookPage, f.CraftingPage }) do
         for _, method in ipairs({ "Show", "Hide", "SetShown" }) do
             hooksecurefunc(frame, method, Sync)

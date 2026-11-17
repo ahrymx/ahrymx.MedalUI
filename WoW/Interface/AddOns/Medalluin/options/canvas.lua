@@ -43,7 +43,21 @@ local SAMPLE = {
     unit = { "Player", "Target" }, party = { "Party member" }, partyWidget = { "Party member" },
     raid = { "Raider" }, boss = { "Boss" }, arena = { "Enemy" },
 }
-local SAMPLE_TEXT = { level = "60", value = "100%", powerValue = "60 | 60%" }
+-- The values' samples follow the piece's format (editor.lua's E.FORMATS),
+-- as console/units.lua writes them; [1] the format with none chosen. Missing
+-- is a sample's own, never blank, so its box can still be seen and placed.
+local SAMPLE_TEXT = {
+    level = "60",
+    value = { "percent", percent = "100%", current = "41.2k", both = "41.2k | 100%",
+        stacked = "100%\n41.2k", deficit = "-9.1k" },
+    powerValue = { "both", both = "60 | 60%", current = "60", percent = "60%" },
+}
+local function SampleText(frame, id)
+    local t = SAMPLE_TEXT[id]
+    if type(t) ~= "table" then return t end
+    local e = E.Edits(frame, id)
+    return t[e and e.format] or t[t[1]]
+end
 
 -- ------------------------------------------------------------ a copy
 local TEXTS = { name = "text", level = "text", value = "text", powerValue = "powerBox" }
@@ -290,7 +304,7 @@ local function Mirror(frame, b, p, k)
             local words = src:GetText()
             -- (a secret string may not even be compared: ask first)
             if ns.IsSecret(words) or words == nil or words == "" then
-                words = id == "name" and (SAMPLE[frame.id][k] or SAMPLE[frame.id][1]) or SAMPLE_TEXT[id]
+                words = id == "name" and (SAMPLE[frame.id][k] or SAMPLE[frame.id][1]) or SampleText(frame, id)
             end
             dst:SetText(words)
             if src.GetJustifyH then dst:SetJustifyH(src:GetJustifyH()) end

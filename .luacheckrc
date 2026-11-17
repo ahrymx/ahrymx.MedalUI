@@ -13,6 +13,8 @@ exclude_files = {
 unused_args = false
 
 read_globals = {
+    -- the professions book's toggle (its key, the micro button), hooked
+    "ToggleProfessionsBook",
     -- the NPC windows (npc/): gossip, the quest pages, the vendor
     "AcceptQuest", "AcknowledgeAutoAcceptQuest", "BuyMerchantItem", "BuybackItem", "C_MerchantFrame",
     "CanGuildBankRepair", "CanMerchantRepair", "ChatEdit_GetActiveWindow", "CloseMerchant", "CloseQuest",

@@ -183,7 +183,8 @@ local function Specs()
                 return Edits().from or row and row.from or "mine"
             end,
             set = function(v) SetField("from", v) end,
-            tip = "Whose auras the row shows: only the ones you cast, or all of them." },
+            tip = "Whose auras the row shows: only the ones you cast, or all of them."
+                .. (piece == "buffs" and " An enemy's buffs all show either way." or "") },
         max = { kind = "slider", label = "Most icons", min = 1, max = 10,
             get = function() return Edits().max or select(2, E.RowOwn(frame, piece)) end,
             set = function(v) SetField("max", v) end,

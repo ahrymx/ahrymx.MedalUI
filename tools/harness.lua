@@ -3886,6 +3886,9 @@ if profPass then
         end
         if ProfessionsFrame:IsShown() then HideUIPanel(ProfessionsFrame) else ShowUIPanel(ProfessionsFrame) end
     end
+    -- the game's global, which its key and the micro button call (the
+    -- window hooks it: reopened on Overview when closed there)
+    function ToggleProfessionsBook() P.Toggle() end
     -- a profession's list opened (its spell, OpenTradeSkill): TRADE_SKILL_SHOW,
     -- and Blizzard turns to its crafting page
     function P.Show(line)
@@ -9819,7 +9822,8 @@ if args[2] == "widgets" or args[3] == "widgets" then
                 if not (f.unitOf and f.unitOf[e]) or f.unitOf[e] == unit then f.scripts.OnEvent(f, e, unit) end
             end
         end
-        exists.target = true
+        -- (a friend, your blessing on it: its buffs are From's, Cast by you)
+        exists.target, targetHostile = true, false
         held.target = { ["HELPFUL|PLAYER"] = { { id = 906, icon = "blessing", spellId = 19740 } } }
         local sacrifice = { { id = 907, icon = "sacrifice", spellId = 27273, isHarmful = true } }
         held.player = { HARMFUL = sacrifice, ["HARMFUL|PLAYER"] = sacrifice }
@@ -9887,6 +9891,18 @@ if args[2] == "widgets" or args[3] == "widgets" then
         unitFire("UNIT_AURA", "player")
         print("console auras cleared after", "target buffs=" .. first(T.buffWidgets),
             "player debuffs=" .. first(P.mineWidgets))
+        -- an enemy's buffs all show, From Cast by you as it is: you cast
+        -- none on it; a friend's, yours only
+        local from = ns.RowFrom(T, "buffs")
+        held.target = { HELPFUL = { { id = 909, icon = "shield", spellId = 17 } }, ["HELPFUL|PLAYER"] = {} }
+        targetHostile = true
+        unitFire("UNIT_AURA", "target")
+        local enemy = first(T.buffWidgets)
+        targetHostile = false
+        unitFire("UNIT_AURA", "target")
+        print("console auras an enemy's", "from=" .. from, "enemy buffs=" .. enemy,
+            "friend buffs=" .. first(T.buffWidgets))
+        targetHostile = true
         held.target, held.player, exists.target = nil, nil, nil
     end
     raidRoster = {}
@@ -11387,6 +11403,28 @@ local function EditorPass()
                 "wrap=" .. tostring(p.pieces.name:CanWordWrap()) .. "/real " .. tostring(real.name:CanWordWrap()),
                 "height=" .. n(p.pieces.name.h) .. "/real " .. n(real.name:GetHeight()))
         end
+    end
+    -- a value the game keeps secret (none here: blank) shows a sample, in
+    -- the format chosen
+    do
+        local edits, vt, pt = ns.db.editUnit, P.value.text, P.powerValue.text
+        local proxy
+        for _, p in ipairs(cv.proxies) do if p.shown and p.button == P then proxy = p end end
+        for _, f in ipairs({ { nil, nil }, { "both", "current" }, { "stacked", "percent" }, { "deficit", nil } }) do
+            local t = {}
+            for k, v in pairs(edits or {}) do t[k] = v end
+            t.value = f[1] and { format = f[1] } or nil
+            t.powerValue = f[2] and { format = f[2] } or nil
+            ns.SetOption("editUnit", t)
+            P.value.text, P.powerValue.text = "", ""
+            E.onApply()
+            print("  sample " .. tostring(f[1]) .. "/" .. tostring(f[2]),
+                "value=" .. tostring(proxy and proxy.pieces.value.text):gsub("\n", "\\n"),
+                "power=" .. tostring(proxy and proxy.pieces.powerValue.text))
+        end
+        ns.SetOption("editUnit", edits)
+        P.value.text, P.powerValue.text = vt, pt
+        E.onApply()
     end
     -- only the chosen piece is boxed
     local function boxed()
@@ -19628,6 +19666,27 @@ if profPass then
     P.Toggle()
     frame()
     state("prof.book again")
+    -- Blizzard reopens on the profession last open, whatever tab ours was
+    -- on: closed on Overview, its key (ToggleProfessionsBook) opens on
+    -- Overview; closed on the profession, on it; a profession's spell, on it
+    local function reopen(tag, how)
+        ToggleProfessionsBook()
+        frame()
+        how()
+        frame()
+        print("prof.reopen " .. tag, "page=" .. W.Current().key, "shown=" .. tostring(W.window:IsShown()))
+    end
+    P.Show(186)
+    frame()
+    click(W.pages[1].tab)
+    frame()
+    reopen("left on overview, by its key", ToggleProfessionsBook)
+    click(W.ByFrame("ProfessionsFrame") and W.pages[2].tab)
+    frame()
+    reopen("left on a profession, by its key", ToggleProfessionsBook)
+    click(W.pages[1].tab)
+    frame()
+    reopen("left on overview, by its spell", function() P.Show(186) end)
 end
 
 -- ------------------------------------------------------- the quest tracker
