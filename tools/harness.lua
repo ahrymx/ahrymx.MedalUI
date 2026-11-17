@@ -18920,6 +18920,9 @@ if profPass then
         print(tag .. " fit", "room=" .. tostring(ov.room), "pillar=" .. c1.h, "cool=" .. ov.cooldowns.h,
             "glass=" .. tostring(ov.cooldowns.glass.shown), "campFoot=" .. (-campY + ov.campH) .. "/" .. ov.body.h,
             "notches=" .. table.concat(ticks, ",") .. " lit=" .. tostring(bar.lit and bar.lit.shown),
+            string.format("night=%.0f+%.0f/%s%.0f/%.0f+%.0f", -select(5, ov.sky:GetPoint(1)), ov.sky:GetHeight(),
+                ov.horizon.shown and "hz" or "-", ov.horizon.shown and ov.horizon:GetHeight() or 0,
+                -select(5, ov.land:GetPoint(1)), ov.land:GetHeight()),
             string.format("sleek=%s fill=(%.2f,%.2f,%.2f) text=(%.2f,%.2f,%.2f)", tostring(bar.sleek),
                 bar.bar.barColor and bar.bar.barColor[1] or -1, bar.bar.barColor and bar.bar.barColor[2] or -1,
                 bar.bar.barColor and bar.bar.barColor[3] or -1, unpack(bar.text.textColor)))
@@ -18950,6 +18953,14 @@ if profPass then
         end
     end
     overview("prof.sections")
+    -- a very tall screen: the horizon's colour between the sky and the land
+    local room = ov.room
+    ov.Fit(1500)
+    local _, _, _, _, hy = ov.horizon:GetPoint(1)
+    print("prof.tall night", "room=1500", string.format("sky=%.0f+%.0f horizon=%s@%.0f+%.0f land=%.0f+%.0f",
+        -select(5, ov.sky:GetPoint(1)), ov.sky:GetHeight(), tostring(ov.horizon.shown), -hy, ov.horizon:GetHeight(),
+        -select(5, ov.land:GetPoint(1)), ov.land:GetHeight()))
+    ov.Fit(room)
     -- every tooltip the window shows stands outside it, at its left, level
     -- with what is hovered
     local function beside(tag, region)
@@ -19354,14 +19365,24 @@ if profPass then
     tabs("prof.first aid")
     cards("prof.card")
     -- Mining forgotten: its card says how to learn one, its tab goes
-    -- the pillars' engravings: the craft's, none on an unlearned pillar
+    -- the pillars' scenes: the craft's, none on an unlearned pillar, each
+    -- its foot as tall as the pillar; the night behind the rest, its sky
+    -- from the first heading under the pillars, its land on Camping's foot
     local function art(tag)
         local o = {}
         for i = 1, 2 do
             local a = ov.cards[i].art
-            table.insert(o, tostring(a.shown) .. ":" .. tostring(a.texture))
+            table.insert(o, tostring(a.shown) .. ":" .. tostring(a.texture) .. string.format(" h=%.1f/%d v0=%.3f",
+                a:GetHeight(), ov.cards[i].h, a.coords and a.coords[3] or -1))
         end
-        print(tag, table.concat(o, " | "), "camp=" .. tostring(ov.camp.art.texture) .. " h=" .. ov.camp.art:GetHeight())
+        local function at(t)
+            local _, _, _, _, y = t:GetPoint(1)
+            return string.format("%s@%.1fh%.1f", t.shown and "on" or "off", -y, t:GetHeight())
+        end
+        local _, _, _, _, campY = ov.camp:GetPoint()
+        print(tag, table.concat(o, " | "), "sky=" .. at(ov.sky), "horizon=" .. at(ov.horizon),
+            "land=" .. at(ov.land), "foot=" .. (-campY + ov.campH), "secondary@" .. select(5, ov.heads.secondary:GetPoint()),
+            "camp art=" .. tostring(ov.camp.art))
     end
     art("prof.pillar art")
     P.learned[2] = nil

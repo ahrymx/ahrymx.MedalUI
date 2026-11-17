@@ -32,7 +32,7 @@ local GOLD_D = { 0.541, 0.439, 0.204 }
 local ICON, ROW = 28, 40                -- a drawer row's icon, and the row
 local BUFF_W, BUFF, OBJ, OBJ_W, STRIP = 96, 24, 28, 42, 40     -- a buff's room and icon; an object's; a row
 local FROM = 3 * BUFF_W + 16            -- the objects' left: past the buffs and their hair
-local ART, ART_V = 132, 152 / 256       -- the engraved camp's height; its part of the texture
+local ART = 132                         -- the least height: the night's camp (professions/window.lua) under the row
 
 -- by the profession's skill line, in the cards' order: each line's tiers
 -- { object, skill, what it adds }, and the buff tier 1 gives
@@ -219,13 +219,8 @@ function W.Camp(body)
     local c = CreateFrame("Frame", nil, body)
     c.slots, c.tiles = {}, {}
     local width = ns.window.width
-    -- the engraved camp behind, the buffs and objects centred on it (row)
-    c.art = c:CreateTexture(nil, "BACKGROUND")
-    c.art:SetTexture(ns.media .. "professions\\camp")
-    c.art:SetTexCoord(0, 1, 0, ART_V)
-    c.art:SetPoint("TOPLEFT")
-    c.art:SetPoint("TOPRIGHT")
-    c.art:SetHeight(ART)
+    -- the buffs and objects centred in ART (row); behind them, the camp of
+    -- the Overview's night
     local row = CreateFrame("Frame", nil, c)
     row:SetPoint("TOPLEFT")
     row:SetPoint("TOPRIGHT")

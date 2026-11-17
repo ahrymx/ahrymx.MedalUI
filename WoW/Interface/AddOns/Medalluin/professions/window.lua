@@ -68,7 +68,12 @@ local GAP, ICON, SPELL, SMALL = 6, 40, 30, 24   -- a pillar's icon and spells; a
 local PILLAR = 190                      -- a primary's pillar, at the least
 local HALF = math.floor((ns.window.width - GAP) / 2)    -- a pillar's width
 local SPELL_Y = 140                     -- a pillar's spells' top
-local ART_V = 222 / 256                 -- a pillar's engraving: its part of the texture
+-- the art (art/professions/gen_overview.py): a pillar's scene the bottom
+-- 400 px of a 256x512, as wide as the pillar; the night's sky the top 346 px
+-- of a 512x512 and its land the bottom 401, as wide as the page; between
+-- them, on a tall screen, the horizon's colour
+local SCENE_PX, SKY_PX, LAND_PX, TEX = 400, 346, 401, 512
+local HORIZON = { 0x23 / 255, 0x25 / 255, 0x32 / 255 }
 local COOLDOWNS, COOL_ROW = 6, 24       -- the cooldowns listed, at most; a row
 local CROSS, FAINT = 16, 0.45           -- Unlearn's cross, and its alpha at rest
 local CARDS = 5                         -- two primaries and three secondaries
@@ -263,15 +268,11 @@ local function Card(body, pillar)
     c.unlearn = Cross(c)
     c.spells = {}
     if pillar then
-        -- its craft engraved behind (professions\<skill line>), none unlearned
-        -- (twice over: the engraving's own alpha is faint)
+        -- its craft's scene behind (professions\<skill line>), standing on
+        -- its foot, as much of it as the pillar is tall (Lay); none unlearned
         c.art = c:CreateTexture(nil, "BACKGROUND")
-        c.art:SetAllPoints()
-        c.art:SetTexCoord(0, 1, 0, ART_V)
-        c.art2 = c:CreateTexture(nil, "BACKGROUND", nil, 1)
-        c.art2:SetAllPoints()
-        c.art2:SetTexCoord(0, 1, 0, ART_V)
-        c.art2:SetAlpha(0.6)
+        c.art:SetPoint("BOTTOMLEFT")
+        c.art:SetPoint("BOTTOMRIGHT")
         c.icon:SetPoint("TOP", 0, -14)
         c.name:SetPoint("TOP", c.icon, "BOTTOM", 0, -8)
         c.bar:SetPoint("TOP", c.name, "BOTTOM", 0, -6)
@@ -315,8 +316,6 @@ local function Fill(c, prof)
     if c.art then
         c.art:SetShown(learned and prof.skillLine ~= nil)
         if learned and prof.skillLine then c.art:SetTexture(ns.media .. "professions\\" .. prof.skillLine) end
-        c.art2:SetShown(c.art:IsShown())
-        if learned and prof.skillLine then c.art2:SetTexture(ns.media .. "professions\\" .. prof.skillLine) end
     end
     c.icon:SetTexture(learned and prof.icon or NONE)
     c.icon:SetDesaturated(not learned)
@@ -553,8 +552,48 @@ function overview.Build(body, _, band)
     overview.camp.Changed = function() overview.Refresh() end
     overview.banner = W.Banner(body)
     overview.alts = W.AltsButton(band)
+    -- the night behind the secondaries, the cooldowns and Camping (Night)
+    local function Tex(sub)
+        local t = body:CreateTexture(nil, "BACKGROUND", nil, sub)
+        t:SetPoint("LEFT")
+        t:SetPoint("RIGHT")
+        return t
+    end
+    overview.sky, overview.horizon, overview.land = Tex(-2), Tex(-2), Tex(-1)
+    overview.sky:SetTexture(ns.media .. "professions\\sky")
+    overview.land:SetTexture(ns.media .. "professions\\land")
+    overview.horizon:SetColorTexture(HORIZON[1], HORIZON[2], HORIZON[3], 1)
     -- what it takes is measured as it is laid out (Refresh); until then, the cards
     overview.height = PILLAR + SEC_H + GAP
+end
+
+-- One scene from the first heading under the pillars down to Camping's
+-- foot: the sky hung from the top, the land standing on the foot, the
+-- horizon's colour between them when the room is taller than both; each
+-- cut to the room, never stretched.
+local function Night(top, foot)
+    local px = TEX / ns.window.width            -- the art's pixels to a unit
+    local room = foot - top
+    local function At(t, from, height, v0, v1)
+        t:ClearAllPoints()
+        t:SetPoint("TOPLEFT", 0, -from)
+        t:SetPoint("TOPRIGHT", 0, -from)
+        t:SetHeight(height)
+        t:SetTexCoord(0, 1, v0, v1)
+        t:Show()
+    end
+    local sky = math.min(SKY_PX / px, room)
+    At(overview.sky, top, sky, 0, sky * px / TEX)
+    local land = math.min(LAND_PX / px, room)
+    At(overview.land, foot - land, land, 1 - land * px / TEX, 1)
+    local gap = room - sky - land
+    overview.horizon:SetShown(gap > 0)
+    if gap > 0 then
+        overview.horizon:ClearAllPoints()
+        overview.horizon:SetPoint("TOPLEFT", 0, -(top + sky))
+        overview.horizon:SetPoint("TOPRIGHT", 0, -(top + sky))
+        overview.horizon:SetHeight(gap)
+    end
 end
 
 -- Top to bottom: the banner, the primaries side by side (W.Learned has
@@ -582,7 +621,6 @@ local function Lay(gap, grow, rest)
     Head(overview.heads.primary)
     local cards = overview.cards
     local tall, lift = PILLAR + grow, math.floor(grow / 3)
-    local span = PILLAR / tall
     for i = 1, 2 do
         local c = cards[i]
         c:ClearAllPoints()
@@ -590,8 +628,10 @@ local function Lay(gap, grow, rest)
         c:SetSize(HALF, tall)
         c:Show()
         c.icon:SetPoint("TOP", 0, -14 - lift)
-        c.art:SetTexCoord((1 - span) / 2, (1 + span) / 2, 0, ART_V)
-        c.art2:SetTexCoord((1 - span) / 2, (1 + span) / 2, 0, ART_V)
+        -- the scene's foot, as tall as the pillar (its art as wide)
+        local px = math.min(SCENE_PX, tall * 256 / HALF)
+        c.art:SetHeight(px * HALF / 256)
+        c.art:SetTexCoord(0, 1, 1 - px / TEX, 1)
         for k, sp in ipairs(c.spells) do
             sp:ClearAllPoints()
             sp:SetPoint("TOPLEFT", (c.from or 0) + (k - 1) * (SPELL + 8), -(SPELL_Y + lift))
@@ -609,6 +649,7 @@ local function Lay(gap, grow, rest)
         if learned[i] then table.insert(shown, c) end
     end
     overview.heads.secondary:SetShown(#shown > 0)
+    local night = y + gap
     if #shown > 0 then
         Head(overview.heads.secondary)
         for k, c in ipairs(shown) do
@@ -627,6 +668,7 @@ local function Lay(gap, grow, rest)
     camp:ClearAllPoints()
     camp:SetPoint("TOPLEFT", 0, -y)
     camp:SetPoint("TOPRIGHT", 0, -y)
+    Night(night, y + overview.campH)
     return y + overview.campH, heads
 end
 
