@@ -11598,8 +11598,8 @@ local function EditorPass()
             cx, cy = 100 + m[1], 100 + m[2]
             o.scripts.OnUpdate(o)
             local e = E.Edits(E.byId.unit, "buffs") or {}
-            seen[#seen + 1] = string.format("%s:%s,%s/%.2f", tostring(e.out), tostring(e.x), tostring(e.y),
-                cv.holder.scale or 1)
+            seen[#seen + 1] = string.format("%s:%s,%s/%.2f", tostring(e.out),
+                tostring(e.out and e.ox or e.x), tostring(e.out and e.oy or e.y), cv.holder.scale or 1)
         end
         o.scripts.OnMouseUp(o)
         GetCursorPosition = realCursor
@@ -11734,6 +11734,7 @@ local function EditorPass()
         local function placed() local e = E.Edits(E.byId.unit, "buffs") or {}
             return tostring(e.h) .. "/" .. tostring(e.v) .. " " .. tostring(e.x) .. "," .. tostring(e.y) end
         GetCursorPosition = realCursor
+        E.ResetPiece(E.byId.unit, "buffs")      -- (in the frame: a place to compare)
         drop(P, "left", "bottom", 30, -12)
         local atFit = placed()
         E.ResetPiece(E.byId.unit, "buffs")
@@ -11765,11 +11766,14 @@ local function EditorPass()
     choose("unit", "mine")
     set("cols", 2)
     out("debuffs in 2 columns")
-    -- a drag puts it back in the frame, where it is dropped
+    -- a drag moves it from its place outside, outside still (beside the
+    -- buffs: its own offset on theirs); Outside unticked puts it in
     drop(P, "left", "bottom", 8, -8)
-    print("  dragged in", "out=" .. tostring(E.Edits(E.byId.unit, "mine").out))
-    window("debuffs dragged in")
-    out("debuffs dragged in")
+    print("  dragged", "out=" .. tostring(E.Edits(E.byId.unit, "mine").out))
+    window("debuffs dragged")
+    out("debuffs dragged")
+    set("out", false)
+    out("debuffs in")
     E.ResetPiece(E.byId.unit, "mine")
     E.ResetPiece(E.byId.unit, "buffs")
     out("reset")
@@ -11932,6 +11936,30 @@ local function EditorPass()
     row("target inward, 2, size 20", T, "buffs")
     set("grow", "outer")
     row("target outward, 2", T, "buffs")
+    -- a row outside, dragged: it moves from its place there (its ox
+    -- outward, oy up) and stays outside, running as it ran (2026-11-17:
+    -- a drag turned Outside off); an arrow key nudges it so too
+    do
+        local keep = ns.db.editUnit
+        ns.SetOption("editUnit", false)
+        choose("unit", "buffs")
+        set("out", true)
+        row("target outside", T, "buffs")
+        local win = E.ui.Window()
+        local function stored()
+            local e = E.Edits(E.byId.unit, "buffs")
+            return "out=" .. tostring(get("out")) .. " ox=" .. tostring(e.ox) .. " oy=" .. tostring(e.oy)
+                .. " grow=" .. tostring(e.grow) .. " h=" .. tostring(e.h)
+        end
+        print("  outside dragged", drop(T, "left", "top", 10, 4), stored(), "fields=" .. fields())
+        row("target outside, dragged", T, "buffs")
+        row("player outside, dragged", P, "buffs")
+        win.scripts.OnKeyDown(win, "LEFT")
+        print("  outside nudged left", stored())
+        row("player outside, nudged", P, "buffs")
+        ns.SetOption("editUnit", keep)
+        choose("unit", "buffs")
+    end
     set("cols", 10)
     print("  one line", stored("editUnit"))
     set("max", 2)

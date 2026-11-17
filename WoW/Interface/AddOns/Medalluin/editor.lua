@@ -408,7 +408,9 @@ end
 -- first, so a move of it moves them all.
 local function Row(b, regions, shot, e, side)
     local own, gap = OwnRun(shot)
-    if e.h then Put(b, regions[1], e, side) end
+    -- no place: the first back at its own (a place taken away, its Grow
+    -- kept, left it where it was put)
+    if e.h then Put(b, regions[1], e, side) elseif shot[1] then Restore(regions[1], shot[1]) end
     local dx, dy = own, 0
     if e.grow == "up" then dx, dy = 0, 1
     elseif e.grow == "down" then dx, dy = 0, -1
@@ -447,6 +449,16 @@ local function OutEdge(b, frame, e)
         if e.out == "right" then return 1 end
     end
     return EdgeSide(b, frame)
+end
+
+E.OutEdge = OutEdge
+
+-- The Grow an Outside row keeps once placed (dragged, or a place set): the
+-- way it ran outside, toward its edge, as Row reads Grow on button b.
+function E.OutGrow(frame, e)
+    local b = frame.buttons()[1]
+    if not b then return nil end
+    return OutEdge(b, frame, e) == Side(b, frame) and "outer" or "inner"
 end
 
 -- A piece's edits as button b lays them: the debuffs matched to the buffs
@@ -496,8 +508,9 @@ function E.Stacked(frame, b)
 end
 
 -- A row outside its frame (its Outside): the first icon just past the
--- frame's end on its side, level with the frame's top, the rest running on
--- away from it, a new line every cols icons. The buffs and debuffs out on
+-- frame's end on its side, level with the frame's top, moved from there by
+-- its ox (outward) and oy (up), the rest running on away from it, a new
+-- line every cols icons. The debuffs beside the buffs move with them. The buffs and debuffs out on
 -- one side keep clear of each other: the debuffs under the buffs, over
 -- them, past them, or between them and the frame.
 local function OutRow(b, frame, piece, regions, shot, e)
@@ -513,6 +526,11 @@ local function OutRow(b, frame, piece, regions, shot, e)
         elseif by == "outer" then x = gap + bw end
     elseif by == "inner" then
         x = gap + Block(b, "mine", Edited(frame, b, "mine"))
+    end
+    x, y = x + (e.ox or 0), y + (e.oy or 0)
+    if by and piece == "mine" then
+        local buffs = Edited(frame, b, "buffs")
+        x, y = x + (buffs.ox or 0), y + (buffs.oy or 0)
     end
     local v = "TOP"
     local near, far = edge == -1 and "RIGHT" or "LEFT", edge == -1 and "LEFT" or "RIGHT"

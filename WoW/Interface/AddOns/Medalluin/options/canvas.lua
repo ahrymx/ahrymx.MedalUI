@@ -698,6 +698,14 @@ local function Drag(self)
     end
     -- the canvas is drawn larger: a pixel of the frame is scale of the screen's
     local dx, dy = (x - from.x) / from.scale, (y - from.y) / from.scale
+    -- a row outside its frame: moved from its place there, outside still
+    -- (no anchor to snap to: it hangs past the frame's end)
+    if from.out then
+        local ox = from.ox + from.way * math.floor(dx + 0.5)
+        local oy = from.oy + math.floor(dy + 0.5)
+        if ox ~= E.ui.OutField("ox") or oy ~= E.ui.OutField("oy") then E.ui.SetOut(ox, oy) end
+        return
+    end
     local box = from.rect
     local on = OnCopy(from.p, E.ui.PlaceField("on") or "health")
     local area = Rect(on)
@@ -774,6 +782,10 @@ local function Box(i)
         end
         self.from = { x = x, y = y, px = E.ui.PlaceField("x") or 0, py = E.ui.PlaceField("y") or 0,
             scale = self:GetEffectiveScale(), p = p, rect = rect, others = Others(p, self.piece) }
+        if E.ui.Out() then
+            local f = self.from
+            f.out, f.ox, f.oy, f.way = true, E.ui.OutField("ox"), E.ui.OutField("oy"), E.ui.OutWay(p.button)
+        end
     end)
     o:SetScript("OnMouseUp", function(self)
         local moved = self.from and self.from.moved
@@ -788,6 +800,8 @@ local function Box(i)
     o:SetScript("OnEnter", function(self)
         local bar = E.PIECES[self.piece].type == "bar"
         UI.Tip(self, E.PIECES[self.piece].label, bar and "Its height is the editor's, on the right."
+            or E.ui.Out() and "Drag to move it from its place outside the frame; it stays outside. The arrow "
+            .. "keys nudge it."
             or "Drag to move it: it hangs from the nearest corner, edge or middle, and snaps to the dots "
             .. "and to other pieces (Shift: no snapping). The arrow keys nudge it.")
     end)

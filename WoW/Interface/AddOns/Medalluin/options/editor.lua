@@ -60,6 +60,10 @@ end
 -- changed stays where it was. A row placed is in its frame again (Outside).
 local function SetPlace(fields)
     local write = { out = E.NIL }
+    -- a row outside, placed: it goes on running the way it ran out there
+    -- (2026-11-17: dragged, Outside went off and it turned to its own way)
+    local e = Edits()
+    if e.out and E.PIECES[piece].type == "row" then write.grow = E.OutGrow(frame, e) or E.NIL end
     if not Edits().h then
         for k, v in pairs(Seed()) do write[k] = v end
     end
@@ -67,6 +71,19 @@ local function SetPlace(fields)
     E.Set(frame, piece, write)
 end
 local function SetField(field, value) E.Set(frame, piece, { [field] = value }) end
+
+-- A row outside its frame moves from its place there (just past the
+-- frame's end) by ox, outward, and oy, up: a drag or a key moves it and it
+-- stays outside.
+local function Out() return E.PIECES[piece].type == "row" and Edits().out and true or false end
+local function SetOut(ox, oy)
+    E.Set(frame, piece, { ox = ox ~= 0 and ox or E.NIL, oy = oy ~= 0 and oy or E.NIL })
+end
+-- the way outward from button b's row, on the screen (-1 left, 1 right)
+local function OutWay(b)
+    b = b or frame.buttons()[1]
+    return b and E.OutEdge(b, frame, Edits()) or -1
+end
 
 local function Mirrored() return frame.id == "unit" or frame.id == "party" end
 
@@ -109,6 +126,14 @@ local function Specs()
             get = function() return PlaceField("x") or 0 end,
             set = function(v) SetPlace({ x = v }) end, text = Pixels,
             tip = "Pixels from the anchor, toward the frame's inner end (on the console) or right (a widget)." },
+        ox = { kind = "slider", label = "Outward", min = -300, max = 150,
+            get = function() return Edits().ox or 0 end,
+            set = function(v) SetOut(v, Edits().oy or 0) end, text = Pixels,
+            tip = "Pixels from its place just past the frame's end, away from the frame." },
+        oy = { kind = "slider", label = "Up", min = -60, max = 60,
+            get = function() return Edits().oy or 0 end,
+            set = function(v) SetOut(Edits().ox or 0, v) end, text = Pixels,
+            tip = "Pixels from its place level with the frame's top, up." },
         y = { kind = "slider", label = "Up", min = -60, max = 60,
             get = function() return PlaceField("y") or 0 end,
             set = function(v) SetPlace({ y = v }) end, text = Pixels,
@@ -156,8 +181,8 @@ local function Specs()
             get = function() return Edits().out == true end,
             set = function(v) SetField("out", v or E.NIL) end,
             tip = "Beyond the frame's outer end, running toward the screen's edge. With buffs and debuffs both "
-                .. "outside, the debuffs' Next to buffs says where they go. A drag puts the row back in the "
-                .. "frame." },
+                .. "outside, the debuffs' Next to buffs says where they go. A drag or the arrow keys move "
+                .. "it from there, outside still." },
         -- a widget's: which side, or toward the nearer edge of the screen
         side = { kind = "choice", label = "Place", choices = {
                 { "in", "Inside the frame" }, { "edge", "Toward screen edge" },
@@ -169,7 +194,7 @@ local function Specs()
             set = function(v) SetField("out", v == "edge" or (v ~= "in" and v) or E.NIL) end,
             tip = "Inside the frame, or beyond one of its ends, running away from it: toward the nearer edge of "
                 .. "the screen, or left or right. Buffs and debuffs out on the same side: the debuffs' Next to "
-                .. "buffs says where they go. A drag puts the row back in the frame." },
+                .. "buffs says where they go. A drag or the arrow keys move it from there, outside still." },
         -- the debuffs', while both rows are out on one side
         by = { kind = "choice", label = "Next to buffs", choices = {},
             get = function() return Edits().by or "below" end,
@@ -231,11 +256,13 @@ local function Tabs()
     -- the debuffs out with the buffs: a size of the buffs' to take
     local buffs = E.Edits(frame, "buffs")
     if piece == "mine" and Edits().out and buffs and buffs.out then look = { "match", "size" } end
-    -- a row outside its frame is placed by that: no place, no way to grow
+    -- a row outside its frame is placed by that, moved from there: no
+    -- anchor, no way to grow
     if Edits().out then
-        place = { out, "cols" }
-        -- the debuffs out on the buffs' side: where, beside them
-        if piece == "mine" and E.Stacked(frame, frame.buttons()[1]) then place = { out, "by", "cols" } end
+        place = { out, "ox", "oy", "cols" }
+        -- the debuffs out on the buffs' side: where, beside them (and moved
+        -- with them)
+        if piece == "mine" and E.Stacked(frame, frame.buttons()[1]) then place = { out, "by", "ox", "oy", "cols" } end
     else
         place = { out, "on", "x", "y", "grow", "cols" }
     end
@@ -536,10 +563,14 @@ local ARROWS = { LEFT = { -1, 0 }, RIGHT = { 1, 0 }, UP = { 0, 1 }, DOWN = { 0, 
 local function Key(self, key)
     local step = ARROWS[key]
     local kind = E.PIECES[piece].type
-    -- (a row outside its frame is placed by that)
-    local move = step and kind ~= "cell" and kind ~= "bar" and not Edits().out
+    local move = step and kind ~= "cell" and kind ~= "bar"
     if not InCombatLockdown() then self:SetPropagateKeyboardInput(not move) end
     if not move then return end
+    -- a row outside: moved from its place there, outside still
+    if Out() then
+        local e = Edits()
+        return SetOut((e.ox or 0) + OutWay() * step[1], (e.oy or 0) + step[2])
+    end
     local b = frame.buttons()[1]
     local side = Mirrored() and b and E.Side(b, frame) or -1
     SetPlace({ x = (PlaceField("x") or 0) - side * step[1], y = (PlaceField("y") or 0) + step[2] })
@@ -1065,6 +1096,11 @@ E.ui = {
     Chosen = function() return frame, piece end,
     PlaceField = PlaceField,
     SetPlace = SetPlace,
+    -- a row outside: its ox and oy, set; the way outward from a button
+    Out = function() return Out() end,
+    OutField = function(field) return Edits()[field] or 0 end,
+    SetOut = SetOut,
+    OutWay = OutWay,
     Mirrored = function() return Mirrored() end,
     Window = function() return window end,
     -- why the frame is not on screen now, over the canvas ("" while it is)
