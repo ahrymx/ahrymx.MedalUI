@@ -20,7 +20,7 @@
 --                               before the label: a dot, a tree's branch (├ └),
 --                               its stem going on past a wrapped line (│), or room
 --       group                   rows with the same group light together under
---                               the pointer, the row's own glow then off
+--                               the pointer, the row's own glow over that
 --       wash = { r, g, b, a }   its band's colour (the waypoint's quest)
 --     list:Draw()      again, at the same scroll (after the body's height changes)
 --     list.fade = true  headings fade out to the right (the quest tracker's,
@@ -327,7 +327,6 @@ local function Paint(r, d, list)
     local lead = d.lead and d.leadWidth or LEAD
     Lead(r, d, x, lead, d.dim and ns.colors.dim or d.color or ns.colors.text)
     if d.lead then x = x + lead end
-    r.glow:SetShown(d.group == nil)
     r.lit:SetShown(d.group ~= nil and d.group == list.lit)
     r.label:ClearAllPoints()
     r.label:SetPoint("LEFT", x, 0)

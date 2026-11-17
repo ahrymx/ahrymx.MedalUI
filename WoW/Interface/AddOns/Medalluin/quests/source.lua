@@ -517,14 +517,33 @@ function Q.Click(quest, mouse)
     end
 end
 
-function Q.Keys(quest)
+-- An objective as a line for the chat ("0/1 Old Murk-Eye slain"): its
+-- count first, as the quest page's chat button puts it (quests/page.lua)
+function Q.ObjectiveLine(o)
+    if not o.text:match("%d+%s*/%s*%d+") then return o.text end
+    local have, need = Q.Count(o)
+    return have .. "/" .. need .. " " .. Q.Words(o)
+end
+
+-- An objective's row clicks as its quest's, but a Shift-click puts the
+-- objective's line in the chat box, not the quest's link
+function Q.ClickObjective(quest, o, mouse)
+    if o and ns.Linking(mouse) then
+        Q.LinkInChat(Q.ObjectiveLine(o))
+        return
+    end
+    return Q.Click(quest, mouse)
+end
+
+-- objective: the row is one of the quest's objectives (Shift puts it in chat)
+function Q.Keys(quest, objective)
     local WP = ns.waypoint
     -- a word each, in the tooltip's grid of two by three, each in its place:
     -- one that does nothing here leaves its slot empty ({ "key" })
     local none = { "key" }
     return {
         { "key", "left", nil, "Page" },
-        { "key", "left", "Shift", "Link" },
+        { "key", "left", "Shift", objective and "Objective" or "Link" },
         WP and WP.Has() and { "key", "left", "Ctrl", "Waypoint" } or none,
         Questie() and { "key", "left", "Alt", "Focus" } or none,
         { "key", "right", nil, IsTracked(quest) and "Untrack" or "Track" },

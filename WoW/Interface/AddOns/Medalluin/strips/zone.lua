@@ -19,7 +19,8 @@
 -- tracker (Q.Click, quests/source.lua; its tooltip's key lines say how):
 -- its page, Shift a link, Ctrl the waypoint (its lines washed blue, its
 -- distance after its title), Alt Questie's focus, right click tracked or
--- not, middle click the map. Its + or - on the left, a button of its own,
+-- not, middle click the map; an objective's row the same, but Shift puts
+-- its line in the chat box. Its + or - on the left, a button of its own,
 -- opens its objectives under it or closes them.
 --
 -- A quest with a usable item (quests/source.lua's q.item, as the tracker's)
@@ -210,16 +211,34 @@ local function Tip(r)
     local spec = { title = q.title,
         { "body", "Level " .. q.level .. (state and ("  \194\183  " .. state) or "") },
         { "body", q.tracked and "Tracked." or "Not tracked." } }
-    for _, k in ipairs(ns.questSource.Keys(q)) do table.insert(spec, k) end
+    for _, k in ipairs(ns.questSource.Keys(q, r.line.objective)) do table.insert(spec, k) end
     ns.Tip(r, ns.side.Beside, spec)
 end
 
 local Refresh
 
+-- Under the pointer, a quest's rows all lit together (its title, its
+-- objectives, its item), and the row itself glowing over that, as the
+-- quest tracker's (character/list.lua); nil: none lit
+local litQuest
+local function Light(id)
+    litQuest = id
+    for _, r in ipairs(rows) do
+        r.lit:SetShown(id ~= nil and r.line ~= nil and r.line.quest ~= nil and r.line.quest.id == id)
+    end
+end
+
 local function Row()
     local r = CreateFrame("Button", nil, list)
     r.stripe = r:CreateTexture(nil, "BACKGROUND")
     r.stripe:SetAllPoints()
+    r.lit = r:CreateTexture(nil, "BACKGROUND", nil, 4)
+    r.lit:SetAllPoints()
+    r.lit:SetColorTexture(1, 1, 1, 0.06)
+    r.lit:Hide()
+    r.glow = r:CreateTexture(nil, "HIGHLIGHT")
+    r.glow:SetAllPoints()
+    r.glow:SetColorTexture(1, 1, 1, 0.06)
     r.fold = ns.Text(r, 11)
     r.fold:SetPoint("LEFT", 3, 0)
     r.fold:SetTextColor(unpack(GOLD_D))
@@ -238,11 +257,13 @@ local function Row()
     r.folder:SetScript("OnEnter", function(self)
         local q = r.line and r.line.quest
         if not q then return end
+        Light(q.id)
         r.fold:SetTextColor(unpack(GOLD))
         ns.Tip(self, ns.side.Beside, { title = open[q.id] and "Hide its objectives." or "Show its objectives.",
             color = ns.colors.white, wrap = true })
     end)
     r.folder:SetScript("OnLeave", function()
+        Light(nil)
         r.fold:SetTextColor(unpack(GOLD_D))
         GameTooltip:Hide()
     end)
@@ -285,13 +306,20 @@ local function Row()
     r:SetScript("OnClick", function(self, mouse)
         local q = self.line and self.line.quest
         if not q or self.line.item then return end
-        -- (a waypoint is drawn again by its change)
-        if ns.questSource.Click(q, mouse) ~= "track" then return end
+        -- (a waypoint is drawn again by its change); an objective's
+        -- Shift-click puts its line in the chat box
+        if ns.questSource.ClickObjective(q, self.line.objective, mouse) ~= "track" then return end
         Refresh()
         if GameTooltip:IsOwned(self) then Tip(self) end
     end)
-    r:SetScript("OnEnter", Tip)
-    r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    r:SetScript("OnEnter", function(self)
+        Light(self.line and self.line.quest and self.line.quest.id)
+        Tip(self)
+    end)
+    r:SetScript("OnLeave", function()
+        Light(nil)
+        GameTooltip:Hide()
+    end)
     ns.side.PassWheel(r)
     return r
 end
@@ -311,6 +339,7 @@ local function Fill(r, line, odd, top)
     r.rule:Hide()
     r.folder:Hide()
     local q, o, item = line.quest, line.objective, line.item
+    r.lit:SetShown(litQuest ~= nil and q ~= nil and q.id == litQuest)
     r.text:ClearAllPoints()
     r.far = nil
     r.icon:SetShown(item and true or false)
@@ -346,7 +375,8 @@ local function Fill(r, line, odd, top)
         r.text:SetText(words)
         r.text:SetTextColor(unpack(DIM))
         r.sword:SetShown(kill)
-        r:EnableMouse(false)
+        -- its own clicks (Shift: its line in the chat box) and its quest's tooltip
+        r:EnableMouse(true)
         Wash(r, q)
     else
         local have, need = Progress(q)

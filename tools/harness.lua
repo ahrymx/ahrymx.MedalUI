@@ -7212,6 +7212,53 @@ if sidePass then
             row(2).scripts.OnClick(row(2), "LeftButton")
             modsDown.SHIFT = false
             print("zone shift-click, no box open", "opened=" .. table.concat(opened, ","))
+            -- an objective's row: Shift puts its line in the chat box, as the
+            -- quest page's button; its tooltip says so; a click its quest's page
+            ChatEdit_InsertLink = function(l) table.insert(linked, tostring(l)) return true end
+            linked = {}
+            fold(1)
+            local orow
+            for i = 2, 6 do
+                local r = row(i)
+                if r and r.line and r.line.objective then orow = r break end
+            end
+            -- (it must take the mouse: a click and the tooltip are the row's own)
+            print("zone objective keys", orow and keys(orow) or "no objective row",
+                "mouse=" .. tostring(orow and orow:IsMouseEnabled()))
+            if orow then
+                -- the pointer over it lights its quest's rows, the row's own
+                -- glow over that (as the tracker's); away, none
+                local function lit()
+                    local out, list = {}, select(2, z.body:GetChildren())
+                    for _, r in ipairs(list.all_) do
+                        if r.kind == "Button" and r.shown and r.lit and r.lit.shown then
+                            table.insert(out, (tostring(r.text.text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")))
+                        end
+                    end
+                    return #out > 0 and table.concat(out, " / ") or "none"
+                end
+                orow.scripts.OnEnter(orow)
+                print("zone objective lit", lit(), "glow=" .. tostring(orow.glow.shown) .. "/" .. orow.glow.layer)
+                orow.scripts.OnLeave(orow)
+                print("zone objective unlit", lit())
+                modsDown.SHIFT = true
+                orow.scripts.OnClick(orow, "LeftButton")
+                modsDown.SHIFT = false
+                print("zone objective shift-click", "linked=" .. table.concat(linked, ","),
+                    "text=" .. tostring(orow.line.objective.text), "page=" .. tostring(ns.questPage.Current()))
+                ChatEdit_InsertLink = function() return false end
+                opened = {}
+                modsDown.SHIFT = true
+                orow.scripts.OnClick(orow, "LeftButton")
+                orow.scripts.OnClick(orow, "RightButton")
+                modsDown.SHIFT = false
+                print("zone objective shift-click, no box open", "opened=" .. table.concat(opened, ","))
+                orow.scripts.OnClick(orow, "RightButton")
+                orow.scripts.OnClick(orow, "LeftButton")
+                print("zone objective click", "page=" .. tostring(ns.questPage.Current()))
+                orow.scripts.OnClick(orow, "LeftButton")
+            end
+            fold(1)
             ChatFrame_OpenChat, ChatFrameUtil = open, util
             ChatEdit_InsertLink, GetQuestLink = insert, link
         end)()
@@ -20160,7 +20207,9 @@ if questPass and not questLogPass then
     hidden("quests.hide off again")
 
     -- 12. reading. The pointer over an objective lights its quest and all
-    -- its objectives, its own glow off; away, none
+    -- its objectives; away, none. Each row's glow (glows=, every row that
+    -- may glow) is its HIGHLIGHT, the game's under the pointer alone: the
+    -- row under it shows over its quest's light
     T.Refresh()
     local function lit(tag)
         local out = {}
@@ -20180,6 +20229,35 @@ if questPass and not questLogPass then
     print("quests.lit tip", "owner=" .. tostring(GameTooltip.owner == over))
     over.scripts.OnClick(over, "LeftButton")
     calls("quests.lit click")
+    -- an objective's row: Shift puts its line in the chat box (as the quest
+    -- page's button), its tooltip saying so; Shift+right still tracks
+    ;(function()
+        local orow
+        for _, r in ipairs(list.rows) do
+            if r.shown and r.data and r.data.objective then orow = r break end
+        end
+        local linked, insert, modified, tipKeys = {}, ChatEdit_InsertLink, IsModifiedClick, ns.TipKeys
+        ChatEdit_InsertLink = function(l) table.insert(linked, tostring(l)) return true end
+        local shift = "?"
+        ns.TipKeys = function(keys)
+            for _, k in ipairs(keys) do if k[3] == "Shift" then shift = k[4] end end
+            return tipKeys(keys)
+        end
+        orow.scripts.OnEnter(orow)
+        ns.TipKeys = tipKeys
+        IsModifiedClick = function(action) return action == "CHATLINK" and modsDown.SHIFT end
+        modsDown.SHIFT = true
+        orow.scripts.OnClick(orow, "LeftButton")
+        modsDown.SHIFT = false
+        print("quests.objective shift-click", "row=" .. plain(orow.label.text), "linked=" .. table.concat(linked, ","),
+            "tip shift=" .. shift)
+        IsModifiedClick, ChatEdit_InsertLink = modified, insert
+        print("quests.objective glow", "mouse=" .. tostring(orow:IsMouseEnabled()),
+            "glow=" .. tostring(orow.glow.shown) .. " layer=" .. tostring(orow.glow.layer),
+            "lit=" .. tostring(orow.lit.shown))
+        orow.scripts.OnLeave(orow)
+        over.scripts.OnEnter(over)
+    end)()
     -- the rows drawn again under it (a scroll): the light keeps to its quest
     list:Scroll(1)
     lit("quests.lit scrolled")

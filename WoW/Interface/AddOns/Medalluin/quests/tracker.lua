@@ -46,7 +46,8 @@
 -- Its objectives under it, bulleted; or, as a tree (questsTree), on the
 -- branches of one (├ └), the finished ones risen to the top. The quest
 -- and its objectives light together under the pointer, and each of them
--- clicks as the quest does. The titles and the objectives each have their
+-- clicks as the quest does, but Shift puts the objective's line in the
+-- chat box (Q.ClickObjective), as the quest page's button. The titles and the objectives each have their
 -- font and size (questsTitleFont, questsTitleSize, and the objectives');
 -- every row is as tall as the larger needs.
 --
@@ -194,7 +195,7 @@ local function Colour(q)
 end
 ns.QuestColour = Colour         -- the quest log's rows (quests/log.lua)
 
-local function Tip(row, q)
+local function Tip(row, q, objective)
     ns.window.Outside(row)
     local link = GetQuestLink and GetQuestLink(q.id)
     if link then
@@ -203,7 +204,7 @@ local function Tip(row, q)
         GameTooltip:SetText(q.title, GOLD[1], GOLD[2], GOLD[3])
         for _, o in ipairs(q.objectives) do GameTooltip:AddLine(o.text, 1, 1, 1) end
     end
-    ns.TipKeys(Q.Keys(q))       -- the clicks, as the log's and the Zone tab's (quests/source.lua)
+    ns.TipKeys(Q.Keys(q, objective))   -- the clicks, as the log's and the Zone tab's (quests/source.lua)
     GameTooltip:Show()
 end
 
@@ -313,10 +314,13 @@ local function Rows()
                     click = click, middle = middle, enter = enter })
                 local objectives = Objectives(q)
                 for i, o in ipairs(objectives) do
+                    -- as the quest's, but Shift puts the objective in the chat box
+                    local oclick = function(button) Q.ClickObjective(q, o, button) end
+                    local oenter = function(row) Tip(row, q, o) end
                     for j, line in ipairs(Wrap(o.text)) do
                         table.insert(rows, { label = line, depth = 1, pad = pad, lead = Lead(j, i == #objectives),
                             leadWidth = LEAD, dim = o.done, font = objective, group = q.id, wash = wash,
-                            click = click, middle = middle, enter = enter })
+                            objective = o, click = oclick, middle = middle, enter = oenter })
                     end
                 end
             end
