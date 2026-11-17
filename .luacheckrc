@@ -15,6 +15,9 @@ unused_args = false
 read_globals = {
     -- the professions book's toggle (its key, the micro button), hooked
     "ToggleProfessionsBook",
+    "GetInspectSpecialization", "GetSpecializationInfoByID", "InspectFrame", "InspectUnit", "GetInspectHonorData",
+    "InspectPaperDollFrame", "UnitHonorLevel", "GetNumTalentTabs", "GetTalentTabInfo", "UnitPVPRank", "GetPVPRankInfo",
+    "C_PaperDollInfo", "GetInspectArenaData",
     -- the NPC windows (npc/): gossip, the quest pages, the vendor
     "AcceptQuest", "AcknowledgeAutoAcceptQuest", "BuyMerchantItem", "BuybackItem", "C_MerchantFrame",
     "CanGuildBankRepair", "CanMerchantRepair", "ChatEdit_GetActiveWindow", "CloseMerchant", "CloseQuest",

@@ -44,214 +44,286 @@ local SWITCH = 22 + 6                           -- the details' switch, and the 
 local VIEWS = { { "stats", "Stats", "Your stats." }, { "titles", "Titles", "Wear a title you have earned." },
     { "sets", "Sets", "Your equipment sets." } }
 
-local page
-local body, name, line, model, divider, belt
-local size, pitch, cols = SLOT, PITCH, HEAD     -- a slot, a row, the columns' top: Fit's
-local slots, weapons = {}, {}
-local placing = false
+local page, doll
 local views, view = {}, "stats"                 -- the details' parts, and the one shown
 
--- ---------------------------------------------------------------- slots
-local function Icon(btn)
-    return btn.icon or _G[btn:GetName() .. "IconTexture"]
-end
+-- ------------------------------------------------------------------ doll
+-- The name, the class line, the gear round the model and the weapons
+-- under it, fitted to the height there is: the character page's, and the
+-- inspect window's (inspect/page.lua), each its own.
+--   ns.character.Doll{ prefix ("Character": Blizzard's CharacterHeadSlot
+--     and the rest; "Inspect": InspectHeadSlot...), Unit() -> the unit,
+--     page (its height; Fit writes page.fit) }
+--   -> { Build(body), Fit(h), Refresh(), SetModel(), slots, weapons, model }
+function ns.character.Doll(spec)
+    local d = {}
+    local body, name, line, model, divider, belt
+    local size, pitch, cols = SLOT, PITCH, HEAD     -- a slot, a row, the columns' top: Fit's
+    local slots, weapons = {}, {}
+    local placing = false
+    local function Unit() return spec.Unit() or "player" end
 
-local function Quality(slot)
-    local q = GetInventoryItemQuality("player", slot)
-    if q and q > 1 then
-        local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
-        if c then return c.r, c.g, c.b end
+    -- ------------------------------------------------------------ slots
+    local function Icon(btn)
+        return btn.icon or _G[btn:GetName() .. "IconTexture"]
     end
-    return GOLD_D[1], GOLD_D[2], GOLD_D[3]
-end
 
-local function ItemLevel(slot)
-    local link = GetInventoryItemLink("player", slot)
-    if not link then return end
-    if C_Item and C_Item.GetCurrentItemLevel and ItemLocation and ItemLocation.CreateFromEquipmentSlot then
-        local loc = ItemLocation:CreateFromEquipmentSlot(slot)
-        if loc and loc:IsValid() then return C_Item.GetCurrentItemLevel(loc) end
+    local function Quality(slot)
+        local q = GetInventoryItemQuality(Unit(), slot)
+        if q and q > 1 then
+            local c = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+            if c then return c.r, c.g, c.b end
+        end
+        return GOLD_D[1], GOLD_D[2], GOLD_D[3]
     end
-    if GetDetailedItemLevelInfo then return (GetDetailedItemLevelInfo(link)) end
-end
 
--- the edge in the item's quality, its level under it
-local function Paint(btn)
-    local slot = btn:GetID()
-    btn.edge:SetColorTexture(Quality(slot))
-    local level = not PLAIN[btn.slotName] and ItemLevel(slot)
-    btn.level:SetText(level and level > 0 and tostring(level) or "")
-end
+    local function ItemLevel(slot)
+        local unit = Unit()
+        local link = GetInventoryItemLink(unit, slot)
+        if not link then return end
+        -- the item's own place reads its level as worn: the player's only
+        if unit == "player" and C_Item and C_Item.GetCurrentItemLevel and ItemLocation
+            and ItemLocation.CreateFromEquipmentSlot then
+            local loc = ItemLocation:CreateFromEquipmentSlot(slot)
+            if loc and loc:IsValid() then return C_Item.GetCurrentItemLevel(loc) end
+        end
+        local detailed = GetDetailedItemLevelInfo or (C_Item and C_Item.GetDetailedItemLevelInfo)
+        if detailed then return (detailed(link)) end
+    end
+    d.ItemLevel = ItemLevel
 
--- Blizzard's slot art (its frame, its quality ring) gives way to an edge
--- like the bag slots'; put back whenever Blizzard re-sets it.
-local function Restyle(btn)
-    ns.Mute(btn:GetNormalTexture())
-    ns.Mute(btn.IconBorder)
-end
+    -- the edge in the item's quality, its level under it
+    local function Paint(btn)
+        local slot = btn:GetID()
+        btn.edge:SetColorTexture(Quality(slot))
+        local level = not PLAIN[btn.slotName] and ItemLevel(slot)
+        btn.level:SetText(level and level > 0 and tostring(level) or "")
+    end
 
-local function Style(btn, slotName)
-    btn.slotName = slotName
-    local icon = Icon(btn)
-    if icon then
-        icon:ClearAllPoints()
-        icon:SetPoint("TOPLEFT", 1, -1)
-        icon:SetPoint("BOTTOMRIGHT", -1, 1)
-        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    -- Blizzard's slot art (its frame, its quality ring) gives way to an edge
+    -- like the bag slots'; put back whenever Blizzard re-sets it.
+    local function Restyle(btn)
+        ns.Mute(btn:GetNormalTexture())
+        ns.Mute(btn.IconBorder)
     end
-    btn.edge = btn:CreateTexture(nil, "BACKGROUND", nil, -1)
-    btn.edge:SetAllPoints()
-    btn.level = ns.Text(btn, 11)
-    btn.level:SetPoint("BOTTOM", 0, 2)
-    Restyle(btn)
-    -- Shift-click with no chat box open: the chat opened with its link (the
-    -- game's slot puts it only into a box being typed in)
-    btn:HookScript("OnClick", function(self, button)
-        if not ns.Linking(button) or ns.ChatOpen() or CursorHasItem() then return end
-        ns.LinkInChat(GetInventoryItemLink("player", self:GetID()))
-    end)
-    for _, method in ipairs({ "SetNormalTexture", "SetNormalAtlas" }) do
-        if btn[method] then hooksecurefunc(btn, method, Restyle) end
-    end
-end
 
--- The columns, and the weapons row closed up and centred under the model.
--- the weapons row's top: under the columns' last slot
-local function WeaponsTop()
-    return cols + (#LEFT - 1) * pitch + size + (PITCH - SLOT) + GAP
-end
-
-local function Place()
-    placing = true
-    local width = ns.character.width
-    for _, btn in ipairs(slots) do
-        local col = btn.side
-        btn:ClearAllPoints()
-        btn:SetSize(size, size)
-        btn:SetPoint(col < 0 and "TOPLEFT" or "TOPRIGHT", body, col < 0 and "TOPLEFT" or "TOPRIGHT",
-            0, -(cols + (btn.row - 1) * pitch))
-    end
-    local shown = {}
-    for _, btn in ipairs(weapons) do
-        if btn:IsShown() then table.insert(shown, btn) end
-    end
-    local across = #shown * size + math.max(0, #shown - 1) * GAP
-    local x = (width - across) / 2
-    local y = WeaponsTop()
-    for _, btn in ipairs(shown) do
-        btn:ClearAllPoints()
-        btn:SetSize(size, size)
-        btn:SetPoint("TOPLEFT", body, "TOPLEFT", x, -y)
-        x = x + size + GAP
-    end
-    -- a gold rule out from each side of the row, to the columns
-    if belt then
-        local mid = -(y + size / 2)
-        local reach = (width - across) / 2 - BELT - (size + GAP)
-        for i, rule in ipairs(belt) do
-            rule:ClearAllPoints()
-            rule:SetWidth(math.max(0, reach))
-            rule:SetShown(reach > 0)
-            if i == 1 then
-                rule:SetPoint("TOPLEFT", body, "TOPLEFT", size + GAP, mid)
-            else
-                rule:SetPoint("TOPRIGHT", body, "TOPRIGHT", -(size + GAP), mid)
-            end
+    local function Style(btn, slotName)
+        btn.slotName = slotName
+        local icon = Icon(btn)
+        if icon then
+            icon:ClearAllPoints()
+            icon:SetPoint("TOPLEFT", 1, -1)
+            icon:SetPoint("BOTTOMRIGHT", -1, 1)
+            icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        end
+        btn.edge = btn:CreateTexture(nil, "BACKGROUND", nil, -1)
+        btn.edge:SetAllPoints()
+        btn.level = ns.Text(btn, 11)
+        btn.level:SetPoint("BOTTOM", 0, 2)
+        Restyle(btn)
+        -- Shift-click with no chat box open: the chat opened with its link (the
+        -- game's slot puts it only into a box being typed in)
+        btn:HookScript("OnClick", function(self, button)
+            if not ns.Linking(button) or ns.ChatOpen() or CursorHasItem() then return end
+            ns.LinkInChat(GetInventoryItemLink(Unit(), self:GetID()))
+        end)
+        for _, method in ipairs({ "SetNormalTexture", "SetNormalAtlas" }) do
+            if btn[method] then hooksecurefunc(btn, method, Restyle) end
         end
     end
-    placing = false
-end
 
-local function Take(slotName, side, row)
-    local btn = _G["Character" .. slotName .. "Slot"]
-    if not btn then return end
-    btn:SetParent(body)
-    btn:SetFrameLevel(body:GetFrameLevel() + 2)
-    Style(btn, slotName)
-    btn.side, btn.row = side, row
-    if side then table.insert(slots, btn) else table.insert(weapons, btn) end
-    hooksecurefunc(btn, "SetPoint", function()
-        if not placing then Place() end
-    end)
-    return btn
-end
-
--- ---------------------------------------------------------------- model
--- The player, turned by dragging across it.
-local function Frame()
-    model:ClearAllPoints()
-    model:SetPoint("TOPLEFT", body, "TOPLEFT", size + GAP, -cols)
-    model:SetPoint("BOTTOMRIGHT", body, "TOPRIGHT", -(size + GAP), -(cols + (#LEFT - 1) * pitch + size))
-end
-
-local function Model()
-    model = CreateFrame("PlayerModel", nil, body)
-    local well = model:CreateTexture(nil, "BACKGROUND")
-    well:SetAllPoints()
-    well:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.05)
-    Frame()
-    model:EnableMouse(true)
-    model:SetScript("OnMouseDown", function(self, button)
-        if button == "LeftButton" then self.from = GetCursorPosition() end
-    end)
-    model:SetScript("OnMouseUp", function(self) self.from = nil end)
-    model:SetScript("OnUpdate", function(self)
-        if not self.from then return end
-        local x = GetCursorPosition()
-        self:SetFacing((self:GetFacing() or 0) + (x - self.from) * TURN)
-        self.from = x
-    end)
-end
-
--- ------------------------------------------------------------------ fit
--- The page has h, at least page.height: the divider first, then bigger
--- slots (nine of them stand in a column with the weapons), then room
--- between the rows (seven gaps), then the rest in three: above the name,
--- round the divider, under the weapons.
-local function Fit(h)
-    local extra = math.max(0, h - page.height)
-    local shown = extra >= DIVIDER
-    local room = shown and DIVIDER or 0
-    extra = extra - room
-    size = math.min(SLOT_MAX, SLOT + math.floor(extra / 9))
-    extra = extra - 9 * (size - SLOT)
-    local spare = math.min(SPREAD, math.floor(extra / 7))
-    extra = extra - 7 * spare
-    pitch = size + (PITCH - SLOT) + spare
-    local top = math.floor(extra / 3)
-    room = room + top
-    cols = top + HEAD + room
-    name:ClearAllPoints()
-    name:SetPoint("TOP", 0, -(top + 2))
-    divider:SetShown(shown)
-    divider:ClearAllPoints()
-    divider:SetPoint("TOPLEFT", body, "TOPLEFT", 40, -(top + HEAD + (room - 12) / 2))
-    divider:SetPoint("TOPRIGHT", body, "TOPRIGHT", -40, -(top + HEAD + (room - 12) / 2))
-    Frame()
-    Place()
-    page.fit = { size = size, pitch = pitch, top = top, cols = cols, divider = shown }
-end
-
--- ----------------------------------------------------------------- head
-local function ClassLine()
-    local className = UnitClass("player")
-    local spec
-    if GetSpecialization and GetSpecializationInfo then
-        local i = GetSpecialization()
-        spec = i and select(2, GetSpecializationInfo(i))
+    -- The columns, and the weapons row closed up and centred under the model.
+    -- the weapons row's top: under the columns' last slot
+    local function WeaponsTop()
+        return cols + (#LEFT - 1) * pitch + size + (PITCH - SLOT) + GAP
     end
-    local who = spec and format("%s (%s)", className, spec) or className
-    return format("%s  Level %d", who or "", UnitLevel("player") or 0)
+
+    local function Place()
+        placing = true
+        local width = ns.character.width
+        for _, btn in ipairs(slots) do
+            local col = btn.side
+            btn:ClearAllPoints()
+            btn:SetSize(size, size)
+            btn:SetPoint(col < 0 and "TOPLEFT" or "TOPRIGHT", body, col < 0 and "TOPLEFT" or "TOPRIGHT",
+                0, -(cols + (btn.row - 1) * pitch))
+        end
+        local shown = {}
+        for _, btn in ipairs(weapons) do
+            if btn:IsShown() then table.insert(shown, btn) end
+        end
+        local across = #shown * size + math.max(0, #shown - 1) * GAP
+        local x = (width - across) / 2
+        local y = WeaponsTop()
+        for _, btn in ipairs(shown) do
+            btn:ClearAllPoints()
+            btn:SetSize(size, size)
+            btn:SetPoint("TOPLEFT", body, "TOPLEFT", x, -y)
+            x = x + size + GAP
+        end
+        -- a gold rule out from each side of the row, to the columns
+        if belt then
+            local mid = -(y + size / 2)
+            local reach = (width - across) / 2 - BELT - (size + GAP)
+            for i, rule in ipairs(belt) do
+                rule:ClearAllPoints()
+                rule:SetWidth(math.max(0, reach))
+                rule:SetShown(reach > 0)
+                if i == 1 then
+                    rule:SetPoint("TOPLEFT", body, "TOPLEFT", size + GAP, mid)
+                else
+                    rule:SetPoint("TOPRIGHT", body, "TOPRIGHT", -(size + GAP), mid)
+                end
+            end
+        end
+        placing = false
+    end
+    d.Place = Place
+
+    local function Take(slotName, side, row)
+        local btn = _G[spec.prefix .. slotName .. "Slot"]
+        if not btn then return end
+        btn:SetParent(body)
+        btn:SetFrameLevel(body:GetFrameLevel() + 2)
+        Style(btn, slotName)
+        btn.side, btn.row = side, row
+        if side then table.insert(slots, btn) else table.insert(weapons, btn) end
+        hooksecurefunc(btn, "SetPoint", function()
+            if not placing then Place() end
+        end)
+        return btn
+    end
+
+    -- ------------------------------------------------------------ model
+    -- The unit, turned by dragging across it.
+    local function Frame()
+        model:ClearAllPoints()
+        model:SetPoint("TOPLEFT", body, "TOPLEFT", size + GAP, -cols)
+        model:SetPoint("BOTTOMRIGHT", body, "TOPRIGHT", -(size + GAP), -(cols + (#LEFT - 1) * pitch + size))
+    end
+
+    local function Model()
+        model = CreateFrame("PlayerModel", nil, body)
+        local well = model:CreateTexture(nil, "BACKGROUND")
+        well:SetAllPoints()
+        well:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.05)
+        Frame()
+        model:EnableMouse(true)
+        model:SetScript("OnMouseDown", function(self, button)
+            if button == "LeftButton" then self.from = GetCursorPosition() end
+        end)
+        model:SetScript("OnMouseUp", function(self) self.from = nil end)
+        model:SetScript("OnUpdate", function(self)
+            if not self.from then return end
+            local x = GetCursorPosition()
+            self:SetFacing((self:GetFacing() or 0) + (x - self.from) * TURN)
+            self.from = x
+        end)
+    end
+
+    function d.SetModel()
+        if model then model:SetUnit(Unit()) end
+    end
+
+    -- -------------------------------------------------------------- fit
+    -- The page has h, at least page.height: the divider first, then bigger
+    -- slots (nine of them stand in a column with the weapons), then room
+    -- between the rows (seven gaps), then the rest in three: above the name,
+    -- round the divider, under the weapons.
+    function d.Fit(h)
+        local p = spec.page
+        local extra = math.max(0, h - p.height)
+        local shown = extra >= DIVIDER
+        local room = shown and DIVIDER or 0
+        extra = extra - room
+        size = math.min(SLOT_MAX, SLOT + math.floor(extra / 9))
+        extra = extra - 9 * (size - SLOT)
+        local spare = math.min(SPREAD, math.floor(extra / 7))
+        extra = extra - 7 * spare
+        pitch = size + (PITCH - SLOT) + spare
+        local top = math.floor(extra / 3)
+        room = room + top
+        cols = top + HEAD + room
+        name:ClearAllPoints()
+        name:SetPoint("TOP", 0, -(top + 2))
+        divider:SetShown(shown)
+        divider:ClearAllPoints()
+        divider:SetPoint("TOPLEFT", body, "TOPLEFT", 40, -(top + HEAD + (room - 12) / 2))
+        divider:SetPoint("TOPRIGHT", body, "TOPRIGHT", -40, -(top + HEAD + (room - 12) / 2))
+        Frame()
+        Place()
+        p.fit = { size = size, pitch = pitch, top = top, cols = cols, divider = shown }
+    end
+
+    -- ------------------------------------------------------------- head
+    -- the spec: the player's own, or what the inspection told
+    local function Spec(unit)
+        if unit == "player" then
+            if GetSpecialization and GetSpecializationInfo then
+                local i = GetSpecialization()
+                return i and select(2, GetSpecializationInfo(i))
+            end
+        elseif GetInspectSpecialization and GetSpecializationInfoByID then
+            local id = GetInspectSpecialization(unit)
+            local s = id and id > 0 and select(2, GetSpecializationInfoByID(id)) or nil
+            -- before a spec is chosen the game names the class's starter one
+            -- after the class: "Warrior (Warrior)" says nothing
+            if s and s ~= UnitClass(unit) then return s end
+        end
+    end
+
+    local function ClassLine()
+        local unit = Unit()
+        local className = UnitClass(unit)
+        local s = Spec(unit)
+        local who = s and format("%s (%s)", className, s) or className
+        return format("%s  Level %d", who or "", UnitLevel(unit) or 0)
+    end
+
+    function d.Refresh()
+        local unit = Unit()
+        name:SetText(UnitPVPName(unit) or UnitName(unit))
+        line:SetText(ClassLine())
+        for _, btn in ipairs(slots) do Paint(btn) end
+        for _, btn in ipairs(weapons) do Paint(btn) end
+        Place()
+    end
+
+    function d.Build(frame)
+        body = frame
+        name = ns.Text(body, 18)
+        name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+        line = ns.Text(body, 12)
+        line:SetPoint("TOP", name, "BOTTOM", 0, -4)
+        line:SetTextColor(unpack(ns.colors.dim))
+        divider = ns.character.Ornament(body)
+        belt = {}
+        for i = 1, 2 do
+            belt[i] = body:CreateTexture(nil, "ARTWORK")
+            belt[i]:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            belt[i]:SetHeight(1)
+        end
+        for i, s in ipairs(LEFT) do Take(s, -1, i) end
+        for i, s in ipairs(RIGHT) do Take(s, 1, i) end
+        for _, s in ipairs(BOTTOM) do
+            local btn = Take(s)
+            -- Blizzard shows and hides the ranged and ammo slots by the character
+            if btn then
+                hooksecurefunc(btn, "Show", Place)
+                hooksecurefunc(btn, "Hide", Place)
+            end
+        end
+        Model()
+        d.Fit(spec.page.height)
+        d.slots, d.weapons, d.model = slots, weapons, model
+        d.name, d.line = name, line
+    end
+
+    return d
 end
 
-local function Refresh()
-    name:SetText(UnitPVPName("player") or UnitName("player"))
-    line:SetText(ClassLine())
-    for _, btn in ipairs(slots) do Paint(btn) end
-    for _, btn in ipairs(weapons) do Paint(btn) end
-    Place()
-    ns.character[view].Refresh()
-end
+-- the least a page with the doll needs
+ns.character.dollHeight = HEAD + #LEFT * PITCH + GAP + SLOT
 
 -- ------------------------------------------------------------- details
 -- Stats, Titles, Sets across the top; each part has the same room, the
@@ -391,8 +463,12 @@ local function Shortcuts(band)
     page.shortcuts = row
 end
 
+local function Refresh()
+    doll.Refresh()
+    ns.character[view].Refresh()
+end
+
 local function Build(frame, foot, band)
-    body = frame
     -- Blizzard's slot hover opens the equipment flyout (Alt) with the
     -- settings its parent holds: the slots' parent is this page now, so it
     -- holds a copy of Blizzard's, the flyout shown over this window (theirs
@@ -401,54 +477,32 @@ local function Build(frame, foot, band)
     if type(theirs) == "table" then
         local mine = {}
         for k, v in pairs(theirs) do mine[k] = v end
-        mine.parent = body
-        body.flyoutSettings = mine
+        mine.parent = frame
+        frame.flyoutSettings = mine
     end
-    name = ns.Text(body, 18)
-    name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    line = ns.Text(body, 12)
-    line:SetPoint("TOP", name, "BOTTOM", 0, -4)
-    line:SetTextColor(unpack(ns.colors.dim))
-    divider = ns.character.Ornament(body)
-    belt = {}
-    for i = 1, 2 do
-        belt[i] = body:CreateTexture(nil, "ARTWORK")
-        belt[i]:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-        belt[i]:SetHeight(1)
-    end
-    for i, s in ipairs(LEFT) do Take(s, -1, i) end
-    for i, s in ipairs(RIGHT) do Take(s, 1, i) end
-    for _, s in ipairs(BOTTOM) do
-        local btn = Take(s)
-        -- Blizzard shows and hides the ranged and ammo slots by the character
-        if btn then
-            hooksecurefunc(btn, "Show", Place)
-            hooksecurefunc(btn, "Hide", Place)
-        end
-    end
-    Model()
-    Fit(page.height)
-    ns.character.slots = { columns = slots, weapons = weapons, model = model }
+    doll.Build(frame)
+    ns.character.slots = { columns = doll.slots, weapons = doll.weapons, model = doll.model }
     Details(foot)
     Shortcuts(band)
 end
 
 page = {
     key = "character", label = "Character", frame = "PaperDollFrame", order = 1,
-    height = HEAD + #LEFT * PITCH + GAP + SLOT, bandUsed = true,
+    height = ns.character.dollHeight, bandUsed = true,
     events = { "PLAYER_EQUIPMENT_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE", "PLAYER_LEVEL_UP",
         "UNIT_STATS", "UNIT_RESISTANCES", "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_DAMAGE",
         "UNIT_ATTACK_SPEED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "COMBAT_RATING_UPDATE", "SPELL_POWER_CHANGED",
         "PLAYER_AVG_ITEM_LEVEL_UPDATE", "KNOWN_TITLES_UPDATE", "SKILL_LINES_CHANGED",
         "EQUIPMENT_SETS_CHANGED" },
-    Build = Build, Fit = Fit, Refresh = Refresh,
-    Shown = function() model:SetUnit("player") end,
+    Build = Build, Fit = function(h) doll.Fit(h) end, Refresh = Refresh,
+    Shown = function() doll.SetModel() end,
     Showing = function(on)
         open = on
         Follow()
     end,
     OnEvent = function(event)
-        if event == "UNIT_MODEL_CHANGED" or event == "PLAYER_EQUIPMENT_CHANGED" then model:SetUnit("player") end
+        if event == "UNIT_MODEL_CHANGED" or event == "PLAYER_EQUIPMENT_CHANGED" then doll.SetModel() end
     end,
 }
+doll = ns.character.Doll{ prefix = "Character", Unit = function() return "player" end, page = page }
 ns.CharacterPage(page)

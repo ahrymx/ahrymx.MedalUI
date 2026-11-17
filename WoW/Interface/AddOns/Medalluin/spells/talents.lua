@@ -89,9 +89,10 @@ local function Tree(config)
     return info and info.treeIDs and info.treeIDs[1]
 end
 
--- the three trees, in their order
-local function Groups()
-    local tree = Tree(Config())
+-- the three trees, in their order (the talents in view, or config's: an
+-- inspection's, inspect/talents.lua)
+local function Groups(config)
+    local tree = Tree(config or Config())
     if not tree then return {} end
     local list = {}
     for _, g in ipairs(C_Traits.GetGroupDisplayInfoByTreeID(tree) or {}) do table.insert(list, g) end
@@ -188,7 +189,7 @@ local function Cap() return (GetMaxLevelForPlayerExpansion and GetMaxLevelForPla
 -- height over its tree's first, in the steps the trees are drawn in), the
 -- points its tree needs first, and the talents that lead to it.
 local function Model(config)
-    local groups = Groups()
+    local groups = Groups(config)
     local tree = Tree(config)
     local m = {}
     for _, id in ipairs(tree and C_Traits.GetTreeNodes(tree) or {}) do
@@ -450,17 +451,24 @@ end
 -- game's own tooltip for a talent heads it with "Passive".
 local function Tooltip(owner, n)
     local text, lock = Describe(n), Lock(n.node)
-    local plan = planning and n.planned
+    local plan = planning and not n.readonly and n.planned
     ns.Tip(owner, ns.window.Outside, { title = n.talent.name, color = GOLD,
         { "body", format("Rank %d/%d", n.node.ranksPurchased, n.node.maxRanks)
             .. (plan and format("  ·  Planned %d/%d", n.planned, n.node.maxRanks) or ""), ns.colors.dim },
         text ~= "" and { "body", text } or false,
-        plan and n.refusal and { "warn", n.refusal } or not plan and lock and { "warn", lock } or false })
+        plan and n.refusal and { "warn", n.refusal } or not plan and not n.readonly and lock and { "warn", lock }
+            or false })
 end
 
 local function Click(p, b, button)
     if ns.Linking(button) then
-        ns.LinkInChat(ns.SpellLink(Entry(Config(), b.node).spell))
+        ns.LinkInChat(ns.SpellLink(Entry(p.config or Config(), b.node).spell))
+        return
+    end
+    -- someone else's talents (p.readonly): a click only chooses, to read it
+    if p.readonly then
+        p.chosen = b.node.ID
+        p.Refresh()
         return
     end
     p.chosen = b.node.ID
@@ -501,6 +509,7 @@ local function Node(p, i)
     local glow = b:CreateTexture(nil, "HIGHLIGHT")
     glow:SetAllPoints()
     glow:SetColorTexture(1, 1, 1, 0.15)
+    b.readonly = p.readonly
     b:SetScript("OnClick", function(self, button) Click(p, self, button) end)
     b:SetScript("OnEnter", function(self) Tooltip(self, self) end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -546,7 +555,9 @@ local function Draw(p, config, group, groups, plan)
     local x0, y0 = own.x0, own.y0
     local left = MARGIN + ICON / 2 + (width - (own.x1 - own.x0) * scale) / 2
     local at, byID = {}, {}
-    local editable = Editable()
+    local editable = not p.readonly and Editable()
+    -- the plan's mode is the player's talents' only
+    local drawing = planning and not p.readonly
     for i, node in ipairs(list) do
         local b = p.nodes[i] or Node(p, i)
         b.node, b.talent = node, Entry(config, node)
@@ -556,26 +567,26 @@ local function Draw(p, config, group, groups, plan)
             -(HEAD + MARGIN + ICON / 2 + (node.posY - y0) * scale))
         b.icon:SetTexture(b.talent.icon)
         b.planned = plan.counts[node.ID] or 0
-        b.refusal = Why(plan.model, plan, node.ID)
+        b.refusal = not p.readonly and Why(plan.model, plan, node.ID) or nil
         -- planning: the ranks planned, and whether one more can be;
         -- otherwise the ranks learned, and whether one more can be staged
-        local ranks = planning and b.planned or node.ranksPurchased
+        local ranks = drawing and b.planned or node.ranksPurchased
         local maxed = ranks >= node.maxRanks
         local open
-        if planning then
+        if drawing then
             open = ranks > 0 or not b.refusal
         else
             open = maxed or ranks > 0 or (node.isAvailable and node.meetsEdgeRequirements)
         end
         b.icon:SetDesaturated(not open)
         b.icon:SetAlpha(open and 1 or 0.5)
-        local can = planning and not b.refusal or not planning and open and editable and node.canPurchaseRank
+        local can = drawing and not b.refusal or not drawing and open and editable and node.canPurchaseRank
         local edge = maxed and GOLD or can and LIT or GOLD_D
         b.edge:SetColorTexture(edge[1], edge[2], edge[3], 1)
         b.rank:SetText(ranks .. "/" .. node.maxRanks)
         local text = maxed and GOLD or ranks > 0 and LIT or ns.colors.dim
         b.rank:SetTextColor(text[1], text[2], text[3])
-        local ahead = not planning and b.planned > node.ranksPurchased
+        local ahead = not drawing and b.planned > node.ranksPurchased
         b.halo:SetShown(ahead)
         b.halo:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], node.ID == plan.next and 0.9 or 0.35)
         b:Show()
@@ -593,7 +604,7 @@ local function Draw(p, config, group, groups, plan)
                 l:SetStartPoint("CENTER", b)
                 l:SetEndPoint("CENTER", to)
                 local active = out.isActive
-                if planning then active = b.planned >= b.node.maxRanks end
+                if drawing then active = b.planned >= b.node.maxRanks end
                 local c = active and GOLD or GOLD_D
                 l:SetColorTexture(c[1], c[2], c[3], active and 1 or 0.6)
                 l:Show()
@@ -1202,6 +1213,15 @@ do
     function p.Refresh() RefreshPlans(p) end
     W.Page(p)
     plansPage = p
+end
+
+-- the drawing, for another's talents (inspect/talents.lua): read only, no
+-- plan; Draw(p, config, group, groups) with p.readonly, p.body, p.nodes,
+-- p.edges, and the room over the tree (head) the points' row's
+W.Tree, W.Groups, W.Spent, W.Lock, W.Describe, W.Entry = Tree, Groups, Spent, Lock, Describe, Entry
+W.head = HEAD
+function W.Draw(p, config, group, groups)
+    return Draw(p, config, group, groups, { counts = {}, kept = {}, spent = {}, model = {} })
 end
 
 function W.Refresh()

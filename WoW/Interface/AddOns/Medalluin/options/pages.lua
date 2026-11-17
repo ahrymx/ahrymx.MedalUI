@@ -174,6 +174,7 @@ local MODULES = {
     bags = { "view-bags", "One window for every bag, sorted and searchable." },
     bank = { "currency", "The bank in a window of its own, with the bags' views and search." },
     character = { "character", "Gear, stats, reputation and currency." },
+    inspect = { "character", "A player's gear, item level, talents and guild, beside your own." },
     spellbook = { "spellbook", "Spells in role cards, macros and the trainer." },
     talents = { "talents", "A tab for each tree, with Apply and your plans." },
     professions = { "profession", "An overview, and a tab for each profession that crafts." },
@@ -1302,6 +1303,12 @@ function ns.OptionPages()
                         "Your character, reputations and currencies (and on Forever your skills, PvP rank and "
                         .. "statistics) in one window standing on the chat panel, with the gear down both sides of "
                         .. "your model and the stats under it. Untick it to keep the game's window.", true),
+                    nil),
+                Part("inspect", "Inspect", false,
+                    Check("inspect", "Inspect window",
+                        "The player you inspect in one window standing on the side panel, opposite your own "
+                        .. "character window: their gear down both sides of their model, and under it their item "
+                        .. "level, talents, PvP rank, guild and realm. Untick it to keep the game's window.", true),
                     nil),
                 Part("spellbook", "Spellbook", true,
                     Check("spellbook", "Spellbook window",

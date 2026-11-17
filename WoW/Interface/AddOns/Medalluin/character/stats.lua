@@ -191,23 +191,23 @@ local function Ribbon(foot)
     well:SetPoint("BOTTOMRIGHT", -1, 1)
     well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
     -- the badge in the middle, standing out of the ribbon at both edges
-    badge = CreateFrame("Frame", nil, frame)
-    badge:SetSize(BADGE, RIBBON + 6)
-    badge:SetPoint("CENTER")
-    local bEdge = badge:CreateTexture(nil, "BACKGROUND", nil, 1)
+    local b = CreateFrame("Frame", nil, frame)
+    b:SetSize(BADGE, RIBBON + 6)
+    b:SetPoint("CENTER")
+    local bEdge = b:CreateTexture(nil, "BACKGROUND", nil, 1)
     bEdge:SetAllPoints()
     bEdge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-    local bWell = badge:CreateTexture(nil, "BACKGROUND", nil, 2)
+    local bWell = b:CreateTexture(nil, "BACKGROUND", nil, 2)
     bWell:SetPoint("TOPLEFT", 1, -1)
     bWell:SetPoint("BOTTOMRIGHT", -1, 1)
     bWell:SetColorTexture(0.24, 0.16, 0.08, 1)
-    badge.value = ns.Text(badge, 18)
-    badge.value:SetPoint("CENTER", 0, 4)
-    badge.value:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    badge.label = ns.Text(badge, 10)
-    badge.label:SetPoint("BOTTOM", 0, 5)
-    badge.label:SetText("ilvl")
-    badge.label:SetTextColor(unpack(ns.colors.dim))
+    b.value = ns.Text(b, 18)
+    b.value:SetPoint("CENTER", 0, 4)
+    b.value:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    b.label = ns.Text(b, 10)
+    b.label:SetPoint("BOTTOM", 0, 5)
+    b.label:SetText("ilvl")
+    b.label:SetTextColor(unpack(ns.colors.dim))
     -- two cells each side, each a quarter of what the badge leaves
     local cells = {}
     local width = ns.character.width
@@ -219,7 +219,7 @@ local function Ribbon(foot)
         c:SetPoint("TOPLEFT", frame, "TOPLEFT", x, 0)
         cells[i] = c
     end
-    return frame, cells
+    return frame, cells, b
 end
 
 -- -------------------------------------------------------------- columns
@@ -267,7 +267,7 @@ end
 function stats.Build(foot)
     layout = SkillsFrame and FOREVER or RETAIL
     local cells
-    ribbon, cells = Ribbon(foot)
+    ribbon, cells, badge = Ribbon(foot)
     ribbon.cells = cells
     columns = { left = Rows(foot, layout.left, -1), right = Rows(foot, layout.right, 1) }
     local rows = math.max(#layout.left, #layout.right)
@@ -285,6 +285,10 @@ function stats.Build(foot)
     stats.ribbon, stats.badge, stats.columns, stats.resist = ribbon, badge, columns, resist
     stats.forever = layout == FOREVER
 end
+
+-- the ribbon and the rows, for the inspect window's summary (inspect/page.lua)
+ns.character.Ribbon, ns.character.Rows = Ribbon, Rows
+ns.character.ribbon = { height = RIBBON, row = ROW, gap = GAP }
 
 -- One column: the rows that read, top down; the rest hidden.
 local function Fill(rows, entries, side)

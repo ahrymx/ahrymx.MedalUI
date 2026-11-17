@@ -110,6 +110,7 @@ local DEFAULTS = {
     altRecipesFolded = false, -- and the professions folded there: { [profession] = true } (not on the page)
     chatLogPlace = false,   -- the chat log's box: { point, relative, x, y, w, h, scale } (not on the page)
     character = true,       -- Medalluin's character window instead of Blizzard's
+    inspect = true,         -- Medalluin's inspect window instead of Blizzard's
     spellbook = true,       -- Medalluin's spellbook instead of Blizzard's (Forever)
     spellbookMissing = true, -- a red edge on a spell on no action bar (nor in a macro on one)
     spellbookUpRankAll = false, -- every spell kept on its highest rank on the bars (else only those ticked)
@@ -804,6 +805,7 @@ local PAGES = {
     windows = "windows", window = "windows",
     bags = "windows#bags", bag = "windows#bags", inventory = "windows#bags", bank = "windows#bank",
     character = "windows#character", char = "windows#character",
+    inspect = "windows#inspect",
     spellbook = "windows#spellbook", spells = "windows#spellbook", book = "windows#spellbook",
     talents = "windows#talents", talent = "windows#talents",
     professions = "windows#professions", profession = "windows#professions", prof = "windows#professions",

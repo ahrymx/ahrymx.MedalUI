@@ -98,6 +98,13 @@ local spellRetail = spellPass and args[3] == "retail"
 -- staging, Apply and Reset, the Primary and Secondary talents, combat, and
 -- the frame it shares with the spellbook.
 local talentPass = args[2] == "talents"
+-- "inspect" (with "modern": Forever's; "modern retail": retail's) plays the
+-- inspect window (inspect/): Blizzard_InspectUI loaded by the first
+-- InspectUnit, its frame parked on the veil and followed, the target's gear
+-- on the character page's doll, the summary under it, and the window
+-- closing with Blizzard's. "inspect noinspect" plays the option off.
+-- (kept on args, not a local: the main chunk is at Lua's 200)
+args.inspect = args[2] == "inspect" and { retail = args[3] == "retail", off = args[3] == "noinspect" } or nil
 local talentRetail = talentPass and args[3] == "retail"
 -- "professions" (with "modern": Forever's; "modern retail": not built) plays
 -- the professions window (professions/) over stubbed professions: the
@@ -2318,7 +2325,7 @@ MedalluinDB = profilesPass and args[3] == "saved" and { consoleProfile = "light"
     or savedBeam and { xpCast = true, repCast = true }
     or savedSimParty and { simParty = true } or savedNoSide and { side = false }
     or savedNoBags and { bags = false } or bankPass and args[3] == "nobank" and { bank = false }
-    or savedNoCharacter and { character = false }
+    or savedNoCharacter and { character = false } or args.inspect and args.inspect.off and { inspect = false }
     or npcPass and args[3] == "nonpc" and { npcWindows = false }
     or mailPass and { mail = { Nordanaar = { alts = { "Thalassa" }, recent = { "Thalric", "Okun" } } } }
     -- an install from before the Reticule became the default: on Arena
@@ -2483,7 +2490,7 @@ end
 -- three), its gear slot buttons, a shaman's gear and stats on Forever and a
 -- rogue's on retail. Only for the character pass.
 local charWorld
-if characterPass or questPass or npcPass or bankPass then
+if characterPass or questPass or npcPass or bankPass or args.inspect then
     charWorld = { toggles = {} }
     function Region:SetUnit(u) self.unit, self.unitSets = u, (self.unitSets or 0) + 1 end
     function Region:SetFacing(f) self.facing = f end
@@ -2557,7 +2564,90 @@ if characterPass or questPass or npcPass or bankPass then
     end
     C_Item = C_Item or {}
     function C_Item.GetCurrentItemLevel(loc) return charWorld.gear[loc.equip][2] end
-    function UnitPVPName() return characterRetail and "Vasheron, Famed Slayer" or "Ahry Medalluin" end
+    -- Blizzard_InspectUI, loaded by the first InspectUnit: its frame (a
+    -- panel, closed by the target changing), its paperdoll page and its slot
+    -- buttons (no ammo; no ranged on retail), and the target's gear:
+    -- { quality, item level }, a two-hander and nothing in the off hand
+    if args.inspect then
+        charWorld.inspectGear = args.inspect.retail
+            and { [1] = { 4, 600 }, [5] = { 4, 610 }, [16] = { 4, 620 }, [4] = { 1, 1 }, [11] = { 3, 590 } }
+            or { [1] = { 3, 58 }, [5] = { 4, 63 }, [16] = { 4, 66 }, [4] = { 1, 1 }, [11] = { 2, 55 } }
+        charWorld.inspectLoads = 0
+        local playerLink, playerQuality = GetInventoryItemLink, GetInventoryItemQuality
+        local function gear(unit, slot)
+            if unit ~= "player" then return charWorld.inspectGear[slot] end
+        end
+        function GetInventoryItemLink(unit, slot)
+            if unit == "player" then return playerLink(unit, slot) end
+            if gear(unit, slot) then return "|Hitem:9" .. slot .. "|h" end
+        end
+        function GetInventoryItemQuality(unit, slot)
+            if unit == "player" then return playerQuality(unit, slot) end
+            return gear(unit, slot) and gear(unit, slot)[1]
+        end
+        function GetDetailedItemLevelInfo(link)
+            local slot = tonumber(link:match("item:9(%d+)"))
+            local g = slot and charWorld.inspectGear[slot]
+            return g and g[2]
+        end
+        local itemInfo = GetItemInfo
+        function GetItemInfo(link)
+            if type(link) == "string" and link:match("item:916|") then
+                return "Greatsword", link, 4, 66, 60, "Weapon", "Two-Handed Swords", 1, "INVTYPE_2HWEAPON"
+            end
+            if itemInfo then return itemInfo(link) end
+        end
+        function GetGuildInfo(u) if u == "target" then return "Silver Hand", "Officer", 1 end end
+        -- today's kills and honour, yesterday's, lifetime kills, -, honour level
+        function GetInspectHonorData() return 2, 40, 5, 90, 1234, 0, 15 end
+        function UnitRace() return "Night Elf" end
+        function GetRealmName() return "Pyrewood" end
+        if args.inspect.retail then
+            C_PaperDollInfo = { GetInspectItemLevel = function(u) return u == "target" and 611.6 or 0 end }
+            function GetInspectSpecialization() return 102 end
+            function GetSpecializationInfoByID(id) if id == 102 then return 102, "Balance" end end
+            function UnitHonorLevel() return 42 end
+        else
+            function GetNumTalentTabs() return 3 end
+            -- Classic Era's: name, icon, points
+            function GetTalentTabInfo(i, inspect)
+                if inspect then return ({ "Balance", "Feral", "Restoration" })[i], "x", ({ 31, 20, 0 })[i] end
+            end
+            function UnitPVPRank(u) return u == "target" and 11 or 0 end
+            function GetPVPRankInfo(rank) if rank >= 5 then return "Knight", rank - 4 end end
+        end
+        local SLOTS_INSPECT = {}
+        for slotName, id in pairs(SLOTS) do
+            if slotName ~= "Ammo" and not (args.inspect.retail and slotName == "Ranged") then SLOTS_INSPECT[slotName] = id end
+        end
+        function charWorld.LoadInspect()
+            charWorld.inspectLoads = charWorld.inspectLoads + 1
+            InspectFrame = new("Frame", UIParent, "InspectFrame")
+            InspectFrame.shown = false
+            local doll = new("Frame", InspectFrame, "InspectPaperDollFrame")
+            doll.shown = true
+            for slotName, id in pairs(SLOTS_INSPECT) do
+                local name = "Inspect" .. slotName .. "Slot"
+                local b = new("Button", doll, name)
+                b:SetID(id)
+                b.icon = new("Texture", b, name .. "IconTexture")
+                b.normal = new("Texture", b)
+                b.IconBorder = new("Texture", b)
+                function b:GetNormalTexture() return self.normal end
+            end
+            for _, h in ipairs(events.ADDON_LOADED or {}) do h.scripts.OnEvent(h, "ADDON_LOADED", "Blizzard_InspectUI") end
+        end
+        -- Blizzard's: load, set the unit, show the panel
+        function InspectUnit(unit)
+            if not InspectFrame then charWorld.LoadInspect() end
+            InspectFrame.unit = unit
+            ShowUIPanel(InspectFrame)
+        end
+    end
+    function UnitPVPName(u)
+        if args.inspect and u == "target" then return "Knight Lirael" end
+        return characterRetail and "Vasheron, Famed Slayer" or "Ahry Medalluin"
+    end
     function GetAverageItemLevel()
         if characterRetail then return 322.4, 322.0 end
         return 15.8, 15.1
@@ -3117,7 +3207,9 @@ end
 -- comes and goes, Blizzard's player-spells frame loaded on demand. Only for
 -- the spellbook pass; on retail the micro menu has no spellbook button.
 local bookWorld
-if spellPass or talentPass or profPass then
+-- (the inspect pass on Forever: the talents' stubs, for the inspection's own)
+args.inspectTrees = args.inspect and not args.inspect.retail
+if spellPass or talentPass or profPass or args.inspectTrees then
     bookWorld = { calls = {}, pet = 0, loaded = false }
     if spellRetail or talentRetail or profRetail then SpellbookMicroButton = nil end
     Enum = Enum or {}
@@ -3617,7 +3709,7 @@ end
 -- spec group: Primary with Elemental's first talent learned, Secondary
 -- empty. Ranks are staged, then committed or rolled back.
 local talentWorld
-if talentPass then
+if talentPass or args.inspectTrees then
     talentWorld = { calls = {}, active = 1, groups = 1 }
     local T = talentWorld
     -- id, group, x, y, ranks, the talents it opens, locked by tier, a group
@@ -3657,6 +3749,9 @@ if talentPass then
     T.names = NAMES
     T.committed = { [1] = { [1] = 5 }, [2] = {} }
     T.staged = { [1] = {}, [2] = {} }
+    -- an inspection's talents: their own config, -1 (Elemental 8,
+    -- Enhancement 7), known once T.inspectValid
+    T.committed[-1], T.staged[-1], T.inspectValid = { [1] = 5, [2] = 3, [5] = 5, [6] = 2 }, {}, true
     T.points = 12
     local function rank(config, id) return (T.committed[config][id] or 0) + (T.staged[config][id] or 0) end
     local function spent(config, group)
@@ -3730,6 +3825,7 @@ if talentPass then
             end
             return false
         end,
+        HasValidInspectData = function() return T.inspectValid end,
         RollbackConfig = function(config)
             table.insert(T.calls, "rollback " .. config)
             T.staged[config] = {}
@@ -15429,6 +15525,165 @@ if bankPass then
     state("bank.closed")
     buy("bank.purchase closed")
     print("bank.close", calls())
+end
+
+-- ------------------------------------------------------ the inspect window
+if args.inspect then
+    local function fire(e, ...)
+        for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
+    end
+    print("inspect", "setting=" .. tostring(ns.db.inspect), "loaded=" .. charWorld.inspectLoads,
+        "window=" .. tostring(_G.MedalluinInspect ~= nil))
+    -- the first inspection loads Blizzard_InspectUI, and the window is built
+    InspectUnit("target")
+    local w = _G.MedalluinInspect
+    local function where(f)
+        return f.parent == ns.veil and "veil" or f.parent == ns.hidden and "hidden"
+            or f.parent == UIParent and "UIParent" or "other"
+    end
+    print("inspect.load", "loaded=" .. charWorld.inspectLoads, "window=" .. tostring(w ~= nil),
+        "blizzard=" .. where(InspectFrame) .. "/" .. tostring(InspectFrame.shown))
+    if not w then return end
+    local I = ns.inspect
+    local page = I.W.pages[1]
+    local function frame()
+        if w.shown and w.scripts.OnUpdate then w.scripts.OnUpdate(w, 0) end
+    end
+    local function state(tag)
+        print(tag, "shown=" .. tostring(w.shown), "blizzard=" .. tostring(InspectFrame.shown),
+            "side=" .. tostring(I.W.side), "exclusive=" .. tostring(I.W.exclusive),
+            string.format("size=%dx%d", w.w, w.h), "details=" .. tostring(page.foot and page.foot.shown))
+    end
+    state("inspect.open")
+    frame()
+    -- the doll: Blizzard's inspect slots on the page, the target's gear on them
+    local d = page.doll
+    local function slots(tag)
+        local list = {}
+        for _, b in ipairs(d.slots) do
+            if I.W and b.parent == page.body then
+                table.insert(list, b.slotName .. "=" .. (b.level.text ~= "" and b.level.text or "-"))
+            end
+        end
+        local wl = {}
+        for _, b in ipairs(d.weapons) do
+            table.insert(wl, b.slotName .. "=" .. (b.level.text ~= "" and b.level.text or "-")
+                .. (b.shown == false and "(hidden)" or ""))
+        end
+        print(tag, #d.slots .. "+" .. #d.weapons, table.concat(list, " "), "weapons " .. table.concat(wl, " "))
+    end
+    slots("inspect.slots")
+    local head = _G.InspectHeadSlot
+    print("inspect.head", "name=" .. tostring(head.parent == page.body and "page" or "?"),
+        "edge=" .. string.format("%.2f %.2f %.2f", unpack(head.edge.color)),
+        "player's head=" .. tostring(GetInventoryItemLink("player", 1)))
+    print("inspect.name", d.name.text, "|", d.line.text)
+    print("inspect.model", "unit=" .. tostring(d.model.unit))
+    local f = page.fit
+    print("inspect.fit", string.format("slot=%d pitch=%d top=%d cols=%d divider=%s", f.size, f.pitch, f.top, f.cols,
+        tostring(f.divider)))
+    -- the summary
+    local sm = page.summary
+    local cells = {}
+    for _, c in ipairs(sm.cells) do table.insert(cells, c.label.text .. "=" .. tostring(c.value.text)) end
+    print("inspect.ribbon", "ilvl=" .. sm.badge.value.text, table.concat(cells, " "))
+    for _, side in ipairs({ "left", "right" }) do
+        local rows = {}
+        for _, r in ipairs(sm.columns[side]) do
+            table.insert(rows, r.shown == false and "(hidden)" or (r.label.text .. "=" .. r.value.text))
+        end
+        print("inspect.rows " .. side, table.concat(rows, " "))
+    end
+    -- no guild: its rows close up
+    local guild = GetGuildInfo
+    GetGuildInfo = function() end
+    fire("INSPECT_READY", "guid")
+    frame()
+    local rows = {}
+    for _, r in ipairs(sm.columns.left) do
+        table.insert(rows, r.shown == false and "(hidden)" or (r.label.text .. "@" .. tostring(select(5, r:GetPoint(1)))))
+    end
+    print("inspect.rows unguilded", table.concat(rows, " "))
+    GetGuildInfo = guild
+    -- a spec not chosen yet: the game names the starter one after the class
+    if GetInspectSpecialization then
+        local spec, info = GetInspectSpecialization, GetSpecializationInfoByID
+        GetInspectSpecialization = function() return 999 end
+        GetSpecializationInfoByID = function(id) if id == 999 then return 999, (UnitClass("target")) end end
+        fire("INSPECT_READY", "guid")
+        frame()
+        print("inspect.starter spec", d.line.text, "talents=" .. sm.cells[1].value.text)
+        GetInspectSpecialization, GetSpecializationInfoByID = spec, info
+    end
+    -- the tabs: Character, Talents (Forever's trees), PvP
+    local tabs = {}
+    for _, p in ipairs(I.W.pages) do
+        table.insert(tabs, p.key .. (p.available and "" or "(none)") .. "/" .. tostring(p.glyph))
+    end
+    print("inspect.tabs", table.concat(tabs, " "))
+    local talents, pvp = I.talents, I.pvp
+    if talents.available then
+        I.W.Select(talents)
+        frame()
+        local function trees(tag)
+            local nodes = {}
+            for _, b in ipairs(talents.nodes) do
+                if b.shown ~= false and b.node then
+                    table.insert(nodes, b.talent.name .. "=" .. b.rank.text .. (b.readonly and "" or "(editable)"))
+                end
+            end
+            local seg = {}
+            for _, b in ipairs(talents.margin.buttons) do
+                if b.shown ~= false and b.data then
+                    table.insert(seg, b.label.text .. (b.selected and "*" or ""))
+                end
+            end
+            print(tag, "points=" .. talents.points.text, "waiting=" .. tostring(talents.waiting.shown),
+                table.concat(nodes, " "), "| margin " .. table.concat(seg, " "))
+        end
+        trees("inspect.talents")
+        -- a click reads a talent, and buys nothing
+        local calls = #talentWorld.calls
+        local first = talents.nodes[1]
+        first.scripts.OnClick(first, "LeftButton")
+        frame()
+        print("inspect.talents chosen", "title=" .. tostring(talents.details.title.text),
+            "sub=" .. tostring(talents.details.sub.text), "calls=" .. (#talentWorld.calls - calls))
+        first.scripts.OnClick(first, "RightButton")
+        print("inspect.talents right-click", "calls=" .. (#talentWorld.calls - calls))
+        -- the margin's second tree
+        local seg = talents.margin.buttons[2]
+        seg.scripts.OnClick(seg, "LeftButton")
+        frame()
+        trees("inspect.talents enhancement")
+        -- a new inspection: back to its fullest tree; not come yet: waiting
+        fire("INSPECT_READY", "guid")
+        frame()
+        trees("inspect.talents new inspection")
+        talentWorld.inspectValid = false
+        fire("INSPECT_READY", "guid")
+        frame()
+        trees("inspect.talents not come")
+        print("inspect.talents ribbon", "talents=" .. tostring(sm.cells[1].value.text))
+        talentWorld.inspectValid = true
+    end
+    if pvp.available then
+        I.W.Select(pvp)
+        frame()
+        print("inspect.pvp", pvp.level.text, "|", pvp.kills.text, "emblem=" .. tostring(pvp.emblem.atlas),
+            "rated=" .. tostring(pvp.details.nothing.shown and pvp.details.nothing.text or pvp.details.title.text))
+    end
+    I.W.Select(page)
+    frame()
+    -- the target changes: Blizzard closes its frame, and the window follows
+    HideUIPanel(InspectFrame)
+    state("inspect.closed")
+    -- the cross closes Blizzard's
+    InspectUnit("target")
+    state("inspect.reopen")
+    print("inspect.loads", charWorld.inspectLoads)
+    w.close.scripts.OnClick(w.close, "LeftButton")
+    state("inspect.cross")
 end
 
 -- ---------------------------------------------------- the character window
