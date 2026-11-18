@@ -24,7 +24,7 @@ local SIDE_W, BAR_H, FOOT, EDGE = 200, 34, 40, 1 -- the sidebar; the window's he
 local HEAD_TOP, RIGHT = EDGE + BAR_H + 14, 16    -- a page's header: its top, and its right margin
 local HEAD_H, COL_GAP, SEC_GAP, CARD_PAD, BAND_H = 50, 12, 12, 12, 36
 local STRIP_H, ROW_GAP = 26, 4          -- a page's sheet tabs, under its crumb; between a card's rows
-local ITEM_H, CAT_H, SEARCH_H, LINK_H = 24, 28, 26, 20
+local ITEM_H, CAT_H, SEARCH_H, LINK_H = 28, 42, 26, 20
 local CARD_H, CARD_GAP = 44, 8
 local X = EDGE + SIDE_W + 18            -- the header's and body's left
 local ROUND = ns.media .. "strips\\round"
@@ -848,65 +848,102 @@ local function Nav()
     for _, r in ipairs(side.rows) do r:Hide() end
     local shown = current and place[current] and place[current].item
     local item = not query and shown
+    -- the open category's pages run down a gold rail under its glyph
+    side.rail = side.rail or UI.Fill(navChild, "ARTWORK", C.gold, 3)
+    side.rail:SetWidth(2)
+    local railed = false
     for _, h in ipairs(side.heads) do
         local here = false
         for _, r in ipairs(h.rows) do here = here or r.path == shown end
         h.open = here
-        h.sign:SetText(h.open and "" or tostring(#h.rows))
-        h.pill:SetWidth(math.max(18, math.ceil(h.sign:GetStringWidth()) + 10))
+        h.sign:SetText(h.open and "" or (#h.rows .. "  \226\128\186"))
+        h.pill:SetWidth(math.max(18, math.ceil(h.sign:GetStringWidth()) + 2))
         h.pill:SetShown(not h.open and not h.single)
+        h.rule:SetShown(h ~= side.heads[1])
         h:Paint(false)
         h:SetPoint("TOPLEFT", 0, y)
         h:SetPoint("TOPRIGHT", 0, y)
         h:Show()
         y = y - CAT_H
+        local first, last
         for _, r in ipairs(h.rows) do
             if h.open and not h.single then
-                r:SetPoint("TOPLEFT", 6, y)
-                r:SetPoint("TOPRIGHT", -6, y)
+                r:SetPoint("TOPLEFT", 0, y)
+                r:SetPoint("TOPRIGHT", 0, y)
                 r:Show()
                 y = y - ITEM_H
+                first, last = first or r, r
             end
             local on = r.path == item
             r.lit:SetShown(on)
-            r.bar:SetShown(on)
             r.lift:Hide()
             local c = on and C.goldBright or C.dim
             r.text:SetTextColor(c[1], c[2], c[3])
         end
-        y = y - 4
+        if first then
+            side.rail:ClearAllPoints()
+            side.rail:SetPoint("TOPLEFT", first, "TOPLEFT", 14, 0)
+            side.rail:SetPoint("BOTTOMLEFT", last, "BOTTOMLEFT", 14, 0)
+            railed = true
+            y = y - 6
+        end
+        y = y - 2
     end
+    side.rail:SetShown(railed)
     navChild:SetHeight(-y + 4)
     local range = math.max(0, navChild:GetHeight() - nav:GetHeight())
     if nav:GetVerticalScroll() > range then nav:SetVerticalScroll(range) end
 end
 
--- A category's heading: its glyph and name; folded, the count of its
--- pages in a pill at the right. Under the pointer, it brightens.
+-- A category's heading, a ledger line: its glyph in gold, its name in the
+-- serif with what it keeps under it ("Kept per profile"), a fading gold
+-- hair above it parting it from the one before; folded, its pages' count
+-- and an arrow at the right. Under the pointer, it brightens.
+local HOVER = { 1, 0.97, 0.88 }
 local function Head(cat)
     local h = CreateFrame("Button", nil, navChild)
     h:SetHeight(CAT_H)
     h.cat = cat
+    h.rule = ns.window.Hair(h, false, 0.5)
+    h.rule:SetPoint("TOPLEFT", 8, 0)
+    h.rule:SetPoint("TOPRIGHT", -8, 0)
+    -- under the pointer, the line lifts (a folded one; the open one is lit)
+    h.lift = UI.Fill(h, "BACKGROUND", C.lift2, 1)
+    h.lift:SetPoint("TOPLEFT", 0, -1)
+    h.lift:SetPoint("BOTTOMRIGHT", 0, 0)
+    h.lift:Hide()
     h.glyph = h:CreateTexture(nil, "ARTWORK")
     h.glyph:SetTexture(ns.media .. "strips\\" .. (cat.glyph or "help"))
-    h.glyph:SetSize(13, 13)
-    h.glyph:SetPoint("LEFT", 12, -3)
-    h.text = UI.Plain(h, 10, C.dim)
-    h.text:SetPoint("LEFT", 31, -3)
-    h.text:SetText(cat.name:upper())
+    h.glyph:SetSize(18, 18)
+    h.glyph:SetPoint("LEFT", 6, 0)
+    h.text = UI.Serif(h, 15, C.text)
+    h.text:SetText(cat.name)
+    local scope = cat.scope or cat.note
+    if scope then
+        h.text:SetPoint("BOTTOMLEFT", h, "LEFT", 34, -1)
+        h.sub = UI.Plain(h, 9, C.faint)
+        h.sub:SetPoint("TOPLEFT", h, "LEFT", 34, -3)
+        h.sub:SetText(scope)
+    else
+        h.text:SetPoint("LEFT", 34, 0)
+    end
     h.pill = CreateFrame("Frame", nil, h)
     h.pill:SetHeight(15)
-    h.pill:SetPoint("RIGHT", -12, -3)
-    UI.Fill(h.pill, "BACKGROUND", C.lift2, 1):SetAllPoints()
-    h.sign = UI.Plain(h.pill, 10, C.dim)
-    h.sign:SetPoint("CENTER", 0, 0)
-    -- open, gold; under the pointer, bright; else dim
+    h.pill:SetPoint("RIGHT", -12, 0)
+    h.sign = UI.Plain(h.pill, 11, C.faint)
+    h.sign:SetPoint("RIGHT", 0, 0)
+    -- open, bright gold; under the pointer, lighter; else the text's colour
     function h:Paint(over)
         self.over = over
-        local t = self.open and C.gold or over and C.text or C.dim
+        local t = self.open and C.goldBright or over and HOVER or C.text
         self.text:SetTextColor(t[1], t[2], t[3])
-        local g = self.open and C.goldBright or over and C.gold or C.faint
+        local g = (self.open or over) and C.goldBright or C.gold
         self.glyph:SetVertexColor(g[1], g[2], g[3], 1)
+        self.lift:SetShown(over and not self.open or false)
+        if self.sign then
+            local s = over and C.dim or C.faint
+            self.sign:SetTextColor(s[1], s[2], s[3])
+        end
     end
     h:SetScript("OnEnter", function(self) self:Paint(true) end)
     h:SetScript("OnLeave", function(self) self:Paint(false) end)
@@ -919,37 +956,34 @@ local function Head(cat)
     return h
 end
 
--- A page's row: its name; the page shown lit (a faint gold fill, a gold
--- bar at the sidebar's edge, gold text); another lifts under the pointer.
--- A page under another (Paging) hangs off it on an elbow.
+-- A page's row: its name under its category's; the page shown lit (a
+-- faint gold fill from the category's rail, gold text); another lifts
+-- under the pointer. A page under another (Paging) hangs off it on an elbow.
 local function Item(path)
     local r = CreateFrame("Button", nil, navChild)
     r:SetHeight(ITEM_H)
     r.path = path
-    r.lift = UI.Fill(r, "BACKGROUND", C.lift, 1)
-    r.lift:SetAllPoints()
+    r.lift = UI.Fill(r, "BACKGROUND", C.lift2, 1)
+    r.lift:SetPoint("TOPLEFT", 16, 0)
+    r.lift:SetPoint("BOTTOMRIGHT", 0, 0)
     r.lift:Hide()
     r.lit = UI.Fill(r, "BACKGROUND", C.lit, 2)
-    r.lit:SetAllPoints()
+    r.lit:SetPoint("TOPLEFT", 16, 0)
+    r.lit:SetPoint("BOTTOMRIGHT", 0, 0)
     r.lit:Hide()
-    r.bar = UI.Fill(r, "ARTWORK", C.goldBright)
-    r.bar:SetWidth(3)
-    r.bar:SetPoint("TOPLEFT", -6, 0)
-    r.bar:SetPoint("BOTTOMLEFT", -6, 0)
-    r.bar:Hide()
-    r.text = UI.Serif(r, 12, C.dim)
+    r.text = UI.Serif(r, 13, C.dim)
     -- a tab under another, indented below it
     r.sub = Parent(path) and true or nil
-    r.text:SetPoint("LEFT", r.sub and 34 or 20, 0)
+    r.text:SetPoint("LEFT", r.sub and 56 or 34, 0)
     r.text:SetText(ItemName(path))
     if r.sub then
         local down = UI.Fill(r, "ARTWORK", C.lineStrong)
         down:SetWidth(1)
-        down:SetPoint("TOPLEFT", 22, 0)
-        down:SetPoint("BOTTOMLEFT", r, "LEFT", 22, 0)
+        down:SetPoint("TOPLEFT", 42, 0)
+        down:SetPoint("BOTTOMLEFT", r, "LEFT", 42, 0)
         local across = UI.Fill(r, "ARTWORK", C.lineStrong)
-        across:SetSize(6, 1)
-        across:SetPoint("LEFT", 22, 0)
+        across:SetSize(8, 1)
+        across:SetPoint("LEFT", 42, 0)
         r.elbow = { down, across }
     end
     local content = select(2, Find(path)) or Find(path)
@@ -1337,7 +1371,7 @@ local function Sidebar()
             local dot = h.rows[1].dot
             dot:SetParent(h)
             dot:ClearAllPoints()
-            dot:SetPoint("RIGHT", -14, -3)
+            dot:SetPoint("RIGHT", -14, 0)
         end
         table.insert(side.heads, h)
     end

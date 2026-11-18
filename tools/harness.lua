@@ -6068,6 +6068,19 @@ if barPass then
         end
         ns.OpenOptions("windows#bags")
         sidebar("bags")
+        -- the ledger: each heading's scope under its name, the hair above all
+        -- but the first, the open category's rail down its pages
+        do
+            local o = {}
+            for _, h in ipairs(win.tree.heads) do
+                table.insert(o, h.text.text .. "[" .. (h.sub and h.sub.text or "-") .. "]"
+                    .. (h.rule.shown ~= false and "~" or ""))
+            end
+            local rail = win.tree.rail
+            print("options.sidebar ledger", "heads=" .. table.concat(o, ","), "font=" .. tostring(win.tree.heads[1].text.font
+                and win.tree.heads[1].text.font[2]), "rail=" .. tostring(rail and rail.shown ~= false)
+                .. ":" .. tostring(rail and rail.w))
+        end
         local function head(name)
             for _, h in ipairs(win.tree.heads) do if h.cat.name == name then return h end end
         end
@@ -6329,7 +6342,8 @@ if barPass then
             if not h.open and not folded then folded = h end
         end
         folded.scripts.OnEnter(folded)
-        local head = folded.text.text .. " text=" .. col(folded.text) .. " pill=" .. tostring(folded.pill.shown)
+        local head = folded.text.text .. " text=" .. col(folded.text) .. " lift=" .. tostring(folded.lift.shown)
+            .. " pill=" .. tostring(folded.pill.shown)
             .. "(" .. folded.sign.text .. ")"
         folded.scripts.OnLeave(folded)
         print("options.sidebar hover", "other: " .. item(items.other), "lit: " .. item(items.lit),
