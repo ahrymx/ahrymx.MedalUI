@@ -27,7 +27,7 @@ The console sits at the bottom: player and target on its wings, action bars in b
 
 The medallion console: the party on wings around a large player and target, with the minimap in its ring.
 
-![The Arena console with the minimap in its ring](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/central-console.png)
+> **Work in progress:** Arena is still being built, so expect rough edges. Its showcase will return when it's ready.
 
 ---
 
