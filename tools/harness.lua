@@ -18478,6 +18478,13 @@ if talentPass then
             end
         end
         print("talents.ground", table.concat(list, " "))
+        -- the role by class and place: a mage's are all damage, a paladin's
+        -- healer, tank, damage; a class unknown, by place
+        local roles = {}
+        for _, class in ipairs({ "SHAMAN", "MAGE", "PALADIN", "PRIEST", "DRUID", "NOBODY" }) do
+            table.insert(roles, class .. "=" .. W.Role(class, 1) .. "/" .. W.Role(class, 2) .. "/" .. W.Role(class, 3))
+        end
+        print("talents.roles", table.concat(roles, " "))
     end
     -- the pulse: the can-take glows swing with the time
     local clock = GetTime

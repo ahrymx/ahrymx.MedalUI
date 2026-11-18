@@ -22,8 +22,8 @@
 --   ---------------------------------------------------------------
 --   (backpack)   [Primary] [Secondary] | [Plans] [Activate]
 --
--- Behind the tree, its ground (Ground): a faint cloudy wash in the tree's
--- colour (the first ember, the second blue, the third green), its edges
+-- Behind the tree, its ground (Ground): a faint cloudy wash in the colour
+-- of the tree's role (damage ember, tank blue, healer green), its edges
 -- shaded. In the plan's mode the clouds give way to a faint blue drafting
 -- grid (a cell an icon wide), the console's row is the mode's own: Exit
 -- plan, Checkpoint, Save plan (its name asked for in the console), the
@@ -1003,11 +1003,32 @@ local function Console(body, controls)
 end
 W.Console = Console
 
--- The tree's ground: a cloudy wash in the tree's colour (by its place:
--- the first ember, the second blue, the third green), faint, its edges
--- shaded darker; under the plan's wash and the lines and talents.
---   local g = Ground(body); g.Set(tree)
-local SCHOOL = { { 0.78, 0.35, 0.24 }, { 0.27, 0.43, 0.78 }, { 0.27, 0.67, 0.35 } }
+-- The tree's ground: a cloudy wash in the colour of the tree's role,
+-- faint, its edges shaded darker; under the lines and talents.
+--   local g = Ground(body); g.Set(class, tree)   (class: the class's file token)
+-- The game tells a tree's name, icon and place, not its role; a class's
+-- trees always come in the same order, so the role is by class and place
+-- (any language). Feral is a druid's damage or tank tree as they choose:
+-- taken as damage. A class not here: the trees by place, damage, tank, healer.
+local ROLE_COLOR = { damage = { 0.78, 0.35, 0.24 }, tank = { 0.27, 0.43, 0.78 }, healer = { 0.27, 0.67, 0.35 } }
+local ROLES = {
+    WARRIOR = { "damage", "damage", "tank" },
+    PALADIN = { "healer", "tank", "damage" },
+    HUNTER = { "damage", "damage", "damage" },
+    ROGUE = { "damage", "damage", "damage" },
+    PRIEST = { "healer", "healer", "damage" },
+    DEATHKNIGHT = { "tank", "damage", "damage" },
+    SHAMAN = { "damage", "damage", "healer" },
+    MAGE = { "damage", "damage", "damage" },
+    WARLOCK = { "damage", "damage", "damage" },
+    DRUID = { "damage", "damage", "healer" },
+}
+local BY_PLACE = { "damage", "tank", "healer" }
+local function Role(class, tree)
+    local roles = ROLES[class or ""]
+    return roles and roles[tree] or BY_PLACE[tree] or "damage"
+end
+W.Role = Role
 local CLOUDS, SHADE = 0.16, 0.6         -- the wash's strength; the edges' shade
 local DRAFT, CELL = { 0.43, 0.63, 0.94, 0.22 }, ICON     -- the plan's grid: its colour, a cell's size
 local GRID_CELLS = 4                    -- the grid texture's cells (its major line every fourth)
@@ -1037,8 +1058,8 @@ local function Ground(body)
     g.shade:SetAllPoints()
     g.shade:SetTexture(ns.media .. "talents\\vignette")
     g.shade:SetVertexColor(1, 1, 1, SHADE)
-    function g.Set(tree)
-        local c = SCHOOL[tree] or SCHOOL[1]
+    function g.Set(class, tree)
+        local c = ROLE_COLOR[Role(class, tree)]
         g.clouds:SetVertexColor(c[1], c[2], c[3], CLOUDS)
     end
     return g
@@ -1251,7 +1272,7 @@ for i = 1, TREES do
     function p.Build(body, foot, band)
         -- the tree's ground, in its colour
         p.ground = Ground(body)
-        p.ground.Set(i)
+        p.ground.Set(select(2, UnitClass("player")), i)
         Points(p, body)
         Foot(p, foot)
         Margin(p, band)

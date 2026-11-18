@@ -95,7 +95,7 @@ function page.Refresh()
     end
     local at = InView(groups, spent)
     local group = groups[at]
-    page.ground.Set(at)
+    page.ground.Set(select(2, UnitClass(ns.inspect.Unit())), at)
     page.config = config
     local byID = T().Draw(page, config, group, groups)
     local c, all = page.console, 0
@@ -130,7 +130,8 @@ end
 
 function page.Build(body, foot, band)
     page.body = body
-    -- the tree's ground, in the colour of the tree in view (Refresh)
+    -- the tree's ground, in the colour of the role of the tree in view
+    -- (Refresh)
     page.ground = T().Ground(body)
     -- the talents window's console (spells/talents.lua), its readouts
     -- only: the tree and its points, their points, their trees' split; the
