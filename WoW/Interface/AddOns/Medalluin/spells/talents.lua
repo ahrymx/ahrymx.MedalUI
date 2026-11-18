@@ -50,6 +50,16 @@
 -- marked; a click opens its talent); its foot has Create Plan, Edit (the
 -- active plan drawn again, from its last checkpoint) and Remove.
 --
+-- The talents glow, softly: one with points allocated and not yet applied
+-- (staged; in the plan's mode, the draft's) pulses, green, or blue when
+-- the points allocated fill it, and flashes as a point goes in; one whose
+-- points are learned (planned, in the mode) keeps a still aura, green, or
+-- blue when it is full. A maxed one has a line inside its edge and a sheen
+-- across it; a lit line has a soft gold halo under it. A point staged or
+-- planned plays the game's spend sound, one taken back its refund sound;
+-- Apply plays the game's apply sound, and its complete sound when the
+-- talents are learned, each talent that rose flashing.
+--
 -- Nothing here is secure: the window opens and reads in combat, where the
 -- game refuses every change, so they wait for its end.
 --
@@ -60,6 +70,27 @@ local _, ns = ...
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local LIT = { 0.4, 0.85, 0.35 }         -- ranks still to spend where they can be
+local BRIGHT = { 1, 0.97, 0.85 }        -- a maxed talent's inner line
+-- the effects (art/talents/gen_talents.py)
+local GLOW, SHEEN, BEAM = ns.media .. "talents\\glow", ns.media .. "talents\\sheen", ns.media .. "talents\\beam"
+-- The glow is full round the icon's square, then fades out beyond it; at
+-- AURA icons wide, half an icon past each edge. Subtle: an aura, not a
+-- lamp.
+local AURA = 2                          -- a glow's size, in icons
+local BLUE = { 0.4, 0.7, 1 }            -- a talent's glow when its points fill it
+local PULSE = { 0.55, 0.2, 1.6 }        -- staged: its alpha, how far it swings, a beat's seconds
+local STILL = 0.4                       -- learned: the aura's alpha
+local HALO_ALPHA, HALO = 0.45, 10       -- a lit line's halo, its thickness
+local FLASH, FLASH_ALPHA = 0.4, 0.95    -- a point spent: seconds the flash fades over, and its start
+-- the game's own talent sounds (Blizzard_ClassTalentButtonTemplates.lua,
+-- Blizzard_ClassTalentsFrame.lua)
+local SOUNDS = { spend = "UI_CLASS_TALENT_NODE_SPEND", refund = "UI_CLASS_TALENT_NODE_REFUND",
+    apply = "UI_CLASS_TALENT_APPLY_CHANGES", complete = "UI_CLASS_TALENT_APPLY_COMPLETE" }
+local function Sound(which)
+    local kit = SOUNDKIT and SOUNDKIT[SOUNDS[which]]
+    if kit and PlaySound then PlaySound(kit) end
+end
+local committing                        -- Apply pressed: the next config update is its landing
 local PLANNING = { 0.12, 0.24, 0.48, 0.55 }  -- the tree's ground in the plan's mode: the ink turned blue
 local TREES = 3
 local ICON, MARGIN = 36, 10             -- a talent's icon, the room round the tree
@@ -290,6 +321,7 @@ local function Add(id)
     if Why(m, Walk(m, Drawn()), id) then return end
     sim.draft = { id = id, n = (sim.draft and sim.draft.n or 0) + 1 }
     sim.saved = false
+    return true
 end
 
 -- the talent's last point taken off: from the draft when it is the
@@ -306,7 +338,7 @@ local function Remove(id)
         for k = #list, 1, -1 do
             if list[k] == id then table.remove(list, k); found = true; break end
         end
-        if not found then return end
+        if not found then return false end
         steps = Walk(m, list).kept
     end
     local s, kept = Walk(m, steps), 0
@@ -317,6 +349,7 @@ local function Remove(id)
     sim.steps = steps
     sim.draft = kept > 0 and { id = d.id, n = kept } or nil
     sim.saved = false
+    return true
 end
 
 -- the draft kept as a checkpoint
@@ -368,11 +401,14 @@ end
 local function Follow()
     local config = Config()
     if not (config and Editable()) then return end
+    local any = false
     for _ = 1, Cap() do
         if Left(config) <= 0 then break end
         local _, id = Next(Model(config), Plan())
         if not id or not C_Traits.PurchaseRank(config, id) then break end
+        any = true
     end
+    if any then Sound("spend") end
 end
 
 -- ------------------------------------------------------------ the ranks
@@ -473,14 +509,20 @@ local function Click(p, b, button)
         return
     end
     p.chosen = b.node.ID
+    local back = button == "RightButton"
+    local done
     if planning then
-        if button == "RightButton" then Remove(b.node.ID) else Add(b.node.ID) end
+        if back then done = Remove(b.node.ID) else done = Add(b.node.ID) end
     elseif Editable() then
-        if button == "RightButton" then
-            C_Traits.RefundRank(Config(), b.node.ID)
+        if back then
+            done = C_Traits.RefundRank(Config(), b.node.ID)
         else
-            C_Traits.PurchaseRank(Config(), b.node.ID)
+            done = C_Traits.PurchaseRank(Config(), b.node.ID)
         end
+    end
+    if done then
+        Sound(back and "refund" or "spend")
+        if not back then p.Flash(b) end
     end
     p.Refresh()
 end
@@ -491,16 +533,47 @@ local function Node(p, i)
     b:SetFrameLevel(p.body:GetFrameLevel() + 2)
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     -- planned and not learned: a gold ring round the edge, the next the brightest
-    b.halo = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+    b.halo = b:CreateTexture(nil, "BACKGROUND", nil, -2)
     b.halo:SetPoint("TOPLEFT", -5, 5)
     b.halo:SetPoint("BOTTOMRIGHT", 5, -5)
     b.halo:Hide()
+    -- can take a point: a soft green glow, pulsing (Pulse); maxed: gold, still
+    -- (over the plan's ring, which would hide its brightest part; additive,
+    -- so the ring still shows through it)
+    b.aura = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+    b.aura:SetTexture(GLOW)
+    b.aura:SetBlendMode("ADD")
+    b.aura:SetSize(ICON * AURA, ICON * AURA)
+    b.aura:SetPoint("CENTER")
+    b.aura:Hide()
     b.edge = b:CreateTexture(nil, "BACKGROUND")
     b.edge:SetPoint("TOPLEFT", -2, 2)
     b.edge:SetPoint("BOTTOMRIGHT", 2, -2)
     b.icon = b:CreateTexture(nil, "ARTWORK")
     b.icon:SetAllPoints()
     b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    -- maxed: a sheen across the icon, a bright line inside its edge
+    b.sheen = b:CreateTexture(nil, "ARTWORK", nil, 1)
+    b.sheen:SetTexture(SHEEN)
+    b.sheen:SetBlendMode("ADD")
+    b.sheen:SetAllPoints()
+    b.sheen:SetVertexColor(1, 0.95, 0.8, 0.4)
+    b.sheen:Hide()
+    b.inner = {}
+    for k, side in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local t = b:CreateTexture(nil, "ARTWORK", nil, 2)
+        t:SetColorTexture(BRIGHT[1], BRIGHT[2], BRIGHT[3], 0.9)
+        -- a pixel in from the icon's edge, so a sliver of the icon parts it
+        -- from the gold edge
+        local dx, dy = side[1]:find("LEFT") and 1 or -1, side[1]:find("TOP") and -1 or 1
+        local ex, ey = side[2]:find("LEFT") and 1 or -1, side[2]:find("TOP") and -1 or 1
+        t:SetPoint(side[1], dx, dy)
+        t:SetPoint(side[2], ex, ey)
+        if k <= 2 then t:SetHeight(1) else t:SetWidth(1) end
+        t:Hide()
+        b.inner[k] = t
+    end
     b.well = b:CreateTexture(nil, "OVERLAY")
     b.well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.9)
     b.rank = ns.Text(b, 11)
@@ -519,6 +592,12 @@ local function Node(p, i)
 end
 
 local function Edge(p, i)
+    -- lit: a soft gold halo under it
+    local halo = p.body:CreateLine(nil, "BACKGROUND", nil, -1)
+    halo:SetThickness(HALO)
+    halo:SetTexture(BEAM)
+    halo:SetBlendMode("ADD")
+    p.halos[i] = halo
     local l = p.body:CreateLine(nil, "BACKGROUND")
     l:SetThickness(2)
     p.edges[i] = l
@@ -590,10 +669,30 @@ local function Draw(p, config, group, groups, plan)
         local ahead = not drawing and b.planned > node.ranksPurchased
         b.halo:SetShown(ahead)
         b.halo:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], node.ID == plan.next and 0.9 or 0.35)
+        -- the glow: green and pulsing while it can take a point, gold and
+        -- still when maxed; the maxed shine
+        -- the aura: pulsing while points are allocated and not applied
+        -- (the draft's, in the mode), still once learned (planned); blue
+        -- when the points fill it, else green
+        local staged
+        if drawing then
+            staged = sim.draft and sim.draft.id == node.ID
+        else
+            local active = node.activeRank
+            if type(active) == "number" then staged = node.ranksPurchased > active
+            else staged = node.canRefundRank and true or false end
+        end
+        b.pulse = staged and true or false
+        b.glow = maxed and BLUE or LIT
+        b.aura:SetShown(ranks > 0 or (b.flashUntil or 0) > 0)
+        b.aura:SetVertexColor(b.glow[1], b.glow[2], b.glow[3], b.pulse and PULSE[1] or STILL)
+        b.sheen:SetShown(maxed)
+        for _, t in ipairs(b.inner) do t:SetShown(maxed) end
+        b.learned = node.ranksPurchased
         b:Show()
         at[i] = b
     end
-    for i = #list + 1, #p.nodes do p.nodes[i]:Hide(); p.nodes[i].node = nil end
+    for i = #list + 1, #p.nodes do p.nodes[i]:Hide(); p.nodes[i].node = nil; p.nodes[i].pulse = false end
     -- the lines, from each talent to the ones it opens
     local e = 0
     for _, b in ipairs(at) do
@@ -609,10 +708,15 @@ local function Draw(p, config, group, groups, plan)
                 local c = active and GOLD or GOLD_D
                 l:SetColorTexture(c[1], c[2], c[3], active and 1 or 0.6)
                 l:Show()
+                local halo = p.halos[e]
+                halo:SetStartPoint("CENTER", b)
+                halo:SetEndPoint("CENTER", to)
+                halo:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], HALO_ALPHA)
+                halo:SetShown(active and true or false)
             end
         end
     end
-    for i = e + 1, #p.edges do p.edges[i]:Hide() end
+    for i = e + 1, #p.edges do p.edges[i]:Hide(); p.halos[i]:Hide() end
     return byID
 end
 
@@ -776,7 +880,10 @@ local function Points(p, body)
     p.points:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
     p.apply = Button(strip, 64, function()
         if not Editable() then return end
-        C_ClassTalents.CommitConfig()
+        if C_ClassTalents.CommitConfig() then
+            committing = true
+            Sound("apply")
+        end
     end, function() return InCombatLockdown() and "Not in combat." or "Learn the talents chosen." end)
     p.apply.label:SetText("Apply")
     p.apply:SetHeight(STRIP - 2)
@@ -887,10 +994,33 @@ local function Foot(p, foot)
     p.footHeight = math.max(FOOT, p.details.height + PLAN_ROW)
 end
 
+-- The glows: a staged talent's alpha swinging round PULSE's, a flash
+-- (FLASH seconds) fading from FLASH_ALPHA down to where it rests (its pulse,
+-- its still aura, or nothing)
+local function Pulse(p)
+    local now = GetTime()
+    local swing = PULSE[1] + PULSE[2] * math.sin(now * 2 * math.pi / PULSE[3])
+    for _, b in ipairs(p.nodes) do
+        if b.node and b.glow then
+            local c = b.glow
+            local rest = b.pulse and swing or b.aura:IsShown() and STILL or 0
+            local left = (b.flashUntil or 0) - now
+            if left > 0 then
+                b.aura:SetVertexColor(c[1], c[2], c[3], rest + (FLASH_ALPHA - rest) * (left / FLASH))
+            elseif b.flashUntil then
+                b.flashUntil = nil
+                p.Refresh()
+            elseif b.pulse then
+                b.aura:SetVertexColor(c[1], c[2], c[3], swing)
+            end
+        end
+    end
+end
+
 -- ------------------------------------------------------------------ pages
 for i = 1, TREES do
     local p = { key = "tree" .. i, tree = i, order = i, label = "", frame = "TalentsFrame" }
-    p.nodes, p.edges = {}, {}
+    p.nodes, p.edges, p.halos = {}, {}, {}
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true
     p.events = { "TRAIT_CONFIG_UPDATED", "TRAIT_NODE_CHANGED", "TRAIT_TREE_CURRENCY_INFO_UPDATED",
         "PLAYER_TALENT_UPDATE", "ACTIVE_TALENT_GROUP_CHANGED", "SPELLS_CHANGED", "PLAYER_LEVEL_UP",
@@ -912,8 +1042,29 @@ for i = 1, TREES do
         Points(p, body)
         Foot(p, foot)
         Margin(p, band)
+        -- the glows' pulse and the flashes, while the tree is in sight
+        body:HookScript("OnUpdate", function() Pulse(p) end)
     end
     function p.Refresh() Refresh(p) end
+    -- a point spent: its glow flashes bright, and fades back
+    function p.Flash(b)
+        b.flashUntil = GetTime() + FLASH
+        b.aura:Show()
+    end
+    -- Apply's talents learned: the game's complete sound, each talent
+    -- that rose flashing (its learned ranks against the last drawn)
+    function p.OnEvent(event)
+        if event ~= "TRAIT_CONFIG_UPDATED" or not committing then return end
+        committing = nil
+        Sound("complete")
+        local config = Config()
+        for _, b in ipairs(p.nodes) do
+            if b.node and b:IsShown() then
+                local now = config and C_Traits.GetNodeInfo(config, b.node.ID)
+                if now and now.ranksPurchased > (b.learned or 0) then p.Flash(b) end
+            end
+        end
+    end
     W.Page(p)
 end
 
@@ -1244,7 +1395,10 @@ end
 -- p.edges, and the room over the tree (head) the points' row's
 W.Tree, W.Groups, W.Spent, W.Lock, W.Describe, W.Entry = Tree, Groups, Spent, Lock, Describe, Entry
 W.head = HEAD
+-- another's talents (inspect/talents.lua): read only, so no talent can
+-- take a point and none pulses; the maxed ones shine, the lit lines glow
 function W.Draw(p, config, group, groups)
+    p.halos = p.halos or {}
     return Draw(p, config, group, groups, { counts = {}, kept = {}, spent = {}, model = {} })
 end
 

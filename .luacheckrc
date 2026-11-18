@@ -101,7 +101,7 @@ read_globals = {
     -- the bags window (inventory/bags.lua)
     "ContainerFrameCombinedBags", "NUM_CONTAINER_FRAMES", "NUM_BAG_SLOTS", "C_NewItems", "ItemLocation",
     "ClearItemButtonOverlay", "SetItemButtonQuality", "SetItemButtonCount", "SetItemButtonDesaturated",
-    "GetMoney", "GetMoneyString", "CloseAllBags", "GetCursorPosition", "CreateColor",
+    "GetMoney", "GetMoneyString", "CloseAllBags", "GetCursorPosition", "CreateColor", "PlaySound", "SOUNDKIT",
     -- the settings page and the atlas sizes
     -- paging (bars/paging.lua)
     "SAVE",

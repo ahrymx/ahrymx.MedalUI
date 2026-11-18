@@ -81,6 +81,7 @@ end
 local function Hide()
     for _, b in ipairs(page.nodes) do b:Hide() end
     for _, l in ipairs(page.edges) do l:Hide() end
+    for _, l in ipairs(page.halos or {}) do l:Hide() end
 end
 
 function page.Refresh()

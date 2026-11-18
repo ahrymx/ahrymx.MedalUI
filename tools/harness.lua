@@ -3797,6 +3797,7 @@ if talentPass or args.inspectTrees then
             return { ID = id, posX = d[3], posY = d[4], groupIDs = d[8] and { d[8], d[2] } or { d[2] },
                 entryIDs = { id * 10 },
                 activeEntry = r > 0 and { entryID = id * 10, rank = r } or nil, ranksPurchased = r,
+                activeRank = T.committed[config][id] or 0,
                 maxRanks = d[5], isVisible = true, isAvailable = available, meetsEdgeRequirements = ok,
                 canPurchaseRank = available and ok and r < d[5] and T.points - spent(config) > 0,
                 canRefundRank = (T.staged[config][id] or 0) > 0, visibleEdges = edges, conditionIDs = CONDS[id] or {} }
@@ -3832,6 +3833,13 @@ if talentPass or args.inspectTrees then
             return true
         end,
     }
+    -- the game's talent sounds, each played recorded by its name
+    T.sounds = {}
+    SOUNDKIT = SOUNDKIT or {}
+    for k, v in pairs({ UI_CLASS_TALENT_NODE_SPEND = 101, UI_CLASS_TALENT_NODE_REFUND = 102,
+        UI_CLASS_TALENT_APPLY_CHANGES = 103, UI_CLASS_TALENT_APPLY_COMPLETE = 104 }) do SOUNDKIT[k] = v end
+    local soundNames = { [101] = "spend", [102] = "refund", [103] = "apply", [104] = "complete" }
+    function PlaySound(kit) table.insert(T.sounds, soundNames[kit] or tostring(kit)) end
     C_ClassTalents = {
         CommitConfig = function(saved)
             local config = T.active
@@ -18413,8 +18421,49 @@ if talentPass then
     tree("talents.elemental")
     foot("talents.foot")
 
+    -- the effects: a can-take talent's green glow (pulsing), a maxed one's
+    -- gold glow, sheen and inner line, a lit line's halo; and the sounds
+    local function fx(tag)
+        local p = W.Current()
+        local list = {}
+        for _, b in ipairs(p.nodes) do
+            if b.shown and b.node then
+                local a = b.aura
+                local c = a.vertex or {}
+                table.insert(list, b.talent.name .. "=" .. (a.shown and string.format("%s%.2f",
+                    (c[3] or 0) > 0.9 and "blue" or (c[1] or 1) < 0.5 and "green" or "gold", c[4] or -1) or "-")
+                    .. (b.pulse and "~" or "") .. (b.sheen.shown and "+sheen" or "")
+                    .. (b.inner[1].shown and "+inner" or "") .. ((b.flashUntil or 0) > 0 and "+flash" or ""))
+            end
+        end
+        local lit, halos = 0, 0
+        for i, l in ipairs(p.edges) do
+            if l.shown then
+                if l.color and l.color[4] == 1 then lit = lit + 1 end
+                if p.halos[i].shown then halos = halos + 1 end
+            end
+        end
+        print(tag, table.concat(list, " "), "| lit=" .. lit .. " halos=" .. halos)
+    end
+    local function sounds(tag)
+        print(tag, "sounds=" .. (#T.sounds > 0 and table.concat(T.sounds, ",") or "-"))
+        T.sounds = {}
+    end
+    fx("talents.fx")
+    -- the pulse: the can-take glows swing with the time
+    local clock = GetTime
+    for _, t in ipairs({ 0, 0.4 }) do
+        GetTime = function() return 100 + t end
+        W.Current().body.scripts.OnUpdate(W.Current().body, 0)
+        fx("talents.fx pulse " .. t)
+    end
+    GetTime = clock
+    T.sounds = {}
+
     -- 3. a click stages a rank; the details read the talent
     click("Concussion")
+    fx("talents.fx staged")
+    sounds("talents.sounds staged")
     tree("talents.staged")
     foot("talents.staged")
     row("talents.row")
@@ -18423,19 +18472,45 @@ if talentPass then
     tip("talents.tip spell", "Elemental Mastery")
     -- a right-click takes it back; a locked talent stages nothing
     click("Concussion", "RightButton")
+    sounds("talents.sounds refund")
     click("Elemental Mastery")
+    sounds("talents.sounds locked")
     foot("talents.locked")
     -- two ranks, then Reset
     click("Concussion")
     click("Concussion")
+    -- a third: its points allocated fill it, the pulse blue, swinging
+    click("Concussion")
+    do
+        local clock = GetTime
+        for _, t in ipairs({ 1, 1.4 }) do
+            GetTime = function() return 100 + t end
+            W.Current().body.scripts.OnUpdate(W.Current().body, 0)
+            fx("talents.fx staged full " .. t)
+        end
+        GetTime = clock
+    end
+    T.sounds = {}
     W.Current().reset.scripts.OnClick(W.Current().reset)
     frame()
     foot("talents.reset")
     -- a rank, then Apply
     click("Concussion")
+    T.sounds = {}
     W.Current().apply.scripts.OnClick(W.Current().apply)
+    sounds("talents.sounds apply")
     fire("TRAIT_CONFIG_UPDATED", 1)
     frame()
+    sounds("talents.sounds learned")
+    fx("talents.fx learned")
+    -- the flash fades: gone a moment later
+    do
+        local now = GetTime()
+        GetTime = function() return now + 1 end
+        W.Current().body.scripts.OnUpdate(W.Current().body, 0)
+        GetTime = clock
+        fx("talents.fx flash gone")
+    end
     tree("talents.applied")
     foot("talents.applied")
 
@@ -18691,7 +18766,9 @@ if talentPass then
     tree("talents.plan glow")
     strip("talents.plan next")
     T.calls = {}
+    T.sounds = {}
     press(elemT.follow)
+    sounds("talents.sounds followed")
     tree("talents.followed")
     strip("talents.followed")
     foot("talents.followed")
