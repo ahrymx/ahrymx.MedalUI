@@ -80,11 +80,17 @@ A quest's own page spells out where it sits in its chain, step by step, with its
 
 ### Talents and plans
 
-A **plan** lays out a build by level. Each talent shows its levels, goal and progress, and the next checkpoint is lit.
+Each tree sits on a faint wash of its own colour, under a console showing its points, the points left and the next step in your plan, with **Reset**, **Follow** and **Apply** beneath. Talents with points chosen but not yet applied pulse softly (green, or blue when full), learned ones keep a still aura, and maxed ones shine. The game's own talent sounds play as you spend, take back and apply points. Choosing a talent reads out what each rank gives, the current one in green.
 
-| Talents | Talent plans |
+A **plan** lays out a build by level. In plan mode the tree turns to a drafting grid: click to add points, **Checkpoint** each step, then **Save plan**. Each talent shows its levels, goal and progress, the next checkpoint is lit, and **Follow** stages the plan's next talents for you to apply.
+
+| Talents | A talent's ranks |
 |:---:|:---:|
-| ![The talents window: a tree with the points available and the next talent in your plan](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/talents.png) | ![A talent plan: each talent's levels, goal and progress, the next checkpoint lit](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/talent-plans.png) |
+| ![The talents window: the Elemental tree on its ember wash, under the console with the points left and the next talent in your plan](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/talents.png) | ![The Restoration tree on its green wash, Water Shield chosen: its rank, what it needs, and what it does](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/talent-details.png) |
+
+| Drafting a plan | Talent plans |
+|:---:|:---:|
+| ![Plan mode: the Enhancement tree on a drafting grid, the console with Exit plan, Checkpoint and Save plan, the talent being drafted glowing](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/talent-planning.png) | ![A talent plan: each talent's levels, goal and progress, the next checkpoint lit](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/talent-plans.png) |
 
 ---
 
