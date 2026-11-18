@@ -5,7 +5,12 @@
 --
 --   [tree][tree][tree]                                          [x]
 --   ---------------------------------------------------------------
---   [Reset]       12 points available  ·  Elemental 5  [Follow] [Apply]
+--   +---------------------------------------------------------------+
+--   |    Elemental      |    12  points    |     Next in plan      |
+--   | 5 points in tree  |        left      |   Concussion 2/5      |
+--   |-------------------+------------------+-----------------------|
+--   |      Reset        |      Follow      |        Apply          |
+--   +---------------------------------------------------------------+
 --        [o]     [o]                (a tree's talents, where the
 --         |                          tree puts them, with the
 --        [o] 2/5 [o]     [o]         lines between them)
@@ -16,6 +21,15 @@
 --        and a hint: why a click was refused, or what comes next
 --   ---------------------------------------------------------------
 --   (backpack)   [Primary] [Secondary] | [Plans] [Activate]
+--
+-- Over the tree, the console (Console): one plate the window's width under
+-- its tabs, three readouts parted by hairlines (the tree and its points;
+-- the points left, large, or in the plan's mode the points planned; the
+-- status: points chosen and not applied, else the plan's next, or in the
+-- mode the plan's name), and under them the controls joined across, each
+-- a third: Reset, Follow, Apply, dimmed while they cannot be used. The
+-- inspect window's talents wear the plate without the controls: the tree,
+-- their points, their trees' split.
 --
 -- A tab per tree, the game's own icons. A click spends a rank, a right-click
 -- takes one back: both only staged, until Apply commits them (Reset
@@ -95,7 +109,10 @@ local PLANNING = { 0.12, 0.24, 0.48, 0.55 }  -- the tree's ground in the plan's 
 local TREES = 3
 local ICON, MARGIN = 36, 10             -- a talent's icon, the room round the tree
 local STRIP = 26                        -- a row of controls: the points' over the tree, the plan's under it
-local HEAD = STRIP                      -- what stands over the tree
+local READOUTS, CONTROLS = 84, 34       -- the console's readouts, and its row of controls under them
+local CONSOLE = READOUTS + CONTROLS     -- the console over the tree
+local LIFT = 4                          -- the console raised to meet the tabs (the page starts under a gap)
+local HEAD = CONSOLE - LIFT + 16        -- what stands over the tree (a page may say its own: p.over)
 local FOOT = 6 + STRIP + 6 + 2 * 15     -- the plan's row and two lines of hint under it
 local PLAN_ROW = 8 + 1 + 6 + 15         -- out of the plan's mode: a gap, a rule, a gap, the plan's line
 
@@ -629,7 +646,8 @@ local function Draw(p, config, group, groups, plan)
         end
     end
     local width = W.width - 2 * MARGIN - ICON
-    local height = (p.body:GetHeight() or 0) - HEAD - 2 * MARGIN - ICON
+    local head = p.over or HEAD
+    local height = (p.body:GetHeight() or 0) - head - 2 * MARGIN - ICON
     local scale = math.min(span.x > 0 and width / span.x or 1, span.y > 0 and height / span.y or 1)
     local own = box[group.groupID] or { x0 = 0, x1 = 0, y0 = 0 }
     local x0, y0 = own.x0, own.y0
@@ -644,7 +662,7 @@ local function Draw(p, config, group, groups, plan)
         byID[node.ID] = b
         b:ClearAllPoints()
         b:SetPoint("CENTER", p.body, "TOPLEFT", left + (node.posX - x0) * scale,
-            -(HEAD + MARGIN + ICON / 2 + (node.posY - y0) * scale))
+            -(head + MARGIN + ICON / 2 + (node.posY - y0) * scale))
         b.icon:SetTexture(b.talent.icon)
         b.planned = plan.counts[node.ID] or 0
         b.refusal = not p.readonly and Why(plan.model, plan, node.ID) or nil
@@ -734,6 +752,7 @@ local function Band(p)
     p.margin:Set("plans", { selected = p.list and true or false })
 end
 
+local Controls                          -- the console's controls laid out (with the console, below)
 local function Refresh(p)
     local config = Config()
     local groups = Groups()
@@ -783,30 +802,48 @@ local function Refresh(p)
         end
         p.planLine:SetText(line)
     end
-    -- the points: left to spend (or planned), and in this tree (the tabs'
-    -- tips say each)
+    -- the console: the points left to spend (or planned), the tree's, and
+    -- the status (the tabs' tips say each tree's)
     local spent = Spent(config, groups)
-    if planning then
-        p.points:SetText(format("%s  ·  %d/%d  ·  %s %d", sim.name or "New plan", #plan.kept, Cap(),
-            group.displayName, plan.spent[group.groupID] or 0))
-    else
-        p.points:SetText(format("%d |4point:points; available  ·  %s %d", Left(config), group.displayName,
-            spent[group.groupID] or 0))
+    local staged = not planning and C_Traits.ConfigHasStagedChanges(config) and true or false
+    local c = p.console
+    c.title:SetText(group.displayName)
+    local function State(head, line, lit)
+        c.state:SetText(head)
+        c.status:SetText(line)
+        local color = lit and GOLD or ns.colors.dim
+        c.state:SetTextColor(color[1], color[2], color[3])
     end
-    local staged = not planning and C_Traits.ConfigHasStagedChanges(config)
-    p.apply:SetShown(staged)
-    p.reset:SetShown(staged)
+    if planning then
+        c.number:SetText(#plan.kept)
+        c.caption:SetText("planned\nof " .. Cap())
+        c.line:SetText(format("%d planned in this tree", plan.spent[group.groupID] or 0))
+        State(sim.name or "New plan", "Planning", true)
+    else
+        local left = Left(config)
+        c.number:SetText(left)
+        c.caption:SetText((left == 1 and "point" or "points") .. "\nleft")
+        c.line:SetText(format("%d |4point:points; in this tree", spent[group.groupID] or 0))
+        local nextOne = nextID and m[nextID]
+        if staged then
+            State("Points chosen", "Apply to learn them", true)
+        elseif nextOne then
+            State("Next in plan", format("%s %d/%d", Entry(config, nextOne.node).name, nextRank,
+                nextOne.node.maxRanks))
+        elseif #Plan() == 0 then
+            State("No plan", "Make one under Plans")
+        else
+            State("Plan complete", "")
+        end
+    end
     p.checkpoint:SetShown(d and true or false)
     p.save:ClearAllPoints()
     p.save:SetPoint("LEFT", d and p.checkpoint or p.exit, "RIGHT", 4, 0)
     p.save:SetShown(planning and (#sim.steps > 0 or d) and true or false)
     p.save:SetAlpha(d and 0.4 or 1)
     if not planning then p.name:Hide() end
-    p.apply:SetAlpha(Editable() and 1 or 0.4)
     p.wash:SetShown(planning and true or false)
-    p.follow:SetShown(not planning and nextID ~= nil and Editable() and Left(config) > 0)
-    p.follow:ClearAllPoints()
-    if staged then p.follow:SetPoint("RIGHT", p.apply, "LEFT", -4, 0) else p.follow:SetPoint("RIGHT", -4, 0) end
+    Controls(p, staged, not planning and nextID ~= nil and Editable() and Left(config) > 0)
     Band(p)
 end
 
@@ -870,15 +907,117 @@ local function Margin(p, band)
 end
 
 -- the points' row over the tree: [Reset]  points available  [Apply]
+-- The console: a plate the window's width (flush with its border, as
+-- ns.window.Strip), its top meeting the tabs', gold-edged, a shine along
+-- its top; three readouts across, parted by hairlines, the outer two the
+-- wider (a tree's name is long: "Elemental Combat"); with controls, a row
+-- under them past a gold rule (c.row, the page fills it).
+--   c.title, c.line (the first); c.number, c.caption (the second);
+--   c.state, c.status (the third); c.row
+local FILL = { 0.133, 0.118, 0.086 }
+local OFF = { 0.35, 0.33, 0.27 }        -- a control that cannot be used: its word
+local function Console(body, controls)
+    local c = CreateFrame("Frame", nil, body)
+    local out = ns.window.pad - 1
+    c:SetPoint("TOPLEFT", -out, LIFT)
+    c:SetPoint("TOPRIGHT", out, LIFT)
+    c:SetHeight(controls and CONSOLE or READOUTS)
+    local edge = c:CreateTexture(nil, "BACKGROUND")
+    edge:SetAllPoints()
+    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    local fill = c:CreateTexture(nil, "BACKGROUND", nil, 1)
+    fill:SetPoint("TOPLEFT", 1, -1)
+    fill:SetPoint("BOTTOMRIGHT", -1, 1)
+    fill:SetColorTexture(FILL[1], FILL[2], FILL[3], 1)
+    local shine = c:CreateTexture(nil, "BACKGROUND", nil, 2)
+    shine:SetPoint("TOPLEFT", 2, -3)
+    shine:SetPoint("TOPRIGHT", -2, -3)
+    shine:SetHeight(1)
+    shine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.15)
+    -- the readouts: three cells across the top, hairlines between
+    local cells = {}
+    for i = 1, 3 do
+        local f = CreateFrame("Frame", nil, c)
+        f:SetHeight(READOUTS)
+        cells[i] = f
+    end
+    c.cells = cells
+    local SHARE = { 0.37, 0.26, 0.37 }
+    function c.Layout()
+        local w, x = c:GetWidth() or 0, 0
+        for i, f in ipairs(cells) do
+            f:ClearAllPoints()
+            f:SetPoint("TOPLEFT", c, "TOPLEFT", x, 0)
+            f:SetWidth(w * SHARE[i])
+            x = x + w * SHARE[i]
+        end
+    end
+    c:SetScript("OnSizeChanged", c.Layout)
+    c.Layout()
+    for i = 1, 2 do
+        local rule = ns.window.Hair(c, true)
+        rule:SetPoint("TOP", cells[i], "TOPRIGHT", 0, -14)
+        rule:SetPoint("BOTTOM", cells[i], "BOTTOMRIGHT", 0, 14)
+    end
+    local function Pair(cell, size, color)
+        -- the head over the middle, its line under, a gap between
+        local a, b = ns.Text(cell, size), ns.Text(cell, 12)
+        a:SetPoint("BOTTOMLEFT", cell, "LEFT", 12, 3)
+        a:SetPoint("BOTTOMRIGHT", cell, "RIGHT", -12, 3)
+        b:SetPoint("TOPLEFT", cell, "LEFT", 12, -6)
+        b:SetPoint("TOPRIGHT", cell, "RIGHT", -12, -6)
+        for _, fs in ipairs({ a, b }) do
+            fs:SetJustifyH("CENTER")
+            fs:SetWordWrap(false)
+        end
+        a:SetTextColor(color[1], color[2], color[3])
+        b:SetTextColor(unpack(ns.colors.dim))
+        return a, b
+    end
+    c.title, c.line = Pair(cells[1], 17, GOLD)
+    c.state, c.status = Pair(cells[3], 15, GOLD)
+    -- the points: the number large, its word in two lines beside it
+    c.number = ns.Text(cells[2], 34)
+    c.number:SetPoint("RIGHT", cells[2], "CENTER", 2, 0)
+    c.number:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    c.caption = ns.Text(cells[2], 12)
+    c.caption:SetPoint("LEFT", cells[2], "CENTER", 12, 0)
+    c.caption:SetJustifyH("LEFT")
+    c.caption:SetTextColor(unpack(ns.colors.dim))
+    if controls then
+        c.row = CreateFrame("Frame", nil, c)
+        c.row:SetPoint("BOTTOMLEFT", 0, 0)
+        c.row:SetPoint("BOTTOMRIGHT", 0, 0)
+        c.row:SetHeight(CONTROLS + 1)
+    end
+    return c
+end
+W.Console = Console
+
+-- a control on or off: off, its word dim and its click refused
+local function Can(b, on)
+    b.on = on and true or false
+    b:SetEnabled(b.on)
+    local color = b.on and (b.bright or GOLD) or OFF
+    b.label:SetTextColor(color[1], color[2], color[3])
+    if b.lit then b.well:SetColorTexture(unpack(b.on and b.lit or b.dark)) end
+end
+
 local function Points(p, body)
-    local strip = CreateFrame("Frame", nil, body)
-    strip:SetPoint("TOPLEFT")
-    strip:SetPoint("TOPRIGHT")
-    strip:SetHeight(STRIP)
-    p.points = ns.Text(strip, 12)
-    p.points:SetPoint("CENTER", 0, 0)
-    p.points:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    p.apply = Button(strip, 64, function()
+    local c = Console(body, true)
+    p.console = c
+    local row = c.row
+    p.reset = Button(row, 64, function()
+        C_Traits.RollbackConfig(Config())
+        W.Refresh()
+    end, function() return "Forget the talents chosen." end)
+    p.reset.label:SetText("Reset")
+    p.follow = Button(row, 64, function()
+        Follow()
+        W.Refresh()
+    end, function() return "Choose the plan's next talents, as many as your points; Apply learns them." end)
+    p.follow.label:SetText("Follow")
+    p.apply = Button(row, 64, function()
         if not Editable() then return end
         if C_ClassTalents.CommitConfig() then
             committing = true
@@ -886,21 +1025,30 @@ local function Points(p, body)
         end
     end, function() return InCombatLockdown() and "Not in combat." or "Learn the talents chosen." end)
     p.apply.label:SetText("Apply")
-    p.apply:SetHeight(STRIP - 2)
-    p.apply:SetPoint("RIGHT", -4, 0)
-    p.reset = Button(strip, 64, function()
-        C_Traits.RollbackConfig(Config())
-        W.Refresh()
-    end, function() return "Forget the talents chosen." end)
-    p.reset.label:SetText("Reset")
-    p.reset:SetHeight(STRIP - 2)
-    p.reset:SetPoint("LEFT", 4, 0)
-    p.follow = Button(strip, 64, function()
-        Follow()
-        W.Refresh()
-    end, function() return "Choose the plan's next talents, as many as your points; Apply learns them." end)
-    p.follow.label:SetText("Follow")
-    p.follow:SetHeight(STRIP - 2)
+    -- Apply the bright one while it can be used: its well gold-brown, its word light
+    p.apply.lit = { 0.36, 0.28, 0.12, 1 }
+    p.apply.dark = { ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.85 }
+    p.apply.bright = { 1, 0.925, 0.667 }
+    -- joined: each a third, neighbours sharing their edge
+    local list = { p.reset, p.follow, p.apply }
+    local function Lay()
+        local w = (row:GetWidth() or 0) / 3
+        for i, b in ipairs(list) do
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", row, "TOPLEFT", math.floor((i - 1) * w) - (i > 1 and 1 or 0), 0)
+            b:SetSize(math.floor(w) + (i > 1 and 1 or 0), CONTROLS + 1)
+        end
+    end
+    row:SetScript("OnSizeChanged", Lay)
+    Lay()
+end
+
+-- the console's controls: Reset and Apply while points are chosen (Apply
+-- while they can be learned), Follow while the plan has a next
+function Controls(p, staged, follow)
+    Can(p.reset, staged)
+    Can(p.follow, follow)
+    Can(p.apply, staged and Editable())
 end
 
 -- a foot's hint, under its row of buttons: two lines, wrapping
@@ -1395,6 +1543,7 @@ end
 -- p.edges, and the room over the tree (head) the points' row's
 W.Tree, W.Groups, W.Spent, W.Lock, W.Describe, W.Entry = Tree, Groups, Spent, Lock, Describe, Entry
 W.head = HEAD
+W.readouts = READOUTS
 -- another's talents (inspect/talents.lua): read only, so no talent can
 -- take a point and none pulses; the maxed ones shine, the lit lines glow
 function W.Draw(p, config, group, groups)

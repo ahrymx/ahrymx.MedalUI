@@ -19,7 +19,6 @@
 -- (retail keeps Blizzard's own route to them: the window stays as it is).
 local _, ns = ...
 
-local GOLD = { 0.941, 0.831, 0.533 }
 local LINES = 4
 
 local page = { key = "inspectTalents", label = "Talents", tip = "Their talents", glyph = "talents", order = 2,
@@ -89,7 +88,7 @@ function page.Refresh()
     page.waiting:SetShown(not config)
     if not config then
         Hide()
-        page.points:SetText("")
+        page.console:Hide()
         page.details:Set(nil)
         page.margin:Fill({})
         return
@@ -98,7 +97,17 @@ function page.Refresh()
     local group = groups[at]
     page.config = config
     local byID = T().Draw(page, config, group, groups)
-    page.points:SetText(format("%s  ·  %d |4point:points;", group.displayName or "?", spent[group.groupID] or 0))
+    local c, all = page.console, 0
+    for _, n in pairs(spent) do all = all + n end
+    c:Show()
+    c.number:SetText(all)
+    c.caption:SetText((all == 1 and "point" or "points") .. "\nspent")
+    c.title:SetText(group.displayName or "?")
+    c.line:SetText(format("%d |4point:points; in this tree", spent[group.groupID] or 0))
+    local split = {}
+    for i, g in ipairs(groups) do split[i] = spent[g.groupID] or 0 end
+    c.state:SetText("Their trees")
+    c.status:SetText(table.concat(split, " / "))
     local chosen = page.chosen and byID[page.chosen]
     if chosen then
         local node = chosen.node
@@ -120,13 +129,11 @@ end
 
 function page.Build(body, foot, band)
     page.body = body
-    local strip = CreateFrame("Frame", nil, body)
-    strip:SetPoint("TOPLEFT")
-    strip:SetPoint("TOPRIGHT")
-    strip:SetHeight(T().head)
-    page.points = ns.Text(strip, 12)
-    page.points:SetPoint("CENTER")
-    page.points:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    -- the talents window's console (spells/talents.lua), its readouts
+    -- only: the tree and its points, their points, their trees' split; the
+    -- tree under it the higher for it
+    page.console = T().Console(body, false)
+    page.over = T().readouts + 12
     page.waiting = ns.Text(body, 13)
     page.waiting:SetPoint("CENTER")
     page.waiting:SetTextColor(unpack(ns.colors.dim))

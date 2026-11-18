@@ -221,6 +221,13 @@ for _, m in ipairs({ "__add", "__sub", "__mul", "__div", "__mod", "__pow", "__un
 Secret.__tostring = function() return "<secret>" end
 local function secret() return setmetatable({}, Secret) end
 local function isSecret(v) return getmetatable(v) == Secret end
+-- the talents' console (spells/talents.lua): its medallion, title, lines
+function TalentConsole(c)
+    if c.shown == false then return "(hidden)" end
+    return string.format("%s / %s | %s %s | %s / %s", tostring(c.title.text), tostring(c.line.text),
+        tostring(c.number.text), tostring(c.caption.text):gsub("\n", " "), tostring(c.state.text),
+        tostring(c.status.text))
+end
 local secretsUsed = 0
 
 -- ------------------------------------------------------------ regions
@@ -15646,7 +15653,7 @@ if args.inspect then
                     table.insert(seg, b.label.text .. (b.selected and "*" or ""))
                 end
             end
-            print(tag, "points=" .. talents.points.text, "waiting=" .. tostring(talents.waiting.shown),
+            print(tag, "points=" .. TalentConsole(talents.console), "waiting=" .. tostring(talents.waiting.shown),
                 table.concat(nodes, " "), "| margin " .. table.concat(seg, " "))
         end
         trees("inspect.talents")
@@ -18361,9 +18368,8 @@ if talentPass then
         local d = p.details
         print(tag, p.hint.shown and ("hint: " .. p.hint.text .. (d.nothing.shown and " +nothing" or "")
             .. (d.title.shown and " +details" or "")) or d.nothing.shown and ("nothing: " .. d.nothing.text)
-            or (d.title.text .. " | " .. d.sub.text .. " | " .. d.text.text), "points=" .. p.points.text,
-            "apply=" .. tostring(p.apply.shown) .. string.format("(%.1f)", p.apply.alpha or 1),
-            "reset=" .. tostring(p.reset.shown))
+            or (d.title.text .. " | " .. d.sub.text .. " | " .. d.text.text), "points=" .. TalentConsole(p.console),
+            "apply=" .. tostring(p.apply.on), "reset=" .. tostring(p.reset.on))
         local specs = {}
         for _, b in ipairs(p.specs) do
             table.insert(specs, b.label.text .. (b.mark.shown and "*" or "") .. "(" .. c3(b.label.textColor)
@@ -18404,9 +18410,17 @@ if talentPass then
     -- the points' row: where it, its text and its buttons stand
     local function row(tag)
         local p = W.Current()
-        local strip = p.points.parent
-        print(tag, where(strip), "h=" .. strip.h, "body=" .. tostring(strip.parent == p.body),
-            "reset=" .. where(p.reset), "points=" .. where(p.points), "apply=" .. where(p.apply))
+        local c = p.console
+        -- the row laid out at a width (the stub's frames have none of their own)
+        c.row.w = 600
+        c.row.scripts.OnSizeChanged(c.row)
+        local function at(b)
+            local q = b.points.TOPLEFT
+            return string.format("%s@%s %dx%d", b.on and "on" or "off", tostring(q[4]), b.w, b.h)
+        end
+        print(tag, "h=" .. c.h, "body=" .. tostring(c.parent == p.body), "head=" .. W.head,
+            "row=" .. c.row.h, "reset=" .. at(p.reset), "follow=" .. at(p.follow), "apply=" .. at(p.apply),
+            "applyWord=" .. c3(p.apply.label.textColor), "resetWord=" .. c3(p.reset.label.textColor))
     end
 
     -- 1. at login: a tab per tree, in the trees' order
@@ -18597,10 +18611,10 @@ if talentPass then
     end
     local function strip(tag)
         local p = W.Current()
-        print(tag, "points=" .. p.points.text, "plan=" .. (p.planRow.shown and "on" or "off"),
+        print(tag, "points=" .. TalentConsole(p.console), "plan=" .. (p.planRow.shown and "on" or "off"),
             "wash=" .. (p.wash.shown and table.concat(p.wash.color, ",") .. "@" .. (p.wash.all == p.body and "body"
                 or "?") or "off"),
-            "follow=" .. tostring(p.follow.shown) .. "@" .. where(p.follow),
+            "follow=" .. tostring(p.follow.on),
             "checkpoint=" .. tostring(p.checkpoint.shown),
             "save=" .. tostring(p.save.shown) .. string.format("(%.1f)", p.save.alpha or 1) .. "@"
                 .. (p.save.points.LEFT[1] == p.checkpoint and "checkpoint" or p.save.points.LEFT[1] == p.exit
@@ -18653,11 +18667,15 @@ if talentPass then
             return table.concat(a, ",")
         end
         local function row(b)
-            local host = b.parent.parent == elemT.foot and "foot" or b.parent.parent == elemT.body and "body" or "?"
-            return host .. (b.parent.points.TOPLEFT and string.format("%d", -b.parent.points.TOPLEFT[4]) or "?")
+            -- the frame the button stands in that hangs from the foot or the
+            -- body (the console's column hangs from the console)
+            local h = b.parent
+            while h.parent and h.parent ~= elemT.foot and h.parent ~= elemT.body do h = h.parent end
+            local host = h.parent == elemT.foot and "foot" or h.parent == elemT.body and "body" or "?"
+            return host .. (h.points.TOPLEFT and string.format("%d", -h.points.TOPLEFT[4]) or "?")
         end
         print("talents.chrome", "exit@" .. row(elemT.exit), "checkpoint@" .. row(elemT.checkpoint),
-            "save@" .. row(elemT.save), "name@" .. row(elemT.name), "points@" .. row(elemT.points),
+            "save@" .. row(elemT.save), "name@" .. row(elemT.name), "console@" .. row(elemT.console.title),
             "reset@" .. row(elemT.reset), "apply@" .. row(elemT.apply), "follow@" .. row(elemT.follow),
             "face=" .. face(elemT.exit), "margin=" .. face(elemT.specs[1]),
             "row=" .. (function()
