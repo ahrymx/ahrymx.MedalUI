@@ -21185,6 +21185,23 @@ if questLogPass then (function()
     local page = _G.MedalluinQuestPage
     QP.child.w = 400
     QP.Refresh()
+    -- Escape (the game hides UISpecialFrames' shown frames, the page's
+    -- stand-in among them): the floating page closes its own way, and opens
+    -- again on a click
+    do
+        local listed = false
+        for _, n in ipairs(UISpecialFrames) do if n == "MedalluinQuestPageEscape" then listed = true end end
+        local before = page.shown ~= false
+        -- only the page's: the log, listed too, stays open for what follows
+        _G.MedalluinQuestPageEscape:Hide()
+        print("questpage.escape", "listed=" .. tostring(listed), "open=" .. tostring(before)
+            .. ">" .. tostring(page.shown ~= false), "stand-in=" .. tostring(page.shown == false
+            and _G.MedalluinQuestPageEscape.shown ~= false))
+        r.scripts.OnClick(r, "LeftButton")
+        QP.Refresh()
+        print("questpage.escape reopened", "open=" .. tostring(page.shown ~= false),
+            "stand-in=" .. tostring(_G.MedalluinQuestPageEscape.shown ~= false))
+    end
     -- the head (its tab: mark and title), then the page's words, edit
     -- boxes and texts, top down; a tile with its column
     local function headOf()

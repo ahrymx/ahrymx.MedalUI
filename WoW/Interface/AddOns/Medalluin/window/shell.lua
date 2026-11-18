@@ -1083,6 +1083,26 @@ function ns.Window(spec)
     end
 
     -- The view's place, scale and medallion, then the layout; out of combat.
+    -- Escape closes a floating (detached) window, as it does Blizzard's
+    -- panels: the game hides the frames named in UISpecialFrames, so a
+    -- stand-in of the window's, shown while it floats open, goes on the
+    -- list, and its hiding closes the window the window's own way (Close).
+    -- Docked, the strip's windows close with Blizzard's frames, or stay.
+    local escape
+    local function Escape()
+        if not window or not spec.name then return end
+        if not escape then
+            escape = CreateFrame("Frame", spec.name .. "Escape", UIParent)
+            escape:Hide()
+            escape:SetScript("OnHide", function()
+                if window:IsShown() and w.Detached() then spec.Close() end
+            end)
+            if UISpecialFrames then table.insert(UISpecialFrames, escape:GetName()) end
+            w.escape = escape
+        end
+        escape:SetShown(window:IsShown() and w.Detached())
+    end
+
     local function Place()
         if not window then return end
         if InCombatLockdown() then
@@ -1110,6 +1130,7 @@ function ns.Window(spec)
         if window:IsShown() then Lift(not off) end
         Tabs()
         Layout()
+        Escape()
         if spec.Placed then spec.Placed(off) end
     end
     w.Place = Place
@@ -1522,11 +1543,13 @@ function ns.Window(spec)
             Showing()
             if current and current.Shown then current.Shown() end
             dirty = true
+            Escape()
         end)
         window:SetScript("OnHide", function()
             Lift(false)
             Listen()
             Showing()
+            Escape()
         end)
         -- a change is drawn once, at the next frame, and only while it is open
         window:SetScript("OnUpdate", function()
