@@ -1,5 +1,6 @@
 -- The game's AddOns list entry: a line and a button opening the mdlui_Tooltips window (UI/Editor.lua),
--- which holds every setting. The shared API lives in Core/Settings.lua.
+-- which holds every setting, and the minimap button's switch (UI/MinimapButton.lua; off at first).
+-- The shared API lives in Core/Settings.lua.
 local _, ns = ...
 local L = ns.L
 
@@ -35,6 +36,44 @@ function ns.Options.register()
     editorButton:SetScript("OnClick", function()
         if ns.openEditor then ns.openEditor() end
     end)
+
+    -- the minimap button: a click opens the window (the right button, on its Options), a drag moves it
+    local minimap = ns.MinimapButton{
+        name = "mdlui_TooltipsMinimapButton", icon = "Interface\\AddOns\\mdlui_Tooltips\\art\\logo",
+        title = "mdlui_Tooltips",
+        tip = { L["Click: the mdlui_Tooltips window."], L["Right-click: its options."],
+            L["Drag: move round the minimap."] },
+        Click = function(mouse)
+            local window = _G.mdlui_TooltipsEditor
+            if mouse ~= "RightButton" and window and window:IsShown() then
+                window:Hide()
+            elseif ns.openEditor then
+                ns.openEditor(mouse == "RightButton" and "options" or nil)
+            end
+        end,
+        Shown = function() return ns.option("minimapButton") and true or false end,
+        Angle = function() return tonumber(ns.option("minimapAngle")) or 200 end,
+        SetAngle = function(angle) ns.setOption("minimapAngle", angle) end,
+    }
+    local check = CreateFrame("CheckButton", nil, page, "UICheckButtonTemplate")
+    check:SetSize(26, 26)
+    check:SetPoint("TOPLEFT", line, "BOTTOMLEFT", -4, -16)
+    local label = page:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    label:SetPoint("LEFT", check, "RIGHT", 4, 1)
+    label:SetText(L["Minimap button"])
+    local note = page:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    note:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -4)
+    note:SetWidth(480)
+    note:SetJustifyH("LEFT")
+    note:SetText(L["A button on the minimap's edge: a click opens the mdlui_Tooltips window. Drag it to move it. "
+        .. "With Medalluin, it is in the action bar's minimap drawer instead."])
+    check:SetScript("OnShow", function(self) self:SetChecked(ns.option("minimapButton") and true or false) end)
+    check:SetScript("OnClick", function(self)
+        -- off is the default, kept as nothing saved
+        ns.setOption("minimapButton", self:GetChecked() and true or nil)
+        minimap.Update()
+    end)
+    ns.Options.check, ns.minimapButton = check, minimap
 
     if Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory then
         category = Settings.RegisterCanvasLayoutCategory(page, page.name)

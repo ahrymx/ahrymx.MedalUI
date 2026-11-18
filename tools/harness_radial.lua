@@ -188,6 +188,47 @@ end
 fire("ADDON_LOADED", "mdlui_RadialMenu")
 fire("PLAYER_LOGIN")
 local RM = ns.RadialMenu
+
+-- the game's AddOns list page, its minimap button switch and the button: off at first; on, on the
+-- minimap's edge; dragged, round it; off again, gone
+local function minimapButton(tag, check, button, saved)
+    local function where()
+        local p = button.points and button.points.CENTER
+        return p and string.format("%s %.0f,%.0f", tostring(p[2]), p[3] or 0, p[4] or 0) or "-"
+    end
+    -- the stub's check buttons keep no state: this one keeps its own
+    function check:SetChecked(on) self.checked = on and true or false end
+    function check:GetChecked() return self.checked end
+    check.scripts.OnShow(check)
+    print(tag .. " minimap", "checked=" .. tostring(check:GetChecked()), "shown=" .. tostring(button.shown ~= false),
+        "saved=" .. tostring(saved()))
+    check:SetChecked(true)
+    check.scripts.OnClick(check)
+    print(tag .. " minimap on", "shown=" .. tostring(button.shown ~= false), "at " .. where(), "saved=" .. tostring(saved()))
+    local cursor, centre, scale = GetCursorPosition, Minimap.GetCenter, Minimap.GetEffectiveScale
+    Minimap.GetCenter = function() return 900, 600 end
+    Minimap.GetEffectiveScale = function() return 1 end
+    GetCursorPosition = function() return 900, 700 end                 -- straight above the map
+    button.scripts.OnDragStart(button)
+    button.scripts.OnUpdate(button, 0)
+    button.scripts.OnDragStop(button)
+    GetCursorPosition, Minimap.GetCenter, Minimap.GetEffectiveScale = cursor, centre, scale
+    print(tag .. " minimap dragged", "at " .. where(), "following=" .. tostring(button.scripts.OnUpdate ~= nil))
+    -- Medalluin's drawer on the action bar takes it: in its line, no longer placed or dragged here
+    local M = H.medalluin
+    if M and M.drawerScan then
+        M.drawerScan()
+        local angle = saved and button.points and button.points.CENTER and button.points.CENTER[3]
+        button.scripts.OnDragStart(button)
+        print(tag .. " minimap drawer", "taken=" .. tostring(button.parent == M.drawer),
+            "dragging=" .. tostring(button.scripts.OnUpdate ~= nil), "x=" .. tostring(angle))
+    end
+    check:SetChecked(false)
+    check.scripts.OnClick(check)
+    print(tag .. " minimap off", "shown=" .. tostring(button.shown ~= false), "saved=" .. tostring(saved()))
+end
+minimapButton("radial", ns.Options.check, _G.mdlui_RadialMenuMinimapButton,
+    function() return mdlui_RadialMenuDB.options.minimapButton end)
 -- /mdlradial, its chat lines marked as the pass's
 local function slash(message)
     local realPrint = print

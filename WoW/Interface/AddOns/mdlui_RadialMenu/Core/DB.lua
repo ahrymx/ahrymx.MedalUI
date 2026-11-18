@@ -15,6 +15,8 @@ ns.DEFAULTS = {
     subRadials = "reset",       -- reset | remember: a sub-radial's button when the radial opens again
     scale = 1,                  -- the whole radial's size
     autoRanks = true,           -- a spell button follows the best rank learned (unless pinned lower)
+    minimapButton = false,      -- a button on the minimap's edge opening the editor
+    minimapAngle = 225,         -- where round the minimap it stands
     labelFont = { face = "__global", size = 16, flags = "NONE", enableShadow = true, shadowX = 1, shadowY = -1 },
     countFont = { face = "Arial Narrow", size = 14, flags = "OUTLINE", enableShadow = false,
                   shadowX = 1, shadowY = -1 },
@@ -76,6 +78,7 @@ loader:SetScript("OnEvent", function(self, event, name)
         self:UnregisterEvent("PLAYER_LOGIN")
         if not ns.db then ns.LoadDB() end
         ns.RadialMenu:Init()
+        if ns.Options then ns.Options.register() end
         if ns.FlareRadialOn() then
             ns.Print("FlareUI's radial menu is on too: keys both bind go to whichever binds last. "
                 .. "Switch one of them off.")

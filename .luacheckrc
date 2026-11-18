@@ -207,6 +207,7 @@ files["WoW/Interface/AddOns/mdlui_Tooltips/**/*.lua"] = {
         "GameTooltipHeaderText", "QuestScrollFrame", "GameFontHighlightSmall", "UISpecialFrames", "ShowUIPanel", "HideUIPanel",
         "SetPortraitTexture", "ChatEdit_InsertLink", "GetCursorPosition", "GetMouseFoci", "GetMouseFocus", "NUM_CHAT_WINDOWS",
         "Settings", "SettingsPanel", "InterfaceOptions_AddCategory", "InterfaceOptionsFrame_OpenToCategory",
+        "GetMinimapShape",
         "STANDARD_TEXT_FONT", "RAID_CLASS_COLORS", "CUSTOM_CLASS_COLORS", "LOCALIZED_CLASS_NAMES_MALE", "NineSliceUtil",
         "ITEM_DELTA_DESCRIPTION", "ITEM_SPELL_TRIGGER_ONUSE", "ITEM_SPELL_TRIGGER_ONEQUIP", "ITEM_SPELL_TRIGGER_ONPROC",
         "ITEM_CREATED_BY", "ENCHANTED_TOOLTIP_LINE", "ITEM_MIN_LEVEL", "ITEM_MIN_SKILL", "ITEM_REQ_SKILL",
@@ -272,6 +273,7 @@ files["WoW/Interface/AddOns/mdlui_RadialMenu/**/*.lua"] = {
         "SecureHandlerExecute", "SecureHandlerSetFrameRef", "SecureHandlerWrapScript",
         "MAX_ACCOUNT_MACROS", "CreateMacro", "EditMacro", "DeleteMacro", "FlareUI2_DB",
         "GetBindingName", "tinsert", "NOT_BOUND", "ToggleBackpack",
+        "Settings", "InterfaceOptions_AddCategory", "GetMinimapShape",
     },
 }
 files["WoW/Interface/AddOns/mdlui_RadialMenu/Radial/Radial.lua"] = {

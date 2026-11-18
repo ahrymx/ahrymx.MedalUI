@@ -5,6 +5,9 @@ local colors = ns.Palette.roles
 
 local DEFAULTS = {
     iconRight = false,
+    -- A button on the minimap's edge opening the window, and where round it.
+    minimapButton = false,
+    minimapAngle = 200,
     -- "pretty" draws panels for the types turned on below; "blizzard" keeps
     -- the game's own tooltips everywhere.
     layout = "pretty",
