@@ -18368,8 +18368,7 @@ if talentPass then
     local function foot(tag)
         local p = W.Current()
         local d = p.details
-        print(tag, p.hint.shown and ("hint: " .. p.hint.text .. (d.nothing.shown and " +nothing" or "")
-            .. (d.title.shown and " +details" or "")) or d.nothing.shown and ("nothing: " .. d.nothing.text)
+        print(tag, d.nothing.shown and ("nothing: " .. d.nothing.text)
             or (d.title.text .. " | " .. d.sub.text .. " | " .. d.text.text), "points=" .. TalentConsole(p.console),
             "apply=" .. tostring(p.apply.on), "reset=" .. tostring(p.reset.on))
         local specs = {}
@@ -18473,9 +18472,9 @@ if talentPass then
             local g = page.ground
             if g then
                 local v = g.clouds.vertex or {}
-                table.insert(list, string.format("%s=%.2f,%.2f,%.2f@%.2f/%s shade=%.2f/%s wash=%s", page.key,
+                table.insert(list, string.format("%s=%.2f,%.2f,%.2f@%.2f/%s shade=%.2f/%s grid=%s", page.key,
                     v[1] or -1, v[2] or -1, v[3] or -1, v[4] or -1, tostring(g.clouds.layer and g.clouds.sub),
-                    (g.shade.vertex or {})[4] or -1, tostring(g.shade.sub), tostring(page.wash.sub)))
+                    (g.shade.vertex or {})[4] or -1, tostring(g.shade.sub), tostring(g.grid.shown)))
             end
         end
         print("talents.ground", table.concat(list, " "))
@@ -18627,17 +18626,15 @@ if talentPass then
     end
     local function strip(tag)
         local p = W.Current()
-        print(tag, "points=" .. TalentConsole(p.console), "plan=" .. (p.planRow.shown and "on" or "off"),
-            "wash=" .. (p.wash.shown and table.concat(p.wash.color, ",") .. "@" .. (p.wash.all == p.body and "body"
-                or "?") or "off"),
-            "follow=" .. tostring(p.follow.on),
-            "checkpoint=" .. tostring(p.checkpoint.shown),
-            "save=" .. tostring(p.save.shown) .. string.format("(%.1f)", p.save.alpha or 1) .. "@"
-                .. (p.save.points.LEFT[1] == p.checkpoint and "checkpoint" or p.save.points.LEFT[1] == p.exit
-                    and "exit" or "?"),
-            "name=" .. (p.name.shown and tostring(p.name.text) or "off"),
-            "hint=" .. (p.hint.shown and p.hint.text or p.details.nothing.shown and p.details.nothing.text or "-"),
-            "details=" .. (p.details.title.shown ~= false and tostring(p.details.title.text) or "-"),
+        local g = p.ground
+        local function on(b) return b.shown == false and "hidden" or tostring(b.on) end
+        print(tag, "points=" .. TalentConsole(p.console), "plan=" .. (p.exit.shown and "on" or "off"),
+            "ground=" .. (g.grid.shown and "grid" or "") .. (g.clouds.shown ~= false and "clouds" or ""),
+            "follow=" .. on(p.follow), "exit=" .. on(p.exit), "checkpoint=" .. on(p.checkpoint),
+            "save=" .. on(p.save), "name=" .. (p.name.shown and tostring(p.name.text) or "off")
+                .. (p.console.state.shown == false and "(over the name)" or ""),
+            "details=" .. (p.details.nothing.shown and "-" or tostring(p.details.title.text) .. " | "
+                .. tostring(p.details.sub.text)),
             "row=" .. (p.planLine.shown ~= false and tostring(p.planLine.text) or "off"))
     end
     local function press(b)
@@ -18648,7 +18645,7 @@ if talentPass then
     -- tree it was opened from) or off (Exit plan)
     local function toggle()
         local p = W.Current()
-        if p.planRow and p.planRow.shown then
+        if p.exit and p.exit.shown then
             press(p.exit)
         else
             press(p.plans)
@@ -18708,17 +18705,20 @@ if talentPass then
                 for _, g in ipairs(m.gaps) do table.insert(t, "gap@" .. g) end
                 return table.concat(t, " ") .. " h=" .. m.h
             end)())
-        local hint = elemT.hint
+        local hint = elemT.planLine
         print("talents.chrome foot", "height=" .. elemT.footHeight, "shown=" .. tostring(elemT.foot.shown),
             "chevron=" .. tostring(W.window.chevron ~= nil), "hint@" .. tostring(hint.parent == elemT.foot and "foot"
-                or "?") .. " " .. hint.points.TOPLEFT[3] .. "," .. hint.points.TOPLEFT[4] .. ">"
-                .. hint.points.TOPRIGHT[3], "wrap=" .. tostring(hint.wrap))
+                or "?") .. " " .. hint.points.BOTTOMLEFT[3] .. "," .. hint.points.BOTTOMLEFT[4] .. ">"
+                .. hint.points.BOTTOMRIGHT[3], "name@" .. (elemT.name.parent == elemT.console.cells[3]
+                    and "console" or "?"))
     end
     strip("talents.plan fresh")
     -- the draft: Convection's points, of one talent only
     click("Convection")
     click("Convection")
     strip("talents.plan draft")
+    -- in the mode only the draft's talent glows (pulsing)
+    fx("talents.fx plan draft")
     click("Concussion")
     foot("talents.plan draft refused")
     tip("talents.plan draft tip", "Concussion")

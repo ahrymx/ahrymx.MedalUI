@@ -15,9 +15,13 @@ soft, tinted and sized by the code:
 - clouds.tga (256x256): the tree's ground, a soft cloudy wash, white, its
   alpha the clouds (tinted the tree's colour, and faint, by the code);
 - vignette.tga (128x128): black, clear in the middle and darkening to the
-  edges, over the clouds.
+  edges, over the clouds;
+- grid.tga (128x128): the plan mode's drafting grid, white, its alpha the
+  lines: a faint one every 32 px, a stronger one along the top and left
+  edges, so tiled it has a major line every fourth cell (the code tiles
+  it so a cell is an icon wide).
 
-    python3 art/talents/gen_talents.py   -> media/talents/sheen, beam, glow, clouds, vignette (.tga)
+    python3 art/talents/gen_talents.py   -> media/talents/sheen, beam, glow, clouds, vignette, grid (.tga)
 """
 import os
 import random
@@ -116,10 +120,25 @@ def vignette(n=128):
     return img
 
 
+def grid(n=128, cell=32, faint=0.55):
+    img = Image.new("RGBA", (n, n), (255, 255, 255, 0))
+    px = img.load()
+    for y in range(n):
+        for x in range(n):
+            a = 0.0
+            if x == 0 or y == 0:
+                a = 1.0
+            elif x % cell == 0 or y % cell == 0:
+                a = faint
+            px[x, y] = (255, 255, 255, int(round(255 * a)))
+    return img
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for name, img in (("sheen", sheen()), ("beam", beam()), ("glow", glow()),
-                      ("clouds", clouds()), ("vignette", vignette())):
+                      ("clouds", clouds()), ("vignette", vignette()),
+                      ("grid", grid())):
         export.to_tga(img, os.path.join(OUT, name + ".tga"))
         print(os.path.join(OUT, name + ".tga"))
 

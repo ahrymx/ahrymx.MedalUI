@@ -24,7 +24,11 @@
 --
 -- Behind the tree, its ground (Ground): a faint cloudy wash in the tree's
 -- colour (the first ember, the second blue, the third green), its edges
--- shaded.
+-- shaded. In the plan's mode the clouds give way to a faint blue drafting
+-- grid (a cell an icon wide), the console's row is the mode's own: Exit
+-- plan, Checkpoint, Save plan (its name asked for in the console), the
+-- foot reads the chosen talent with the hint under it, and only the
+-- talent being drafted glows.
 --
 -- Over the tree, the console (Console): one plate the window's width under
 -- its tabs, three readouts parted by hairlines (the tree and its points;
@@ -109,7 +113,6 @@ local function Sound(which)
     if kit and PlaySound then PlaySound(kit) end
 end
 local committing                        -- Apply pressed: the next config update is its landing
-local PLANNING = { 0.12, 0.24, 0.48, 0.55 }  -- the tree's ground in the plan's mode: the ink turned blue
 local TREES = 3
 local ICON, MARGIN = 36, 10             -- a talent's icon, the room round the tree
 local STRIP = 26                        -- a row of controls: the points' over the tree, the plan's under it
@@ -706,7 +709,9 @@ local function Draw(p, config, group, groups, plan)
         end
         b.pulse = staged and true or false
         b.glow = maxed and BLUE or LIT
-        b.aura:SetShown(ranks > 0 or (b.flashUntil or 0) > 0)
+        -- (in the mode, only the draft's: the plan's other talents keep
+        -- their gold edges, unlit)
+        b.aura:SetShown((drawing and b.pulse or not drawing and ranks > 0) or (b.flashUntil or 0) > 0)
         b.aura:SetVertexColor(b.glow[1], b.glow[2], b.glow[3], b.pulse and PULSE[1] or STILL)
         b.sheen:SetShown(maxed)
         for _, t in ipairs(b.inner) do t:SetShown(maxed) end
@@ -768,20 +773,22 @@ local function Refresh(p)
     plan.model, plan.next = m, nextID
     local d = planning and sim.draft
     local byID = Draw(p, config, group, groups, plan)
-    -- the foot: in the plan's mode its row and a hint (why the talent last
-    -- clicked was refused, else what the Checkpoint keeps, else what a
-    -- click does); otherwise the talent chosen, and under it the plan's
-    -- next step and where the chosen talent stands in the plan
+    -- the foot: the talent chosen, and under it, in the plan's mode, a
+    -- hint (why the talent last clicked was refused, else what the
+    -- Checkpoint keeps, else what a click does); otherwise the plan's next
+    -- step and where the chosen talent stands in the plan
     local chosen = p.chosen and byID[p.chosen]
-    p.planRow:SetShown(planning and true or false)
-    p.hint:SetShown(planning and true or false)
-    p.planLine:SetShown(not planning)
-    p.planHair:SetShown(not planning)
     if planning then
-        p.details:Set(nil)
-        p.details.nothing:Hide()
         local why = chosen and chosen.refusal
-        p.hint:SetText(why and format("%s: %s", chosen.talent.name, why)
+        if chosen then
+            local node, t = chosen.node, chosen.talent
+            p.details:Set({ title = t.name, sub = format("Planned %d/%d", plan.counts[node.ID] or 0, node.maxRanks)
+                .. (why and ("  ·  " .. why) or ""), text = Describe(chosen) })
+        else
+            p.details.nothing:SetText("Choose a talent to read it.")
+            p.details:Set(nil)
+        end
+        p.planLine:SetText(why and format("%s: %s", chosen.talent.name, why)
             or d and format("Checkpoint keeps %s %d/%d as a step of the plan.",
                 Entry(config, m[d.id].node).name, plan.counts[d.id], m[d.id].node.maxRanks)
             or "Click a talent to add a point to the plan; right-click takes its last off.")
@@ -822,7 +829,8 @@ local function Refresh(p)
         c.number:SetText(#plan.kept)
         c.caption:SetText("planned\nof " .. Cap())
         c.line:SetText(format("%d planned in this tree", plan.spent[group.groupID] or 0))
-        State(sim.name or "New plan", "Planning", true)
+        State(sim.name or "New plan", d and format("Draft: %s +%d", Entry(config, m[d.id].node).name, d.n)
+            or sim.saved and "Saved" or "Not saved", true)
     else
         local left = Left(config)
         c.number:SetText(left)
@@ -840,14 +848,11 @@ local function Refresh(p)
             State("Plan complete", "")
         end
     end
-    p.checkpoint:SetShown(d and true or false)
-    p.save:ClearAllPoints()
-    p.save:SetPoint("LEFT", d and p.checkpoint or p.exit, "RIGHT", 4, 0)
-    p.save:SetShown(planning and (#sim.steps > 0 or d) and true or false)
-    p.save:SetAlpha(d and 0.4 or 1)
     if not planning then p.name:Hide() end
-    p.wash:SetShown(planning and true or false)
-    Controls(p, staged, not planning and nextID ~= nil and Editable() and Left(config) > 0)
+    c.state:SetShown(not p.name:IsShown())
+    p.ground.Plan(planning)
+    Controls(p, staged, not planning and nextID ~= nil and Editable() and Left(config) > 0, d and true or false,
+        planning and #sim.steps > 0 and not d)
     Band(p)
 end
 
@@ -1004,11 +1009,30 @@ W.Console = Console
 --   local g = Ground(body); g.Set(tree)
 local SCHOOL = { { 0.78, 0.35, 0.24 }, { 0.27, 0.43, 0.78 }, { 0.27, 0.67, 0.35 } }
 local CLOUDS, SHADE = 0.16, 0.6         -- the wash's strength; the edges' shade
+local DRAFT, CELL = { 0.43, 0.63, 0.94, 0.22 }, ICON     -- the plan's grid: its colour, a cell's size
+local GRID_CELLS = 4                    -- the grid texture's cells (its major line every fourth)
 local function Ground(body)
     local g = {}
     g.clouds = body:CreateTexture(nil, "BACKGROUND", nil, -8)
     g.clouds:SetAllPoints()
     g.clouds:SetTexture(ns.media .. "talents\\clouds")
+    -- the plan's mode: a drafting grid, tiled from the top left so a cell
+    -- is an icon wide
+    g.grid = body:CreateTexture(nil, "BACKGROUND", nil, -8)
+    g.grid:SetAllPoints()
+    g.grid:SetTexture(ns.media .. "talents\\grid", "REPEAT", "REPEAT")
+    g.grid:SetVertexColor(DRAFT[1], DRAFT[2], DRAFT[3], DRAFT[4])
+    g.grid:Hide()
+    local function Tile()
+        local tile = CELL * GRID_CELLS
+        g.grid:SetTexCoord(0, (body:GetWidth() or 0) / tile, 0, (body:GetHeight() or 0) / tile)
+    end
+    body:HookScript("OnSizeChanged", Tile)
+    Tile()
+    function g.Plan(on)
+        g.clouds:SetShown(not on)
+        g.grid:SetShown(on and true or false)
+    end
     g.shade = body:CreateTexture(nil, "BACKGROUND", nil, -7)
     g.shade:SetAllPoints()
     g.shade:SetTexture(ns.media .. "talents\\vignette")
@@ -1052,30 +1076,104 @@ local function Points(p, body)
         end
     end, function() return InCombatLockdown() and "Not in combat." or "Learn the talents chosen." end)
     p.apply.label:SetText("Apply")
-    -- Apply the bright one while it can be used: its well gold-brown, its word light
-    p.apply.lit = { 0.36, 0.28, 0.12, 1 }
-    p.apply.dark = { ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.85 }
-    p.apply.bright = { 1, 0.925, 0.667 }
-    -- joined: each a third, neighbours sharing their edge
-    local list = { p.reset, p.follow, p.apply }
+    -- the plan's mode's own: out of it (Create Plan and Edit, on the plans'
+    -- page, bring it; the plan drawn is forgotten unless saved), the draft
+    -- kept as a step, the plan kept under a name
+    p.exit = Button(row, 64, function()
+        End()
+        p.chosen = nil
+        W.Refresh()
+    end, function()
+        return sim.saved and "Back to learning talents." or "Back to learning talents; the plan is lost unless saved."
+    end)
+    p.exit.label:SetText("Exit plan")
+    p.checkpoint = Button(row, 64, function()
+        Checkpoint()
+        W.Refresh()
+    end, function() return "Keep the points added as one step of the plan." end)
+    p.checkpoint.label:SetText("Checkpoint")
+    p.save = Button(row, 64, function()
+        if sim.draft then return end
+        p.name:SetText(sim.name or format("Plan %d", #Book().list + 1))
+        p.name:Show()
+        c.state:Hide()
+        p.name:SetFocus()
+        p.name:HighlightText()
+    end, function()
+        local d = sim.draft
+        return d and format("Checkpoint %s first.", Entry(Config(), Model(Config())[d.id].node).name)
+            or "Name the plan and keep it; a plan of that name is replaced."
+    end)
+    p.save.label:SetText("Save plan")
+    -- Apply and Save the bright ones while they can be used: their wells
+    -- gold-brown, their words light
+    for _, b in ipairs({ p.apply, p.save }) do
+        b.lit = { 0.36, 0.28, 0.12, 1 }
+        b.dark = { ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.85 }
+        b.bright = { 1, 0.925, 0.667 }
+    end
+    -- Save plan asks for the name in a box over the plan's name, in the
+    -- console: Enter keeps it, Escape (or leaving the box) does not
+    p.name = CreateFrame("EditBox", nil, c.cells[3])
+    p.name:SetAutoFocus(false)
+    p.name:SetFont(ns.font, 14, "")
+    p.name:SetTextColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3])
+    p.name:SetTextInsets(8, 8, 0, 0)
+    p.name:SetMaxLetters(32)
+    p.name:SetHeight(24)
+    p.name:SetPoint("BOTTOMLEFT", c.cells[3], "LEFT", 16, 0)
+    p.name:SetPoint("BOTTOMRIGHT", c.cells[3], "RIGHT", -16, 0)
+    local well = p.name:CreateTexture(nil, "BACKGROUND")
+    well:SetAllPoints()
+    well:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    local inside = p.name:CreateTexture(nil, "BACKGROUND", nil, 1)
+    inside:SetPoint("TOPLEFT", 1, -1)
+    inside:SetPoint("BOTTOMRIGHT", -1, 1)
+    inside:SetColorTexture(0.047, 0.043, 0.035, 1)
+    p.name:Hide()
+    p.name:SetScript("OnEnterPressed", function(self)
+        local name = (self:GetText() or ""):match("^%s*(.-)%s*$")
+        self:ClearFocus()
+        if name ~= "" and planning and not sim.draft then Save(name) end
+        W.Refresh()
+    end)
+    p.name:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    p.name:SetScript("OnEditFocusLost", function(self)
+        self:Hide()
+        c.state:Show()
+    end)
+    -- joined: each a third, neighbours sharing their edge; the mode's
+    -- three or the others (Controls)
     local function Lay()
         local w = (row:GetWidth() or 0) / 3
-        for i, b in ipairs(list) do
-            b:ClearAllPoints()
-            b:SetPoint("TOPLEFT", row, "TOPLEFT", math.floor((i - 1) * w) - (i > 1 and 1 or 0), 0)
-            b:SetSize(math.floor(w) + (i > 1 and 1 or 0), CONTROLS + 1)
+        for _, list in ipairs({ { p.reset, p.follow, p.apply }, { p.exit, p.checkpoint, p.save } }) do
+            for i, b in ipairs(list) do
+                b:ClearAllPoints()
+                b:SetPoint("TOPLEFT", row, "TOPLEFT", math.floor((i - 1) * w) - (i > 1 and 1 or 0), 0)
+                b:SetSize(math.floor(w) + (i > 1 and 1 or 0), CONTROLS + 1)
+            end
         end
     end
     row:SetScript("OnSizeChanged", Lay)
     Lay()
 end
 
--- the console's controls: Reset and Apply while points are chosen (Apply
--- while they can be learned), Follow while the plan has a next
-function Controls(p, staged, follow)
-    Can(p.reset, staged)
-    Can(p.follow, follow)
-    Can(p.apply, staged and Editable())
+-- the console's controls: out of the plan's mode, Reset and Apply while
+-- points are chosen (Apply while they can be learned), Follow while the
+-- plan has a next; in it, Exit plan, Checkpoint while there is a draft,
+-- Save plan while there is something to save and no draft
+function Controls(p, staged, follow, draft, savable)
+    for _, b in ipairs({ p.reset, p.follow, p.apply }) do b:SetShown(not planning) end
+    for _, b in ipairs({ p.exit, p.checkpoint, p.save }) do b:SetShown(planning and true or false) end
+    if planning then
+        Can(p.exit, true)
+        Can(p.checkpoint, draft)
+        Can(p.save, savable)
+    else
+        Can(p.reset, staged)
+        Can(p.follow, follow)
+        Can(p.apply, staged and Editable())
+    end
 end
 
 -- a foot's hint, under its row of buttons: two lines, wrapping
@@ -1093,70 +1191,12 @@ end
 -- [Checkpoint] [Save plan] and the name asked for, a hint under them);
 -- otherwise the chosen talent's details
 local function Foot(p, foot)
-    local row = CreateFrame("Frame", nil, foot)
-    p.planRow = row
-    row:SetPoint("TOPLEFT", 0, -6)
-    row:SetPoint("TOPRIGHT", 0, -6)
-    row:SetHeight(STRIP)
-    -- out of the plan's mode (Create Plan and Edit, on the plans' page,
-    -- bring it); the plan drawn is forgotten unless saved
-    p.exit = Button(row, 72, function()
-        End()
-        p.chosen = nil
-        W.Refresh()
-    end, function()
-        return sim.saved and "Back to learning talents." or "Back to learning talents; the plan is lost unless saved."
-    end)
-    p.exit.label:SetText("Exit plan")
-    p.exit:SetHeight(STRIP - 2)
-    p.exit:SetPoint("LEFT", 4, 0)
-    p.checkpoint = Button(row, 84, function()
-        Checkpoint()
-        W.Refresh()
-    end, function() return "Keep the points added as one step of the plan." end)
-    p.checkpoint.label:SetText("Checkpoint")
-    p.checkpoint:SetHeight(STRIP - 2)
-    p.checkpoint:SetPoint("LEFT", p.exit, "RIGHT", 4, 0)
-    -- Save plan asks for the name in a box on the row: Enter keeps it,
-    -- Escape (or leaving the box) does not
-    p.save = Button(row, 76, function()
-        if sim.draft then return end
-        p.name:SetText(sim.name or format("Plan %d", #Book().list + 1))
-        p.name:Show()
-        p.name:SetFocus()
-        p.name:HighlightText()
-    end, function()
-        local d = sim.draft
-        return d and format("Checkpoint %s first.", Entry(Config(), Model(Config())[d.id].node).name)
-            or "Name the plan and keep it; a plan of that name is replaced."
-    end)
-    p.save.label:SetText("Save plan")
-    p.save:SetHeight(STRIP - 2)
-    p.name = CreateFrame("EditBox", nil, row)
-    p.name:SetAutoFocus(false)
-    p.name:SetFont(ns.font, 12, "")
-    p.name:SetTextColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3])
-    p.name:SetTextInsets(6, 6, 0, 0)
-    p.name:SetMaxLetters(32)
-    p.name:SetSize(140, STRIP - 4)
-    p.name:SetPoint("RIGHT", -4, 0)
-    local well = p.name:CreateTexture(nil, "BACKGROUND")
-    well:SetAllPoints()
-    well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.85)
-    p.name:Hide()
-    p.name:SetScript("OnEnterPressed", function(self)
-        local name = (self:GetText() or ""):match("^%s*(.-)%s*$")
-        self:ClearFocus()
-        if name ~= "" and planning and not sim.draft then Save(name) end
-        W.Refresh()
-    end)
-    p.name:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    p.name:SetScript("OnEditFocusLost", function(self) self:Hide() end)
-    p.hint = Hint(foot)
-    -- out of the mode, the talent chosen: its rank and what each gives
+    -- the talent chosen: its rank (planned, in the plan's mode) and what
+    -- each gives
     p.details = ns.character.Details(foot, nil, "Choose a talent to read it.", 4)
-    -- and under it, always, the plan's next step (and the chosen talent's
-    -- place in the plan), on a row of its own under a fading rule
+    -- and under it, always, on a row of its own under a fading rule: the
+    -- plan's next step (and the chosen talent's place in the plan), or in
+    -- the plan's mode the hint
     p.planLine = ns.Text(foot, 12)
     p.planLine:SetPoint("BOTTOMLEFT", 8, 2)
     p.planLine:SetPoint("BOTTOMRIGHT", -8, 2)
@@ -1166,7 +1206,7 @@ local function Foot(p, foot)
     p.planHair = ns.window.Hair(foot)
     p.planHair:SetPoint("BOTTOMLEFT", 40, 2 + 15 + 6)
     p.planHair:SetPoint("BOTTOMRIGHT", -40, 2 + 15 + 6)
-    p.footHeight = math.max(FOOT, p.details.height + PLAN_ROW)
+    p.footHeight = p.details.height + PLAN_ROW
 end
 
 -- The glows: a staged talent's alpha swinging round PULSE's, a flash
@@ -1212,11 +1252,6 @@ for i = 1, TREES do
         -- the tree's ground, in its colour
         p.ground = Ground(body)
         p.ground.Set(i)
-        -- the plan's mode at a glance: the tree's ground washed blue, under
-        -- its lines and talents
-        p.wash = body:CreateTexture(nil, "BACKGROUND", nil, -6)
-        p.wash:SetAllPoints()
-        p.wash:SetColorTexture(PLANNING[1], PLANNING[2], PLANNING[3], PLANNING[4])
         Points(p, body)
         Foot(p, foot)
         Margin(p, band)
