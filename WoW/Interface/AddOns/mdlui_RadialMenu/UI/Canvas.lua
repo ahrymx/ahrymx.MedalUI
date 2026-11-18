@@ -25,6 +25,43 @@ local TOP_LINE, FOOT_LINE = 8, 24
 
 local function RM() return ns.RadialMenu end
 
+-- The names round the editor's wheel: every slot named at once (the radial names only the one aimed
+-- at), so smaller, without the editor's rank ("Searing Totem (Rank 4)": the chosen slot's card says
+-- it), each in a box of its own on the button's outer side, wrapping to two lines. Only a slot
+-- near straight up or down names itself above or below it; the rest at its side, so two lower
+-- slots don't share the space under the wheel.
+local LABEL_SIZE, LABEL_W, LABEL_W_WIDE, LABEL_GAP = 13, 92, 130, 5
+local UPRIGHT = math.pi / 12        -- within this of straight up or down: above or below (less than
+                                    -- half the gap between twelve slots, so two never share it)
+local function CanvasLabel(b, text)
+    local label = b.Label
+    local face, _, flags = label:GetFont()
+    if face then label:SetFont(face, LABEL_SIZE, flags or "") end
+    text = (text or ""):gsub(" %([^()]*%d[^()]*%)$", "")
+    label:SetText(text)
+    label:SetWordWrap(true)
+    if label.SetMaxLines then label:SetMaxLines(2) end
+    local a = math.atan2(b.baseY or 0, b.baseX or 0)
+    label:ClearAllPoints()
+    if math.abs(a - math.pi / 2) <= UPRIGHT then
+        label:SetWidth(LABEL_W_WIDE)
+        label:SetPoint("BOTTOM", b, "TOP", 0, LABEL_GAP)
+        label:SetJustifyH("CENTER")
+    elseif math.abs(a + math.pi / 2) <= UPRIGHT then
+        label:SetWidth(LABEL_W_WIDE)
+        label:SetPoint("TOP", b, "BOTTOM", 0, -LABEL_GAP)
+        label:SetJustifyH("CENTER")
+    elseif math.abs(a) > math.pi / 2 then
+        label:SetWidth(LABEL_W)
+        label:SetPoint("RIGHT", b, "LEFT", -LABEL_GAP, 0)
+        label:SetJustifyH("RIGHT")
+    else
+        label:SetWidth(LABEL_W)
+        label:SetPoint("LEFT", b, "RIGHT", LABEL_GAP, 0)
+        label:SetJustifyH("LEFT")
+    end
+end
+
 function Canvas.Create(stage, cb)
     local canvas = { stage = stage, hits = {} }
     local fill = Panel.Fill(stage, "BACKGROUND", C.well, 1)
@@ -144,6 +181,7 @@ function Canvas:Draw(st)
         b.RimArt:SetShown(not isGhost)
         b.Rim:SetShown(not isGhost)
         if isGhost then b.RimGlow:Hide() end
+        if not isGhost then CanvasLabel(b, st.entries[i] and st.entries[i].name) end
         local named = (b.Label:GetText() or "") ~= ""
         b.Label:SetShown(not isGhost and named and (st.names or i == chosen))
         local c = i == chosen and C.goldBright or C.text

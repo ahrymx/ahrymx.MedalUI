@@ -15,6 +15,7 @@ ns.DEFAULTS = {
     subRadials = "reset",       -- reset | remember: a sub-radial's button when the radial opens again
     scale = 1,                  -- the whole radial's size
     autoRanks = true,           -- a spell button follows the best rank learned (unless pinned lower)
+    catalogAllRanks = false,    -- the editor's Catalog lists every rank of a spell, not only the best known
     minimapButton = false,      -- a button on the minimap's edge opening the editor
     minimapAngle = 225,         -- where round the minimap it stands
     labelFont = { face = "__global", size = 16, flags = "NONE", enableShadow = true, shadowX = 1, shadowY = -1 },

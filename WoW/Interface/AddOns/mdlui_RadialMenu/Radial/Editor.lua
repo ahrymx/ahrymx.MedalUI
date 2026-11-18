@@ -334,8 +334,30 @@ AddCategory("panels", L["Panels"], function()
 end)
 
 -- each castable spell in the player's book: the spell itself, not a temporary override showing in
--- its place right now (a flyout has no spellID and is skipped)
+-- its place right now (a flyout has no spellID and is skipped). Unless the Catalog lists every rank
+-- (its All ranks switch), only each spell's best rank: by the number in its rank ("Rank 3"), else
+-- the last of its name in the book (the book lists a spell's ranks in order), at that rank's place.
+local ForEachRank
+local function AllRanks() return ns.db and ns.db.profile.radialmenu.catalogAllRanks end
+local function RankOf(id)
+    local subtext = C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(id)
+    return type(subtext) == "string" and tonumber(subtext:match("(%d+)")) or nil
+end
 local function ForEachBookSpell(callback)
+    if AllRanks() then return ForEachRank(callback) end
+    local ids, best = {}, {}
+    ForEachRank(function(id) ids[#ids + 1] = id end)
+    for i, id in ipairs(ids) do
+        local name = C_Spell.GetSpellName(id) or tostring(id)
+        local b = best[name]
+        local rank, was = RankOf(id), b and RankOf(ids[b])
+        if not b or (rank or i) >= (was or b) then best[name] = i end
+    end
+    for i, id in ipairs(ids) do
+        if best[C_Spell.GetSpellName(id) or tostring(id)] == i then callback(id) end
+    end
+end
+function ForEachRank(callback)
     local bank = Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player
     for line = 1, C_SpellBook.GetNumSpellBookSkillLines() do
         local lineInfo = C_SpellBook.GetSpellBookSkillLineInfo(line)
@@ -972,7 +994,7 @@ end
 local Panel = ns.SettingsPanel
 local UI = ns.ui
 local NAV_ROW_H = 24             -- the sidebar's rows (a heading or a radial)
-local GRID_ROW_H = 28            -- the Catalog's rows (two columns)
+local GRID_ROW_H = 36            -- the Catalog's rows (two columns), a name in up to two lines
 local GRID_RIM = 22              -- a Catalog entry's round icon
 local SLOT_RIM = 40              -- the chosen slot's icon
 local otherOpen = false          -- "Not on this character" unfolded (this session)
@@ -1493,7 +1515,7 @@ local function BuildCatalogCard(host, sheet)
     Panel.InBand(card, host.search, 8)
 
     -- the category: a menu of them, how many it holds at the right
-    host.catDrop = Panel.Choice(card, 150, function(_, root)
+    host.catDrop = Panel.Choice(card, 130, function(_, root)
         for _, c in ipairs(CATEGORIES) do
             root:CreateRadio(c.label, function() return c.key == activeCategory end, function()
                 activeCategory = c.key
@@ -1503,6 +1525,23 @@ local function BuildCatalogCard(host, sheet)
         end
     end)
     host.catDrop:SetPoint("TOPLEFT", Panel.CARD_PAD, -(Panel.BAND_H + 10))
+    -- the spell categories: every rank, or only each spell's best (the default)
+    host.allRanks = Panel.Switch(card, function(self)
+        ns.db.profile.radialmenu.catalogAllRanks = self:GetChecked() and true or false
+        browseCache.spells, browseCache.party = nil, nil
+        RefreshBrowse()
+    end)
+    host.allRanks:SetPoint("LEFT", host.catDrop, "RIGHT", 12, 0)
+    host.allRanksLabel = Panel.Plain(card, 11, UI.dim)
+    host.allRanksLabel:SetPoint("LEFT", host.allRanks, "RIGHT", 6, 0)
+    host.allRanksLabel:SetText(L["All ranks"])
+    host.allRanks:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(L["All ranks"], 1, 1, 1)
+        GameTooltip:AddLine(L["On: every rank of each spell. Off: only the best rank you know."], nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    host.allRanks:SetScript("OnLeave", function() GameTooltip:Hide() end)
     host.catCount = Panel.Plain(card, 11, UI.faint)
     host.catCount:SetJustifyH("RIGHT")
     host.catCount:SetPoint("RIGHT", card, "TOPRIGHT", -Panel.CARD_PAD, -(Panel.BAND_H + 21))
@@ -1522,6 +1561,10 @@ local function BuildCatalogCard(host, sheet)
             cell.Text:ClearAllPoints()
             cell.Text:SetPoint("LEFT", cell, "LEFT", 4 + GRID_RIM + 8, 0)
             cell.Text:SetPoint("RIGHT", -2, 0)
+            -- a long name ("Strength of Earth Totem (Rank 4)") wraps to a second line
+            cell.Text:SetWordWrap(true)
+            if cell.Text.SetMaxLines then cell.Text:SetMaxLines(2) end
+            cell.Text:SetSpacing(1)
             cell:RegisterForDrag("LeftButton")
             cell:SetScript("OnEnter", function(self)
                 if not self.item then return end
@@ -1823,6 +1866,11 @@ function RefreshBrowse()
         if c.key == activeCategory then category = c end
     end
     editor.catDrop:SetValueText(category and category.label or "")
+    -- All ranks, where the category lists spells
+    local ranked = activeCategory == "spells" or activeCategory == "party"
+    editor.allRanks:SetShown(ranked)
+    editor.allRanksLabel:SetShown(ranked)
+    editor.allRanks:SetOn(AllRanks())
     editor.catDrop:GenerateMenu()
     editor.categoryNote = category and category.note
 

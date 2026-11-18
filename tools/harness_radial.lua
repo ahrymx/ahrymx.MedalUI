@@ -461,6 +461,7 @@ C_SpellBook.GetSpellBookItemInfo = function(i) return book[i] and { spellID = bo
 C_SpellBook.IsSpellKnown = function(id) for _, b in ipairs(book) do if b[1] == id then return true end end return false end
 C_SpellBook.IsSpellKnownOrInSpellBook = nil
 Enum.SpellBookSpellBank = Enum.SpellBookSpellBank or { Player = 0, Pet = 1 }
+Enum.SpellBookItemType = Enum.SpellBookItemType or { Spell = 1, FutureSpell = 2, Flyout = 3 }
 local function inBook(id) for _, b in ipairs(book) do if b[1] == id then return b end end end
 C_Spell.GetSpellInfo = function(id) return inBook(id) and { name = "Lightning Bolt", iconID = 136048 } end
 C_Spell.GetSpellName = function(id) return inBook(id) and "Lightning Bolt" end
@@ -679,6 +680,34 @@ print("radial editor search", "grid=" .. #host.browseList.data, "count=" .. tost
 host.search.text = ""
 host.search.scripts.OnTextChanged(host.search)
 
+-- ---- Spells: a spell's best rank only, unless All ranks; the switch only for the spell categories;
+-- a name wraps to two lines
+local function spellGrid()
+    local t = {}
+    for _, e in ipairs(host.browseList.data) do t[#t + 1] = e.kind .. ":" .. tostring(e.id) end
+    return table.concat(t, ",")
+end
+-- (the stub's check buttons keep no state: this one keeps its own)
+do
+    local on = false
+    function host.allRanks:SetChecked(v) on = v and true or false end
+    function host.allRanks:GetChecked() return on end
+end
+print("radial editor ranks markers", "switch=" .. tostring(host.allRanks:IsShown()))
+category("Spells")
+print("radial editor ranks best", "grid=" .. spellGrid(), "count=" .. tostring(host.catCount.text),
+    "switch=" .. tostring(host.allRanks:IsShown()) .. ":" .. tostring(host.allRanks:GetChecked()),
+    "label=" .. tostring(host.allRanksLabel.text), "wrap=" .. tostring(host.browseList.cells[1].Text.wrap)
+    .. "/" .. tostring(host.browseList.cells[1].Text.maxLines), "row=" .. host.browseList.cells[1].h)
+host.allRanks:SetChecked(true)
+host.allRanks.scripts.OnClick(host.allRanks)
+print("radial editor ranks all", "grid=" .. spellGrid(), "count=" .. tostring(host.catCount.text),
+    "saved=" .. tostring(ns.db.profile.radialmenu.catalogAllRanks))
+host.allRanks:SetChecked(false)
+host.allRanks.scripts.OnClick(host.allRanks)
+print("radial editor ranks off", "grid=" .. spellGrid(), "saved=" .. tostring(ns.db.profile.radialmenu.catalogAllRanks))
+category("Markers")
+
 -- ---- the canvas: a slot chosen (its card), moved a step, dragged onto another; a Catalog entry
 -- dropped on a slot; a slot dragged off; Show
 hits[2].scripts.OnClick(hits[2], "LeftButton")
@@ -747,12 +776,27 @@ local function labelsShown()
     for i = 1, host.canvas.drawn do if host.canvas.wheel.buttons[i].Label:IsShown() then n = n + 1 end end
     return n
 end
+-- each name on the canvas: its text (no rank), the side it stands on, its width and size
+local function canvasLabels(tag)
+    local t = {}
+    for i = 1, host.canvas.drawn do
+        local b = host.canvas.wheel.buttons[i]
+        local l = b.Label
+        if l.text and l.text ~= "" then
+            local k = next(l.points)
+            t[#t + 1] = string.format("%s@%s/%s w=%s %s", tostring(l.text):gsub("\n", " "), tostring(k),
+                tostring(l.justifyH), tostring(l.w), tostring(l.font and l.font[2]))
+        end
+    end
+    print(tag, table.concat(t, " | "))
+end
 local function badgesShown()
     local n = 0
     for i = 1, host.canvas.drawn do if hits[i].badge:IsShown() then n = n + 1 end end
     return n
 end
 local namesOn = labelsShown()
+canvasLabels("radial editor canvas names")
 chip("names")
 local namesOff = labelsShown()
 chip("names")
