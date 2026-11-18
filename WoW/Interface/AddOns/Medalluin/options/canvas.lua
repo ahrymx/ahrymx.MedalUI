@@ -858,6 +858,21 @@ end
 local function Glow(p)
     local key
     for _, t in ipairs(ns.DISPEL_TYPES) do if E.preview[t] then key = "dispelColor" .. t end end
+    -- a dispel shown as the health's colour (dispelStyle): the copy's health
+    -- takes it instead of a glow
+    local tint = key and ns.db.dispelStyle == "health" and p.health
+    if tint then
+        if not p.health.tint then
+            p.health.tint = p.health:CreateTexture(nil, "ARTWORK", nil, 7)
+            p.health.tint:SetAllPoints()
+        end
+        local r, g, b = ns.HexColor(ns.db[key])
+        p.health.tint:SetColorTexture(r * 0.8, g * 0.8, b * 0.8, 1)
+        p.health.tint:Show()
+        key = nil
+    elseif p.health and p.health.tint then
+        p.health.tint:Hide()
+    end
     if not key and E.preview.threat then key = "threatColor" end
     if not key then
         if p.glow then p.glow:Hide() end

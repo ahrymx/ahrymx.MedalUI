@@ -226,6 +226,7 @@ local DEFAULTS = {
     dispelMagic = true, dispelCurse = true, dispelPoison = true, dispelDisease = true, dispelBleed = true,
     dispelColorMagic = "ff3399ff", dispelColorCurse = "ffb200ff", dispelColorPoison = "ff00d11f",
     dispelColorDisease = "ffd16100", dispelColorBleed = "ffcc0f0f",
+    dispelStyle = "glow",   -- a dispel shown as the border's glow, or "health": the health bar in its colour
     threatColor = "ffe63c28",
     bossWidgetMine = true,
     arenaCC = true, arenaMine = true,

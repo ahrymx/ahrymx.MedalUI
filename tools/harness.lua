@@ -16520,6 +16520,29 @@ if dispelPass then
     ns.SetOption("threatColor", "ff00ff00")
     glow("tanking recoloured", nil, 3)
     ns.SetOption("threatColor", ns.OptionBase("threatColor"))
+    -- shown as the health's colour: a tint over the bar's fill, no glow, the
+    -- aggro glow free to show beside it
+    do
+        local function tint(tag, kind, threat)
+            debuff, threatOf = kind, threat
+            ns.UpdateUnitAuras(b)
+            local t = b.dispelTint
+            local on = t and t.shown ~= false
+            local anchored = t and t.all == b.health:GetStatusBarTexture() or false
+            print("dispel health " .. tag, "glow=" .. tostring(b.dispelGlow.shown), "tint=" .. tostring(on)
+                .. (on and (" " .. string.format("%d,%d,%d,%.2f", t.vertex[1] * 255 + 0.5, t.vertex[2] * 255 + 0.5,
+                    t.vertex[3] * 255 + 0.5, t.vertex[4] or 1) .. " onFill=" .. tostring(anchored)) or ""),
+                "aggro=" .. tostring(b.threatGlow.shown))
+        end
+        ns.SetOption("dispelStyle", "health")
+        tint("poison", "Poison")
+        tint("poison, tanking", "Poison", 3)
+        tint("none", nil)
+        ns.SetOption("dispelStyle", "glow")
+        tint("poison, back to glow", "Poison")
+        debuff = nil
+        ns.UpdateUnitAuras(b)
+    end
     -- the threat event alone
     threatOf = 2
     fire("UNIT_THREAT_SITUATION_UPDATE", "player")

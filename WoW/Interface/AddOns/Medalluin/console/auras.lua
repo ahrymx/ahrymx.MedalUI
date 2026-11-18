@@ -113,6 +113,41 @@ local function DispelColor(t) return ns.HexColor(ns.db["dispelColor" .. t]) end
 -- A type glows when the player dispels it and has it on.
 local function Glows(t) return playerDispels[t] and ns.db["dispel" .. t] ~= false end
 
+-- A dispel shown as the health bar in its type's colour (dispelStyle
+-- "health"), not the border's glow: a tint over the bar's fill, following
+-- it as it empties, under the bar's text. The aggro glow then shows beside it.
+local TINT_ALPHA, LIVE_TINT_ALPHA = 0.9, 0.6
+local function Tinted() return ns.db.dispelStyle == "health" end
+local function Tint(b, t)
+    if not t then
+        if b.dispelTint then b.dispelTint:Hide() end
+        return
+    end
+    if not b.health then return end
+    if not b.dispelTint then
+        local tex = b.health:CreateTexture(nil, "ARTWORK", nil, 7)
+        tex:SetTexture(ns.bar)
+        tex:SetAllPoints(b.health:GetStatusBarTexture())
+        b.dispelTint = tex
+    end
+    local r, g, bl = DispelColor(t)
+    b.dispelTint:SetVertexColor(r, g, bl, TINT_ALPHA)
+    b.dispelTint:Show()
+end
+-- b's dispel of type t (nil: none), as the glow or the tint
+local function ShowDispel(b, t)
+    local tint = t and Tinted() and b.health and true or false
+    Tint(b, tint and t or nil)
+    if b.dispelGlow then
+        if t and not tint then
+            b.dispelGlow:SetGlowColor(DispelColor(t))
+            b.dispelGlow:Show()
+        else
+            b.dispelGlow:Hide()
+        end
+    end
+end
+
 -- Common CC spell IDs across Classic and modern expansions
 local CC_SPELLS = {
     [118] = true, [28271] = true, [28272] = true, [61305] = true, [61721] = true,
@@ -517,15 +552,8 @@ end
 -- Applies stub simulation auras when simParty is true
 local function ApplyStubAuras(b)
     local want = StubAuras(b.unit)
-    -- Dispel glow stub
-    if b.dispelGlow then
-        if want.glow and Shows(b, "glow") then
-            b.dispelGlow:SetGlowColor(DispelColor(want.glow))
-            b.dispelGlow:Show()
-        else
-            b.dispelGlow:Hide()
-        end
-    end
+    -- Dispel glow stub (or the health's tint)
+    if b.dispelGlow then ShowDispel(b, want.glow and Shows(b, "glow") and want.glow or nil) end
 
     -- CC Centerpiece stub (sheeped)
     local cc = false
@@ -860,12 +888,12 @@ end
 local LIVE_GLOW_FILTER = "HARMFUL|RAID_PLAYER_DISPELLABLE"
 
 -- The colours the client paints the edges with, by dispel type.
-local function GlowColours()
+local function GlowColours(alpha)
     local map = {}
     if not CreateColor then return map end
     for _, t in ipairs(DISPEL_PRIORITY) do
         local r, g, bl = DispelColor(t)
-        map[t] = CreateColor(r, g, bl, Glows(t) and 0.85 or 0)
+        map[t] = CreateColor(r, g, bl, Glows(t) and (alpha or 0.85) or 0)
     end
     map.None = CreateColor(0, 0, 0, 0)
     return map
@@ -880,8 +908,17 @@ local function DressLiveGlow(lg)
     local btn = lg.btn
     if not btn then return end
     local STYLE = Enum and Enum.CustomAuraButtonDispelTypeTextureStyle
-    local colours = GlowColours()
     if btn.ClearDispelTypeTextures then pcall(btn.ClearDispelTypeTextures, btn) end
+    -- the health's tint instead: one texture over the bar's fill, the client
+    -- colouring it; above the bar (the client's frame is), so lighter
+    if lg.tint then lg.tint:Hide() end
+    if lg.tint and Tinted() then
+        for _, e in ipairs(lg.edges) do e:Hide() end
+        pcall(btn.AddDispelTypeTexture, btn, lg.tint, { style = STYLE and STYLE.PreserveAsset,
+            showWhenHarmful = true, customDispelColorMap = GlowColours(LIVE_TINT_ALPHA) })
+        return
+    end
+    local colours = GlowColours()
     for _, e in ipairs(lg.edges) do
         if e ~= lg.cut or lg.cutShown then
             pcall(btn.AddDispelTypeTexture, btn, e, { style = STYLE and STYLE.PreserveAsset, showWhenHarmful = true,
@@ -914,6 +951,12 @@ local function MakeLiveGlow(b)
             lg.edges, lg.cut = GlowEdges(btn, h, own.side, own.window)
             lg.cutShown = lg.cut and own.cut and own.cut:IsShown() or false
             if lg.cut then lg.cut:SetShown(lg.cutShown) end
+            if b.health then
+                lg.tint = btn:CreateTexture(nil, "ARTWORK")
+                lg.tint:SetTexture(ns.bar)
+                lg.tint:SetAllPoints(b.health:GetStatusBarTexture())
+                lg.tint:Hide()
+            end
             DressLiveGlow(lg)
         end,
     })
@@ -961,7 +1004,10 @@ local function LiveGlow(b, on)
     end
     c:UpdateAllAuras()
     c:Show()
-    lg.pulse:Show()
+    -- a glow pulses; the health's tint holds still
+    local tint = lg.tint and Tinted()
+    lg.pulse:SetShown(not tint)
+    if tint then c:SetAlpha(1) end
 end
 
 -- Both rows' containers hidden: the preview's icons, or nothing, instead.
@@ -1041,14 +1087,7 @@ local function ScanUnitAuras(b)
     -- type over as a secret, it is unread. Only the reads above have run:
     -- none while the frame does not glow)
     local live = (refused or unread) and true or false
-    if b.dispelGlow then
-        if bestDispel then
-            b.dispelGlow:SetGlowColor(DispelColor(bestDispel))
-            b.dispelGlow:Show()
-        else
-            b.dispelGlow:Hide()
-        end
-    end
+    if b.dispelGlow then ShowDispel(b, bestDispel) end
     LiveGlow(b, live)
 
     -- 2. Crowd Control (CC)
@@ -1224,6 +1263,7 @@ end
 -- Every aura piece a frame has, hidden.
 local function HideAuras(b)
     if b.dispelGlow then b.dispelGlow:Hide() end
+    Tint(b, nil)
     if b.threatGlow then b.threatGlow:Hide() end
     if b.ccWidget then b.ccWidget:Hide() end
     if b.bossDebuff then b.bossDebuff:Hide() end
@@ -1513,6 +1553,8 @@ ns.OnSetting("auraBuffs", UpdateAllAuras)
 ns.OnSetting("auraBoss", UpdateAllAuras)
 ns.OnSetting("auraThreat", UpdateAllAuras)
 ns.OnSetting("threatColor", UpdateAllAuras)
+ns.OnSetting("dispelStyle", RedressLiveGlows)
+ns.OnSetting("dispelStyle", UpdateAllAuras)
 for _, t in ipairs(DISPEL_PRIORITY) do
     ns.OnSetting("dispel" .. t, RedressLiveGlows)
     ns.OnSetting("dispelColor" .. t, RedressLiveGlows)

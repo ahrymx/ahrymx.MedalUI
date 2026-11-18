@@ -488,6 +488,11 @@ local function Glows()
             if not types[1] then return "You dispel nothing: none of your spells removes a debuff." end
             return "You dispel " .. table.concat(types, ", ") .. "  (" .. table.concat(spells, ", ") .. ")."
         end },
+        Choice("dispelStyle", "Show a dispel as", {
+            { "glow", "Border glow", "The frame's border glows in the debuff's colour." },
+            { "health", "Health colour", "The health bar takes the debuff's colour instead of a glow." },
+        }, "How a frame shows a debuff you can dispel: a glow round its border, or its health bar in the "
+            .. "debuff's colour."),
     }
     for _, t in ipairs(ns.DISPEL_TYPES) do
         local check = Check("dispel" .. t, t, "Glow for a " .. t .. " debuff. A type none of your spells "
