@@ -98,7 +98,9 @@ A **plan** lays out a build by level. In plan mode the tree turns to a drafting 
 
 Esc opens a game menu that also shows your character, Medalluin's shortcuts, and your friends and guild on two tabs of a Social window. A clock at the top of the screen shows the time, with your gold, session length and latency under it. Your volumes sit at the bottom of the screen: Master, with Music, Effects, Ambience and Dialogue in a tray above it and a shortcut to the game's Audio settings. Left alone, the panel folds into a thin rail at the edge while the camera turns slowly around your character. The cog opens the menu's options, among them how the world behind the menu is dimmed: a vignette or an even shade, its strength and its tint.
 
-![The game menu: the character, menu buttons, friends, guild and this session](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/game-menu.png)
+![The game menu over the dimmed world: the panel on the left, the clock with gold, session and latency at the top, the volume at the bottom](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/game-menu-screen.png)
+
+![The game menu's panel: the character and their progress to the next level, the menu's buttons, Medalluin's shortcuts, and the Social window's Friends and guild tabs over Log Out, Return to Game and Exit Game](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/game-menu.png)
 
 ---
 
