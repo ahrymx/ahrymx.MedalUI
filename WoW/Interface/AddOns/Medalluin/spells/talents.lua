@@ -22,6 +22,10 @@
 --   ---------------------------------------------------------------
 --   (backpack)   [Primary] [Secondary] | [Plans] [Activate]
 --
+-- Behind the tree, its ground (Ground): a faint cloudy wash in the tree's
+-- colour (the first ember, the second blue, the third green), its edges
+-- shaded.
+--
 -- Over the tree, the console (Console): one plate the window's width under
 -- its tabs, three readouts parted by hairlines (the tree and its points;
 -- the points left, large, or in the plan's mode the points planned; the
@@ -994,6 +998,29 @@ local function Console(body, controls)
 end
 W.Console = Console
 
+-- The tree's ground: a cloudy wash in the tree's colour (by its place:
+-- the first ember, the second blue, the third green), faint, its edges
+-- shaded darker; under the plan's wash and the lines and talents.
+--   local g = Ground(body); g.Set(tree)
+local SCHOOL = { { 0.78, 0.35, 0.24 }, { 0.27, 0.43, 0.78 }, { 0.27, 0.67, 0.35 } }
+local CLOUDS, SHADE = 0.16, 0.6         -- the wash's strength; the edges' shade
+local function Ground(body)
+    local g = {}
+    g.clouds = body:CreateTexture(nil, "BACKGROUND", nil, -8)
+    g.clouds:SetAllPoints()
+    g.clouds:SetTexture(ns.media .. "talents\\clouds")
+    g.shade = body:CreateTexture(nil, "BACKGROUND", nil, -7)
+    g.shade:SetAllPoints()
+    g.shade:SetTexture(ns.media .. "talents\\vignette")
+    g.shade:SetVertexColor(1, 1, 1, SHADE)
+    function g.Set(tree)
+        local c = SCHOOL[tree] or SCHOOL[1]
+        g.clouds:SetVertexColor(c[1], c[2], c[3], CLOUDS)
+    end
+    return g
+end
+W.Ground = Ground
+
 -- a control on or off: off, its word dim and its click refused
 local function Can(b, on)
     b.on = on and true or false
@@ -1182,9 +1209,12 @@ for i = 1, TREES do
         return true
     end
     function p.Build(body, foot, band)
+        -- the tree's ground, in its colour
+        p.ground = Ground(body)
+        p.ground.Set(i)
         -- the plan's mode at a glance: the tree's ground washed blue, under
         -- its lines and talents
-        p.wash = body:CreateTexture(nil, "BACKGROUND", nil, -8)
+        p.wash = body:CreateTexture(nil, "BACKGROUND", nil, -6)
         p.wash:SetAllPoints()
         p.wash:SetColorTexture(PLANNING[1], PLANNING[2], PLANNING[3], PLANNING[4])
         Points(p, body)

@@ -12,9 +12,15 @@ soft, tinted and sized by the code:
   nothing at the edge, so most of it shows past the icon (the character
   window's glow, faint from its middle out, all but hid under it).
 
-    python3 art/talents/gen_talents.py   -> media/talents/sheen.tga, beam.tga, glow.tga
+- clouds.tga (256x256): the tree's ground, a soft cloudy wash, white, its
+  alpha the clouds (tinted the tree's colour, and faint, by the code);
+- vignette.tga (128x128): black, clear in the middle and darkening to the
+  edges, over the clouds.
+
+    python3 art/talents/gen_talents.py   -> media/talents/sheen, beam, glow, clouds, vignette (.tga)
 """
 import os
+import random
 import sys
 
 from PIL import Image
@@ -74,9 +80,46 @@ def glow(n=128, core=0.5, corner=0.25):
     return img
 
 
+def clouds(n=256, seed=7):
+    """Octaves of random value noise, smoothed up from small grids, summed; then
+    pushed apart so there are clouds and clear gaps between them."""
+    rnd = random.Random(seed)
+    total, weight = None, 0.0
+    amp = 1.0
+    for cells in (4, 8, 16, 32, 64):
+        small = Image.new("L", (cells, cells))
+        small.putdata([rnd.randrange(256) for _ in range(cells * cells)])
+        layer = small.resize((n, n), Image.BICUBIC)
+        if total is None:
+            total = [v * amp for v in layer.tobytes()]
+        else:
+            total = [t + v * amp for t, v in zip(total, layer.tobytes())]
+        weight += amp
+        amp *= 0.55
+    img = Image.new("RGBA", (n, n), (255, 255, 255, 0))
+    a = []
+    for v in total:
+        t = v / weight / 255                    # 0..1, about 0.5
+        a.append(int(round(255 * smooth((t - 0.32) / 0.4))))
+    img.putalpha(Image.frombytes("L", (n, n), bytes(a)))
+    return img
+
+
+def vignette(n=128):
+    img = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    px = img.load()
+    c = (n - 1) / 2
+    for y in range(n):
+        for x in range(n):
+            r = (((x - c) / c) ** 2 + ((y - c) / c) ** 2) ** 0.5
+            px[x, y] = (0, 0, 0, int(round(255 * smooth((r - 0.35) / 0.95))))
+    return img
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
-    for name, img in (("sheen", sheen()), ("beam", beam()), ("glow", glow())):
+    for name, img in (("sheen", sheen()), ("beam", beam()), ("glow", glow()),
+                      ("clouds", clouds()), ("vignette", vignette())):
         export.to_tga(img, os.path.join(OUT, name + ".tga"))
         print(os.path.join(OUT, name + ".tga"))
 

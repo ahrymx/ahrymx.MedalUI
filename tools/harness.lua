@@ -15653,7 +15653,9 @@ if args.inspect then
                     table.insert(seg, b.label.text .. (b.selected and "*" or ""))
                 end
             end
+            local gv = talents.ground.clouds.vertex or {}
             print(tag, "points=" .. TalentConsole(talents.console), "waiting=" .. tostring(talents.waiting.shown),
+                string.format("ground=%.2f,%.2f,%.2f", gv[1] or -1, gv[2] or -1, gv[3] or -1),
                 table.concat(nodes, " "), "| margin " .. table.concat(seg, " "))
         end
         trees("inspect.talents")
@@ -18464,6 +18466,20 @@ if talentPass then
         T.sounds = {}
     end
     fx("talents.fx")
+    -- each tree's ground: its clouds' colour and strength, the shade over them
+    do
+        local list = {}
+        for _, page in ipairs(W.pages) do
+            local g = page.ground
+            if g then
+                local v = g.clouds.vertex or {}
+                table.insert(list, string.format("%s=%.2f,%.2f,%.2f@%.2f/%s shade=%.2f/%s wash=%s", page.key,
+                    v[1] or -1, v[2] or -1, v[3] or -1, v[4] or -1, tostring(g.clouds.layer and g.clouds.sub),
+                    (g.shade.vertex or {})[4] or -1, tostring(g.shade.sub), tostring(page.wash.sub)))
+            end
+        end
+        print("talents.ground", table.concat(list, " "))
+    end
     -- the pulse: the can-take glows swing with the time
     local clock = GetTime
     for _, t in ipairs({ 0, 0.4 }) do
