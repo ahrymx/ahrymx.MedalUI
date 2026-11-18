@@ -18531,7 +18531,9 @@ if talentPass then
                 .. (p.save.points.LEFT[1] == p.checkpoint and "checkpoint" or p.save.points.LEFT[1] == p.exit
                     and "exit" or "?"),
             "name=" .. (p.name.shown and tostring(p.name.text) or "off"),
-            "hint=" .. (p.hint.shown and p.hint.text or p.details.nothing.shown and p.details.nothing.text or "-"))
+            "hint=" .. (p.hint.shown and p.hint.text or p.details.nothing.shown and p.details.nothing.text or "-"),
+            "details=" .. (p.details.title.shown ~= false and tostring(p.details.title.text) or "-"),
+            "row=" .. (p.planLine.shown ~= false and tostring(p.planLine.text) or "off"))
     end
     local function press(b)
         b.scripts.OnClick(b, "LeftButton")

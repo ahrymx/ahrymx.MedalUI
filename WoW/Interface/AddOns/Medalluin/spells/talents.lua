@@ -66,6 +66,7 @@ local ICON, MARGIN = 36, 10             -- a talent's icon, the room round the t
 local STRIP = 26                        -- a row of controls: the points' over the tree, the plan's under it
 local HEAD = STRIP                      -- what stands over the tree
 local FOOT = 6 + STRIP + 6 + 2 * 15     -- the plan's row and two lines of hint under it
+local PLAN_ROW = 8 + 1 + 6 + 15         -- out of the plan's mode: a gap, a rule, a gap, the plan's line
 
 local W = ns.Window{
     name = "MedalluinTalents", side = 1,
@@ -642,10 +643,13 @@ local function Refresh(p)
     local byID = Draw(p, config, group, groups, plan)
     -- the foot: in the plan's mode its row and a hint (why the talent last
     -- clicked was refused, else what the Checkpoint keeps, else what a
-    -- click does); otherwise the talent chosen, or the plan's next
+    -- click does); otherwise the talent chosen, and under it the plan's
+    -- next step and where the chosen talent stands in the plan
     local chosen = p.chosen and byID[p.chosen]
     p.planRow:SetShown(planning and true or false)
     p.hint:SetShown(planning and true or false)
+    p.planLine:SetShown(not planning)
+    p.planHair:SetShown(not planning)
     if planning then
         p.details:Set(nil)
         p.details.nothing:Hide()
@@ -654,17 +658,26 @@ local function Refresh(p)
             or d and format("Checkpoint keeps %s %d/%d as a step of the plan.",
                 Entry(config, m[d.id].node).name, plan.counts[d.id], m[d.id].node.maxRanks)
             or "Click a talent to add a point to the plan; right-click takes its last off.")
-    elseif chosen then
-        local node, t = chosen.node, chosen.talent
-        local why = Lock(node)
-        p.details:Set({ title = t.name, sub = format("Rank %d/%d", node.ranksPurchased, node.maxRanks)
-            .. (why and ("  ·  " .. why) or ""), text = Describe(chosen) })
     else
         local nextOne = nextID and m[nextID]
-        p.details.nothing:SetText(nextOne and format("Next in your plan: %s %d/%d, at level %d.",
+        local line = nextOne and format("Next in your plan: %s %d/%d, at level %d.",
                 Entry(config, nextOne.node).name, nextRank, nextOne.node.maxRanks, place + 9)
-            or "Choose a talent to read it.")
-        p.details:Set(nil)
+            or #Plan() == 0 and "No talent plan: make one under Plans."
+            or "Your plan is complete."
+        if chosen then
+            local node, t = chosen.node, chosen.talent
+            local why = Lock(node)
+            p.details:Set({ title = t.name, sub = format("Rank %d/%d", node.ranksPurchased, node.maxRanks)
+                .. (why and ("  ·  " .. why) or ""), text = Describe(chosen) })
+            local planned = plan.counts[node.ID] or 0
+            if planned > 0 then
+                line = format("%s   ·   %s: planned %d/%d", line, t.name, planned, node.maxRanks)
+            end
+        else
+            p.details.nothing:SetText("Choose a talent to read it.")
+            p.details:Set(nil)
+        end
+        p.planLine:SetText(line)
     end
     -- the points: left to spend (or planned), and in this tree (the tabs'
     -- tips say each)
@@ -860,7 +873,18 @@ local function Foot(p, foot)
     p.hint = Hint(foot)
     -- out of the mode, the talent chosen: its rank and what each gives
     p.details = ns.character.Details(foot, nil, "Choose a talent to read it.", 4)
-    p.footHeight = math.max(FOOT, p.details.height)
+    -- and under it, always, the plan's next step (and the chosen talent's
+    -- place in the plan), on a row of its own under a fading rule
+    p.planLine = ns.Text(foot, 12)
+    p.planLine:SetPoint("BOTTOMLEFT", 8, 2)
+    p.planLine:SetPoint("BOTTOMRIGHT", -8, 2)
+    p.planLine:SetJustifyH("CENTER")
+    p.planLine:SetWordWrap(false)
+    p.planLine:SetTextColor(unpack(ns.colors.dim))
+    p.planHair = ns.window.Hair(foot)
+    p.planHair:SetPoint("BOTTOMLEFT", 40, 2 + 15 + 6)
+    p.planHair:SetPoint("BOTTOMRIGHT", -40, 2 + 15 + 6)
+    p.footHeight = math.max(FOOT, p.details.height + PLAN_ROW)
 end
 
 -- ------------------------------------------------------------------ pages
