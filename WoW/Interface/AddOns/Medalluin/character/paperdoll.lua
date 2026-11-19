@@ -28,6 +28,10 @@ local _, ns = ...
 local SLOT, PITCH, GAP = 34, 39, 6             -- the least: a slot, a row, the weapons' gap
 local SLOT_MAX, SPREAD = 46, 26                 -- the most: a slot, and room added between rows
 local HEAD = 40                                 -- the name and the class line
+-- (2026-11-19, as the spellbook's tabs and the talents' console) the name
+-- and the class line in the panel the shell joins under the head: its
+-- height (page.under); the columns then start at the body's top
+local JOIN = 44
 local STAGE = 10                                -- between a column and the stage, a hairline across
 local BRACKET = 14                              -- the stage's corner brackets' arms
 local LEFT = { "Head", "Neck", "Shoulder", "Back", "Chest", "Shirt", "Tabard", "Wrist" }
@@ -363,10 +367,19 @@ function ns.character.Doll(spec)
         local spare = math.min(2 * SPREAD, math.floor(extra / 7))
         pitch = size + (PITCH - SLOT) + spare
         local top = 1
-        cols = top + HEAD + top
-        name:ClearAllPoints()
-        name:SetPoint("TOP", 0, -(top + 2))
-        wash:SetHeight(top + HEAD + top / 2)
+        if p.panel then
+            -- joined: the name and its line centred in the panel; no wash
+            -- of their own (the panel's rises from its foot)
+            cols = top
+            name:ClearAllPoints()
+            name:SetPoint("TOP", p.panel, "TOP", 0, -((JOIN - HEAD) / 2 + 3))
+            wash:Hide()
+        else
+            cols = top + HEAD + top
+            name:ClearAllPoints()
+            name:SetPoint("TOP", 0, -(top + 2))
+            wash:SetHeight(top + HEAD + top / 2)
+        end
         Frame()
         Light()
         Place()
@@ -413,9 +426,11 @@ function ns.character.Doll(spec)
 
     function d.Build(frame)
         body = frame
-        name = ns.Text(body, 18)
+        -- (in the joined panel, when the page has one)
+        local holder = spec.page.panel or body
+        name = ns.Text(holder, 18)
         name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-        line = ns.Text(body, 12)
+        line = ns.Text(holder, 12)
         line:SetPoint("TOP", name, "BOTTOM", 0, -4)
         line:SetTextColor(unpack(ns.colors.dim))
         Wash()
@@ -438,8 +453,10 @@ function ns.character.Doll(spec)
     return d
 end
 
--- the least a page with the doll needs
+-- the least a page with the doll needs; its panel joined under the head,
+-- and the least then (the name and its line in the panel)
 ns.character.dollHeight = HEAD + #LEFT * PITCH + GAP + SLOT
+ns.character.dollJoin = { under = JOIN, height = #LEFT * PITCH + GAP + SLOT + 2 }
 
 -- ------------------------------------------------------------- details
 -- Stats, Titles, Sets across the top; each part has the same room, the
@@ -611,7 +628,7 @@ end
 
 page = {
     key = "character", label = "Character", frame = "PaperDollFrame", order = 1,
-    height = ns.character.dollHeight, bandUsed = true,
+    height = ns.character.dollJoin.height, under = ns.character.dollJoin.under, bandUsed = true,
     events = { "PLAYER_EQUIPMENT_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE", "PLAYER_LEVEL_UP",
         "UNIT_STATS", "UNIT_RESISTANCES", "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_DAMAGE",
         "UNIT_ATTACK_SPEED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "COMBAT_RATING_UPDATE", "SPELL_POWER_CHANGED",

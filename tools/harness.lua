@@ -15888,8 +15888,11 @@ if characterPass then
         print(tag .. " weapons", table.concat(row, " "))
         local body = current().body
         local texts = {}
-        for _, r in ipairs(body.all_) do
-            if r.kind == "FontString" and r.text and r.text ~= "" then table.insert(texts, r.text) end
+        -- (the name and its line in the panel joined under the head, when there is one)
+        for _, holder in ipairs({ current().panel or false, body }) do
+            for _, r in ipairs(holder and holder.all_ or {}) do
+                if r.kind == "FontString" and r.text and r.text ~= "" then table.insert(texts, r.text) end
+            end
         end
         print(tag .. " head", table.concat(texts, " | "), "model=" .. tostring(S.model.unit) .. " x"
             .. tostring(S.model.unitSets), "muted=" .. tostring(S.columns[1].normal.vertex
@@ -16130,7 +16133,10 @@ if characterPass then
     -- (its ground, light, floor, frame and brackets), each slot's plate,
     -- glow and hairline, the belt's fading rules and points
     local function uplift(tag, d)
-        print(tag .. " head", "wash h=" .. tostring(d.wash.h), "crest=" .. tostring(d.crest), "divider="
+        local pn = current and current().panel
+        print(tag .. " joined", pn and ("h=" .. tostring(pn.h) .. " name in panel=" .. tostring(d.name.parent == pn)
+            .. " at=" .. tostring(d.name.points.TOP and d.name.points.TOP[4])) or "none")
+        print(tag .. " head", "wash h=" .. tostring(d.wash.h) .. " shown=" .. tostring(d.wash.shown), "crest=" .. tostring(d.crest), "divider="
             .. tostring(d.divider), "belt=" .. tostring(d.belt))
         local st = d.stage
         local light = st.light.vertex or {}

@@ -263,7 +263,7 @@ end
 
 page = {
     key = "inspect", label = "Inspect", tip = "Their gear", glyph = "character", frame = "InspectPaperDollFrame",
-    order = 1, height = ns.character.dollHeight,
+    order = 1, height = ns.character.dollJoin.height, under = ns.character.dollJoin.under,
     events = { "INSPECT_READY", "UNIT_INVENTORY_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE",
         "GET_ITEM_INFO_RECEIVED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "PLAYER_GUILD_UPDATE",
         "INSPECT_HONOR_UPDATE" },
