@@ -104,8 +104,9 @@ local function Row()
     r.band:SetPoint("BOTTOMRIGHT", 0, 2)
     if r.band.SetGradient and CreateColor then
         r.band:SetColorTexture(1, 1, 1, 1)
-        r.band:SetGradient("HORIZONTAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.45),
-            CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.045))
+        -- (from the right, the screen's edge, as the windows there fade)
+        r.band:SetGradient("HORIZONTAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.045),
+            CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.45))
     else
         r.band:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.25)
     end

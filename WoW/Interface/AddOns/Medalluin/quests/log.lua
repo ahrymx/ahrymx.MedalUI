@@ -266,10 +266,12 @@ local function LimitTip()
 end
 
 -- ------------------------------------------------------------- the rows
+-- c at alpha a at the right (the screen's edge: the log stands on the
+-- right) fading to a tenth of it towards the middle
 local function Fade(t, c, a)
     if t.SetGradient and CreateColor then
         t:SetColorTexture(1, 1, 1, 1)
-        t:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], a), CreateColor(c[1], c[2], c[3], a * 0.1))
+        t:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], a * 0.1), CreateColor(c[1], c[2], c[3], a))
     else
         t:SetColorTexture(c[1], c[2], c[3], a * 0.55)
     end
@@ -290,118 +292,22 @@ end
 local function Wheel(delta) log.Scroll(-delta * 3) end
 
 -- ------------------------------------------------------------ the orders
--- The sort button's dialog: the game menu's options (window/gamemenu.lua,
--- its look and its joined keys), over the button, a notch down to it. Its
--- keys are the orders; a pick sorts and the dialog stays, its key lit. A
--- click anywhere else, the button again, Escape, or the log closing shuts
--- it.
-local POP_INK = { 0.078, 0.067, 0.047 }
-local POP_W, POP_SEG = 220, 22
-local orders = {}
+-- The sort button's dialog (ns.window.Choices): its keys are the orders; a
+-- pick sorts and the dialog stays, its key lit. A click anywhere else, the
+-- button again, Escape, or the log closing shuts it.
+local orders = ns.window.Choices({
+    name = "MedalluinQuestLogOrders", title = "Sort the zones", width = 220, choices = ORDERS,
+    Get = Order,
+    Set = function(v)
+        ns.db.questLogOrder = v
+        log.Refresh()
+    end,
+    Anchor = function() return foot and foot.byKey.sort end,
+    Opened = function(open)
+        if foot then foot:Set("sort", { selected = open, enabled = #quests > 0 }) end
+    end,
+})
 log.orders = orders
-
-local function OrdersFrame()
-    if orders.frame then return orders.frame end
-    local catcher = CreateFrame("Button", nil, UIParent)
-    catcher:SetAllPoints(UIParent)
-    catcher:SetFrameStrata("FULLSCREEN_DIALOG")
-    catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    catcher:SetScript("OnClick", function() orders.Close() end)
-    catcher:Hide()
-    local f = CreateFrame("Frame", "MedalluinQuestLogOrders", catcher)
-    f:SetFrameLevel(catcher:GetFrameLevel() + 5)
-    f:SetWidth(POP_W)
-    f:SetClampedToScreen(true)
-    f:EnableMouse(true)
-    local shadow = f:CreateTexture(nil, "BACKGROUND", nil, -8)
-    shadow:SetPoint("TOPLEFT", 4, -6)
-    shadow:SetPoint("BOTTOMRIGHT", 4, -6)
-    shadow:SetColorTexture(0, 0, 0, 0.55)
-    local edge = f:CreateTexture(nil, "BACKGROUND", nil, 1)
-    edge:SetAllPoints()
-    edge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-    local ink = f:CreateTexture(nil, "BACKGROUND", nil, 3)
-    ink:SetPoint("TOPLEFT", 1, -1)
-    ink:SetPoint("BOTTOMRIGHT", -1, 1)
-    ink:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
-    -- the notch, down to the button's middle: a gold diamond, its upper
-    -- half the dialog's ink
-    local notch = f:CreateTexture(nil, "BACKGROUND", nil, 2)
-    notch:SetSize(9, 9)
-    notch:SetPoint("CENTER", f, "BOTTOM", 0, 0)
-    notch:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-    local fill = f:CreateTexture(nil, "BACKGROUND", nil, 4)
-    fill:SetSize(7, 7)
-    fill:SetPoint("CENTER", f, "BOTTOM", 0, 1)
-    fill:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
-    if notch.SetRotation then
-        notch:SetRotation(math.pi / 4)
-        fill:SetRotation(math.pi / 4)
-    end
-    local label = ns.Text(f, 9)
-    label:SetPoint("TOPLEFT", 12, -12)
-    label:SetText("SORT THE ZONES")
-    label:SetTextColor(unpack(DIM))
-    -- the orders, joined keys sharing the width (the game menu's sorts)
-    orders.keys = {}
-    local w, n = POP_W - 24, #ORDERS
-    for i, o in ipairs(ORDERS) do
-        local k = CreateFrame("Button", nil, f)
-        local x0, x1 = math.floor((i - 1) * w / n), math.floor(i * w / n)
-        k:SetPoint("TOPLEFT", 12 + x0, -28)
-        k:SetSize(x1 - x0 + (i < n and 1 or 0), POP_SEG)
-        k:RegisterForClicks("LeftButtonUp")
-        ns.gameMenu.Keyed(k)
-        k.word = ns.Text(k, 11)
-        k.word:SetPoint("CENTER")
-        k.word:SetText(o[2])
-        k.value = o[1]
-        k:SetScript("OnClick", function()
-            ns.db.questLogOrder = o[1]
-            log.Refresh()
-        end)
-        k:HookScript("OnEnter", function(self) Tip(self, { title = o[2], { "hint", o[3] } }) end)
-        k:HookScript("OnLeave", function() GameTooltip:Hide() end)
-        orders.keys[i] = k
-    end
-    f:SetHeight(28 + POP_SEG + 12)
-    orders.frame, orders.catcher = f, catcher
-    if UISpecialFrames then table.insert(UISpecialFrames, "MedalluinQuestLogOrders") end
-    f:SetScript("OnHide", function() orders.Close() end)
-    return f
-end
-
--- its keys as the order now is: the one in use held, its word lit
-function orders.Mark()
-    if not orders.keys then return end
-    for _, k in ipairs(orders.keys) do
-        k.held = k.value == Order()
-        k.Lit(false)
-        k.word:SetTextColor(unpack(k.held and ns.colors.text or DIM))
-    end
-end
-
-function orders.Open()
-    local f = OrdersFrame()
-    orders.Mark()
-    -- over the sort button, the notch down to its middle
-    local b = foot and foot.byKey.sort
-    f:ClearAllPoints()
-    if b then f:SetPoint("BOTTOM", b, "TOP", 0, 8) else f:SetPoint("CENTER") end
-    orders.catcher:Show()
-    f:Show()
-    if foot then foot:Set("sort", { selected = true, enabled = #quests > 0 }) end
-end
-
-function orders.Close()
-    if not orders.catcher or not orders.catcher:IsShown() then return end
-    orders.catcher:Hide()
-    if foot then foot:Set("sort", { selected = false, enabled = #quests > 0 }) end
-end
-
-function orders.Toggle()
-    if orders.catcher and orders.catcher:IsShown() then orders.Close() else orders.Open() end
-end
 
 -- A row, either kind: a zone's fold or a quest's line; each drawn as it is
 -- filled.
@@ -413,7 +319,7 @@ local function Row()
     local glow = r:CreateTexture(nil, "HIGHLIGHT")
     glow:SetAllPoints()
     glow:SetColorTexture(1, 1, 1, 0.06)
-    -- the fold: a band of gold fading to the right, lit along its top
+    -- the fold: a band of gold fading in from the right, lit along its top
     r.fill = r:CreateTexture(nil, "BACKGROUND", nil, 1)
     r.fill:SetPoint("TOPLEFT", 0, -2)
     r.fill:SetPoint("BOTTOMRIGHT", 0, 2)
@@ -639,7 +545,7 @@ function log.Refresh()
         foot:Set("untrack", { enabled = #quests > 0 })
         foot:Set("track", { enabled = #quests > 0 })
         foot:Set("sort", { enabled = #quests > 0,
-            selected = orders.catcher and orders.catcher:IsShown() or false })
+            selected = orders.IsOpen() })
         orders.Mark()
         foot:Set("drop", { enabled = #quests > 0, color = RED })
     end

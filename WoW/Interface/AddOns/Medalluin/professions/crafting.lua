@@ -486,6 +486,9 @@ for i = 1, SLOTS do
                 if n == i then
                     if p.skillLine ~= prof.skillLine then p.chosen, p.trained, p.node, p.folded = nil, nil, nil, {} end
                     p.label, p.icon, p.skillLine, p.prof = prof.name, prof.icon, prof.skillLine, prof
+                    -- the pages' list opens it by casting this, securely
+                    -- (OpenTradeSkill is the game's to call: window/shell.lua)
+                    p.cast = prof.spell
                     p.row = not prof.primary and 2 or nil       -- the secondaries' tabs: a row of their own
                     return true
                 end

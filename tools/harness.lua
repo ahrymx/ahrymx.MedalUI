@@ -376,6 +376,18 @@ function Region:SetColorTexture(r, g, b, a) self.color, self.atlas = { r, g, b, 
 function Region:SetAtlas(a) self.atlas = a end
 function Region:GetAtlas() return self.atlas end
 function Region:SetVertexColor(r, g, b, a) self.vertex = { r, g, b, a } end
+-- a horizontal gradient's way: ">" brighter at the left, "<" at the right
+function fadeDir(t)
+    local g = t and t.gradient
+    if not g then return "flat" end
+    local function A(c)
+        if type(c) ~= "table" then return 0 end
+        if c.GetRGBA then return select(4, c:GetRGBA()) or 0 end
+        return c.a or c[4] or 0
+    end
+    local l, r = A(g[2]), A(g[3])
+    return l > r and ">" or l < r and "<" or "="
+end
 function Region:SetTextColor(r, g, b, a) self.textColor = { r, g, b, a } end
 function Region:SetBlendMode(m) self.blend = m end
 function Region:GetBlendMode() return self.blend or "BLEND" end
@@ -15924,11 +15936,104 @@ if characterPass then
             if not (f and ok and q and q[4] and ok2 and o) then return "unresolved" end
             return string.format("%.0f,%.0f-%.0f,%.0f", q[1] - o[1], q[2] - o[2], q[3] - o[1], q[4] - o[2])
         end
-        local first, last
-        for _, p in ipairs(C.pages) do
-            if p.tab and p.tab.shown then first = first or p.tab; last = p.tab end
+        -- the pages as one dropdown: the head across the row up to the
+        -- cross, the page's name, a chevron; its list beside the window
+        local d = w.dropdown
+        local h = d.head
+        local function glyph(t) return tostring(t.texture):match("([%w-]+)$") end
+        print("char.row", "head=" .. at(h), "cross=" .. at(w.close), "name=" .. h.label.text,
+            "icon=" .. glyph(h.icon), "chevron=" .. tostring(h.chevron.shown) .. ":" .. glyph(h.chevron))
+        local function list(tag)
+            local f = d.list
+            local which = f.points.TOPLEFT and "TOPLEFT" or f.points.TOPRIGHT and "TOPRIGHT" or "?"
+            local pt = f.points[which]
+            local rows = {}
+            for _, r in ipairs(d.rows) do
+                if r.shown then
+                    local _, _, _, _, y = r:GetPoint(1)
+                    table.insert(rows, r.label.text .. (r.mark.shown and "*" or "") .. "@" .. tostring(y))
+                end
+            end
+            print(tag, "open=" .. tostring(d.IsOpen()), which .. ">" .. tostring(pt and pt[1] == w and "window")
+                .. ":" .. tostring(pt and pt[2]) .. " " .. tostring(pt and pt[3]) .. "," .. tostring(pt and pt[4]),
+                "size=" .. tostring(f.w) .. "x" .. tostring(f.h), table.concat(rows, " "),
+                "chevron=" .. glyph(h.chevron), "name=" .. h.label.text)
         end
-        print("char.row", "first tab=" .. at(first), "last tab=" .. at(last), "cross=" .. at(w.close), "chevron=" .. tostring(w.chevron))
+        h.scripts.OnClick(h, "LeftButton")
+        list("char.list open")
+        -- Gilded: the head's band and lit edge, "1 of 6", the chevron's
+        -- cell; the list's heading, its notch towards the window at the
+        -- head's middle, the hairlines (none under the last), "open"
+        do
+            local f = d.list
+            local np = f.notch.points.CENTER
+            local hairs = {}
+            for _, r in ipairs(d.rows) do
+                if r.shown then table.insert(hairs, r.hair.shown and "-" or ".") end
+            end
+            print("char.gilded", "band=" .. tostring(h.band.shown), "lit=" .. tostring(h.lit.shown),
+                "count=" .. tostring(h.count.text), "split=" .. tostring(h.split.shown),
+                "title=" .. tostring(f.title.text), "notch=" .. tostring(np and np[2]) .. "," .. tostring(np and np[4]),
+                "hairs=" .. table.concat(hairs), "open=" .. tostring(d.rows[1].open.text) .. "/"
+                .. tostring(d.rows[1].mark.shown) .. "," .. tostring(d.rows[2].mark.shown))
+            -- under the mouse: a row lifts, its words bright; back on leaving
+            local r2 = d.rows[2]
+            r2.scripts.OnEnter(r2)
+            local lit = r2.label.textColor
+            local on = tostring(r2.lift.shown) .. string.format("(%.2f)", lit[1])
+            r2.scripts.OnLeave(r2)
+            print("char.gilded hover", on, tostring(r2.lift.shown) .. string.format("(%.2f)", r2.label.textColor[1]))
+            -- the fades from the screen's edge: a left-hand window's band
+            -- and held row bright at the left (">" left to right: brighter at the left)
+            -- the medallion on the window's inner edge (the right: mirrored),
+            -- its top the window's; the step under the head's foot by it;
+            -- the count beside it, the name centred
+            local function pt(f, i)
+                local a1, rel, a2, x, y = f:GetPoint(i or 1)
+                return tostring(a1) .. ">" .. (rel == w and "window" or rel == h and "head" or tostring(rel))
+                    .. ":" .. tostring(a2) .. " " .. tostring(x) .. "," .. tostring(y)
+            end
+            print("char.medal", "medal=" .. pt(h.medal) .. " " .. h.medal.w .. "x" .. h.medal.h,
+                "shown=" .. tostring(h.medal.shown), "step=" .. pt(h.step) .. " " .. h.step.w .. "x" .. h.step.h,
+                "count=" .. pt(h.count), "name=" .. pt(h.label, 1) .. " / " .. pt(h.label, 2)
+                .. " " .. tostring(h.label.justifyH))
+            h.medal.scripts.OnClick(h.medal, "LeftButton")
+            print("char.medal click", "open=" .. tostring(d.IsOpen()))
+            h.medal.scripts.OnClick(h.medal, "LeftButton")
+            print("char.fades", "band=" .. fadeDir(h.band), "lit=" .. fadeDir(h.lit),
+                "held=" .. fadeDir(d.rows[1].fill), "bar=" .. tostring(d.list.edge))
+        end
+        local escape = false
+        for _, n in ipairs(UISpecialFrames or {}) do if n == d.list:GetName() then escape = true end end
+        print("char.list escape", tostring(d.list:GetName()), tostring(escape))
+        -- a click elsewhere shuts it; the head again too
+        d.catcher.scripts.OnClick(d.catcher, "LeftButton")
+        list("char.list elsewhere")
+        h.scripts.OnClick(h, "LeftButton")
+        h.scripts.OnClick(h, "LeftButton")
+        list("char.list head again")
+        -- a pick opens its page and shuts the list; the head follows
+        h.scripts.OnClick(h, "LeftButton")
+        for _, r in ipairs(d.rows) do
+            if r.shown and r.label.text == "Statistics" then r.scripts.OnClick(r, "LeftButton") end
+        end
+        list("char.list picked")
+        local open_
+        for _, p in ipairs(C.pages) do if p.body and p.body.shown then open_ = p.key end end
+        print("char.list page", tostring(open_))
+        h.scripts.OnClick(h, "LeftButton")
+        for _, r in ipairs(d.rows) do
+            if r.shown and r.label.text == "Character" then r.scripts.OnClick(r, "LeftButton") end
+        end
+        list("char.list back")
+        -- a row whose page says more than its name: its tip
+        for _, r in ipairs(d.rows) do
+            if r.shown and r.label.text == "PvP" then
+                r.scripts.OnEnter(r)
+                print("char.list pvp tip", tostring(GameTooltip.text), "anchor=" .. tostring(GameTooltip.anchor))
+                r.scripts.OnLeave(r)
+            end
+        end
     end
 
     -- 3b. the window is the screen's height, and the page spreads out over
@@ -17931,16 +18036,35 @@ if spellPass then
         modsDown.SHIFT = nil
         bars("book.uprank marked")
         print("book.toprank marked", "chevron=" .. chevron())
-        -- the margin's button: lit while on; None dims the chevron
+        -- None dims the chevron
         local margin = B.Current().margin
-        print("book.toprank button", "shown=" .. tostring(margin.byKey.toprank.shown),
-            "selected=" .. tostring(margin.byKey.toprank.selected))
         ns.SetOption("spellbookUpRank", "none")
-        print("book.toprank none", "chevron=" .. chevron(), "selected=" .. tostring(margin.byKey.toprank.selected))
+        print("book.toprank none", "chevron=" .. chevron())
         ns.SetOption("spellbookUpRank", "marked")
-        -- without MenuUtil, a click on Top rank goes to the next mode
-        margin.byKey.toprank.scripts.OnClick(margin.byKey.toprank, "LeftButton")
-        print("book.toprank click", tostring(ns.db.spellbookUpRank))
+        -- the button opens its dialog over it (the quest log's Sort's): the
+        -- mode's key held; a pick sets it and it stays; a click elsewhere
+        -- shuts it, and so does the book closing
+        local tb = margin.byKey.toprank
+        local function dialog(tag)
+            local O = B.topRank()
+            local f_ = O and O.frame
+            local out = {}
+            for _, k in ipairs(O and O.keys or {}) do table.insert(out, k.word.text .. (k.held and "*" or "")) end
+            local pt = f_ and f_.points.BOTTOM
+            print(tag, "shown=" .. tostring(O and O.IsOpen()), "over=" .. tostring(pt and pt[1] == tb),
+                "selected=" .. tostring(tb.selected), table.concat(out, " "), "mode=" .. tostring(ns.db.spellbookUpRank))
+        end
+        tb.scripts.OnClick(tb, "LeftButton")
+        dialog("book.toprank open")
+        for _, k in ipairs(B.topRank().keys) do
+            if k.word.text == "Every spell" then k.scripts.OnClick(k) end
+        end
+        dialog("book.toprank picked")
+        B.topRank().catcher.scripts.OnClick(B.topRank().catcher, "LeftButton")
+        dialog("book.toprank elsewhere")
+        tb.scripts.OnClick(tb, "LeftButton")
+        tb.scripts.OnClick(tb, "LeftButton")
+        dialog("book.toprank button again")
         ns.SetOption("spellbookUpRank", "marked")
     end
     B.UpRank()
@@ -19636,6 +19760,58 @@ if profPass then
     state("prof.cooking")
     tabs("prof.tabs")
     rows("prof.cooking")
+    -- the pages' list: a profession's row casts its spell through a secure
+    -- button over it (the game opens its window); the open one's has none;
+    -- OpenTradeSkill never called from the list. In combat none are armed.
+    do
+        local d = W.dropdown
+        local opened = {}
+        local real = C_TradeSkillUI.OpenTradeSkill
+        C_TradeSkillUI.OpenTradeSkill = function(id) table.insert(opened, id) return real and real(id) end
+        local was = W.Current()
+        local function armed(tag)
+            local list = {}
+            for _, r in ipairs(d.rows) do
+                if r.shown then
+                    local over
+                    for _, b in ipairs(d.holder and d.holder.buttons or {}) do
+                        if b.shown and b.row == r then over = b end
+                    end
+                    table.insert(list, r.label.text .. (r.mark.shown and "*" or "")
+                        .. (over and ("[" .. tostring(over.attrs.type) .. ":" .. tostring(over.attrs.spell) .. "]") or ""))
+                end
+            end
+            print(tag, "open=" .. tostring(d.IsOpen()), table.concat(list, " "),
+                "driver=" .. tostring(d.holder and d.holder.stateDrivers and d.holder.stateDrivers.visibility))
+        end
+        d.head.scripts.OnClick(d.head, "LeftButton")
+        armed("prof.list armed")
+        -- a right-hand window: its fades bright at the right, the list's too
+        print("prof.medal", "medal=" .. tostring(select(3, d.head.medal:GetPoint(1))) .. " "
+            .. tostring(select(4, d.head.medal:GetPoint(1))) .. "," .. tostring(select(5, d.head.medal:GetPoint(1))),
+            "step=" .. tostring(select(1, d.head.step:GetPoint(1))), "count=" .. tostring(select(1, d.head.count:GetPoint(1))))
+        print("prof.fades", "band=" .. fadeDir(d.head.band), "lit=" .. fadeDir(d.head.lit),
+            "held=" .. fadeDir(d.rows[1].fill), "bar=" .. tostring(d.list.edge))
+        local bs
+        for _, b in ipairs(d.holder.buttons) do
+            if b.shown and b.row and b.row.label.text == "Blacksmithing" then bs = b end
+        end
+        bs.scripts.PostClick(bs, "LeftButton", false)
+        armed("prof.list cast")
+        print("prof.list page", W.Current().label, "opentradeskill=" .. #opened)
+        -- in combat: nothing armed, a row turns the page alone
+        harnessHolds.combat, inCombat = true, true
+        stateTick()
+        d.head.scripts.OnClick(d.head, "LeftButton")
+        armed("prof.list combat")
+        d.catcher.scripts.OnClick(d.catcher, "LeftButton")
+        harnessHolds.combat, inCombat = nil, false
+        stateTick()
+        fire("PLAYER_REGEN_ENABLED")
+        armed("prof.list after combat")
+        C_TradeSkillUI.OpenTradeSkill = real
+        W.Select(was)
+    end
     -- Overview turns our page alone
     click(pageOf("overview").tab)
     state("prof.overview")
@@ -19727,7 +19903,7 @@ if profPass then
     beside("prof.tip line", ov.cards[3])
     beside("prof.tip buff", ov.camp.slots[1])
     beside("prof.tip object", ov.camp.tiles[1])
-    beside("prof.tip tab", ov.tab)
+    beside("prof.tip tab", W.dropdown.head)
     beside("prof.tip close", W.window.close)
     -- a short screen: the window is as tall as what the Overview shows,
     -- running past the screen only by that, not by the most it could show
@@ -19883,12 +20059,14 @@ if profPass then
                 "search=" .. tostring(P.search:GetParent() == P.strip))
             -- the floating chrome: no boxes, the page's tab underlined, a shadow
             local ch = AW.chrome
+            -- (the pages' dropdown: its head unboxed and underlined, the
+            -- page's row held)
             local function tabs()
-                local out = {}
+                local h = AW.dropdown.head
+                local out = { "head[box=" .. tostring(h.edge.shown) .. " mark=" .. tostring(h.mark.shown)
+                    .. " under=" .. tostring(h.under.shown) .. " " .. h.label.text .. "]" }
                 for _, p in ipairs(W.altPages) do
-                    local t = p.tab
-                    table.insert(out, p.key .. "[box=" .. tostring(t.edge.shown) .. " mark=" .. tostring(t.mark.shown)
-                        .. " under=" .. tostring(t.under.shown) .. " a=" .. t.icon.alpha .. "]")
+                    table.insert(out, p.key .. (p.tab.mark.shown and "*" or ""))
                 end
                 return table.concat(out, " ")
             end

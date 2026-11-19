@@ -101,7 +101,8 @@ local overview
 -- ------------------------------------------------------------- the data
 -- The professions learned, in the game's order (the two primaries, then
 -- the secondaries), each { index, name, icon, rank, max, modifier, spells,
--- offset, skillLine, primary, crafts }.
+-- offset, skillLine, primary, crafts, spell (its crafting spell, which
+-- opens its window) }.
 function W.Learned()
     local out = {}
     local list = { GetProfessions() }
@@ -113,7 +114,7 @@ function W.Learned()
             local crafts = item and item.spellID and C_TradeSkillUI.CanTradeSkillShowCraftingUI(item.spellID) or false
             table.insert(out, { index = index, name = name, icon = icon, rank = rank, max = max,
                 modifier = modifier or 0, spells = spells, offset = offset, skillLine = skillLine,
-                primary = i <= 2, crafts = crafts })
+                primary = i <= 2, crafts = crafts, spell = item and item.spellID })
         elseif i <= 2 then
             table.insert(out, { primary = true })
         end

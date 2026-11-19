@@ -915,12 +915,13 @@ function Refresh(p)
         if item.heading then
             Kind(c, "heading")
             c.item, c.shut = nil, item.shut
-            -- its role's colour fading right, a line of it under
+            -- its role's colour fading from the right (the screen's edge:
+            -- the book stands on the right) towards the middle, a line of it under
             local col = ROLE[item.role] or GOLD_D
             c.band:SetColorTexture(1, 1, 1, 1)
             if c.band.SetGradient and CreateColor then
-                c.band:SetGradient("HORIZONTAL", CreateColor(col[1], col[2], col[3], 0.55),
-                    CreateColor(col[1], col[2], col[3], 0.12))
+                c.band:SetGradient("HORIZONTAL", CreateColor(col[1], col[2], col[3], 0.12),
+                    CreateColor(col[1], col[2], col[3], 0.55))
             else
                 c.band:SetColorTexture(col[1], col[2], col[3], 0.3)
             end
@@ -1035,23 +1036,16 @@ end
 -- trainer has been read, which opens its page and, from it, goes back.
 local trainerPage, back
 
--- Top rank's menu: every spell, only those marked, none (the game's menu
--- where it has one; else each click the next)
-local function TopRankMenu(owner)
-    if MenuUtil and MenuUtil.CreateContextMenu then
-        MenuUtil.CreateContextMenu(owner, function(_, root)
-            root:CreateTitle("Top rank")
-            for _, m in ipairs(MODES) do
-                root:CreateRadio(m[2], function() return Mode() == m[1] end,
-                    function() ns.SetOption("spellbookUpRank", m[1]) end)
-            end
-        end)
-        return
-    end
-    for i, m in ipairs(MODES) do
-        if m[1] == Mode() then ns.SetOption("spellbookUpRank", MODES[i % #MODES + 1][1]) return end
-    end
-end
+-- Top rank's dialog over its button (ns.window.Choices, the quest log's
+-- Sort's look): every spell, only those marked, none
+local CHOICES = {
+    { "all", "Every spell", "Every spell on your bars rises to its highest rank as you learn it." },
+    { "marked", "Marked", "Only the spells you mark: Shift+Right-click one in the book. A blue chevron on its "
+        .. "icon shows it." },
+    { "none", "None", "Your bars keep the ranks you put on them." },
+}
+local topRank
+function W.topRank() return topRank end
 local function ModeName()
     for _, m in ipairs(MODES) do if m[1] == Mode() then return m[2] end end
 end
@@ -1075,7 +1069,7 @@ local function Controls(p, band)
                 or "What your class trainer has still to teach you."
         end },
         { key = "toprank", label = "Top rank", click = function(button)
-            if button == "LeftButton" then TopRankMenu(p.margin.byKey.toprank) end
+            if button == "LeftButton" then topRank.Toggle() end
         end, tip = function()
             return "Keeps spells on your action bars at their highest rank as you learn it: " .. ModeName():lower()
                 .. ". Click to choose. Shift+Right-click a spell to mark it."
@@ -1084,6 +1078,17 @@ local function Controls(p, band)
     row:SetPoint("TOPLEFT")
     row:SetPoint("TOPRIGHT")
     p.margin = row
+    topRank = topRank or ns.window.Choices({
+        name = "MedalluinSpellbookTopRank", title = "Keep on top rank", width = 240, choices = CHOICES,
+        Get = Mode,
+        Set = function(v) ns.SetOption("spellbookUpRank", v) end,
+        -- over the page's own button: the page open now
+        Anchor = function()
+            local cur = W.Current()
+            return cur and cur.margin and cur.margin.byKey.toprank
+        end,
+        Opened = function() local cur = W.Current() if cur then Band(cur) end end,
+    })
     p.trainerButton = row.byKey.trainer
 end
 
@@ -1091,7 +1096,8 @@ end
 function Band(p)
     if not p.margin then return end
     p.margin:Set("trainer", { selected = p.trainer, shown = ns.trainers.Visited() })
-    p.margin:Set("toprank", { selected = Mode() ~= "none" })
+    p.margin:Set("toprank", { selected = topRank ~= nil and topRank.IsOpen() })
+    if topRank then topRank.Mark() end
 end
 
 local function Page(spec)
@@ -1163,6 +1169,8 @@ local function Start()
     W.Build()
     layer = W.Layer("MedalluinSpellbookCasts")
     W.layer = layer
+    -- Top rank's dialog shuts with the book
+    W.window:HookScript("OnHide", function() if topRank then topRank.Close() end end)
     for _, p in ipairs(W.pages) do
         if p.available then W.Select(p); break end
     end

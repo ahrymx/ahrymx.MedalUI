@@ -611,6 +611,131 @@ local function PlaceTip(frame, owner, side, tip)
     placing = false
 end
 
+-- A footer button's choices, in a dialog over it (the quest log's Sort,
+-- the spellbook's Top rank): the game menu's options' look (window/gamemenu.lua,
+-- its joined keys), a notch down to the button, a small heading, and a key
+-- for each choice sharing the width. A pick sets it and the dialog stays, its
+-- key held; a click anywhere else, the button again, Escape, or Close shuts it.
+--
+--   local pop = ns.window.Choices{ name (global, for Escape), title, width,
+--                   choices = { { value, label, tip } }, Get(), Set(value),
+--                   Anchor() -> the button, Opened(open) (the button marked) }
+--   pop.Open(), pop.Close(), pop.Toggle(), pop.IsOpen(), pop.Mark() (after
+--   a change elsewhere); pop.frame, pop.catcher, pop.keys (each .word, .held)
+local POP_INK = { 0.078, 0.067, 0.047 }
+local POP_DIM = { 0.55, 0.52, 0.45 }
+local POP_SEG = 22
+function ns.window.Choices(spec)
+    local pop = {}
+    local function Build()
+        if pop.frame then return pop.frame end
+        local catcher = CreateFrame("Button", nil, UIParent)
+        catcher:SetAllPoints(UIParent)
+        catcher:SetFrameStrata("FULLSCREEN_DIALOG")
+        catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        catcher:SetScript("OnClick", function() pop.Close() end)
+        catcher:Hide()
+        local width = spec.width or 220
+        local f = CreateFrame("Frame", spec.name, catcher)
+        f:SetFrameLevel(catcher:GetFrameLevel() + 5)
+        f:SetWidth(width)
+        f:SetClampedToScreen(true)
+        f:EnableMouse(true)
+        local shadow = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+        shadow:SetPoint("TOPLEFT", 4, -6)
+        shadow:SetPoint("BOTTOMRIGHT", 4, -6)
+        shadow:SetColorTexture(0, 0, 0, 0.55)
+        local edge = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+        edge:SetAllPoints()
+        edge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        local ink = f:CreateTexture(nil, "BACKGROUND", nil, 3)
+        ink:SetPoint("TOPLEFT", 1, -1)
+        ink:SetPoint("BOTTOMRIGHT", -1, 1)
+        ink:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
+        -- the notch, down to the button's middle: a gold diamond, its upper
+        -- half the dialog's ink
+        local notch = f:CreateTexture(nil, "BACKGROUND", nil, 2)
+        notch:SetSize(9, 9)
+        notch:SetPoint("CENTER", f, "BOTTOM", 0, 0)
+        notch:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        local fill = f:CreateTexture(nil, "BACKGROUND", nil, 4)
+        fill:SetSize(7, 7)
+        fill:SetPoint("CENTER", f, "BOTTOM", 0, 1)
+        fill:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
+        if notch.SetRotation then
+            notch:SetRotation(math.pi / 4)
+            fill:SetRotation(math.pi / 4)
+        end
+        local label = ns.Text(f, 9)
+        label:SetPoint("TOPLEFT", 12, -12)
+        label:SetText(spec.title:upper())
+        label:SetTextColor(unpack(POP_DIM))
+        pop.keys = {}
+        local w, n = width - 24, #spec.choices
+        for i, o in ipairs(spec.choices) do
+            local k = CreateFrame("Button", nil, f)
+            local x0, x1 = math.floor((i - 1) * w / n), math.floor(i * w / n)
+            k:SetPoint("TOPLEFT", 12 + x0, -28)
+            k:SetSize(x1 - x0 + (i < n and 1 or 0), POP_SEG)
+            k:RegisterForClicks("LeftButtonUp")
+            ns.gameMenu.Keyed(k)
+            k.word = ns.Text(k, 11)
+            k.word:SetPoint("CENTER")
+            k.word:SetText(o[2])
+            k.value = o[1]
+            k:SetScript("OnClick", function()
+                spec.Set(o[1])
+                pop.Mark()
+            end)
+            k:HookScript("OnEnter", function(self)
+                ns.Tip(self, ns.window.Outside, { title = o[2], { "hint", o[3] } })
+            end)
+            k:HookScript("OnLeave", function() GameTooltip:Hide() end)
+            pop.keys[i] = k
+        end
+        f:SetHeight(28 + POP_SEG + 12)
+        pop.frame, pop.catcher = f, catcher
+        if spec.name and UISpecialFrames then table.insert(UISpecialFrames, spec.name) end
+        f:SetScript("OnHide", function() pop.Close() end)
+        return f
+    end
+
+    -- its keys as the choice now is: the one in use held, its word lit
+    function pop.Mark()
+        if not pop.keys then return end
+        local now = spec.Get()
+        for _, k in ipairs(pop.keys) do
+            k.held = k.value == now
+            k.Lit(false)
+            k.word:SetTextColor(unpack(k.held and ns.colors.text or POP_DIM))
+        end
+    end
+
+    function pop.IsOpen() return pop.catcher ~= nil and pop.catcher:IsShown() end
+
+    function pop.Open()
+        local f = Build()
+        pop.Mark()
+        local b = spec.Anchor and spec.Anchor()
+        f:ClearAllPoints()
+        if b then f:SetPoint("BOTTOM", b, "TOP", 0, 8) else f:SetPoint("CENTER") end
+        pop.catcher:Show()
+        f:Show()
+        if spec.Opened then spec.Opened(true) end
+    end
+
+    function pop.Close()
+        if not pop.IsOpen() then return end
+        pop.catcher:Hide()
+        if spec.Opened then spec.Opened(false) end
+    end
+
+    function pop.Toggle()
+        if pop.IsOpen() then pop.Close() else pop.Open() end
+    end
+    return pop
+end
+
 function ns.window.Beside(frame, owner, side)
     GameTooltip:SetOwner(owner, "ANCHOR_NONE")
     PlaceTip(frame, owner, side)
@@ -841,6 +966,8 @@ function ns.Window(spec)
     local pageTop = TOP                 -- the page's top: a row lower with a second row of tabs
     local current, dirty
     local tabs = {}
+    local drop = {}             -- the pages' dropdown (Tabs): its head, its list beside the window
+    local Corner                -- (Tabs) the cross's corner
     local listener = CreateFrame("Frame")
     w.listener = listener
     w.exclusive = spec.exclusive and true or false
@@ -1028,6 +1155,14 @@ function ns.Window(spec)
         if b.well then b.well:SetShown(on) end
     end
     local function Mark(b, on)
+        if b.row then
+            -- a row of the dropdown's list: held, its words gold
+            b.mark:SetShown(on)
+            local c = on and GOLD or POP_DIM
+            b.label:SetTextColor(c[1], c[2], c[3])
+            b.icon:SetAlpha(on and 1 or 0.6)
+            return
+        end
         if b.item then on = on and b.item.selected end
         b.mark:SetShown(on and not floating)
         if b.under then b.under:SetShown(on and floating and not b.page.head) end
@@ -1211,6 +1346,7 @@ function ns.Window(spec)
             end
             Remark(p, p == page)
         end
+        if drop.Paint then drop.Paint() end
         Layout()
         Listen()
         if window:IsShown() and page.Shown then page.Shown() end
@@ -1265,6 +1401,503 @@ function ns.Window(spec)
         end
     end
 
+    -- The rule along the head's foot (rows of tabs high), the window's
+    -- width, and the pages under it
+    local function Under(rows)
+        pageTop = TOP + (rows - 1) * (TAB - 1)
+        rule:ClearAllPoints()
+        rule:SetPoint("TOPLEFT", 0, -(rows * (TAB - 1)))
+        rule:SetPoint("TOPRIGHT", 0, -(rows * (TAB - 1)))
+        for _, p in ipairs(pages) do
+            if p.body then
+                p.body:ClearAllPoints()
+                p.body:SetPoint("TOPLEFT", PAD, -pageTop)
+                p.body:SetPoint("TOPRIGHT", -PAD, -pageTop)
+            end
+        end
+    end
+
+    -- ------------------------------------------------------ the dropdown
+    -- The pages as one dropdown (2026-11-19, mockup A of /workspace/tabs-A.png,
+    -- its list beside the window): the head, across the row up to the
+    -- cross, the page's icon and name and a chevron; a click opens the list
+    -- beside the window, on the side its tooltips stand, its top the
+    -- window's: a row a page, the one open held, the second row's pages
+    -- (the professions' secondaries) under a rule. A pick, a click
+    -- elsewhere, the head again, Escape, the window closing shut it. A
+    -- window whose pages have a head (words of their own: the quest page,
+    -- the chat log) keeps its row of tabs.
+    -- (2026-11-19, mockup A of /workspace/drop-style-A.png, "Gilded": the
+    -- head a gold band fading right, lit along its top, the icon in a ring,
+    -- "1 of 6", the chevron in a cell of its own; the list a notch to the
+    -- head, a heading naming the window, ringed rows on hairlines, the open
+    -- one in a gold fade marked open)
+    local DROP_ROW, DROP_ICON, DROP_RULE, DROP_HEAD = 30, 18, 9, 30
+    local MEDAL, STEP, SLANT = 40, 40, 6        -- the head's medallion, its step's length, the slant up
+    local FAINT = { 0.37, 0.345, 0.29 }
+    local HAIR = { 0.157, 0.137, 0.106 }
+    local LIFT_ROW = { 0.141, 0.125, 0.098 }
+    -- a fade of c, left to right (back: right to left)
+    local function Fade(t, c, a, back)
+        if t.SetGradient and CreateColor then
+            local from, to = CreateColor(c[1], c[2], c[3], a), CreateColor(c[1], c[2], c[3], 0)
+            t:SetColorTexture(1, 1, 1, 1)
+            if back then from, to = to, from end
+            t:SetGradient("HORIZONTAL", from, to)
+        else
+            t:SetColorTexture(c[1], c[2], c[3], a * 0.5)
+        end
+    end
+    local function GoldFade(t, a, back) Fade(t, GOLD_D, a, back) end
+    -- A window on the left strip is mirrored (2026-11-19): its cross (and
+    -- view glyph) and the head's chevron at the left, the name and its
+    -- ringed icon at the right. Every fade runs from the screen's edge
+    -- towards its middle: the head's from its outer end, a list row's
+    -- from the side away from the window (PlaceList)
+    local mirror = side < 0
+    local inward = side > 0             -- a right-hand window's fades: bright at the right
+    -- the window's name, for the list's heading: "Character window"
+    local function Title()
+        if spec.title then return spec.title end
+        local n = tostring(spec.name or ""):gsub("^Medalluin", ""):gsub("(%l)(%u)", "%1 %2")
+        return n ~= "" and n .. " window" or "Pages"
+    end
+    local function Dropped()
+        for _, p in ipairs(pages) do
+            if p.available and not p.tabless and (p.head or p.headTabs) then return false end
+        end
+        return true
+    end
+    local function PageIcon(t, p)
+        if p.icon then
+            t:SetTexture(p.icon)
+            t:SetTexCoord(GAME_ICON, 1 - GAME_ICON, GAME_ICON, 1 - GAME_ICON)
+        else
+            t:SetTexture(ns.media .. "strips\\" .. (p.glyph or p.key))
+            t:SetTexCoord(0, 1, 0, 1)
+        end
+    end
+    function drop.IsOpen() return drop.catcher ~= nil and drop.catcher:IsShown() end
+    local Unarm                 -- below: the rows' secure casts put away
+    function drop.Close()
+        if not drop.IsOpen() then return end
+        drop.catcher:Hide()
+        Unarm()
+        drop.Paint()
+    end
+    -- the head as the open page is
+    function drop.Paint()
+        local h = drop.head
+        if not h then return end
+        local p = current
+        if p then PageIcon(h.icon, p) end
+        h.medal:SetShown(p ~= nil)
+        h.label:SetText(p and p.label or "")
+        local many = drop.count and drop.count > 1 or false
+        local at = 0
+        for i, q in ipairs(drop.order or {}) do if q == p then at = i end end
+        h.count:SetText(many and at > 0 and format("%d of %d", at, drop.count) or "")
+        h.chevron:SetShown(many)
+        h.split:SetShown(many)
+        h.chevron:SetTexture(ns.media .. "strips\\" .. (drop.IsOpen() and "chevron-up" or "chevron-down"))
+        h.mark:Hide()
+        h.band:SetShown(not floating)
+        h.lit:SetShown(not floating)
+        if h.under then h.under:SetShown(floating) end
+    end
+    -- its list: on a catcher over the screen (a click on it shuts it)
+    local function List()
+        if drop.list then return drop.list end
+        local catcher = CreateFrame("Button", nil, UIParent)
+        catcher:SetAllPoints(UIParent)
+        catcher:SetFrameStrata("FULLSCREEN_DIALOG")
+        catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        catcher:SetScript("OnClick", function() drop.Close() end)
+        catcher:Hide()
+        local name = spec.name and spec.name .. "Pages"
+        local f = CreateFrame("Frame", name, catcher)
+        f:SetFrameLevel(catcher:GetFrameLevel() + 5)
+        f:SetClampedToScreen(true)
+        f:EnableMouse(true)
+        local shadow = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+        shadow:SetPoint("TOPLEFT", 4, -6)
+        shadow:SetPoint("BOTTOMRIGHT", 4, -6)
+        shadow:SetColorTexture(0, 0, 0, 0.55)
+        local edge = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+        edge:SetAllPoints()
+        edge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        local ink = f:CreateTexture(nil, "BACKGROUND", nil, 3)
+        ink:SetPoint("TOPLEFT", 1, -1)
+        ink:SetPoint("BOTTOMRIGHT", -1, 1)
+        ink:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
+        f.rule = f:CreateTexture(nil, "ARTWORK")
+        f.rule:SetHeight(1)
+        f.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        f.rule:Hide()
+        -- its heading: the window's name, small, over a hairline
+        f.title = ns.Text(f, 9)
+        f.title:SetPoint("TOPLEFT", 12, -10)
+        f.title:SetTextColor(FAINT[1], FAINT[2], FAINT[3])
+        f.title:SetText(Title():upper())
+        local under = f:CreateTexture(nil, "ARTWORK")
+        under:SetHeight(1)
+        under:SetPoint("TOPLEFT", 12, -(DROP_HEAD - 6))
+        under:SetPoint("TOPRIGHT", -12, -(DROP_HEAD - 6))
+        under:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.65)
+        -- the notch on the side towards the window, level with the head: a
+        -- gold diamond, its outer half under the box (PlaceList)
+        f.notch = f:CreateTexture(nil, "BACKGROUND", nil, 0)
+        f.notch:SetSize(9, 9)
+        f.notch:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        if f.notch.SetRotation then f.notch:SetRotation(math.pi / 4) end
+        f:SetScript("OnHide", function() drop.Close() end)
+        if name and UISpecialFrames then table.insert(UISpecialFrames, name) end
+        drop.catcher, drop.list, drop.rows = catcher, f, {}
+        return f
+    end
+    local function Row(i)
+        local f = List()
+        local r = drop.rows[i]
+        if r then return r end
+        r = CreateFrame("Button", nil, f)
+        r.row = true
+        r:SetHeight(DROP_ROW)
+        r:RegisterForClicks("LeftButtonUp")
+        -- under the mouse: lifted, its words bright (Lift)
+        r.lift = r:CreateTexture(nil, "BACKGROUND", nil, 0)
+        r.lift:SetPoint("TOPLEFT", 0, -1)
+        r.lift:SetPoint("BOTTOMRIGHT", 0, 1)
+        r.lift:SetColorTexture(LIFT_ROW[1], LIFT_ROW[2], LIFT_ROW[3], 1)
+        r.lift:Hide()
+        -- held: a gold fade, a gold bar at its left, "open" at its right
+        r.mark = CreateFrame("Frame", nil, r)
+        r.mark:SetAllPoints()
+        r.fill = r.mark:CreateTexture(nil, "BACKGROUND", nil, 1)
+        r.fill:SetPoint("TOPLEFT", 0, -1)
+        r.fill:SetPoint("BOTTOMRIGHT", 0, 1)
+        GoldFade(r.fill, 0.6)
+        r.bar = r.mark:CreateTexture(nil, "BACKGROUND", nil, 2)
+        r.bar:SetWidth(2)
+        r.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        r.bar:SetPoint("TOPLEFT", 0, -1)
+        r.bar:SetPoint("BOTTOMLEFT", 0, 1)
+        r.open = ns.Text(r.mark, 9)
+        r.open:SetPoint("RIGHT", -10, 0)
+        r.open:SetText("OPEN")
+        r.open:SetTextColor(GOLD_D[1], GOLD_D[2], GOLD_D[3])
+        r.mark:Hide()
+        -- the page's icon in a ring (a game icon fills it; a glyph sits in it)
+        r.icon = Ring(r, DROP_ICON)
+        r.icon:SetPoint("LEFT", 13, 0)
+        r.label = ns.Text(r, 13)
+        r.label:SetPoint("LEFT", r.icon, "RIGHT", 12, 0)
+        r.label:SetJustifyH("LEFT")
+        -- a hairline under it, from the words on (not under the last)
+        r.hair = r:CreateTexture(nil, "ARTWORK")
+        r.hair:SetHeight(1)
+        r.hair:SetPoint("BOTTOMLEFT", 36, 0)
+        r.hair:SetPoint("BOTTOMRIGHT", -8, 0)
+        r.hair:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
+        r:SetScript("OnClick", function(self)
+            drop.Close()
+            Open(self.page)
+        end)
+        -- a page whose tip says more than its name (PvP)
+        r:SetScript("OnEnter", function(self)
+            if not self.mark:IsShown() then
+                self.lift:Show()
+                local c = ns.colors.text
+                self.label:SetTextColor(c[1], c[2], c[3])
+                self.icon:SetAlpha(1)
+            end
+            local p = self.page
+            if p and p.tip and p.tip ~= p.label then
+                GameTooltip:SetOwner(self, Facing(window) == 1 and "ANCHOR_LEFT" or "ANCHOR_RIGHT")
+                GameTooltip:SetText(p.tip, 1, 1, 1)
+                GameTooltip:Show()
+            end
+        end)
+        r:SetScript("OnLeave", function(self)
+            self.lift:Hide()
+            Mark(self, self.mark:IsShown())
+            GameTooltip:Hide()
+        end)
+        drop.rows[i] = r
+        return r
+    end
+    -- A page that opens by a spell (cast: a profession's, whose window the
+    -- game opens only from a secure click, not from OpenTradeSkill in an
+    -- addon's): over its row a secure button casts it, and the page turns
+    -- as its window comes. Armed out of combat as the list opens, for the
+    -- pages not open (the open one's cast would close it); their holder a
+    -- driver hides in combat, where the rows only turn the page, as the
+    -- tabs did.
+    local holder
+    local function Holder()
+        if holder then return holder end
+        holder = CreateFrame("Frame", nil, UIParent)
+        holder:SetFrameStrata("FULLSCREEN_DIALOG")
+        holder:SetFrameLevel(drop.list:GetFrameLevel() + 20)
+        holder.buttons = {}
+        drop.holder = holder            -- (the harness reads it)
+        RegisterStateDriver(holder, "visibility", "[combat] hide; show")
+        -- a list shut in combat leaves its buttons up: away at its end
+        ns.On("PLAYER_REGEN_ENABLED", function() if not drop.IsOpen() then Unarm() end end)
+        return holder
+    end
+    local function Cast(i)
+        local h = Holder()
+        local b = h.buttons[i]
+        if b then return b end
+        b = CreateFrame("Button", nil, h, "SecureActionButtonTemplate")
+        b:RegisterForClicks("LeftButtonUp")
+        b:SetAttribute("useOnKeyDown", false)
+        b:SetAttribute("type", "spell")
+        b:SetScript("PostClick", function(self)
+            local page = self.page      -- (closing the list unarms it)
+            drop.Close()
+            if page and current ~= page then Select(page) end
+        end)
+        -- the row under it lifts, as under the mouse
+        b:SetScript("OnEnter", function(self) if self.row then self.row:GetScript("OnEnter")(self.row) end end)
+        b:SetScript("OnLeave", function(self)
+            if self.row then self.row:GetScript("OnLeave")(self.row) else GameTooltip:Hide() end
+        end)
+        h.buttons[i] = b
+        return b
+    end
+    function Unarm()
+        if not holder or InCombatLockdown() then return end
+        for _, b in ipairs(holder.buttons) do
+            b.page, b.row = nil, nil
+            b:SetAttribute("spell", nil)
+            b:Hide()
+        end
+    end
+    local function Arm()
+        if InCombatLockdown() then return end
+        local n = 0
+        for _, r in ipairs(drop.rows or {}) do
+            local p = r:IsShown() and r.page
+            if p and p.cast and p ~= current then
+                n = n + 1
+                local b = Cast(n)
+                b.page, b.row = p, r
+                b:SetAttribute("spell", p.cast)
+                b:ClearAllPoints()
+                b:SetAllPoints(r)
+                b:Show()
+            end
+        end
+        if holder then
+            for i = n + 1, #holder.buttons do holder.buttons[i]:Hide() end
+        end
+    end
+    drop.Arm = Arm
+
+    -- beside the window, towards the screen's middle (as its tooltips
+    -- stand: ns.window.Outside), its top the window's
+    local function PlaceList()
+        local f = drop.list
+        local s = Facing(window)
+        if s ~= 1 and s ~= -1 then s = -side end
+        f:ClearAllPoints()
+        f.notch:ClearAllPoints()
+        if s == 1 then
+            f:SetPoint("TOPRIGHT", window, "TOPLEFT", -(MEDAL / 2 + 6), 0)
+            f.notch:SetPoint("CENTER", f, "TOPRIGHT", 0, -TAB / 2)
+        else
+            f:SetPoint("TOPLEFT", window, "TOPRIGHT", MEDAL / 2 + 6, 0)
+            f.notch:SetPoint("CENTER", f, "TOPLEFT", 0, -TAB / 2)
+        end
+        -- the held row's fade and bar from the side towards the screen's
+        -- edge: the window's (the list stands nearer the middle)
+        local edge = s == 1 and "RIGHT" or "LEFT"
+        f.edge = edge
+        for _, r in ipairs(drop.rows) do
+            GoldFade(r.fill, 0.6, s == 1)
+            r.bar:ClearAllPoints()
+            r.bar:SetPoint("TOP" .. edge, 0, -1)
+            r.bar:SetPoint("BOTTOM" .. edge, 0, 1)
+        end
+    end
+    function drop.Open()
+        if not (drop.count and drop.count > 1) then return end
+        List()
+        PlaceList()
+        drop.catcher:Show()
+        drop.list:Show()
+        Arm()
+        drop.Paint()
+    end
+    function drop.Toggle() if drop.IsOpen() then drop.Close() else drop.Open() end end
+
+    -- the cross in the window's top corner, the view glyph beside it: the
+    -- right, or the left for a mirrored head
+    Corner = function(left)
+        close:ClearAllPoints()
+        close:SetPoint(left and "TOPLEFT" or "TOPRIGHT", 0, 0)
+        if view then
+            view:ClearAllPoints()
+            if left then
+                view:SetPoint("LEFT", close, "RIGHT", -1, 0)
+            else
+                view:SetPoint("RIGHT", close, "LEFT", 1, 0)
+            end
+        end
+    end
+
+    -- the head and the list's rows, as the pages there now are
+    local function Drop(first, second)
+        local h = drop.head
+        if not h then
+            h = Button(window, 100, function() drop.Toggle() end, function()
+                local p = current
+                local name = p and (p.tip or p.label) or ""
+                return drop.count and drop.count > 1 and name .. ". Click for the window's pages." or name
+            end)
+            -- a gold band fading right, lit along its top
+            h.band = h:CreateTexture(nil, "BACKGROUND", nil, 3)
+            h.band:SetPoint("TOPLEFT", 1, -1)
+            h.band:SetPoint("BOTTOMRIGHT", -1, 1)
+            GoldFade(h.band, 0.55, inward)
+            h.lit = h:CreateTexture(nil, "ARTWORK", nil, 1)
+            h.lit:SetHeight(1)
+            h.lit:SetPoint("TOPLEFT", 1, -1)
+            h.lit:SetPoint("TOPRIGHT", -1, -1)
+            Fade(h.lit, GOLD, 0.75, inward)
+            -- (2026-11-19, mockup C3 of /workspace/medal-C3-text.png) the
+            -- page's medallion on the window's inner edge (near: the end
+            -- towards the screen's middle), half out of it, its top the
+            -- window's; the head's foot steps down to its base by it. Beside
+            -- it how far along it is; the name centred in what is left; the
+            -- chevron in a cell of its own at the far end
+            local near, far = mirror and "RIGHT" or "LEFT", mirror and "LEFT" or "RIGHT"
+            local out = mirror and -1 or 1          -- inwards from the near end
+            local m = CreateFrame("Button", nil, h)
+            m:SetSize(MEDAL, MEDAL)
+            m:SetFrameLevel(h:GetFrameLevel() + 12)
+            m:SetPoint("CENTER", window, "TOP" .. near, 0, -MEDAL / 2)
+            m:RegisterForClicks("LeftButtonUp")
+            m:SetScript("OnClick", function() drop.Toggle() end)
+            m:SetScript("OnEnter", function() local f = h:GetScript("OnEnter") if f then f(h) end end)
+            m:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            local function Disc(size, c, sub)
+                local t = m:CreateTexture(nil, "BACKGROUND", nil, sub)
+                t:SetSize(size, size)
+                t:SetPoint("CENTER")
+                t:SetTexture(ns.media .. "strips\\round")
+                t:SetVertexColor(c[1], c[2], c[3], 1)
+                return t
+            end
+            m.rim = Disc(MEDAL, GOLD, 1)                        -- the gold rim
+            m.gap = Disc(MEDAL - 3, ns.colors.ink, 2)           -- a dark line inside it
+            m.icon = Ring(m, MEDAL - 8)                         -- the icon in a thin dark-gold ring
+            m.icon:SetPoint("CENTER")
+            h.medal, h.icon = m, m.icon
+            -- the step: the foot down to the medallion's base, a short
+            -- slant back up to the head's (covering the rule there)
+            local st = CreateFrame("Frame", nil, h)
+            st:SetFrameLevel(h:GetFrameLevel() + 10)
+            st:SetSize(STEP, MEDAL - TAB + 2)
+            st:SetPoint("TOP" .. near, window, "TOP" .. near, 1 * out, -(TAB - 2))
+            local fill = st:CreateTexture(nil, "BACKGROUND")
+            fill:SetAllPoints()
+            fill:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
+            local foot = st:CreateTexture(nil, "ARTWORK")
+            foot:SetHeight(1)
+            foot:SetPoint("BOTTOM" .. near, 0, 0)
+            foot:SetPoint("BOTTOM" .. far, 0, 0)
+            foot:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            -- the slant: from the foot's end up to the head's foot
+            local rise, run = MEDAL - TAB, SLANT
+            local slant = st:CreateTexture(nil, "ARTWORK")
+            slant:SetSize(math.sqrt(rise * rise + run * run) + 1, 1)
+            slant:SetPoint("CENTER", st, "BOTTOM" .. far, run / 2 * out, rise / 2)
+            slant:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            if slant.SetRotation then slant:SetRotation(out * math.atan2(rise, run)) end
+            h.step = st
+            h.label:Hide()
+            h.count = ns.Text(h, 10)
+            h.count:SetPoint(near, MEDAL / 2 * out + 8 * out, 0)
+            h.count:SetTextColor(FAINT[1], FAINT[2], FAINT[3])
+            h.label = ns.Text(h, 14)
+            h.label:SetPoint(near, (MEDAL / 2 + 56) * out, 0)
+            h.label:SetPoint(far, -(TAB + 8) * out, 0)
+            h.label:SetJustifyH("CENTER")
+            h.label:SetWordWrap(false)
+            h.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+            h.split = h:CreateTexture(nil, "ARTWORK")
+            h.split:SetSize(1, TAB - 10)
+            h.split:SetPoint(far, -TAB * out, 0)
+            h.split:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
+            h.chevron = h:CreateTexture(nil, "ARTWORK")
+            h.chevron:SetSize(12, 12)
+            h.chevron:SetPoint("CENTER", h, far, -TAB / 2 * out, 0)
+            h.chevron:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+            h.under = h:CreateTexture(nil, "ARTWORK")
+            h.under:SetSize(UNDER, 2)
+            h.under:SetPoint("BOTTOM", 0, 1)
+            h.under:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+            h.under:Hide()
+            drop.head = h
+            w.dropdown, window.dropdown = drop, drop      -- (the harness reads it)
+        end
+        local controls = 1 + (view and 1 or 0)
+        local edge = controls * TAB - (controls - 1)
+        h:SetWidth((window:GetWidth() or WIDTH) - edge - GAP)
+        h:SetHeight(TAB)
+        h:ClearAllPoints()
+        h:SetPoint(mirror and "TOPRIGHT" or "TOPLEFT", 0, 0)
+        Boxed(h, not floating)
+        h:Show()
+        close:SetHeight(TAB)
+        if view then view:SetHeight(TAB) end
+        Corner(mirror)
+        -- the rows: the first row's pages, a rule, the second's
+        local f = List()
+        local n, y, widest = 0, DROP_HEAD, 0
+        drop.order = {}
+        f.rule:Hide()
+        for r, list in ipairs({ first, second }) do
+            if r == 2 and #list > 0 and #first > 0 then
+                f.rule:ClearAllPoints()
+                f.rule:SetPoint("TOPLEFT", 10, -(y + math.floor(DROP_RULE / 2)))
+                f.rule:SetPoint("TOPRIGHT", -10, -(y + math.floor(DROP_RULE / 2)))
+                f.rule:Show()
+                y = y + DROP_RULE
+            end
+            for _, entry in ipairs(list) do
+                local p = entry.page
+                n = n + 1
+                local row = Row(n)
+                row.page = p
+                PageIcon(row.icon, p)
+                row.label:SetText(p.label or p.key)
+                widest = math.max(widest, math.ceil(row.label:GetStringWidth() or 0))
+                row:ClearAllPoints()
+                row:SetPoint("TOPLEFT", 4, -y)
+                row:SetPoint("TOPRIGHT", -4, -y)
+                row:Show()
+                row.hair:Show()
+                Mark(row, p == current)
+                p.tab, p.tabs = row, { row }
+                table.insert(drop.order, p)
+                y = y + DROP_ROW
+            end
+        end
+        for i = n + 1, #drop.rows do drop.rows[i]:Hide() end
+        -- no hairline under a group's last (the rule stands there) nor the list's
+        for i = 1, n do
+            local r, nxt = drop.rows[i], drop.rows[i + 1]
+            local last = i == n or (nxt and #first > 0 and i == #first)
+            r.hair:SetShown(not last)
+        end
+        f:SetSize(math.max(196, widest + DROP_ICON + 96), y + 6)
+        drop.count = n
+        drop.Paint()
+    end
+
     -- the row less the cross (and the view glyph) and the gap before
     -- them, shared out among the pages that are there, and the second row,
     -- if any, under it as wide, the cross as tall as both; flush in the
@@ -1283,6 +1916,18 @@ function ns.Window(spec)
                 end
             end
         end
+        if Dropped() then
+            for _, b in ipairs(tabs) do b:Hide() end
+            Drop(first, second)
+            Under(1)
+            return
+        end
+        if drop.head then
+            drop.Close()
+            drop.head:Hide()
+            drop.count = 0
+        end
+        Corner(false)
         local controls = 1 + (view and 1 or 0)
         local full = window:GetWidth() or WIDTH
         local edge = controls * TAB - (controls - 1)    -- the cross and the view glyph, joined
@@ -1361,20 +2006,7 @@ function ns.Window(spec)
             end
         end
         for i = n + 1, #tabs do tabs[i]:Hide() end
-        -- the rule along the last row's foot, the window's width, and the
-        -- pages under it
-        local rows = #second > 0 and 2 or 1
-        pageTop = TOP + (rows - 1) * (TAB - 1)
-        rule:ClearAllPoints()
-        rule:SetPoint("TOPLEFT", 0, -(rows * (TAB - 1)))
-        rule:SetPoint("TOPRIGHT", 0, -(rows * (TAB - 1)))
-        for _, p in ipairs(pages) do
-            if p.body then
-                p.body:ClearAllPoints()
-                p.body:SetPoint("TOPLEFT", PAD, -pageTop)
-                p.body:SetPoint("TOPRIGHT", -PAD, -pageTop)
-            end
-        end
+        Under(#second > 0 and 2 or 1)
     end
 
     -- Which pages are there now: a page that has come is built, one that
@@ -1388,6 +2020,7 @@ function ns.Window(spec)
 
     function w.Retab()
         if not window then return end
+        drop.Close()
         for _, p in ipairs(pages) do
             p.available = Available(p)
             if p.available and not p.body then Make(p) end
@@ -1560,6 +2193,7 @@ function ns.Window(spec)
             Escape()
         end)
         window:SetScript("OnHide", function()
+            drop.Close()
             Lift(false)
             Listen()
             Showing()
