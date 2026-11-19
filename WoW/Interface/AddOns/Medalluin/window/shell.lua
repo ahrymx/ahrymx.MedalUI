@@ -91,6 +91,7 @@
 -- the height it has, which is the screen's; a page with flex is a list,
 -- which takes the same (see Layout).
 local _, ns = ...
+local Tr = ns.L
 
 local L, ART = ns.stripLayout, ns.stripArt
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -1620,7 +1621,7 @@ function ns.Window(spec)
     local function Title()
         if spec.title then return spec.title end
         local n = tostring(spec.name or ""):gsub("^Medalluin", ""):gsub("(%l)(%u)", "%1 %2")
-        return n ~= "" and n .. " window" or "Pages"
+        return n ~= "" and format(Tr["%s window"], n) or Tr["Pages"]
     end
     local function Dropped()
         for _, p in ipairs(pages) do
@@ -1656,7 +1657,7 @@ function ns.Window(spec)
         local many = drop.count and drop.count > 1 or false
         local at = 0
         for i, q in ipairs(drop.order or {}) do if q == p then at = i end end
-        h.count:SetText(many and at > 0 and format("%d of %d", at, drop.count) or "")
+        h.count:SetText(many and at > 0 and format(Tr["%d of %d"], at, drop.count) or "")
         h.chevron:SetShown(many)
         h.split:SetShown(many)
         h.chevron:SetTexture(ns.media .. "strips\\" .. (drop.IsOpen() and "chevron-up" or "chevron-down"))
@@ -1916,7 +1917,7 @@ function ns.Window(spec)
             h = Button(window, 100, function() drop.Toggle() end, function()
                 local p = current
                 local name = p and (p.tip or p.label) or ""
-                return drop.count and drop.count > 1 and name .. ". Click for the window's pages." or name
+                return drop.count and drop.count > 1 and format(Tr["%s. Click for the window's pages."], name) or name
             end)
             -- a gold band fading right, lit along its top
             h.band = h:CreateTexture(nil, "BACKGROUND", nil, 3)
@@ -2348,8 +2349,8 @@ function ns.Window(spec)
                     Keep(first)
                 end
             end, function()
-                return w.Detached() and "Docked: on the strip, as tall as the screen."
-                    or "Detached: a box of its own, to move and size."
+                return w.Detached() and Tr["Docked: on the strip, as tall as the screen."]
+                    or Tr["Detached: a box of its own, to move and size."]
             end)
             Glyph(view)
             view:SetPoint("RIGHT", close, "LEFT", 1, 0)

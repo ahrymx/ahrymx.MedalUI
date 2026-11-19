@@ -80,6 +80,7 @@
 -- time they are taken into ours, by what they say. Its sections (a button
 -- with topPadding starts one) become ours. "game" leaves it as it is.
 local _, ns = ...
+local Tr = ns.L
 
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
@@ -105,12 +106,12 @@ local SPIN = 0.035                          -- the camera's turn while folded (M
 -- across, medallion two fifths of it over the whole screen
 local STRENGTHS = { 0.2, 0.35, 0.5, 0.65, 0.8 }
 local TINTS = {
-    { "black", "Black", { 0, 0, 0 } },
-    { "night", "Night", { 0.04, 0.08, 0.20 } },
-    { "dusk", "Dusk", { 0.12, 0.05, 0.18 } },
-    { "ember", "Ember", { 0.22, 0.06, 0.03 } },
-    { "moss", "Moss", { 0.04, 0.13, 0.06 } },
-    { "gold", "Gold", { 0.24, 0.18, 0.06 } },
+    { "black", Tr["Black"], { 0, 0, 0 } },
+    { "night", Tr["Night"], { 0.04, 0.08, 0.20 } },
+    { "dusk", Tr["Dusk"], { 0.12, 0.05, 0.18 } },
+    { "ember", Tr["Ember"], { 0.22, 0.06, 0.03 } },
+    { "moss", Tr["Moss"], { 0.04, 0.13, 0.06 } },
+    { "gold", Tr["Gold"], { 0.24, 0.18, 0.06 } },
 }
 local MEDAL, BACK_MEDAL = 48, 58           -- a medallion's size; Return to Game's
 local REACH = 0.30                          -- the ring's radius, of the screen's height
@@ -155,16 +156,18 @@ menu.Kind = Kind
 -- game's function opening it where no command answers
 -- (and the few words on its key)
 local SHORTCUTS = {
-    { "/mui", "Medalluin", "achievement", nil, nil, "Medalluin", "Settings for every part" },
-    { "/cdm", "Cooldown Manager", "legacy", nil, nil, "Cooldowns", "The game's cooldown viewers" },
-    { "/cc", "Click Casting", "spellbook", nil, "ToggleClickBindingFrame", "Click Cast", "Spells on a frame's click" },
+    { "/mui", "Medalluin", "achievement", nil, nil, "Medalluin", Tr["Settings for every part"] },
+    { "/cdm", Tr["Cooldown Manager"], "legacy", nil, nil, Tr["Cooldowns"], Tr["The game's cooldown viewers"] },
+    { "/cc", Tr["Click Casting"], "spellbook", nil, "ToggleClickBindingFrame", Tr["Click Cast"],
+        Tr["Spells on a frame's click"] },
 }
 
 -- a card's line under its words (docked), by kind: what it opens
 local LINES = {
-    options = "Graphics, sound and controls", shop = "The in-game store", addons = "Turn addons on or off",
-    edit = "Move the game's frames", support = "Help and bug reports", macros = "Write and keep macros",
-    event = "This season's event", rewards = "Rewards to claim", news = "What is new", ratings = "Rated play",
+    options = Tr["Graphics, sound and controls"], shop = Tr["The in-game store"], addons = Tr["Turn addons on or off"],
+    edit = Tr["Move the game's frames"], support = Tr["Help and bug reports"], macros = Tr["Write and keep macros"],
+    event = Tr["This season's event"], rewards = Tr["Rewards to claim"], news = Tr["What is new"],
+    ratings = Tr["Rated play"],
 }
 
 local holder, docked, ring, shade
@@ -412,7 +415,7 @@ local function Hint(kind)
         for i = 1, C_AddOns.GetNumAddOns() do
             if C_AddOns.IsAddOnLoaded(i) then n = n + 1 end
         end
-        return n .. " loaded", DIM
+        return format(Tr["%d loaded"], n), DIM
     end
 end
 
@@ -596,8 +599,8 @@ end
 menu.Hidden, menu.SetHidden = Hidden, SetHidden
 
 -- the sections' words, by key, in their order
-local TITLES = { menu = "Game menu", shortcuts = "Shortcuts", friends = "Friends", guild = "Guild",
-    clock = "Clock & session", sound = "Sound" }
+local TITLES = { menu = Tr["Game menu"], shortcuts = Tr["Shortcuts"], friends = Tr["Friends"], guild = Tr["Guild"],
+    clock = Tr["Clock & session"], sound = Tr["Sound"] }
 local ORDER = { "menu", "shortcuts", "friends", "guild", "clock", "sound" }
 menu.TITLES, menu.ORDER = TITLES, ORDER
 
@@ -937,7 +940,8 @@ local function Build()
     cog:SetScript("OnClick", function() Setup.Toggle() end)
     cog:SetScript("OnEnter", function(self)
         self.Lit(true)
-        ns.Tip(self, "ANCHOR_RIGHT", { title = "Game menu options", { "hint", "Sections, friends, guild, clock." } })
+        ns.Tip(self, "ANCHOR_RIGHT", { title = Tr["Game menu options"],
+            { "hint", Tr["Sections, friends, guild, clock."] } })
     end)
     cog:SetScript("OnLeave", function(self)
         self.Lit(false)
@@ -969,7 +973,7 @@ local function Who()
     if c then who.name:SetTextColor(c.r, c.g, c.b) else who.name:SetTextColor(unpack(ns.colors.text)) end
     local race = UnitRace and UnitRace("player") or ""
     local className = UnitClass("player") or ""
-    who.what:SetText("Level " .. (UnitLevel("player") or 0) .. "  " .. race .. "  " .. className)
+    who.what:SetText(format(Tr["Level %d  %s  %s"], UnitLevel("player") or 0, race, className))
     local guild = GetGuildInfo and GetGuildInfo("player")
     local zone = GetZoneText and GetZoneText() or ""
     who.where:SetText(zone .. (guild and ("  \194\183  <" .. guild .. ">") or ""))
@@ -985,8 +989,8 @@ local function Who()
         xp.fill:SetWidth(math.max(0.01, w * cur / max))
         xp.rest:SetWidth(math.max(0.01, w * rest / max))
         xp.rest:SetShown(rest > 0)
-        xp.left:SetText(format("%d%% to %d", math.floor(cur / max * 100), level + 1))
-        xp.right:SetText(rest > 0 and format("rested %d%%", math.floor(rest / max * 100)) or "")
+        xp.left:SetText(format(Tr["%d%% to %d"], math.floor(cur / max * 100), level + 1))
+        xp.right:SetText(rest > 0 and format(Tr["rested %d%%"], math.floor(rest / max * 100)) or "")
     end
     return on
 end
@@ -1160,9 +1164,9 @@ local function Row(i)
     r.where:SetJustifyH("RIGHT")
     r.where:SetTextColor(DIM[1], DIM[2], DIM[3])
     r.where:SetWordWrap(false)
-    r.invite = SmallKey(r, "character", "Invite", Invite)
+    r.invite = SmallKey(r, "character", Tr["Invite"], Invite)
     r.invite:SetPoint("RIGHT", -4, 0)
-    r.whisper = SmallKey(r, "chat", "Whisper", Whisper)
+    r.whisper = SmallKey(r, "chat", Tr["Whisper"], Whisper)
     r.whisper:SetPoint("RIGHT", r.invite, "LEFT", -3, 0)
     function r.Lit(on)
         r.wash:SetShown(on)
@@ -1360,19 +1364,19 @@ end
 local function Money(m)
     local g, sv = math.floor(m / 10000), math.floor(m / 100) % 100
     local gs = BreakUpLargeNumbers and BreakUpLargeNumbers(g) or tostring(g)
-    return format("%sg %ds", gs, sv)
+    return format(Tr["%sg %ds"], gs, sv)
 end
 
 local function Since()
     local t = math.floor((GetTime and GetTime() or 0) - started)
     local h, m = math.floor(t / 3600), math.floor(t / 60) % 60
-    return h > 0 and format("%dh %dm", h, m) or format("%dm", m)
+    return h > 0 and format(Tr["%dh %dm"], h, m) or format(Tr["%dm"], m)
 end
 
 local function Latency()
     if not GetNetStats then return "?" end
     local _, _, home = GetNetStats()
-    return format("%d ms", home or 0)
+    return format(Tr["%d ms"], home or 0)
 end
 
 -- ------------------------------------------------------------- the clock
@@ -1397,8 +1401,8 @@ menu.Stamp = Stamp
 
 local function SessionLine()
     local dot = "|cff8a7034  \194\183  |r"
-    return "|cfff0d488" .. Money(GetMoney and GetMoney() or 0) .. "|r" .. dot .. "Session " .. Since() .. dot
-        .. Latency()
+    return "|cfff0d488" .. Money(GetMoney and GetMoney() or 0) .. "|r" .. dot .. format(Tr["Session %s"], Since())
+        .. dot .. Latency()
 end
 
 local function ClockDraw()
@@ -1563,7 +1567,8 @@ local function Folding()
     rail:SetScript("OnEnter", function(self)
         self.over, fold.dwell = true, 0
         if not fold.want then
-            ns.Tip(self, "ANCHOR_RIGHT", { title = "Fold the menu", { "hint", "It folds by itself when left alone." } })
+            ns.Tip(self, "ANCHOR_RIGHT", { title = Tr["Fold the menu"],
+                { "hint", Tr["It folds by itself when left alone."] } })
         end
     end)
     rail:SetScript("OnLeave", function(self)
@@ -1626,11 +1631,11 @@ local sound, Sound, SoundFade
 do
 local SOUND_W, SOUND_ROW, SOUND_BAR, SOUND_STEP = 320, 26, 150, 0.05
 local CHANNELS = {              -- key, word, volume, on or off
-    { "master", "Master", "Sound_MasterVolume", "Sound_EnableAllSound" },
-    { "music", "Music", "Sound_MusicVolume", "Sound_EnableMusic" },
-    { "effects", "Effects", "Sound_SFXVolume", "Sound_EnableSFX" },
-    { "ambience", "Ambience", "Sound_AmbienceVolume", "Sound_EnableAmbience" },
-    { "dialogue", "Dialogue", "Sound_DialogVolume", "Sound_EnableDialog" },
+    { "master", Tr["Master"], "Sound_MasterVolume", "Sound_EnableAllSound" },
+    { "music", Tr["Music"], "Sound_MusicVolume", "Sound_EnableMusic" },
+    { "effects", Tr["Effects"], "Sound_SFXVolume", "Sound_EnableSFX" },
+    { "ambience", Tr["Ambience"], "Sound_AmbienceVolume", "Sound_EnableAmbience" },
+    { "dialogue", Tr["Dialogue"], "Sound_DialogVolume", "Sound_EnableDialog" },
 }
 local function GetVar(k)
     local get = C_CVar and C_CVar.GetCVar or GetCVar
@@ -1801,7 +1806,7 @@ Sound = function()
     Keyed(key)
     key.word = ns.Text(key, 12)
     key.word:SetPoint("CENTER")
-    key.word:SetText("Audio settings")
+    key.word:SetText(Tr["Audio settings"])
     key:SetScript("OnClick", AudioSettings)
     sound.audio = key
     sound.tray = tray
@@ -1843,7 +1848,7 @@ local function Social()
     box.label = ns.Text(box, 10)
     box.label:SetPoint("TOP", 0, -2)
     box.label:SetTextColor(GOLD_D[1], GOLD_D[2], GOLD_D[3])
-    box.label:SetText("Message of the day")
+    box.label:SetText(Tr["Message of the day"])
     local left = box:CreateTexture(nil, "ARTWORK")
     left:SetHeight(1)
     left:SetPoint("LEFT", box, "TOPLEFT", 0, -8)
@@ -1909,8 +1914,9 @@ local lastRanks = {}            -- the guild's ranks, as the panel last read the
 -- the menu closing shuts it.
 local LINE, LABEL, RULE_H, SEG = 22, 18, 13, 24
 local POP_INK = { 0.078, 0.067, 0.047 }
-local PAGES = { { "sections", "Sections" }, { "friends", "Friends" }, { "guild", "Guild" }, { "clock", "Clock" },
-    { "filter", "Filter" } }
+local PAGES = { { "sections", Tr["Sections"] }, { "friends", Tr["Friends"] }, { "guild", Tr["Guild"] },
+    { "clock", Tr["Clock"] },
+    { "filter", Tr["Filter"] } }
 local PANE_W = SETUP_W - SETUP_NAV - 40
 
 
@@ -2058,36 +2064,37 @@ local function Fill(page)
     if page == "sections" then
         -- a tick each: unticked, the section is left out
         local counts = Setup.counts or {}
-        local asides = { menu = format("%d cards", counts.menu or 0),
-            shortcuts = format("%d cards", counts.shortcuts or 0), friends = "a tab", guild = "a tab",
-            clock = "top of the screen", sound = "bottom of the screen" }
-        Line("label", "Shown in the menu")
+        local asides = { menu = format(Tr["%d cards"], counts.menu or 0),
+            shortcuts = format(Tr["%d cards"], counts.shortcuts or 0), friends = Tr["a tab"], guild = Tr["a tab"],
+            clock = Tr["top of the screen"], sound = Tr["bottom of the screen"] }
+        Line("label", Tr["Shown in the menu"])
         for _, key in ipairs(ORDER) do
             Line("check", TITLES[key], not Hidden(key), function() SetHidden(key, not Hidden(key)); Again() end, 0,
                 asides[key])
         end
         Line("rule")
-        Line("label", "When left alone")
-        Line("check", "Fold the panel in", ns.db.gameMenuFoldIdle ~= false,
-            function() Flip("gameMenuFoldIdle"); Again() end, 0, format("after %d s", FOLD_IDLE))
-        Line("check", "Turn the camera while folded", ns.db.gameMenuSpin ~= false,
+        Line("label", Tr["When left alone"])
+        Line("check", Tr["Fold the panel in"], ns.db.gameMenuFoldIdle ~= false,
+            function() Flip("gameMenuFoldIdle"); Again() end, 0, format(Tr["after %d s"], FOLD_IDLE))
+        Line("check", Tr["Turn the camera while folded"], ns.db.gameMenuSpin ~= false,
             function() Flip("gameMenuSpin"); Again() end)
     elseif page == "friends" then
         local filter = ns.db.gameMenuFriends or "online"
-        Line("label", "Show")
-        local kinds = { { "online", "Online" }, { "all", "All" } }
+        Line("label", Tr["Show"])
+        local kinds = { { "online", Tr["Online"] }, { "all", Tr["All"] } }
         if BNGetNumFriends then table.insert(kinds, { "bnet", "Battle.net" }) end
         for _, k in ipairs(kinds) do
             Line("radio", k[2], filter == k[1], function() ns.db.gameMenuFriends = k[1]; Again() end)
         end
         Line("rule")
-        Line("label", "Sort")
-        Seg({ { "name", "Name" }, { "level", "Level" }, { "zone", "Zone" } }, ns.db.gameMenuFriendsSort or "name",
+        Line("label", Tr["Sort"])
+        Seg({ { "name", Tr["Name"] }, { "level", Tr["Level"] }, { "zone", Tr["Zone"] } },
+            ns.db.gameMenuFriendsSort or "name",
             function(v) ns.db.gameMenuFriendsSort = v end)
     elseif page == "guild" then
         local mode = ns.db.gameMenuGuild or "officers"
-        Line("label", "Show")
-        for _, k in ipairs({ { "officers", "Officers" }, { "all", "All" }, { "ranks", "Ranks" } }) do
+        Line("label", Tr["Show"])
+        for _, k in ipairs({ { "officers", Tr["Officers"] }, { "all", Tr["All"] }, { "ranks", Tr["Ranks"] } }) do
             Line("radio", k[2], mode == k[1], function() ns.db.gameMenuGuild = k[1]; Again() end)
             -- picking ranks: a check each under it, ticked when listed
             if k[1] == "ranks" and mode == "ranks" then
@@ -2097,40 +2104,40 @@ local function Fill(page)
             end
         end
         Line("rule")
-        Line("label", "Sort")
-        Seg({ { "name", "Name" }, { "level", "Level" }, { "rank", "Rank" }, { "zone", "Zone" } },
+        Line("label", Tr["Sort"])
+        Seg({ { "name", Tr["Name"] }, { "level", Tr["Level"] }, { "rank", Tr["Rank"] }, { "zone", Tr["Zone"] } },
             ns.db.gameMenuGuildSort or "name", function(v) ns.db.gameMenuGuildSort = v end)
-        Line("label", "Show also")
-        Line("check", "Name as title", ns.db.gameMenuGuildName ~= false,
+        Line("label", Tr["Show also"])
+        Line("check", Tr["Name as title"], ns.db.gameMenuGuildName ~= false,
             function() Flip("gameMenuGuildName"); Again() end)
-        Line("check", "Message of the day", ns.db.gameMenuMotd ~= false,
+        Line("check", Tr["Message of the day"], ns.db.gameMenuMotd ~= false,
             function() Flip("gameMenuMotd"); Again() end)
     elseif page == "clock" then
-        Line("label", "Time")
-        Seg({ { true, "24-hour" }, { false, "12-hour" } }, ns.db.gameMenuClock24 ~= false,
+        Line("label", Tr["Time"])
+        Seg({ { true, Tr["24-hour"] }, { false, Tr["12-hour"] } }, ns.db.gameMenuClock24 ~= false,
             function(v) ns.db.gameMenuClock24 = v end)
-        Line("radio", "Local time", not ns.db.gameMenuClockRealm,
-            function() ns.db.gameMenuClockRealm = false; Again() end, 0, "this computer's")
-        Line("radio", "Realm time", ns.db.gameMenuClockRealm == true,
-            function() ns.db.gameMenuClockRealm = true; Again() end, 0, "the server's")
+        Line("radio", Tr["Local time"], not ns.db.gameMenuClockRealm,
+            function() ns.db.gameMenuClockRealm = false; Again() end, 0, Tr["this computer's"])
+        Line("radio", Tr["Realm time"], ns.db.gameMenuClockRealm == true,
+            function() ns.db.gameMenuClockRealm = true; Again() end, 0, Tr["the server's"])
         Line("rule")
-        Line("label", "Under it")
-        Line("check", "Gold, session and latency", ns.db.gameMenuSession ~= false,
+        Line("label", Tr["Under it"])
+        Line("check", Tr["Gold, session and latency"], ns.db.gameMenuSession ~= false,
             function() Flip("gameMenuSession"); Again() end)
-        Line("check", "Fade after 5 seconds", ns.db.gameMenuClockFade ~= false,
+        Line("check", Tr["Fade after 5 seconds"], ns.db.gameMenuClockFade ~= false,
             function() Flip("gameMenuClockFade"); Again() end)
     elseif page == "filter" then
-        Line("label", "The world behind the menu")
-        Line("check", "Dim and tint it", FilterOn(), function() Flip("gameMenuFilter"); Again() end)
+        Line("label", Tr["The world behind the menu"])
+        Line("check", Tr["Dim and tint it"], FilterOn(), function() Flip("gameMenuFilter"); Again() end)
         Line("rule")
-        Line("label", "Shape")
-        Seg({ { "vignette", "Vignette" }, { "even", "Even" } }, ns.db.gameMenuFilterShape or "vignette",
+        Line("label", Tr["Shape"])
+        Seg({ { "vignette", Tr["Vignette"] }, { "even", Tr["Even"] } }, ns.db.gameMenuFilterShape or "vignette",
             function(v) ns.db.gameMenuFilterShape = v end)
-        Line("label", "Strength")
+        Line("label", Tr["Strength"])
         local strengths = {}
         for _, v in ipairs(STRENGTHS) do table.insert(strengths, { v, format("%d%%", v * 100 + 0.5) }) end
         Seg(strengths, Strength(), function(v) ns.db.gameMenuFilterStrength = v end)
-        Line("label", "Tint")
+        Line("label", Tr["Tint"])
         Seg(TINTS, ns.db.gameMenuFilterTint or "black", function(v) ns.db.gameMenuFilterTint = v end)
     end
     for i = nl + 1, #Setup.lines do Setup.lines[i]:Hide() end
@@ -2211,7 +2218,7 @@ local function Make()
     local title = ns.Text(f, 16)
     title:SetPoint("LEFT", f, "TOPLEFT", 30, -20)
     title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    title:SetText("Game menu")
+    title:SetText(Tr["Game menu"])
     local right = Diamond(f)
     right:SetPoint("LEFT", title, "RIGHT", 7, 0)
     local sub = ns.PlainText(f, 12)
@@ -2259,7 +2266,7 @@ local function Make()
     local saved = ns.PlainText(f, 12)
     saved:SetPoint("BOTTOMLEFT", 16, 16)
     saved:SetTextColor(DIM[1], DIM[2], DIM[3])
-    saved:SetText("Each choice is saved as you make it.")
+    saved:SetText(Tr["Each choice is saved as you make it."])
     local done = CreateFrame("Button", nil, f)
     done:SetSize(84, 26)
     done:SetPoint("BOTTOMRIGHT", -12, 9)
@@ -2268,7 +2275,7 @@ local function Make()
     done.word = ns.Text(done, 12)
     done.word:SetPoint("CENTER")
     done.word:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    done.word:SetText("Done")
+    done.word:SetText(Tr["Done"])
     done:SetScript("OnClick", function() Setup.Close() end)
     local pane = CreateFrame("Frame", nil, f)
     pane:SetPoint("TOPLEFT", SETUP_NAV + 21, -41 - 14)
@@ -2369,10 +2376,10 @@ local function Docked(sections, leave, back)
         return c
     end
     local tabs = {}
-    if showF then table.insert(tabs, { "friends", "Friends", Online(friends), false }) end
+    if showF then table.insert(tabs, { "friends", Tr["Friends"], Online(friends), false }) end
     -- the guild's name its tab's word (unless its option is off)
     local showName = ns.db.gameMenuGuildName ~= false and not ns.IsSecret(inGuild)
-    if inGuild then table.insert(tabs, { "guild", showName and inGuild or "Guild", Online(members), false }) end
+    if inGuild then table.insert(tabs, { "guild", showName and inGuild or Tr["Guild"], Online(members), false }) end
     local tab = tabs[1]
     for _, t in ipairs(tabs) do if t[1] == ns.db.gameMenuTab then tab = t end end
     if tab then tab[4] = true end
@@ -2409,7 +2416,7 @@ local function Docked(sections, leave, back)
     if not showMenu then Hide(items) else
         local tall = Tall(#items, rowH)
         n = n + 1
-        Win(n, y, tall, "Game menu", tostring(#items), "menu")
+        Win(n, y, tall, Tr["Game menu"], tostring(#items), "menu")
         Rows(items, y - WIN_TOP, rowH)
         y = y - tall - WIN_GAP
     end
@@ -2417,7 +2424,7 @@ local function Docked(sections, leave, back)
     if not showOurs then Hide(ours) else
         local tall = Tall(#ours, rowH)
         n = n + 1
-        Win(n, y, tall, "Shortcuts", tostring(#ours), "shortcuts")
+        Win(n, y, tall, Tr["Shortcuts"], tostring(#ours), "shortcuts")
         Rows(ours, y - WIN_TOP, rowH)
         y = y - tall - WIN_GAP
     end
@@ -2432,12 +2439,13 @@ local function Docked(sections, leave, back)
         n = n + 1
         local note
         if onGuild then
-            local word = ({ officers = "Officers", all = "All", ranks = "Ranks" })[guildMode] or "Officers"
+            local word = ({ officers = Tr["Officers"], all = Tr["All"], ranks = Tr["Ranks"] })[guildMode]
+                or Tr["Officers"]
             note = format("%s  \194\183  %d / %d", word, guildOn, total)
         else
-            note = ({ online = "Online", all = "All", bnet = "Battle.net" })[filter]
+            note = ({ online = Tr["Online"], all = Tr["All"], bnet = "Battle.net" })[filter]
         end
-        local h = Win(n, y, tall, "Social", note, tab[1], tabs, strip)
+        local h = Win(n, y, tall, Tr["Social"], note, tab[1], tabs, strip)
         local top = y - STRIP_TOP - strip - STRIP_GAP
         if motd then
             soc.motd:ClearAllPoints()
@@ -2447,7 +2455,8 @@ local function Docked(sections, leave, back)
             top = top - motdTall - 8
         end
         local list = onGuild and members or friends
-        local none = onGuild and "No one to show" or filter == "online" and "No friends online" or "No friends"
+        local none = onGuild and Tr["No one to show"]
+            or filter == "online" and Tr["No friends online"] or Tr["No friends"]
         local body = tall - fix
         local fit = math.max(1, math.floor(body / PERSON))
         h.most = math.max(0, #list - fit)

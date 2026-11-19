@@ -24769,12 +24769,12 @@ if gamemenuPass then (function()
     end
     local function line(word)
         for _, l in ipairs(P.lines or {}) do
-            if l.shown and l.word.text == word then return l end
+            if l.shown and l.word.text == ns.L[word] then return l end
         end
     end
     local function seg(word)
         for _, k in ipairs(P.segs or {}) do
-            if k.shown and k.word.text == word then return k end
+            if k.shown and k.word.text == ns.L[word] then return k end
         end
     end
     local function click(b) b.scripts.OnClick(b) end
