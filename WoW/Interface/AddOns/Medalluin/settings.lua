@@ -246,6 +246,8 @@ local DEFAULTS = {
     row2Paging = "default", row2PagingCustom = "",
     row3Paging = "default", row3PagingCustom = "",
     gridPaging = "default", gridPagingCustom = "",
+    -- the grid's Forms, stealth, flying, condition by condition (bars/paging.lua's GRID_PARTS)
+    gridPageFlying = true, gridPageForm1 = true, gridPageForm2 = true, gridPageForm3 = true, gridPageStealth = true,
     -- Settings > Shared: one value for an option many frames have, which
     -- each frame's own choice overrides (SHARED below)
     moverHover = false, rangeFade = 40,
@@ -385,6 +387,7 @@ for _, key in ipairs({
     "consoleMinimalHurt", "consoleMinimalGroup", "consoleMinimalMouse",
     "bar1Paging", "bar1PagingCustom", "row2Paging", "row2PagingCustom", "row3Paging", "row3PagingCustom",
     "gridPaging", "gridPagingCustom",
+    "gridPageFlying", "gridPageForm1", "gridPageForm2", "gridPageForm3", "gridPageStealth",
     "partyPets", "partyLayout", "partyRange", "auraGlow", "auraThreat", "auraCC", "auraBuffs", "auraBoss",
     "auraDebuffs",
     "editUnit", "editParty",

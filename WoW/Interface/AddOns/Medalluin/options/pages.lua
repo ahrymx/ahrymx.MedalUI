@@ -749,18 +749,30 @@ function ns.OptionPages()
 
     local paging = {}
     for _, pb in ipairs(ns.PAGING_BARS or {}) do
+        local items = {
+            Needs("actionBar", Choice(pb.key, "Pages", ns.PagingChoices(pb),
+                "Which action page the bar shows. A page is 12 slots: page n holds slots (n-1)x12+1 to nx12.")),
+        }
+        -- the grid's Forms, stealth, flying, a switch per condition, while it is picked
+        if pb.grid then
+            for _, p in ipairs(ns.GRID_PARTS or {}) do
+                local check = Check(p.key, p.name .. "  \194\183  page " .. p.page, p.note
+                    .. " Off: the grid stays on page 7 there.")
+                check.line = p.note
+                check.can = function() return ns.db[pb.key] == "default" end
+                check.hide = true
+                table.insert(items, Needs("actionBar", check))
+            end
+        end
+        table.insert(items, Needs("actionBar", Button("Edit conditional", function() ns.EditPaging(pb) end,
+            "A macro conditional naming the page, e.g. [mod:shift] 2; [stealth] 7; 1. \"possess\" is the "
+            .. "bar the game puts up for a vehicle, an override or a possessed unit. Saving it picks Custom.")))
         table.insert(paging, {
             title = pb.name,
             tip = pb.grid and "The Reticule's 2x5 grid in the centre bay."
                 or pb.base and ("Shown with Rows at " .. pb.name:match("%d") .. " or more.")
                 or "Action bar 1, in the bar's frame.",
-            items = {
-                Needs("actionBar", Choice(pb.key, "Pages", ns.PagingChoices(pb),
-                    "Which action page the bar shows. A page is 12 slots: page n holds slots (n-1)x12+1 to nx12.")),
-                Needs("actionBar", Button("Edit conditional", function() ns.EditPaging(pb) end,
-                    "A macro conditional naming the page, e.g. [mod:shift] 2; [stealth] 7; 1. \"possess\" is the "
-                    .. "bar the game puts up for a vehicle, an override or a possessed unit. Saving it picks Custom.")),
-            },
+            items = items,
         })
     end
 

@@ -5926,6 +5926,32 @@ if barPass then
     greyed("bar off")
     page.settings.actionBar:Set(true)
     greyed("bar on")
+    -- the grid's switches: only while its Pages is Forms, stealth, flying
+    local function gridSwitches(label)
+        local o = {}
+        for _, c in ipairs(ns.optionPages["console/paging"].controls) do
+            if tostring(c.spec.key):match("^gridPage%u") then
+                table.insert(o, c.spec.label:gsub("\194\183", "-") .. "=" .. (c:IsShown() and "shown" or "hidden"))
+            end
+        end
+        print("options.paging grid " .. label, table.concat(o, ", "))
+    end
+    gridSwitches("default")
+    ns.SetOption("gridPaging", "page9")
+    gridSwitches("page9")
+    ns.SetOption("gridPaging", "default")
+    gridSwitches("default again")
+    -- the conditional they make: one off leaves the grid on page 7 there
+    local function gridCond(label) print("options.paging grid conditional " .. label, ns.PagingConditional("gridPaging")) end
+    gridCond("all on")
+    ns.SetOption("gridPageStealth", false)
+    gridCond("stealth off")
+    ns.SetOption("gridPageFlying", false)
+    ns.SetOption("gridPageForm1", false)
+    gridCond("flying, first form off too")
+    print("options.paging grid custom starts", ns.PagingStart("gridPaging"))
+    for _, k in ipairs({ "gridPageStealth", "gridPageFlying", "gridPageForm1" }) do ns.SetOption(k, true) end
+    gridCond("all on again")
     -- Settings > Shared: one value for an option many frames have, which a
     -- frame's own choice overrides (marked Own on its page, a gold corner
     -- in the grid); the frames following it hear its change
@@ -10515,6 +10541,14 @@ local function PagingPass()
         bars("grid page9")
         S.gridPaging:Set("default")
         bars("grid default")
+        -- the default a condition at a time: one off leaves the grid on page 7 there
+        ns.SetOption("gridPageStealth", false)
+        bars("grid stealth off")
+        ns.SetOption("gridPageFlying", false)
+        ns.SetOption("gridPageForm1", false)
+        bars("grid flying, first form off too")
+        for _, k in ipairs({ "gridPageStealth", "gridPageFlying", "gridPageForm1" }) do ns.SetOption(k, true) end
+        bars("grid all on again")
         local pick = harnessPick
         local grid = ns.bar7Frame
         local function gridRun(newstate)

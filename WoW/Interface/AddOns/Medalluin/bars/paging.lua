@@ -52,10 +52,32 @@ ns.PAGING_BARS = {
     { key = "gridPaging", name = "Centre grid", base = 7, grid = true,
       defaultLabel = "Forms, stealth, flying (7-11)", defaultTip = "The Reticule's: page 7, page 8 "
         .. "in the first form or stance, 9 in the second and third, 10 in stealth, and 11 on a skyriding "
-        .. "mount, the page bar 1 flies on, so skyriding skills can go on the grid." },
+        .. "mount, the page bar 1 flies on, so skyriding skills can go on the grid. Each one can be switched "
+        .. "off below." },
 }
--- Skyriding first, as on bar 1 (MAIN): a druid flying in a form flies.
-local GRID_DEFAULT = "[bonusbar:5] 11; [bonusbar:1] 8; [form:1] 8; [form:2] 9; [form:3] 9; [stealth] 10; 7"
+-- The grid's default, a condition at a time, each switched on or off by its
+-- own option (the Paging page's switches): off, the grid stays on page 7
+-- there. Skyriding first, as on bar 1 (MAIN): a druid flying in a form flies.
+ns.GRID_PARTS = {
+    { key = "gridPageFlying", name = "Flying", page = 11, part = "[bonusbar:5] 11",
+      note = "On a skyriding mount: the page bar 1 flies on." },
+    { key = "gridPageForm1", name = "First form", page = 8, part = "[bonusbar:1] 8; [form:1] 8",
+      note = "Cat form, ghost wolf, battle stance, a rogue's stealth: the first form or stance." },
+    { key = "gridPageForm2", name = "Second form", page = 9, part = "[form:2] 9",
+      note = "Bear form, defensive stance: the second form or stance." },
+    { key = "gridPageForm3", name = "Third form", page = 9, part = "[form:3] 9",
+      note = "Travel form, berserker stance: the third form or stance." },
+    { key = "gridPageStealth", name = "Stealth", page = 10, part = "[stealth] 10",
+      note = "Stealth outside a form, as shadowmeld. A rogue's stealth and a druid's prowl are their first form." },
+}
+local function GridDefault()
+    local parts = {}
+    for _, p in ipairs(ns.GRID_PARTS) do
+        if ns.db[p.key] ~= false then parts[#parts + 1] = p.part end
+    end
+    parts[#parts + 1] = "7"
+    return table.concat(parts, "; ")
+end
 
 local function Stances(base)
     return "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9; [bonusbar:4] 10; " .. base
@@ -91,7 +113,7 @@ function ns.PagingConditional(key, choice, custom)
     if page then return tostring(page) end
     if choice == "custom" and custom and custom:match("%S") then return custom end
     if choice == "stances" then return bar.base and Stances(bar.base) or MAIN end
-    if bar.grid then return GRID_DEFAULT end
+    if bar.grid then return GridDefault() end
     if not bar.base and ns.bar7 then return GROUNDED end
     return bar.base and tostring(bar.base) or nil
 end
@@ -181,4 +203,7 @@ for _, bar in ipairs(ns.PAGING_BARS) do
         end
     end)
     ns.OnSetting(bar.key .. "Custom", Changed)
+    if bar.grid then
+        for _, p in ipairs(ns.GRID_PARTS) do ns.OnSetting(p.key, Changed) end
+    end
 end
