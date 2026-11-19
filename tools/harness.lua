@@ -12820,6 +12820,41 @@ function FadePass()
             run(1)
             grid:SetParent(UIParent)
         end)()
+        -- a frame that leaves the console's alpha while it is out of the
+        -- pointer's way (the strips following it while the game menu put
+        -- the interface away, then their own again) is given back at the
+        -- next look, not left without its clicks until the console shows
+        ;(function()
+            run(1)
+            local function s(tag)
+                print("fade untouchable strip back to its own, " .. tag, "strip=" .. tostring(strip:IsMouseEnabled()),
+                    "console=" .. tostring(probe:IsMouseEnabled()))
+            end
+            -- (the clock moves with it: a look is once a second)
+            local function later(sec) now = now + sec; run(sec) end
+            later(1.1)
+            strip:SetIgnoreParentAlpha(false)
+            later(1.1)
+            s("following the console, faded")
+            strip:SetIgnoreParentAlpha(true)
+            run(0.1)
+            s("its own again, before the look")
+            later(1.1)
+            s("its own again, a look later")
+            -- the console fading out at that moment: shown, then gone again
+            -- while the strip follows it, then the strip its own again
+            hasTarget = true
+            fire("PLAYER_TARGET_CHANGED")
+            later(0.5)
+            strip:SetIgnoreParentAlpha(false)
+            hasTarget = false
+            fire("PLAYER_TARGET_CHANGED")
+            later(0.5)
+            s("faded out while it followed")
+            strip:SetIgnoreParentAlpha(true)
+            later(1.1)
+            s("its own again after that, a look later")
+        end)()
         set("consoleFadeIn", 0)
         set("consoleFadeOut", 0)
         -- Bar 1 on In combat holds its buttons too: the console back does

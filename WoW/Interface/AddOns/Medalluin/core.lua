@@ -192,7 +192,9 @@ function ns.Untouchable(frames, Off, CanWake)
         return { frames }
     end
     local Apply
+    local recheck
     local function ApplyNow()
+        o.walked = GetTime and GetTime() or 0
         local seen, pending, before = {}, false, o.held
         for _, r in ipairs(Roots()) do Walk(r, seen) end
         for f in pairs(seen) do
@@ -206,8 +208,11 @@ function ns.Untouchable(frames, Off, CanWake)
         for _, f in ipairs(gone) do
             if not Safely(Release, f, o) then pending = true end
         end
-        Note(o, string.format("%s, held %d -> %d%s", o.want and "take" or "give back", before, o.held,
-            pending and ", the rest after combat" or ""))
+        -- (a recheck that changed nothing is not noted: one a second)
+        if not recheck or before ~= o.held or pending then
+            Note(o, string.format("%s%s, held %d -> %d%s", recheck and "recheck: " or "", o.want and "take"
+                or "give back", before, o.held, pending and ", the rest after combat" or ""))
+        end
         if pending and not o.waiting then
             o.waiting = true
             ns.OutOfCombat(function() o.waiting = false; Apply() end)
@@ -224,10 +229,26 @@ function ns.Untouchable(frames, Off, CanWake)
     -- Off and still holding frames (none should be): given back again, once
     -- nothing waits for combat to end (2026-11-15: the player frame kept
     -- without its clicks, the part off).
+    -- Out of the pointer's way, looked over again once a second: a frame
+    -- that left it since (it took its own alpha: the corner strips and
+    -- minimap while the game menu put the interface away, the minimap to
+    -- the corner) is given back, and one that came is taken. Walked only
+    -- as it went out before, a frame held then stayed without its clicks
+    -- until it showed again (2026-11-19).
+    local RECHECK = 1
     function o:Set(off)
         off = off and true or false
         if off == self.want then
-            if off or self.held <= 0 or self.waiting then return end
+            if off then
+                local now = GetTime and GetTime() or 0
+                if not self.waiting and now - (self.walked or 0) >= RECHECK then
+                    recheck = true
+                    Apply()
+                    recheck = false
+                end
+                return
+            end
+            if self.held <= 0 or self.waiting then return end
             if self.noted ~= self.held then Note(self, "off, yet holding " .. self.held) end
             self.noted = self.held
         end
