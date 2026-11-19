@@ -9,6 +9,7 @@
 -- The page is the window's height: the emblem grows into it, and the lot
 -- stands in the middle between two dividers.
 local _, ns = ...
+local Tr = ns.L
 
 local FACTION = 2800
 local EMBLEM, EMBLEM_MAX = 96, 192
@@ -22,7 +23,7 @@ local function RankName(level)
     if not level or level <= 0 then return Words("PVP_RANK_0_NAME", "Civilian") end
     local first = Enum and Enum.PvPRanks and Enum.PvPRanks.Rank_1 or 5
     local key = "PVP_RANK_" .. (first + level - 1) .. "_" .. (UnitFactionGroup("player") == "Alliance" and 1 or 0)
-    return GetText and GetText(key, UnitSex("player")) or _G[key] or ("Rank " .. level)
+    return GetText and GetText(key, UnitSex("player")) or _G[key] or format(Tr["Rank %d"], level)
 end
 
 local function Total(level) return C_MajorFactions.GetTotalReputationForRenownLevel(FACTION, level) or 0 end
@@ -38,7 +39,7 @@ end
 local function Refresh()
     local info = C_MajorFactions.GetMajorFactionProgressionInfo(FACTION)
     local n = GetCurrentArenaSeason and GetCurrentArenaSeason() or 0
-    season:SetText(n > 0 and format("Season %d", n) or "")
+    season:SetText(n > 0 and format(Tr["Season %d"], n) or "")
     if not info then
         rank:SetText(RankName(0))
         bar:Hide()
@@ -46,13 +47,13 @@ local function Refresh()
         return
     end
     local level = info.renownLevel or 0
-    rank:SetText(level > 0 and format("Rank %d: %s", level, RankName(level)) or RankName(0))
+    rank:SetText(level > 0 and format(Tr["Rank %d: %s"], level, RankName(level)) or RankName(0))
     local faction = UnitFactionGroup("player") == "Horde" and "Horde" or "Alliance"
     emblem:SetAtlas(level > 0 and format("UI-Character-Info-Honor-Icon-%d", level)
         or "UI-Character-Info-Honor-Icon-" .. faction)
     bar:Show()
     bar:Fill({ min = 0, max = info.renownLevelThreshold, cur = info.renownReputationEarned, color = ns.colors.xp,
-        text = format("Rank Points: %s / %s", BreakUpLargeNumbers(info.renownReputationEarned or 0),
+        text = format(Tr["Rank Points: %s / %s"], BreakUpLargeNumbers(info.renownReputationEarned or 0),
             BreakUpLargeNumbers(info.renownLevelThreshold or 0)) })
 
     local top = info.maxLevel or level
@@ -61,23 +62,23 @@ local function Refresh()
     local mine = Total(level) + (info.renownReputationEarned or 0)
     local lines = {}
     if mine > 0 then
-        table.insert(lines, week > 0 and format("Season progress: %s / %s", BreakUpLargeNumbers(mine),
-            BreakUpLargeNumbers(week)) or format("Season progress: %s", BreakUpLargeNumbers(mine)))
+        table.insert(lines, week > 0 and format(Tr["Season progress: %s / %s"], BreakUpLargeNumbers(mine),
+            BreakUpLargeNumbers(week)) or format(Tr["Season progress: %s"], BreakUpLargeNumbers(mine)))
     end
     if week - lastWeek > 0 then
-        table.insert(lines, format("Cap increase this week: %s", BreakUpLargeNumbers(week - lastWeek)))
+        table.insert(lines, format(Tr["Cap increase this week: %s"], BreakUpLargeNumbers(week - lastWeek)))
     end
     local at, rewards = NextRewards(level, top)
     if at then
-        table.insert(lines, format("Next rewards at Rank %d:", at))
+        table.insert(lines, format(Tr["Next rewards at Rank %d:"], at))
         for _, r in ipairs(rewards) do
             if r.description then
                 table.insert(lines, (r.icon and format("|T%s:14:14|t ", r.icon) or "") .. r.description)
             end
         end
     end
-    details:Set({ title = RankName(level), sub = level > 0 and format("Rank %d", level) or nil,
-        text = format("Each week the rank points cap rises, up to %s for Rank %d.", BreakUpLargeNumbers(Total(top)),
+    details:Set({ title = RankName(level), sub = level > 0 and format(Tr["Rank %d"], level) or nil,
+        text = format(Tr["Each week the rank points cap rises, up to %s for Rank %d."], BreakUpLargeNumbers(Total(top)),
             top), lines = lines })
 end
 
@@ -117,13 +118,13 @@ local function Build(body, foot)
     bar:SetPoint("TOP", emblem, "BOTTOM", 0, -14)
     above, below = ns.character.Ornament(body), ns.character.Ornament(body)
     Fit(page.height)
-    details = ns.character.Details(foot, nil, "No rank this season.", 8)
+    details = ns.character.Details(foot, nil, Tr["No rank this season."], 8)
     page.footHeight = details.height
     page.season, page.rank, page.emblem, page.bar, page.details = season, rank, emblem, bar, details
 end
 
 page = {
-    key = "pvp", label = "PvP", tip = "Player vs. Player", frame = "PVPRankFrame", order = 5,
+    key = "pvp", label = Tr["PvP"], tip = Tr["Player vs. Player"], frame = "PVPRankFrame", order = 5,
     height = Block(EMBLEM),
     events = { "UPDATE_FACTION", "MAJOR_FACTION_RENOWN_LEVEL_CHANGED", "PLAYER_PVP_RANK_CHANGED" },
     Build = Build, Fit = Fit, Refresh = Refresh,

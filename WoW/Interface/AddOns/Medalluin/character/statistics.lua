@@ -8,6 +8,7 @@
 -- GetStatistic. A category folds here only (the game keeps no such state);
 -- a statistic the game says to skip is left out, and a nought reads "--".
 local _, ns = ...
+local Tr = ns.L
 
 local list, details
 local selected                          -- a statistic's ID
@@ -80,14 +81,14 @@ end
 
 local page
 local function Build(body, foot)
-    list = ns.character.List(body, "No statistics yet.")
-    details = ns.character.Details(foot, nil, "Choose a statistic to see it here.")
+    list = ns.character.List(body, Tr["No statistics yet."])
+    details = ns.character.Details(foot, nil, Tr["Choose a statistic to see it here."])
     page.footHeight = details.height
     page.list, page.details = list, details
 end
 
 page = {
-    key = "statistics", label = "Statistics", frame = "StatisticsFrame", order = 6,
+    key = "statistics", label = Tr["Statistics"], frame = "StatisticsFrame", order = 6,
     height = 0, flex = true,
     events = { "CRITERIA_UPDATE" },
     Build = Build, Refresh = function() Refresh() end,

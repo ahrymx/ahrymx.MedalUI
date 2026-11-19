@@ -16422,7 +16422,7 @@ if characterPass then
     end
     local function act(label)
         for _, b in ipairs(C.sets.buttons) do
-            if b.label.text == label then b.scripts.OnClick(b) end
+            if b.label.text == ns.L[label] then b.scripts.OnClick(b) end
         end
         frame()
     end

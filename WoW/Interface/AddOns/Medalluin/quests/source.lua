@@ -12,6 +12,7 @@
 -- every call is made through pcall, and a call that fails answers as if
 -- Questie were not there.
 local _, ns = ...
+local Tr = ns.L
 
 local Q = {}
 ns.questSource = Q
@@ -112,7 +113,7 @@ local function Walk(keep)
                 end
             end
             table.insert(out, { id = id, index = index, title = info.title, level = info.level or 0,
-                zone = zone or "Other", state = state, objectives = objectives, item = Item(index, id, state),
+                zone = zone or Tr["Other"], state = state, objectives = objectives, item = Item(index, id, state),
                 daily = (info.frequency or 0) > 0, kind = Kind(id, info) })
         end
     end
@@ -544,12 +545,12 @@ function Q.Keys(quest, objective)
     -- one that does nothing here leaves its slot empty ({ "key" })
     local none = { "key" }
     return {
-        { "key", "left", nil, "Page" },
-        { "key", "left", "Shift", objective and "Objective" or "Link" },
-        WP and WP.Has() and { "key", "left", "Ctrl", "Waypoint" } or none,
-        Questie() and { "key", "left", "Alt", "Focus" } or none,
-        { "key", "right", nil, IsTracked(quest) and "Untrack" or "Track" },
-        Q.CanMap(quest) and { "key", "middle", nil, "Map" } or none,
+        { "key", "left", nil, Tr["Page"] },
+        { "key", "left", "Shift", objective and Tr["Objective"] or Tr["Link"] },
+        WP and WP.Has() and { "key", "left", "Ctrl", Tr["Waypoint"] } or none,
+        Questie() and { "key", "left", "Alt", Tr["Focus"] } or none,
+        { "key", "right", nil, IsTracked(quest) and Tr["Untrack"] or Tr["Track"] },
+        Q.CanMap(quest) and { "key", "middle", nil, Tr["Map"] } or none,
     }
 end
 

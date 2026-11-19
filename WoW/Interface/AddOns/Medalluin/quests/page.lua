@@ -57,6 +57,7 @@
 -- asks once more on its own face (Confirm: abandon), for four seconds. The
 -- same quest again closes it; the quest gone from the log closes it.
 local _, ns = ...
+local Tr = ns.L
 
 local Q = ns.questSource
 local WP = ns.waypoint
@@ -134,7 +135,7 @@ local function Take(kind)
         p.icon:SetAlpha(0.6)
         p:SetScript("OnEnter", function(self)
             self.icon:SetAlpha(1)
-            ns.Tip(self, ns.window.Outside, { title = "Put this line in the chat box", wrap = true,
+            ns.Tip(self, ns.window.Outside, { title = Tr["Put this line in the chat box"], wrap = true,
                 { "body", self.line or "" } })
         end)
         p:SetScript("OnLeave", function(self)
@@ -322,18 +323,19 @@ end
 -- The tiles across the strip: each as wide as its words, the last to the
 -- end; all narrowed alike when they come to more than the strip
 local function Facts(q)
-    local list = { { "Level", tostring(q.level or "") }, { "Zone", q.zone or "" } }
+    local list = { { Tr["Level"], tostring(q.level or "") }, { Tr["Zone"], q.zone or "" } }
     local giver = ns.questGivers and ns.questGivers.Of(q.id)
-    table.insert(list, giver and { "Given by", giver }
-        or { "Given by", "\226\128\148", DIM, "Accepted before Medalluin recorded who gave it." })
+    table.insert(list, giver and { Tr["Given by"], giver }
+        or { Tr["Given by"], "\226\128\148", DIM, Tr["Accepted before Medalluin recorded who gave it."] })
     local chain = qp.Chain(q.id)
     if chain ~= nil then
-        table.insert(list, { "Chain", chain and format("%d of %d", chain.at, #chain.ids) or "1 of 1" })
+        table.insert(list, { Tr["Chain"], chain and format(Tr["%d of %d"], chain.at, #chain.ids) or Tr["1 of 1"] })
     end
-    if q.state == 1 then table.insert(list, { "Status", "Ready to hand in", GOLD })
-    elseif q.state == -1 then table.insert(list, { "Status", "Failed", RED })
-    else table.insert(list, { "Status", q.tracked and "Tracked" or "Not tracked", q.tracked and GOLD or DIM }) end
-    if WP.Is(q.id) then table.insert(list, { "Waypoint", WP.Distance(q.id), WP.COLOR, nil, true }) end
+    if q.state == 1 then table.insert(list, { Tr["Status"], Tr["Ready to hand in"], GOLD })
+    elseif q.state == -1 then table.insert(list, { Tr["Status"], Tr["Failed"], RED })
+    else table.insert(list, { Tr["Status"], q.tracked and Tr["Tracked"] or Tr["Not tracked"],
+        q.tracked and GOLD or DIM }) end
+    if WP.Is(q.id) then table.insert(list, { Tr["Waypoint"], WP.Distance(q.id), WP.COLOR, nil, true }) end
     local room = (facts:GetWidth() or 0) - 2
     if room < 2 then room = (W.window:GetWidth() or 0) - 2 end
     local widths, sum = {}, 0
@@ -410,9 +412,9 @@ local function Draw(q)
         Put(h, 0, 20)
     end
     local d = Q.Details(q)
-    Heading("Objectives")
+    Heading(Tr["Objectives"])
     if #q.objectives == 0 then
-        Text(d.goal ~= "" and d.goal or "Nothing more to do: hand it in.", ns.colors.text, 10)
+        Text(d.goal ~= "" and d.goal or Tr["Nothing more to do: hand it in."], ns.colors.text, 10)
     end
     -- each: its count first, then its words, all of it to select (one
     -- colour: a colour code would be copied too); a thin bar of it under
@@ -423,7 +425,7 @@ local function Draw(q)
         -- an item still wanted: its drop rate after it (quests/drops.lua),
         -- in the line's own colour, as the rest is
         local drop = not o.done and ns.questDrops and ns.questDrops.For(q.id, o.text, o.kind)
-        if drop then words = words .. "   \194\183 " .. ns.questDrops.Range(drop) .. " drop" end
+        if drop then words = words .. "   \194\183 " .. format(Tr["%s drop"], ns.questDrops.Range(drop)) end
         local at = y
         local _, h = Text((o.done and ns.Tick(DIM) .. " " or "") .. words, o.done and DIM or ns.colors.text, 10, 12,
             SEND + 4)
@@ -444,16 +446,16 @@ local function Draw(q)
         end
     end
     if d.text and d.text ~= "" then
-        Heading("Description")
+        Heading(Tr["Description"])
         Text(d.text, ns.colors.text, 10)
     end
     local rw = q.rewards or {}
     local has = (rw.xp or 0) > 0 or (rw.money or 0) > 0 or #d.given > 0 or #d.chosen > 0
     if has then
-        Heading("Rewards")
+        Heading(Tr["Rewards"])
         local x, any = 10, false
         if (rw.xp or 0) > 0 then
-            local t = Plain(ns.questLog.Number(rw.xp) .. " xp", XP, x, 12)
+            local t = Plain(format(Tr["%s xp"], ns.questLog.Number(rw.xp)), XP, x, 12)
             x = x + math.ceil(t:GetStringWidth() or 0) + 20
             any = true
         end
@@ -465,8 +467,8 @@ local function Draw(q)
         if any then y = y + LINE + 6 end
         -- each set of items: two columns of tiles
         local half = math.floor((width - 10 - GAP) / 2)
-        for _, set in ipairs({ { d.given, #d.chosen > 0 and #d.given > 0 and "You get:" or nil },
-            { d.chosen, #d.chosen > 1 and "Choose one:" or nil } }) do
+        for _, set in ipairs({ { d.given, #d.chosen > 0 and #d.given > 0 and Tr["You get:"] or nil },
+            { d.chosen, #d.chosen > 1 and Tr["Choose one:"] or nil } }) do
             if #set[1] > 0 then
                 if set[2] then
                     Plain(set[2], DIM, 10, 11)
@@ -501,12 +503,13 @@ local function Draw(q)
             from = math.max(1, to - AROUND + 1)
         end
         local name = chain.name
-        Heading((name and name ~= "" and not ns.IsSecret(name)) and ("Chain \194\183 " .. name) or "Chain")
+        Heading((name and name ~= "" and not ns.IsSecret(name)) and format(Tr["Chain \194\183 %s"],
+            name) or Tr["Chain"])
         local function More(k, words)
             Plain(format(words, k), DIM, 10 + DOT + 8, 11)
             y = y + LINE
         end
-        if from > 1 then More(from - 1, "\226\128\166 %d before") end
+        if from > 1 then More(from - 1, Tr["\226\128\166 %d before"]) end
         local questie = Q.CanShowInQuestie()
         for i = from, to do
             local id = chain.ids[i]
@@ -522,9 +525,10 @@ local function Draw(q)
             local level = ns.questChains and ns.questChains.Level(id)
             local r = Take("step")
             r.id, r.title = id, title
-            r.where = format("Step %d of %d", i, n) .. (level and (", level " .. level) or "")
-                .. (this and ": this quest" or done and ": done" or held and ": in your quest log" or "")
-            r.go = questie and "Click: open it in Questie." or (held and "Click: open its page.") or nil
+            r.where = (level and format(Tr["Step %d of %d, level %d"], i, n, level) or format(Tr["Step %d of %d"], i,
+                n))
+                .. (this and Tr[": this quest"] or done and Tr[": done"] or held and Tr[": in your quest log"] or "")
+            r.go = questie and Tr["Click: open it in Questie."] or (held and Tr["Click: open its page."]) or nil
             r:SetWidth(width)
             r.name:SetText(title)
             r.name:SetTextColor(unpack(this and GOLD or done and DIM or ns.colors.text))
@@ -539,7 +543,7 @@ local function Draw(q)
             r.glow:SetAlpha(r.go and 1 or 0)
             Put(r, 0, STEPH)
         end
-        if to < n then More(n - to, "\226\128\166 %d more") end
+        if to < n then More(n - to, Tr["\226\128\166 %d more"]) end
         y = y + 4
     end
     for kind, list in pairs(parts) do
@@ -575,12 +579,12 @@ function qp.Refresh()
     Facts(q)
     Scroll(offset)
     band:Set("track", { selected = false })
-    band.byKey.track.label:SetText(q.tracked and "Untrack" or "Track")
+    band.byKey.track.label:SetText(q.tracked and Tr["Untrack"] or Tr["Track"])
     band:Set("share", { enabled = Q.CanShare(q) })
     band:Set("map", { enabled = Q.CanMap(q) })
     band:Set("waypoint", { shown = WP.Has(), lit = WP.Is(q.id) and { wash = WP.WASH, color = WP.COLOR } or nil })
     band:Set("abandon", { color = RED, selected = armed ~= nil })
-    band.byKey.abandon.label:SetText(armed and "Confirm: abandon" or "Abandon")
+    band.byKey.abandon.label:SetText(armed and Tr["Confirm: abandon"] or Tr["Abandon"])
 end
 
 local function Abandon()
@@ -609,12 +613,12 @@ end
 local function Window()
     if W then return W end
     W = ns.Window{
-        name = "MedalluinQuestPage", side = 1, place = "questPagePlace", detachedOnly = true,
-        closeTip = "Close the quest's page.",
+        name = "MedalluinQuestPage", named = Tr["Quest Page"], side = 1, place = "questPagePlace", detachedOnly = true,
+        closeTip = Tr["Close the quest's page."],
         Close = function() qp.Close() end,
         Lifted = function() return {} end,
     }
-    page = { key = "quest", label = "Quest", glyph = "questlog", order = 1, flex = true, bandUsed = true,
+    page = { key = "quest", label = Tr["Quest"], glyph = "questlog", order = 1, flex = true, bandUsed = true,
         height = 160,
         -- the head: its mark and title; Shift links it
         head = {
@@ -633,7 +637,7 @@ local function Window()
                     Q.LinkInChat(GetQuestLink(q.id))
                 end
             end,
-            tip = function() return "Shift-click: link it in chat. Drag: move the window." end,
+            tip = function() return Tr["Shift-click: link it in chat. Drag: move the window."] end,
         },
         Available = function() return true end,
         Build = function(b, _, margin)
@@ -645,7 +649,7 @@ local function Window()
             local hint = ns.PlainText(b, 10)
             hint:SetPoint("BOTTOMLEFT", 0, 2)
             hint:SetTextColor(unpack(DIM))
-            hint:SetText("Drag across the words to select them, Ctrl+C to copy.")
+            hint:SetText(Tr["Drag across the words to select them, Ctrl+C to copy."])
             child = CreateFrame("Frame", nil, scroll)
             child:SetPoint("TOPLEFT")
             child:SetPoint("TOPRIGHT")
@@ -664,35 +668,36 @@ local function Window()
                 qp.Refresh()
             end)
             band = ns.window.Segments(margin, { height = 28, items = {
-                { key = "track", label = "Track", group = "do", click = function()
+                { key = "track", label = Tr["Track"], group = "do", click = function()
                     local q = qp.quest
                     if not q then return end
                     if q.tracked then Q.Untrack(q) else Q.Track(q) end
                     qp.Refresh()
                     if ns.questLog then ns.questLog.Refresh() end
                 end, tip = function()
-                    return qp.quest and qp.quest.tracked and "Stop tracking it." or "Track it."
+                    return qp.quest and qp.quest.tracked and Tr["Stop tracking it."] or Tr["Track it."]
                 end },
-                { key = "share", label = "Share", group = "do", click = function()
+                { key = "share", label = Tr["Share"], group = "do", click = function()
                     if qp.quest and Q.CanShare(qp.quest) then Q.Share(qp.quest) end
                 end, tip = function()
-                    return qp.quest and Q.CanShare(qp.quest) and "Offer it to your group."
-                        or "Only in a group, and only a quest that can be shared."
+                    return qp.quest and Q.CanShare(qp.quest) and Tr["Offer it to your group."]
+                        or Tr["Only in a group, and only a quest that can be shared."]
                 end },
-                { key = "map", label = "View on map", icon = "side-zone", group = "do", click = function()
+                { key = "map", label = Tr["View on map"], icon = "side-zone", group = "do", click = function()
                     if qp.quest then Q.ShowOnMap(qp.quest) end
                 end, tip = function()
-                    return qp.quest and Q.CanMap(qp.quest) and "Open the world map at it."
-                        or "Neither the game nor Questie knows where it is."
+                    return qp.quest and Q.CanMap(qp.quest) and Tr["Open the world map at it."]
+                        or Tr["Neither the game nor Questie knows where it is."]
                 end },
-                { key = "waypoint", label = "Waypoint", icon = "waypoint", group = "do", click = function()
+                { key = "waypoint", label = Tr["Waypoint"], icon = "waypoint", group = "do", click = function()
                     if qp.quest then WP.Toggle(qp.quest) end
                 end, tip = function()
-                    return qp.quest and WP.Is(qp.quest.id) and "Clear the waypoint." or "Set the waypoint to it."
+                    return qp.quest and WP.Is(qp.quest.id) and Tr["Clear the waypoint."]
+                        or Tr["Set the waypoint to it."]
                 end },
-                { key = "abandon", label = "Abandon", group = "abandon", color = RED, click = Abandon,
+                { key = "abandon", label = Tr["Abandon"], group = "abandon", color = RED, click = Abandon,
                     tip = function()
-                        return armed and "Click again to abandon it." or "Abandon it. It asks once more first."
+                        return armed and Tr["Click again to abandon it."] or Tr["Abandon it. It asks once more first."]
                     end },
             } })
             band:SetPoint("LEFT", 4, 0)

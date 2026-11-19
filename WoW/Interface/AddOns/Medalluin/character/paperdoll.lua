@@ -24,6 +24,7 @@
 -- of the ranged and ammo slots this character has; the weapons row closes
 -- up over the ones it hides.
 local _, ns = ...
+local Tr = ns.L
 
 local SLOT, PITCH, GAP = 34, 39, 6             -- the least: a slot, a row, the weapons' gap
 local SLOT_MAX, SPREAD = 46, 26                 -- the most: a slot, and room added between rows
@@ -47,8 +48,9 @@ local LINE = { 0.227, 0.196, 0.141 }            -- an empty slot's edge
 local GLOW = "character\\glow"
 local TURN = 0.012                              -- the model's turn, in radians per pixel dragged
 local SWITCH = 26 + 10                          -- the details' switch, and the gap under it
-local VIEWS = { { "stats", "Stats", "Your stats." }, { "titles", "Titles", "Wear a title you have earned." },
-    { "sets", "Sets", "Your equipment sets." } }
+local VIEWS = { { "stats", Tr["Stats"], Tr["Your stats."] }, { "titles", Tr["Titles"],
+    Tr["Wear a title you have earned."] },
+    { "sets", Tr["Sets"], Tr["Your equipment sets."] } }
 
 local page, doll
 local views, view = {}, "stats"                 -- the details' parts, and the one shown
@@ -411,7 +413,7 @@ function ns.character.Doll(spec)
         local who = s and format("%s (%s)", className, s) or className or ""
         local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         if c then who = format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, who) end
-        return format("%s  Level %d", who, UnitLevel(unit) or 0)
+        return format(Tr["%s  Level %d"], who, UnitLevel(unit) or 0)
     end
 
     function d.Refresh()
@@ -529,9 +531,9 @@ end
 -- out of combat; in combat a state driver hides it, and when combat ends
 -- it follows the window again.
 local SHORTCUTS = {
-    { "Talents", "Open your talents.", "talents", { "TalentMicroButton", "PlayerSpellsMicroButton" } },
-    { "Spellbook", "Open your spellbook.", "spellbook", { "SpellbookMicroButton", "PlayerSpellsMicroButton" } },
-    { "Professions", "Open your professions.", "profession", { "ProfessionMicroButton" } },
+    { Tr["Talents"], Tr["Open your talents."], "talents", { "TalentMicroButton", "PlayerSpellsMicroButton" } },
+    { Tr["Spellbook"], Tr["Open your spellbook."], "spellbook", { "SpellbookMicroButton", "PlayerSpellsMicroButton" } },
+    { Tr["Professions"], Tr["Open your professions."], "profession", { "ProfessionMicroButton" } },
 }
 local row
 local open = false                              -- the window open on this page
@@ -627,7 +629,7 @@ local function Build(frame, foot, band)
 end
 
 page = {
-    key = "character", label = "Character", frame = "PaperDollFrame", order = 1,
+    key = "character", label = Tr["Character"], frame = "PaperDollFrame", order = 1,
     height = ns.character.dollJoin.height, under = ns.character.dollJoin.under, bandUsed = true,
     events = { "PLAYER_EQUIPMENT_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE", "PLAYER_LEVEL_UP",
         "UNIT_STATS", "UNIT_RESISTANCES", "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_DAMAGE",

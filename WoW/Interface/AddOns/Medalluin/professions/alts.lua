@@ -27,6 +27,7 @@
 --                the bags' slots) (altItemsView); its money
 --   Notes        a pad, saved as it is typed; any character's to write
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.professions
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -955,7 +956,7 @@ end
 local function Window()
     if AW then return AW end
     AW = ns.Window{
-        name = "MedalluinAlt", side = 1, place = "altPlace", detachedOnly = true,
+        name = "MedalluinAlt", named = Tr["Alt"], side = 1, place = "altPlace", detachedOnly = true,
         closeTip = "Close.",
         Close = function() AW.SetShown(false) end,
         Lifted = function() return {} end,

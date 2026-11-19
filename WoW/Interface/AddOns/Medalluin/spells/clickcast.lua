@@ -27,6 +27,7 @@
 -- (spells/spellbook.lua): a binding's click as words, and the bindings by
 -- spell.
 local _, ns = ...
+local Tr = ns.L
 
 local R = ns.reskin
 local deco = R.deco
@@ -53,8 +54,8 @@ local function Frame() return _G.ClickBindingFrame end
 -- A binding's click as words: its modifiers (the game's own names for them)
 -- and its button, short. { "Shift", "Middle" }, "Shift+Middle"; nil when
 -- it has no button (unbound).
-local BUTTONS = { LeftButton = "Left", Button1 = "Left", RightButton = "Right", Button2 = "Right",
-    MiddleButton = "Middle", Button3 = "Middle" }
+local BUTTONS = { LeftButton = Tr["Left##mouse"], Button1 = Tr["Left##mouse"], RightButton = Tr["Right##mouse"],
+    Button2 = Tr["Right##mouse"], MiddleButton = Tr["Middle##mouse"], Button3 = Tr["Middle##mouse"] }
 
 local function Mods(m)
     if not m or m == 0 then return "" end
@@ -70,7 +71,8 @@ function cc.Keys(info)
     for word in Mods(info.modifiers):gmatch("[^%-%+%s]+") do
         table.insert(keys, word:sub(1, 1):upper() .. word:sub(2):lower())
     end
-    table.insert(keys, BUTTONS[info.button] or (info.button:gsub("^Button(%d+)$", "Mouse %1")))
+    table.insert(keys, BUTTONS[info.button] or (info.button:gsub("^Button(%d+)$",
+        function(n) return format(Tr["Mouse %s"], n) end)))
     return keys, table.concat(keys, "+")
 end
 
@@ -250,7 +252,7 @@ local function Top(f)
             e.with = ns.Text(key, 12)
             e.with:SetPoint("LEFT", 0, 0)
             e.with:SetTextColor(DIM[1], DIM[2], DIM[3])
-            e.with:SetText("with")
+            e.with:SetText(Tr["with"])
             e.arrow = key:CreateTexture(nil, "OVERLAY")
             e.arrow:SetTexture(GLYPHS .. "chevron-down")
             e.arrow:SetSize(10, 10)
@@ -326,8 +328,8 @@ local function Foot(f)
             local fs = reset.GetFontString and reset:GetFontString()
             if fs then fs:SetAlpha(0) end
             reset:HookScript("OnEnter", function(self)
-                ns.Tip(self, ns.window.Outside, { title = "Reset to default", color = GOLD,
-                    { "body", "Back to the game's own bindings: your custom ones are kept, unbound." } })
+                ns.Tip(self, ns.window.Outside, { title = Tr["Reset to default"], color = GOLD,
+                    { "body", Tr["Back to the game's own bindings: your custom ones are kept, unbound."] } })
             end)
             reset:HookScript("OnLeave", function() GameTooltip:Hide() end)
         end
@@ -337,7 +339,7 @@ local function Foot(f)
     local add = f.AddBindingButton
     if type(add) == "table" then
         Cell(add, 130)
-        Words(add, "+  Add binding")
+        Words(add, Tr["+  Add binding"])
         Shade(add)
         add:ClearAllPoints()
         add:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 1 + ROW + GAP, 1)
@@ -345,7 +347,7 @@ local function Foot(f)
     local save = f.SaveButton
     if save then
         local d = Cell(save, 90)
-        Words(save, "Save")
+        Words(save, Tr["Save"])
         if not d.mark then
             d.mark = save:CreateTexture(nil, "BACKGROUND", nil, -6)
             d.mark:SetPoint("TOPLEFT", 1, -1)
@@ -497,8 +499,8 @@ local function Line(line)
         eg:SetVertexColor(DIM[1], DIM[2], DIM[3])
         edit:SetScript("OnEnter", function(self)
             eg:SetVertexColor(1, 1, 1)
-            ns.Tip(self, ns.window.Outside, { title = "Edit", color = GOLD,
-                { "body", "Into the binder: click its pad with the new click." } })
+            ns.Tip(self, ns.window.Outside, { title = Tr["Edit"], color = GOLD,
+                { "body", Tr["Into the binder: click its pad with the new click."] } })
         end)
         edit:SetScript("OnLeave", function()
             eg:SetVertexColor(DIM[1], DIM[2], DIM[3])
@@ -597,9 +599,9 @@ end
 --   (o) Healing Wave   [ (mouse) Click here with the click you want    ]
 --       Rank 4         [         hold Shift, Ctrl or Alt as you click  ]
 --   Or click its line in the list.
-local STEPS = { "Pick a spell", "Click the pad", "Save" }
-local HELP = { "Click a spell in the spellbook: the ones that glow can be bound.",
-    "Click the pad here with the mouse button and keys you want.", "Save." }
+local STEPS = { Tr["Pick a spell"], Tr["Click the pad"], Tr["Save"] }
+local HELP = { Tr["Click a spell in the spellbook: the ones that glow can be bound."],
+    Tr["Click the pad here with the mouse button and keys you want."], Tr["Save."] }
 local GREEN = { 0.45, 0.85, 0.40 }
 local binder
 local loaded            -- the target's click when it loaded, and its look
@@ -623,12 +625,12 @@ local function Describe(data, line)
         name = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(id)
         icon = C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(id)
         sub = C_Spell and C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(id)
-        if (not sub or sub == "") and info.type == TYPE.PetAction then sub = "Pet" end
+        if (not sub or sub == "") and info.type == TYPE.PetAction then sub = Tr["Pet"] end
     elseif info.type == TYPE.Macro then
         if _G.GetMacroInfo then name, icon = _G.GetMacroInfo(id) end
-        sub = "Macro"
+        sub = Tr["Macro"]
     elseif info.type == TYPE.Interaction then
-        sub = "Default"
+        sub = Tr["Default"]
     end
     if not name and line then
         name = Plain(line.Name and line.Name:GetText())
@@ -722,8 +724,8 @@ local function Paint()
     local keys = step == 3 and cc.Keys(t.bindingInfo)
     local word = hot and { 1, 1, 1 } or GOLD
     b.line1:SetTextColor(word[1], word[2], word[3])
-    b.line1:SetText(keys and "" or "Click here with the click you want")
-    b.line2:SetText(keys and "Click again to change it" or "hold Shift, Ctrl or Alt as you click")
+    b.line1:SetText(keys and "" or Tr["Click here with the click you want"])
+    b.line2:SetText(keys and Tr["Click again to change it"] or Tr["hold Shift, Ctrl or Alt as you click"])
     local x = 0
     local pd = deco[b.pad]
     for i = 1, math.max(#(keys or {}), #pd.caps) do
@@ -752,10 +754,10 @@ local function Paint()
     end
     Dashes(b.pad, hot)
     if step == 3 then
-        b.hint:SetText("Save to keep it.")
+        b.hint:SetText(Tr["Save to keep it."])
         b.hint:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
     else
-        b.hint:SetText("Or click its line in the list.")
+        b.hint:SetText(Tr["Or click its line in the list."])
         b.hint:SetTextColor(DIM[1], DIM[2], DIM[3])
     end
 end
@@ -844,7 +846,7 @@ local function Binder(f)
     b.title = ns.Text(b, 13)
     R.Font(b.title, 13, GOLD)
     b.title:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -2)
-    b.title:SetText("Binder")
+    b.title:SetText(Tr["Binder"])
     b.fade = b:CreateTexture(nil, "ARTWORK")
     b.fade:SetHeight(1)
     b.fade:SetPoint("LEFT", b.title, "RIGHT", 10, 0)
@@ -854,7 +856,7 @@ local function Binder(f)
     b.help = {}
     local intro = ns.Text(b, 13)
     intro:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -24)
-    intro:SetText("Bind a spell to a click on unit frames:")
+    intro:SetText(Tr["Bind a spell to a click on unit frames:"])
     table.insert(b.help, intro)
     for i, s in ipairs(HELP) do
         local fs = ns.Text(b, 12)
@@ -868,7 +870,7 @@ local function Binder(f)
     end
     local drag = ns.Text(b, 12)
     drag:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -26 - 4 * 18 - 4)
-    drag:SetText("Or drag a spell or macro into the list.")
+    drag:SetText(Tr["Or drag a spell or macro into the list."])
     drag:SetTextColor(DIM[1], DIM[2], DIM[3])
     table.insert(b.help, drag)
     -- the steps: ringed numerals, their words, dashes between
@@ -965,8 +967,8 @@ local function Binder(f)
     g:SetVertexColor(DIM[1], DIM[2], DIM[3])
     cancel:SetScript("OnEnter", function(self)
         g:SetVertexColor(1, 1, 1)
-        ns.Tip(self, ns.window.Outside, { title = "Put it down", color = GOLD,
-            { "body", "Leaves the binder empty; the list keeps what you set." } })
+        ns.Tip(self, ns.window.Outside, { title = Tr["Put it down"], color = GOLD,
+            { "body", Tr["Leaves the binder empty; the list keeps what you set."] } })
     end)
     cancel:SetScript("OnLeave", function()
         g:SetVertexColor(DIM[1], DIM[2], DIM[3])
@@ -1000,7 +1002,7 @@ local function Adopt()
     local f = Frame()
     if adopted or not f then return end
     adopted = true
-    skin = R.Chrome(f, "Click Casting", { { "TOP", TOP }, { "BOTTOM", ROW } }, HEAD + 4)
+    skin = R.Chrome(f, Tr["Click Casting"], { { "TOP", TOP }, { "BOTTOM", ROW } }, HEAD + 4)
     cc.frame = f
     cc.skin = skin
     Dress()

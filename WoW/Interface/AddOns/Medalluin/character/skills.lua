@@ -12,6 +12,7 @@
 -- chance a node gives a skill point; the details say the skill it needs
 -- and where it grows.
 local _, ns = ...
+local Tr = ns.L
 
 local CLASS_SKILLS = 7                  -- the category Blizzard leaves out
 local PROFESSIONS = 11                  -- the heading the gathering professions are under
@@ -144,8 +145,8 @@ Refresh = function()
     local prof, line, node = Node()
     if node then
         local _, say = Chance(line.rank or 0, node[2])
-        details:Set({ title = node[1], sub = format("Needs %s %d", prof.name, node[2]), bar = Rank(line),
-            text = say .. "\nFound in: " .. node[3] })
+        details:Set({ title = node[1], sub = format(Tr["Needs %s %d"], prof.name, node[2]), bar = Rank(line),
+            text = say .. "\n" .. format(Tr["Found in: %s"], node[3]) })
         return
     end
     local s = Chosen()
@@ -159,15 +160,15 @@ end
 
 local page
 local function Build(body, foot)
-    list = ns.character.List(body, "No skills yet.")
+    list = ns.character.List(body, Tr["No skills yet."])
     -- four lines: a node's zones run long
-    details = ns.character.Details(foot, nil, "Choose a skill to see its details.", 4)
+    details = ns.character.Details(foot, nil, Tr["Choose a skill to see its details."], 4)
     page.footHeight = details.height
     page.list, page.details = list, details
 end
 
 page = {
-    key = "skills", label = "Skills", frame = "SkillsFrame", order = 4,
+    key = "skills", label = Tr["Skills"], frame = "SkillsFrame", order = 4,
     height = 0, flex = true,
     events = { "SKILL_LINES_CHANGED" },
     Build = Build, Refresh = function() Refresh() end,

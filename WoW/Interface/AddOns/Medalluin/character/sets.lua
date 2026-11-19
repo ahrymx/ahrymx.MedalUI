@@ -13,6 +13,7 @@
 -- picker and its per-slot ignore are not here: a set made here can be
 -- changed in Blizzard's (which the sets are shared with).
 local _, ns = ...
+local Tr = ns.L
 
 local ES = C_EquipmentSet
 local SHIRT, TABARD, HEAD = 4, 19, 1
@@ -50,7 +51,7 @@ local function Create(name)
     name = (name or ""):match("^%s*(.-)%s*$")
     if name == "" then return end
     if ES.GetEquipmentSetID(name) then
-        Error(format("There is a set called %s already.", name))
+        Error(format(Tr["There is a set called %s already."], name))
         return
     end
     Ignore({ [SHIRT] = true, [TABARD] = true })
@@ -63,7 +64,7 @@ local function Box(dialog) return dialog.editBox or dialog.EditBox or (dialog.Ge
 
 -- Only keys are added: assigning StaticPopupDialogs itself would taint it.
 StaticPopupDialogs.MEDALLUIN_SET_NEW = {
-    text = "A new equipment set, of what you are wearing:",
+    text = Tr["A new equipment set, of what you are wearing:"],
     button1 = SAVE or "Save",
     button2 = CANCEL or "Cancel",
     hasEditBox = true,
@@ -81,7 +82,7 @@ StaticPopupDialogs.MEDALLUIN_SET_NEW = {
     hideOnEscape = true,
 }
 StaticPopupDialogs.MEDALLUIN_SET_SAVE = {
-    text = "Save what you are wearing to %s?",
+    text = Tr["Save what you are wearing to %s?"],
     button1 = SAVE or "Save",
     button2 = CANCEL or "Cancel",
     OnAccept = function(_, id)
@@ -93,7 +94,7 @@ StaticPopupDialogs.MEDALLUIN_SET_SAVE = {
     hideOnEscape = true,
 }
 StaticPopupDialogs.MEDALLUIN_SET_REMOVE = {
-    text = "Remove the equipment set %s?",
+    text = Tr["Remove the equipment set %s?"],
     button1 = REMOVE or "Remove",
     button2 = CANCEL or "Cancel",
     OnAccept = function(_, id) ES.DeleteEquipmentSet(id) end,
@@ -107,14 +108,14 @@ local function Equip(s)
 end
 
 local ACTIONS = {
-    { "Equip", "Put this set on.", function(s) Equip(s) end, function(s) return s and not s.worn end },
-    { "Save", "Save what you are wearing to this set.",
+    { Tr["Equip"], Tr["Put this set on."], function(s) Equip(s) end, function(s) return s and not s.worn end },
+    { Tr["Save"], Tr["Save what you are wearing to this set."],
         function(s) StaticPopup_Show("MEDALLUIN_SET_SAVE", s.name, nil, s.id) end,
         function(s) return s and not s.worn end },
-    { "New", "A new set, of what you are wearing.",
+    { Tr["New"], Tr["A new set, of what you are wearing."],
         function() StaticPopup_Show("MEDALLUIN_SET_NEW") end,
         function() return ES.GetNumEquipmentSets() < (MAX_EQUIPMENT_SETS_PER_PLAYER or 10) end },
-    { "Remove", "Remove this set (the gear stays where it is).",
+    { Tr["Remove"], Tr["Remove this set (the gear stays where it is)."],
         function(s) StaticPopup_Show("MEDALLUIN_SET_REMOVE", s.name, nil, s.id) end,
         function(s) return s ~= nil end },
 }
@@ -125,7 +126,7 @@ function sets.Refresh()
         local s = Info(id)
         if s then
             table.insert(rows, { label = s.name, icon = s.icon, depth = 0, selected = s.id == selected,
-                value = s.worn and "worn" or s.lost > 0 and format("%d missing", s.lost) or nil,
+                value = s.worn and "worn" or s.lost > 0 and format(Tr["%d missing"], s.lost) or nil,
                 dim = s.lost > 0,
                 click = function()
                     selected = s.id
@@ -151,7 +152,7 @@ function sets.Build(frame, height)
     local holder = CreateFrame("Frame", nil, frame)
     holder:SetPoint("TOPLEFT")
     holder:SetSize(ns.character.width, height - BUTTONS - GAP)
-    list = ns.character.List(holder, "No equipment sets yet.")
+    list = ns.character.List(holder, Tr["No equipment sets yet."])
     buttons = {}
     local w = (ns.character.width - 3 * GAP) / 4
     for i, a in ipairs(ACTIONS) do

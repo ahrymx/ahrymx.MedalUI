@@ -28,6 +28,7 @@
 -- the game counts it: every slot but the shirt and the tabard, an empty one
 -- as nothing, a two-hander with nothing in the off hand twice.
 local _, ns = ...
+local Tr = ns.L
 
 local Unit = ns.inspect.Unit
 local R = ns.character.ribbon
@@ -147,14 +148,14 @@ end
 
 local function PowerName(unit)
     local _, token = UnitPowerType(unit)
-    return token and _G[token] or "Power"
+    return token and _G[token] or Tr["Power"]
 end
 
 -- the guild and the rank there, on one line
 local function Guild(unit)
     if not GetGuildInfo then return end
     local name, rank = GetGuildInfo(unit)
-    if type(name) ~= "string" or name == "" then return "No guild" end
+    if type(name) ~= "string" or name == "" then return Tr["No guild"] end
     if type(rank) == "string" and rank ~= "" then
         local d = ns.colors.dim
         return format("<%s>  |cff%02x%02x%02x%s|r", name, d[1] * 255, d[2] * 255, d[3] * 255, rank)
@@ -173,22 +174,22 @@ end
 -- entry across the whole width; a line with a "when" that says no on this
 -- client is left out
 local PARTS = {
-    { "Summary", {
-        { { "Item level", function(unit) return ItemLevel(unit) end }, { "Talents", Talents } },
-        { { "Health", function(unit) return Whole(UnitHealthMax(unit)) end },
+    { Tr["Summary"], {
+        { { Tr["Item level"], function(unit) return ItemLevel(unit) end }, { Tr["Talents"], Talents } },
+        { { Tr["Health"], function(unit) return Whole(UnitHealthMax(unit)) end },
             { PowerName, function(unit) return Whole(UnitPowerMax(unit)) end } },
-        { { "Race", function(unit) return (UnitRace(unit)) end },
-            { "Faction", function(unit)
+        { { Tr["Race"], function(unit) return (UnitRace(unit)) end },
+            { Tr["Faction"], function(unit)
                 -- its name in the client's language, else the English one
                 local faction, name = UnitFactionGroup(unit)
                 return name or faction
             end } },
-        { wide = { "Guild", Guild } },
+        { wide = { Tr["Guild"], Guild } },
     } },
-    { "PvP", {
-        { { "Honor level", Honor }, { "Honorable kills", Kills } },
-        { wide = { "Rank", Rank }, when = Ranked },
-        { wide = { "Best rating", Rated }, when = RatedHere },
+    { Tr["PvP"], {
+        { { Tr["Honor level"], Honor }, { Tr["Honorable kills"], Kills } },
+        { wide = { Tr["Rank"], Rank }, when = Ranked },
+        { wide = { Tr["Best rating"], Rated }, when = RatedHere },
     } },
 }
 
@@ -262,7 +263,8 @@ local function Refresh()
 end
 
 page = {
-    key = "inspect", label = "Inspect", tip = "Their gear", glyph = "character", frame = "InspectPaperDollFrame",
+    key = "inspect", label = Tr["Inspect"], tip = Tr["Their gear"], glyph = "character",
+        frame = "InspectPaperDollFrame",
     order = 1, height = ns.character.dollJoin.height, under = ns.character.dollJoin.under,
     events = { "INSPECT_READY", "UNIT_INVENTORY_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE",
         "GET_ITEM_INFO_RECEIVED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "PLAYER_GUILD_UPDATE",

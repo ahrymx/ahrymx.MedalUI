@@ -18,6 +18,7 @@
 -- abandon 2), for four seconds or until the picks change; the second click
 -- abandons them all, one after the other, and the window closes.
 local _, ns = ...
+local Tr = ns.L
 
 local Q = ns.questSource
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -166,7 +167,7 @@ local function Fill(r, l)
         r.label:ClearAllPoints()
         r.label:SetPoint("LEFT", 18 + TICK + 8, 0)
         r.label:SetPoint("RIGHT", -6, 0)
-        r.label:SetText(hex .. "[" .. q.level .. "]|r  " .. q.title .. (q.state == -1 and "  (failed)" or ""))
+        r.label:SetText(hex .. "[" .. q.level .. "]|r  " .. q.title .. (q.state == -1 and "  " .. Tr["(failed)"] or ""))
         r.label:SetTextColor(unpack(on and ns.colors.text or c))
     end
     r:Show()
@@ -207,8 +208,8 @@ function drop.Refresh()
     empty:SetShown(#lines == 0)
     local n = Count()
     band:Set("abandon", { enabled = n > 0, color = RED, selected = armed ~= nil })
-    band.byKey.abandon.label:SetText(armed and ("Confirm: abandon " .. n)
-        or n == 1 and "Abandon 1 quest" or ("Abandon " .. n .. " quests"))
+    band.byKey.abandon.label:SetText(armed and format(Tr["Confirm: abandon %d"], n)
+        or ns.Plural(n, format(Tr["Abandon %d |4quest:quests;"], n)))
 end
 
 function drop.Scroll(by)
@@ -247,12 +248,12 @@ drop.Abandon = Abandon
 local function Window()
     if W then return W end
     W = ns.Window{
-        name = "MedalluinQuestDrop", side = 1, place = "questDropPlace", detachedOnly = true,
-        closeTip = "Close, abandoning nothing.",
+        name = "MedalluinQuestDrop", named = Tr["Quest Drop"], side = 1, place = "questDropPlace", detachedOnly = true,
+        closeTip = Tr["Close, abandoning nothing."],
         Close = function() drop.Close() end,
         Lifted = function() return {} end,
     }
-    page = { key = "drop", label = "Drop quests", glyph = "quests", order = 1, flex = true, bandUsed = true,
+    page = { key = "drop", label = Tr["Drop quests"], glyph = "quests", order = 1, flex = true, bandUsed = true,
         height = 160,
         Available = function() return true end,
         Build = function(b, _, margin)
@@ -260,17 +261,19 @@ local function Window()
             intro = ns.Text(b, 11)
             intro:SetPoint("TOPLEFT", 4, -2)
             intro:SetTextColor(unpack(DIM))
-            intro:SetText("Tick the quests to abandon.")
+            intro:SetText(Tr["Tick the quests to abandon."])
             picks = ns.window.Segments(b, { height = PICKS, items = {
-                { key = "all", label = "All", group = "set", click = function() Pick(function() return true end) end,
-                    tip = function() return "Every quest." end },
-                { key = "none", label = "None", group = "set", click = function() Pick(function() return false end) end,
-                    tip = function() return "No quest." end },
-                { key = "grey", label = "Grey", group = "kind", click = function() Pick(Grey) end,
-                    tip = function() return "The quests too low to give experience." end },
-                { key = "failed", label = "Failed", group = "kind",
+                { key = "all", label = Tr["All"], group = "set",
+                    click = function() Pick(function() return true end) end,
+                    tip = function() return Tr["Every quest."] end },
+                { key = "none", label = Tr["None"], group = "set",
+                    click = function() Pick(function() return false end) end,
+                    tip = function() return Tr["No quest."] end },
+                { key = "grey", label = Tr["Grey"], group = "kind", click = function() Pick(Grey) end,
+                    tip = function() return Tr["The quests too low to give experience."] end },
+                { key = "failed", label = Tr["Failed"], group = "kind",
                     click = function() Pick(function(q) return q.state == -1 end) end,
-                    tip = function() return "The quests you have failed." end },
+                    tip = function() return Tr["The quests you have failed."] end },
             } })
             picks:SetPoint("TOPLEFT", 0, -20)
             picks:SetPoint("TOPRIGHT", 0, -20)
@@ -283,16 +286,16 @@ local function Window()
             empty = ns.Text(list, 11)
             empty:SetPoint("TOPLEFT", 4, -4)
             empty:SetTextColor(unpack(DIM))
-            empty:SetText("Your quest log is empty.")
+            empty:SetText(Tr["Your quest log is empty."])
             rows = {}
             band = ns.window.Segments(margin, { height = margin:GetHeight() > 0 and margin:GetHeight() - 8 or 28,
                 items = {
-                    { key = "cancel", label = "Cancel", group = "cancel", click = function() drop.Close() end,
-                        tip = function() return "Close, abandoning nothing." end },
-                    { key = "abandon", label = "Abandon", group = "abandon", color = RED, click = Abandon,
+                    { key = "cancel", label = Tr["Cancel"], group = "cancel", click = function() drop.Close() end,
+                        tip = function() return Tr["Close, abandoning nothing."] end },
+                    { key = "abandon", label = Tr["Abandon"], group = "abandon", color = RED, click = Abandon,
                         tip = function()
-                            return armed and "Click again to abandon them. Their items stay in your bags."
-                                or "Abandon the ticked quests. It asks once more first."
+                            return armed and Tr["Click again to abandon them. Their items stay in your bags."]
+                                or Tr["Abandon the ticked quests. It asks once more first."]
                         end },
                 } })
             band:SetPoint("LEFT", 4, 0)

@@ -7,6 +7,7 @@
 -- does; the choice is kept by currency, since marking one unused moves it.
 -- A shift click links it in the chat, and the tooltip is the game's.
 local _, ns = ...
+local Tr = ns.L
 
 local CI = C_CurrencyInfo
 local list, details
@@ -69,13 +70,13 @@ local function Description(id)
 end
 
 local TICKS = {
-    { label = "Show on backpack", tip = "Show this currency beside your money, under the bags.",
+    { label = Tr["Show on backpack"], tip = Tr["Show this currency beside your money, under the bags."],
         click = function(on)
             local _, i = Chosen()
             if i then CI.SetCurrencyBackpack(i, on) end
             Refresh()
         end },
-    { label = "Unused", tip = "Move this currency to the Unused heading, out of the way.",
+    { label = Tr["Unused"], tip = Tr["Move this currency to the Unused heading, out of the way."],
         click = function(on)
             local _, i = Chosen()
             if i then CI.SetCurrencyUnused(i, on) end
@@ -99,10 +100,10 @@ Refresh = function()
     end
     local lines = {}
     if c.canEarnPerWeek and c.maxWeeklyQuantity and c.maxWeeklyQuantity > 0 then
-        table.insert(lines, format("This week: %s / %s", BreakUpLargeNumbers(c.quantityEarnedThisWeek or 0),
+        table.insert(lines, format(Tr["This week: %s / %s"], BreakUpLargeNumbers(c.quantityEarnedThisWeek or 0),
             BreakUpLargeNumbers(c.maxWeeklyQuantity)))
     end
-    details:Set({ title = c.name, sub = format("You have %s", have), bar = bar,
+    details:Set({ title = c.name, sub = format(Tr["You have %s"], have), bar = bar,
         text = Description(c.currencyID), lines = lines })
     details.ticks[1]:Set(c.isShowInBackpack, true)
     details.ticks[2]:Set(c.isTypeUnused, true)
@@ -110,14 +111,14 @@ end
 
 local page
 local function Build(body, foot)
-    list = ns.character.List(body, "No currencies yet.")
-    details = ns.character.Details(foot, TICKS, "Choose a currency to see its details.")
+    list = ns.character.List(body, Tr["No currencies yet."])
+    details = ns.character.Details(foot, TICKS, Tr["Choose a currency to see its details."])
     page.footHeight = details.height
     page.list, page.details = list, details
 end
 
 page = {
-    key = "currency", label = "Currency", frame = "TokenFrame", order = 3,
+    key = "currency", label = Tr["Currency"], frame = "TokenFrame", order = 3,
     height = 0, flex = true,
     events = { "CURRENCY_DISPLAY_UPDATE" },
     Build = Build, Refresh = function() Refresh() end,

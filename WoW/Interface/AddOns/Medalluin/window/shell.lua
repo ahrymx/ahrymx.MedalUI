@@ -33,7 +33,7 @@
 -- the first, shared out across the whole width; while there is one, the
 -- rule and the page stand a row lower.
 --
---   local w = ns.Window{ name, side (-1 left, 1 right),
+--   local w = ns.Window{ name, named (its name, translated), side (-1 left, 1 right),
 --                        closeTip, Close(), Open(page) (ask Blizzard),
 --                        Lifted() -> the medallion's buttons,
 --                        place (a setting: the window detaches, below),
@@ -737,7 +737,7 @@ function ns.window.Choices(spec)
         end
         local label = ns.Text(f, 9)
         label:SetPoint("TOPLEFT", 12, -12)
-        label:SetText(spec.title:upper())
+        label:SetText(ns.Upper(spec.title))
         label:SetTextColor(unpack(POP_DIM))
         pop.keys = {}
         local w, n = width - 24, #spec.choices
@@ -1617,10 +1617,11 @@ function ns.Window(spec)
     -- from the side away from the window (PlaceList)
     local mirror = side < 0
     local inward = side > 0             -- a right-hand window's fades: bright at the right
-    -- the window's name, for the list's heading: "Character window"
+    -- the window's name, for the list's heading: "Character window" (its
+    -- spec's named, in the client's language, else from its frame's name)
     local function Title()
         if spec.title then return spec.title end
-        local n = tostring(spec.name or ""):gsub("^Medalluin", ""):gsub("(%l)(%u)", "%1 %2")
+        local n = spec.named or tostring(spec.name or ""):gsub("^Medalluin", ""):gsub("(%l)(%u)", "%1 %2")
         return n ~= "" and format(Tr["%s window"], n) or Tr["Pages"]
     end
     local function Dropped()
@@ -1699,7 +1700,7 @@ function ns.Window(spec)
         f.title = ns.Text(f, 9)
         f.title:SetPoint("TOPLEFT", 12, -10)
         f.title:SetTextColor(FAINT[1], FAINT[2], FAINT[3])
-        f.title:SetText(Title():upper())
+        f.title:SetText(ns.Upper(Title()))
         local under = f:CreateTexture(nil, "ARTWORK")
         under:SetHeight(1)
         under:SetPoint("TOPLEFT", 12, -(DROP_HEAD - 6))

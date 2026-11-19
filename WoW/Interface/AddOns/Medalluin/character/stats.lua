@@ -17,6 +17,7 @@
 -- Crit, hit and haste are the best of melee, ranged and spell, as one
 -- number serves every class.
 local _, ns = ...
+local Tr = ns.L
 
 local ROW, RIBBON, BADGE, GAP = 22, 50, 54, 10
 -- (2026-11-19, /workspace/sleek-character.png) the ribbon a gold band with
@@ -31,6 +32,11 @@ local SCHOOL_COLOR = { Arcane = { 0.6, 0.45, 1 }, Fire = { 1, 0.36, 0.16 }, Fros
     Nature = { 0.32, 0.86, 0.36 }, Shadow = { 0.67, 0.3, 0.84 } }
 local BOX, LABEL = 34, 16                       -- a resistance's cell, its height; the label over them
 local SCHOOL_CLASS = { Arcane = 6, Fire = 2, Frost = 4, Nature = 3, Shadow = 5 }   -- Enum.Damageclass
+-- each school's name as shown, and as the object of "Reduces %s damage"
+local SCHOOL_NAME = { Arcane = Tr["Arcane"], Fire = Tr["Fire"], Frost = Tr["Frost"], Nature = Tr["Nature"],
+    Shadow = Tr["Shadow"] }
+local SCHOOL_DAMAGE = { Arcane = Tr["arcane"], Fire = Tr["fire"], Frost = Tr["frost"], Nature = Tr["nature"],
+    Shadow = Tr["shadow"] }
 
 local function Best(...)
     local best
@@ -84,7 +90,7 @@ local function PrimaryName()
         local v = select(2, UnitStat("player", i))
         if v > best then best, at = v, i end
     end
-    return _G["SPELL_STAT" .. at .. "_NAME"] or ({ "Strength", "Agility", "", "Intellect" })[at], at
+    return _G["SPELL_STAT" .. at .. "_NAME"] or ({ Tr["Strength"], Tr["Agility"], "", Tr["Intellect"] })[at], at
 end
 
 local function Speed()
@@ -95,7 +101,7 @@ end
 local function Power() return UnitPowerMax("player") end
 local function PowerName()
     local _, token = UnitPowerType("player")
-    return token and _G[token] or "Power"
+    return token and _G[token] or Tr["Power"]
 end
 
 -- ------------------------------------------------------------ tooltips
@@ -128,32 +134,33 @@ local function PrimaryTip(i, name)
         local base, stat, pos, neg = Call(UnitStat, "player", i)
         stat = Num(stat) or 0
         local spec = { title = format("%s %s", name, Whole(stat)) }
-        if Num(base) then table.insert(spec, { "row", "Base", Whole(base) }) end
-        if Num(pos) and pos > 0 then table.insert(spec, { "row", "Bonus", GOOD .. "+" .. Whole(pos) .. "|r" }) end
-        if Num(neg) and neg < 0 then table.insert(spec, { "row", "Penalty", BAD .. Whole(neg) .. "|r" }) end
+        if Num(base) then table.insert(spec, { "row", Tr["Base"], Whole(base) }) end
+        if Num(pos) and pos > 0 then table.insert(spec, { "row", Tr["Bonus"], GOOD .. "+" .. Whole(pos) .. "|r" }) end
+        if Num(neg) and neg < 0 then table.insert(spec, { "row", Tr["Penalty"], BAD .. Whole(neg) .. "|r" }) end
         local _, token = Call(UnitPowerType, "player")
         if i == 1 or i == 2 then
             local ap = Num(Call(GetAttackPowerForStat, i, stat))
-            if ap and ap > 0 then table.insert(spec, Line("Increases attack power by %d.", ap)) end
+            if ap and ap > 0 then table.insert(spec, Line(Tr["Increases attack power by %d."], ap)) end
         end
         if i == 2 then
-            table.insert(spec, Line("Increases critical strike chance by %.2f%%.",
+            table.insert(spec, Line(Tr["Increases critical strike chance by %.2f%%."],
                 Num(Call(GetCritChanceFromAgility, "player"))))
-            table.insert(spec, Line("Increases armor by %d.", stat * 2))
+            table.insert(spec, Line(Tr["Increases armor by %d."], stat * 2))
         elseif i == 3 then
-            table.insert(spec, Line("Increases health by %d.", math.max(0, stat - 20) * 10 + math.min(stat, 20)))
+            table.insert(spec, Line(Tr["Increases health by %d."], math.max(0, stat - 20) * 10 + math.min(stat, 20)))
         elseif i == 4 then
             if token == "MANA" then
-                table.insert(spec, Line("Increases mana by %d.", math.max(0, stat - 20) * 15 + math.min(stat, 20)))
+                table.insert(spec, Line(Tr["Increases mana by %d."], math.max(0, stat - 20) * 15 + math.min(stat, 20)))
             end
-            table.insert(spec, Line("Increases spell critical strike chance by %.2f%%.",
+            table.insert(spec, Line(Tr["Increases spell critical strike chance by %.2f%%."],
                 Num(Call(GetSpellCritChanceFromIntellect, "player"))))
         elseif i == 5 then
-            table.insert(spec, Line("Regenerates %.1f health per second out of combat.",
+            table.insert(spec, Line(Tr["Regenerates %.1f health per second out of combat."],
                 Num(Call(GetUnitHealthRegenRateFromSpirit, "player"))))
             if token == "MANA" then
                 local regen = Num(Call(GetUnitManaRegenRateFromSpirit, "player"))
-                table.insert(spec, Line("Regenerates %d mana every 5 seconds while not casting.", regen and regen * 5))
+                table.insert(spec, Line(Tr["Regenerates %d mana every 5 seconds while not casting."],
+                    regen and regen * 5))
             end
         end
         return spec
@@ -162,8 +169,8 @@ end
 
 local function HealthTip()
     local now, most = Num(Call(UnitHealth, "player")), Num(Call(UnitHealthMax, "player"))
-    return { title = "Health", now and { "row", "Current", Whole(now) } or false,
-        most and { "row", "Maximum", Whole(most) } or false }
+    return { title = Tr["Health"], now and { "row", Tr["Current"], Whole(now) } or false,
+        most and { "row", Tr["Maximum"], Whole(most) } or false }
 end
 
 local function PowerTip()
@@ -172,8 +179,9 @@ local function PowerTip()
     local base, casting = Call(GetManaRegen)
     local _, token = Call(UnitPowerType, "player")
     if token == "MANA" and Num(base) then
-        table.insert(spec, { "row", "Regeneration", format("%d per 5 sec", base * 5) })
-        if Num(casting) then table.insert(spec, { "row", "While casting", format("%d per 5 sec", casting * 5) }) end
+        table.insert(spec, { "row", Tr["Regeneration"], format(Tr["%d per 5 sec"], base * 5) })
+        if Num(casting) then table.insert(spec, { "row", Tr["While casting"], format(Tr["%d per 5 sec"],
+            casting * 5) }) end
     end
     return spec
 end
@@ -181,23 +189,24 @@ end
 local function AttackTip()
     local base, pos, neg = Call(UnitAttackPower, "player")
     local total = (Num(base) or 0) + (Num(pos) or 0) + (Num(neg) or 0)
-    local spec = { title = "Attack Power " .. Whole(total), { "row", "Melee", Made(base or 0, pos, neg) },
-        Line("Increases melee damage by %.1f damage per second.",
+    local spec = { title = format("%s %s", Tr["Attack Power"], Whole(total)), { "row", Tr["Melee"], Made(base or 0,
+        pos, neg) },
+        Line(Tr["Increases melee damage by %.1f damage per second."],
             math.max(total, 0) / (ATTACK_POWER_MAGIC_NUMBER or 14)) }
     local rb, rp, rn = Call(UnitRangedAttackPower, "player")
     local ranged = (Num(rb) or 0) + (Num(rp) or 0) + (Num(rn) or 0)
     if ranged > 0 then
-        table.insert(spec, { "row", "Ranged", Made(rb, rp, rn) })
-        table.insert(spec, Line("Increases ranged damage by %.1f damage per second.",
+        table.insert(spec, { "row", Tr["Ranged"], Made(rb, rp, rn) })
+        table.insert(spec, Line(Tr["Increases ranged damage by %.1f damage per second."],
             ranged / (ATTACK_POWER_MAGIC_NUMBER or 14)))
     end
     return spec
 end
 
-local SPELL_SCHOOLS = { { "Holy", 2 }, { "Fire", 3 }, { "Nature", 4 }, { "Frost", 5 }, { "Shadow", 6 },
-    { "Arcane", 7 } }
+local SPELL_SCHOOLS = { { Tr["Holy"], 2 }, { Tr["Fire"], 3 }, { Tr["Nature"], 4 }, { Tr["Frost"], 5 },
+    { Tr["Shadow"], 6 }, { Tr["Arcane"], 7 } }
 local function SpellTip()
-    local spec = { title = "Spell Power " .. Whole(SpellSchools(GetSpellBonusDamage) or 0) }
+    local spec = { title = format("%s %s", Tr["Spell Power"], Whole(SpellSchools(GetSpellBonusDamage) or 0)) }
     local list = {}
     for _, sc in ipairs(SPELL_SCHOOLS) do
         local v = Num(Call(GetSpellBonusDamage, sc[2]))
@@ -205,13 +214,14 @@ local function SpellTip()
     end
     table.sort(list, function(a, b) return a[2] > b[2] end)
     for _, e in ipairs(list) do table.insert(spec, { "row", e[1], Whole(e[2]) }) end
-    table.insert(spec, { "hint", "Bonus damage to your spells, by school" })
+    table.insert(spec, { "hint", Tr["Bonus damage to your spells, by school"] })
     return spec
 end
 
 local function HealingTip()
     local v = Num(Call(GetSpellBonusHealing)) or 0
-    return { title = "Healing " .. Whole(v), Line("Increases healing done by spells by up to %d.", v) }
+    return { title = format("%s %s", Tr["Healing"], Whole(v)),
+        Line(Tr["Increases healing done by spells by up to %d."], v) }
 end
 
 local function DefenseTip()
@@ -219,48 +229,54 @@ local function DefenseTip()
     base, mod = Num(base) or 0, Num(mod) or 0
     local total = base + mod
     local extra = (total - Level() * 5) * 0.04
-    local spec = { title = "Defense " .. Whole(total), { "row", "Skill", Whole(base) },
-        mod ~= 0 and { "row", "Bonus", (mod > 0 and GOOD .. "+" or BAD) .. Whole(mod) .. "|r" } or false }
+    local spec = { title = format("%s %s", Tr["Defense"], Whole(total)), { "row", Tr["Skill"], Whole(base) },
+        mod ~= 0 and { "row", Tr["Bonus"], (mod > 0 and GOOD .. "+" or BAD) .. Whole(mod) .. "|r" } or false }
     if extra > 0 then
-        table.insert(spec, Line("Increases chance to be missed, dodged, parried and blocked by %.2f%%.", extra))
-        table.insert(spec, Line("Decreases chance to be hit and critically hit by %.2f%%.", extra))
+        table.insert(spec, Line(Tr["Increases chance to be missed, dodged, parried and blocked by %.2f%%."], extra))
+        table.insert(spec, Line(Tr["Decreases chance to be hit and critically hit by %.2f%%."], extra))
     end
     return spec
 end
 
-local function ChanceTip(name, fn, what)
+local function ChanceTip(name, fn, says)
     return function()
         local v = Num(Call(fn)) or 0
-        return { title = format("%s %s", name, Pct(v)), Line("%.2f%% chance to " .. what .. ".", v) }
+        return { title = format("%s %s", name, Pct(v)), Line(says, v) }
     end
 end
 
 local function BlockTip()
     local v = Num(Call(GetBlockChance)) or 0
-    local spec = { title = "Block " .. Pct(v), Line("%.2f%% chance to block an attack with a shield.", v) }
-    table.insert(spec, Line("A block stops %d damage.", Num(Call(GetShieldBlock))))
+    local spec = { title = format("%s %s", Tr["Block"], Pct(v)),
+        Line(Tr["%.2f%% chance to block an attack with a shield."], v) }
+    table.insert(spec, Line(Tr["A block stops %d damage."], Num(Call(GetShieldBlock))))
     return spec
 end
 
 local function HitTip()
     local melee = (Num(Call(GetHitModifier)) or 0) + Rating(CR_HIT_MELEE)
     local spell = (Num(Call(GetSpellHitModifier)) or 0) + Rating(CR_HIT_SPELL)
-    return { title = "Hit " .. Percent(math.max(melee, spell)), { "row", "Melee and ranged", Pct(melee) },
-        { "row", "Spells", Pct(spell) }, { "hint", "Lowers the chance your attacks and spells miss" } }
+    return { title = format("%s %s", Tr["Hit"], Percent(math.max(melee, spell))), { "row", Tr["Melee and ranged"],
+        Pct(melee) },
+        { "row", Tr["Spells"], Pct(spell) }, { "hint", Tr["Lowers the chance your attacks and spells miss"] } }
 end
 
 local function CritTip()
     local melee, ranged = Num(Call(GetCritChance)), Num(Call(GetRangedCritChance))
     local spell = Num(SpellSchools(GetSpellCritChance))
-    return { title = "Crit " .. Percent(Crit() or 0), melee and { "row", "Melee", Pct(melee) } or false,
-        ranged and { "row", "Ranged", Pct(ranged) } or false, spell and { "row", "Spells", Pct(spell) } or false }
+    return { title = format("%s %s", Tr["Crit"], Percent(Crit() or 0)), melee and { "row", Tr["Melee"],
+        Pct(melee) } or false,
+        ranged and { "row", Tr["Ranged"], Pct(ranged) } or false, spell and { "row", Tr["Spells"],
+            Pct(spell) } or false }
 end
 
 local function HasteTip()
     local melee = Num(Call(GetMeleeHaste)) or Num(Call(GetHaste))
     local ranged, spell = Num(Call(GetRangedHaste)), Num(Call(UnitSpellHaste, "player"))
-    return { title = "Haste " .. Percent(Haste() or 0), melee and { "row", "Melee", Pct(melee) } or false,
-        ranged and { "row", "Ranged", Pct(ranged) } or false, spell and { "row", "Spells", Pct(spell) } or false }
+    return { title = format("%s %s", Tr["Haste"], Percent(Haste() or 0)), melee and { "row", Tr["Melee"],
+        Pct(melee) } or false,
+        ranged and { "row", Tr["Ranged"], Pct(ranged) } or false, spell and { "row", Tr["Spells"],
+            Pct(spell) } or false }
 end
 
 local function ArmorTip()
@@ -269,25 +285,26 @@ local function ArmorTip()
     local level = Level()
     local cut = Num(Call(PaperDollFrame_GetArmorReduction, effective, level))
         or effective / (effective + 400 + 85 * level) * 100
-    return { title = "Armor " .. Whole(effective), Num(base) and { "row", "Base", Made(base, pos, neg) } or false,
-        Line("Reduces physical damage taken by %.2f%%", cut),
-        { "hint", format("Against a level %d attacker", level) } }
+    return { title = format("%s %s", Tr["Armor"], Whole(effective)), Num(base) and { "row", Tr["Base"], Made(base,
+        pos, neg) } or false,
+        Line(Tr["Reduces physical damage taken by %.2f%%"], cut),
+        { "hint", format(Tr["Against a level %d attacker"], level) } }
 end
 
 -- retail: the value, and its rating where it has one
 local function RatedTip(name, cr, fmt)
     return function(text)
         local rating = cr and Num(Call(GetCombatRating, cr))
-        return { title = format("%s %s", name, text or ""), rating and { "row", "Rating", Whole(rating) } or false,
+        return { title = format("%s %s", name, text or ""), rating and { "row", Tr["Rating"], Whole(rating) } or false,
             fmt and { "hint", fmt } or false }
     end
 end
 
 local function ItemLevelTip()
     local avg, equipped = Call(GetAverageItemLevel)
-    return { title = "Item Level", Num(equipped) and { "row", "Equipped", format("%.1f", equipped) } or false,
-        Num(avg) and { "row", "Overall", format("%.1f", avg) } or false,
-        { "hint", "The average of your gear's item levels" } }
+    return { title = Tr["Item Level"], Num(equipped) and { "row", Tr["Equipped"], format("%.1f", equipped) } or false,
+        Num(avg) and { "row", Tr["Overall"], format("%.1f", avg) } or false,
+        { "hint", Tr["The average of your gear's item levels"] } }
 end
 
 local function ResistTip(school, col)
@@ -295,69 +312,72 @@ local function ResistTip(school, col)
     local _, _, _, shown = Call(UnitResistance, "player", SCHOOL_CLASS[school])
     total = Num(shown) or Num(total) or 0
     local cut = math.min(75, total / (Level() * 5) * 75)
-    return { title = format("%s resistance %s", school, Whole(total)), color = col,
-        Num(base) and { "row", "Base", Whole(base) } or false,
-        total > 0 and Line("Reduces " .. school:lower() .. " damage taken by about %.0f%% on average.", cut) or false,
-        { "hint", format("Against a level %d caster", Level()) } }
+    return { title = format(Tr["%s resistance %s"], SCHOOL_NAME[school], Whole(total)), color = col,
+        Num(base) and { "row", Tr["Base"], Whole(base) } or false,
+        total > 0 and { "body", format(Tr["Reduces %s damage taken by about %.0f%% on average."],
+            SCHOOL_DAMAGE[school], cut) } or false,
+        { "hint", format(Tr["Against a level %d caster"], Level()) } }
 end
 
 -- { label, value (a function), format, tooltip (a function of the shown
 -- text, its spec) }; a label may be a function too
 local FOREVER = {
     ribbon = {
-        { "Hit", Hit, Percent, HitTip }, { "Crit", Crit, Percent, CritTip },
-        { "Haste", Haste, Percent, HasteTip }, { "Armor", Armor, Whole, ArmorTip },
+        { Tr["Hit"], Hit, Percent, HitTip }, { Tr["Crit"], Crit, Percent, CritTip },
+        { Tr["Haste"], Haste, Percent, HasteTip }, { Tr["Armor"], Armor, Whole, ArmorTip },
     },
     left = {
-        { "Health", function() return UnitHealthMax("player") end, Whole, HealthTip },
+        { Tr["Health"], function() return UnitHealthMax("player") end, Whole, HealthTip },
         { PowerName, Power, Whole, PowerTip },
-        { "Strength", Stat(1), Whole, PrimaryTip(1, "Strength") },
-        { "Agility", Stat(2), Whole, PrimaryTip(2, "Agility") },
-        { "Stamina", Stat(3), Whole, PrimaryTip(3, "Stamina") },
-        { "Intellect", Stat(4), Whole, PrimaryTip(4, "Intellect") },
-        { "Spirit", Stat(5), Whole, PrimaryTip(5, "Spirit") },
+        { Tr["Strength"], Stat(1), Whole, PrimaryTip(1, Tr["Strength"]) },
+        { Tr["Agility"], Stat(2), Whole, PrimaryTip(2, Tr["Agility"]) },
+        { Tr["Stamina"], Stat(3), Whole, PrimaryTip(3, Tr["Stamina"]) },
+        { Tr["Intellect"], Stat(4), Whole, PrimaryTip(4, Tr["Intellect"]) },
+        { Tr["Spirit"], Stat(5), Whole, PrimaryTip(5, Tr["Spirit"]) },
     },
     right = {
-        { "Attack Power", function()
+        { Tr["Attack Power"], function()
             local base, pos, neg = UnitAttackPower("player")
             return base + pos + neg
         end, Whole, AttackTip },
-        { "Spell Power", function() return SpellSchools(GetSpellBonusDamage) end, Whole, SpellTip },
-        { "Healing", function() return GetSpellBonusHealing() end, Whole, HealingTip },
-        { "Defense", function()
+        { Tr["Spell Power"], function() return SpellSchools(GetSpellBonusDamage) end, Whole, SpellTip },
+        { Tr["Healing"], function() return GetSpellBonusHealing() end, Whole, HealingTip },
+        { Tr["Defense"], function()
             local base, mod = UnitDefenseSkill("player")
             return base + mod
         end, Whole, DefenseTip },
-        { "Dodge", function() return GetDodgeChance() end, Percent,
-            ChanceTip("Dodge", function() return GetDodgeChance() end, "dodge melee attacks") },
-        { "Parry", function() return GetParryChance() end, Percent,
-            ChanceTip("Parry", function() return GetParryChance() end, "parry melee attacks") },
-        { "Block", function() return GetBlockChance() end, Percent, BlockTip },
+        { Tr["Dodge"], function() return GetDodgeChance() end, Percent,
+            ChanceTip(Tr["Dodge"], function() return GetDodgeChance() end,
+                Tr["%.2f%% chance to dodge melee attacks."]) },
+        { Tr["Parry"], function() return GetParryChance() end, Percent,
+            ChanceTip(Tr["Parry"], function() return GetParryChance() end,
+                Tr["%.2f%% chance to parry melee attacks."]) },
+        { Tr["Block"], function() return GetBlockChance() end, Percent, BlockTip },
     },
     resist = true,
 }
 
 local RETAIL = {
     ribbon = {
-        { "Crit", Crit, Percent, RatedTip("Critical Strike", CR_CRIT_MELEE) },
-        { "Haste", Haste, Percent, RatedTip("Haste", CR_HASTE_MELEE) },
-        { "Mastery", function() return GetMasteryEffect() end, Percent, RatedTip("Mastery", CR_MASTERY) },
-        { "Vers", function()
+        { Tr["Crit"], Crit, Percent, RatedTip(Tr["Critical Strike"], CR_CRIT_MELEE) },
+        { Tr["Haste"], Haste, Percent, RatedTip(Tr["Haste"], CR_HASTE_MELEE) },
+        { Tr["Mastery"], function() return GetMasteryEffect() end, Percent, RatedTip(Tr["Mastery"], CR_MASTERY) },
+        { Tr["Vers"], function()
             return Rating(CR_VERSATILITY_DAMAGE_DONE) + GetVersatilityBonus(CR_VERSATILITY_DAMAGE_DONE)
-        end, Percent, RatedTip("Versatility", CR_VERSATILITY_DAMAGE_DONE) },
+        end, Percent, RatedTip(Tr["Versatility"], CR_VERSATILITY_DAMAGE_DONE) },
     },
     left = {
         { PrimaryName, function() return select(2, UnitStat("player", select(2, PrimaryName()))) end, Whole,
             function() local name, at = PrimaryName() return PrimaryTip(at, name)() end },
-        { "Stamina", Stat(3), Whole, PrimaryTip(3, "Stamina") },
-        { "Armor", Armor, Whole, ArmorTip },
-        { "Dodge", function() return GetDodgeChance() end, Percent, RatedTip("Dodge", CR_DODGE) },
+        { Tr["Stamina"], Stat(3), Whole, PrimaryTip(3, Tr["Stamina"]) },
+        { Tr["Armor"], Armor, Whole, ArmorTip },
+        { Tr["Dodge"], function() return GetDodgeChance() end, Percent, RatedTip(Tr["Dodge"], CR_DODGE) },
     },
     right = {
-        { "Parry", function() return GetParryChance() end, Percent, RatedTip("Parry", CR_PARRY) },
-        { "Leech", function() return GetLifesteal() end, Percent, RatedTip("Leech", CR_LIFESTEAL) },
-        { "Avoidance", function() return GetAvoidance() end, Percent, RatedTip("Avoidance", CR_AVOIDANCE) },
-        { "Movement Speed", Speed, Percent, RatedTip("Movement Speed", CR_SPEED) },
+        { Tr["Parry"], function() return GetParryChance() end, Percent, RatedTip(Tr["Parry"], CR_PARRY) },
+        { Tr["Leech"], function() return GetLifesteal() end, Percent, RatedTip(Tr["Leech"], CR_LIFESTEAL) },
+        { Tr["Avoidance"], function() return GetAvoidance() end, Percent, RatedTip(Tr["Avoidance"], CR_AVOIDANCE) },
+        { Tr["Movement Speed"], Speed, Percent, RatedTip(Tr["Movement Speed"], CR_SPEED) },
     },
 }
 
@@ -469,7 +489,7 @@ local function Ribbon(foot)
     b.value:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
     b.label = ns.Text(b, 8)
     b.label:SetPoint("CENTER", 0, -12)
-    b.label:SetText("ilvl")
+    b.label:SetText(Tr["ilvl"])
     b.label:SetTextColor(unpack(ns.colors.dim))
     -- two cells each side, each a quarter of what the badge leaves
     local cells = {}
@@ -529,7 +549,7 @@ local function Resist(foot)
     frame.cells = {}
     frame.label = ns.Text(frame, 10)
     frame.label:SetPoint("TOPLEFT", 0, 0)
-    frame.label:SetText("Resistances")
+    frame.label:SetText(Tr["Resistances"])
     frame.label:SetTextColor(unpack(ns.colors.dim))
     frame.hair = frame:CreateTexture(nil, "BACKGROUND")
     frame.hair:SetHeight(1)
@@ -572,7 +592,7 @@ local function Resist(foot)
         end
         c.name = ns.Text(c, 10)
         c.name:SetPoint("LEFT", 22, 0)
-        c.name:SetText(school)
+        c.name:SetText(SCHOOL_NAME[school])
         c.name:SetTextColor(unpack(ns.colors.dim))
         c.value = ns.Text(c, 14)
         c.value:SetPoint("RIGHT", -8, 0)
@@ -580,7 +600,9 @@ local function Resist(foot)
         c:EnableMouse(true)
         c:SetScript("OnEnter", function(self)
             local ok, spec = pcall(ResistTip, school, col)
-            ns.Tip(self, ns.window.OutsideTop, ok and spec or { title = format("%s resistance", school), color = col })
+            ns.Tip(self, ns.window.OutsideTop, ok and spec or { title = format(Tr["%s resistance"],
+                SCHOOL_NAME[school]),
+                color = col })
         end)
         c:SetScript("OnLeave", function() GameTooltip:Hide() end)
         frame.cells[i] = c

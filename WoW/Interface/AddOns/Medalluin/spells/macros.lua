@@ -35,6 +35,7 @@
 -- beside it (window/reskin.lua), nothing written on the game's frames.
 -- The game's ways in (/macro, the game menu) open the book on this page.
 local _, ns = ...
+local Tr = ns.L
 
 local R = ns.reskin
 local GOLD, GOLD_D = R.GOLD, R.GOLD_D
@@ -109,7 +110,7 @@ end
 local function Combat() return fight or InCombatLockdown() end
 local function Fighting()
     if not Combat() then return false end
-    print("|cffe0b84aMedalluin|r: macros cannot change in combat.")
+    print("|cffe0b84aMedalluin|r: " .. Tr["macros cannot change in combat."])
     return true
 end
 
@@ -180,13 +181,14 @@ local function Tooltip(owner, c)
     if not c.name then return end
     local spell = Spell(c.index)
     ns.Tip(owner, ns.window.Outside, { title = c.name, color = GOLD,
-        spell and { "body", "Casts " .. spell, ns.colors.dim } or false,
-        c.clicks and { "body", "Click casting: " .. c.clicks, GOLD } or false,
-        Binding() and { "body", "Click to bind it.", GOLD } or false,
-        not Binding() and { "body", Opened(c.name) and "Left-click to fold it." or "Left-click to show and edit it." }
+        spell and { "body", format(Tr["Casts %s"], spell), ns.colors.dim } or false,
+        c.clicks and { "body", format(Tr["Click casting: %s"], c.clicks), GOLD } or false,
+        Binding() and { "body", Tr["Click to bind it."], GOLD } or false,
+        not Binding() and { "body",
+            Opened(c.name) and Tr["Left-click to fold it."] or Tr["Left-click to show and edit it."] }
             or false,
-        not Binding() and { "body", "Right-click to run it." } or false,
-        { "hint", "Drag it to an action bar." } })
+        not Binding() and { "body", Tr["Right-click to run it."] } or false,
+        { "hint", Tr["Drag it to an action bar."] } })
 end
 
 -- ------------------------------------------------------------------ cards
@@ -285,7 +287,7 @@ local function Card(n)
     R.Lit(c.delete)
     c.delete.label = ns.Text(c.delete, 11)
     c.delete.label:SetPoint("CENTER")
-    c.delete.label:SetText("Delete")
+    c.delete.label:SetText(Tr["Delete"])
     -- the game's own confirm, which deletes the macro in the editor
     c.delete:SetScript("OnClick", function()
         if Fighting() then return end
@@ -293,8 +295,8 @@ local function Card(n)
         Press(MacroDeleteButton)
     end)
     c.delete:SetScript("OnEnter", function(self)
-        ns.Tip(self, ns.window.Outside, { title = "Delete " .. (c.name or ""), color = GOLD,
-            { "body", "Asks first." } })
+        ns.Tip(self, ns.window.Outside, { title = format(Tr["Delete %s"], c.name or ""), color = GOLD,
+            { "body", Tr["Asks first."] } })
     end)
     c.delete:SetScript("OnLeave", function() GameTooltip:Hide() end)
     -- what the secure button covers: the head within the edges
@@ -392,12 +394,12 @@ local function Switch()
     local consts = Constants and Constants.MacroConsts or {}
     local free = not (MacroPopupFrame and MacroPopupFrame:IsShown())
     switch:Fill({
-        { key = 1, label = format("General   %d / %d", account or 0, consts.MAX_ACCOUNT_MACROS or 120),
+        { key = 1, label = format(Tr["General   %d / %d"], account or 0, consts.MAX_ACCOUNT_MACROS or 120),
             selected = tab == 1, enabled = free or tab == 1,
-            click = function() M.Tab(1) end, tip = function() return "The macros every character shares." end },
-        { key = 2, label = format("%s   %d / %d", UnitName("player") or "Character", character or 0,
+            click = function() M.Tab(1) end, tip = function() return Tr["The macros every character shares."] end },
+        { key = 2, label = format("%s   %d / %d", UnitName("player") or Tr["Character"], character or 0,
             consts.MAX_CHARACTER_MACROS or 18), selected = tab == 2, enabled = free or tab == 2,
-            click = function() M.Tab(2) end, tip = function() return "This character's own macros." end },
+            click = function() M.Tab(2) end, tip = function() return Tr["This character's own macros."] end },
     })
 end
 
@@ -483,7 +485,7 @@ local function Paint()
     editor.buttons:Set("save", { enabled = free and can, selected = free and can and edited })
     editor.buttons:Set("cancel", { enabled = can and edited })
     local spell = index and Spell(index)
-    editor.casts:SetText(spell and "Casts " .. spell or "")
+    editor.casts:SetText(spell and format(Tr["Casts %s"], spell) or "")
     editor.count:SetText(can and format("%d / %d", MacroFrameText:GetNumLetters(), LETTERS) or "")
 end
 
@@ -531,23 +533,23 @@ local function Editor(parent)
     R.Glyph(e.pencil, "edit", 18)
     e.pencil:SetScript("OnClick", function() Write(MacroEditButton) end)
     e.pencil:SetScript("OnEnter", function(self)
-        ns.Tip(self, ns.window.Outside, { title = "Change its name and icon", color = GOLD })
+        ns.Tip(self, ns.window.Outside, { title = Tr["Change its name and icon"], color = GOLD })
     end)
     e.pencil:SetScript("OnLeave", function() GameTooltip:Hide() end)
     e.buttons = ns.window.Segments(e.head, { height = BAR - 8, fit = true, size = 12, items = {
-        { key = "new", label = "+  New", click = function() Write(MacroNewButton) end,
+        { key = "new", label = Tr["+  New"], click = function() Write(MacroNewButton) end,
             tip = function()
-                return Combat() and "Not in combat." or "A new macro in this set: its name and icon first."
+                return Combat() and Tr["Not in combat."] or Tr["A new macro in this set: its name and icon first."]
             end },
-        { key = "save", label = "Save", click = function() Write(MacroSaveButton) end,
-            tip = function() return Combat() and "Not in combat." or "Save the text." end },
-        { key = "cancel", label = "Cancel", click = function()
+        { key = "save", label = Tr["Save"], click = function() Write(MacroSaveButton) end,
+            tip = function() return Combat() and Tr["Not in combat."] or Tr["Save the text."] end },
+        { key = "cancel", label = Tr["Cancel"], click = function()
             if not edited then return end
             Press(MacroCancelButton)
             -- the text back as it was saved
             local i = MacroFrame:GetSelectedIndex()
             if i then MacroFrame:SelectMacro(i) end
-        end, tip = function() return "Put the text back as it was saved." end },
+        end, tip = function() return Tr["Put the text back as it was saved."] end },
     } })
     e.buttons:SetPoint("RIGHT", -4, 0)
     -- the text, in a well the game's own edit box is laid in
@@ -558,7 +560,7 @@ local function Editor(parent)
     e.empty = ns.Text(e.well, 12)
     e.empty:SetPoint("CENTER")
     e.empty:SetTextColor(unpack(ns.colors.dim))
-    e.empty:SetText("No macros yet: + New to make one.")
+    e.empty:SetText(Tr["No macros yet: + New to make one."])
     e.casts = ns.Text(e, 11)
     e.casts:SetPoint("BOTTOMLEFT", 4, 3)
     e.casts:SetTextColor(unpack(ns.colors.dim))
@@ -634,7 +636,7 @@ end
 -- Icon:" beside the icon filter; the grid under, OK and Cancel at the foot.
 -- The chosen icon's two lines of words (currently selected, click to view
 -- in the list) and its glow under the mouse away.
-local NAME_HEADER = "Macro Name (16 Characters Max):"
+local NAME_HEADER = Tr["Macro Name (16 Characters Max):"]
 local edges                             -- the grid's left and right insets, as the game lays it
 local function Layout(p)
     local box = p.BorderBox
@@ -751,7 +753,7 @@ local function Popup()
         Spot(self)
         Layout(self)
         local new = IconSelectorPopupFrameModes and IconSelectorPopupFrameModes.New or "new"
-        title:SetText(self.mode == new and "New macro" or "Change name and icon")
+        title:SetText(self.mode == new and Tr["New macro"] or Tr["Change name and icon"])
         Refresh()
     end)
     p:HookScript("OnHide", function() Refresh() end)

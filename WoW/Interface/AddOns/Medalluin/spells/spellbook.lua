@@ -62,6 +62,7 @@
 -- Blizzard's book is a tab of PlayerSpellsFrame, which the talents share:
 -- this window shows while the frame is open on it (spells/frame.lua).
 local _, ns = ...
+local Tr = ns.L
 
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
@@ -81,14 +82,14 @@ local EDGE = 12                         -- the cast time and cost, in from the c
 -- a section's colour, by its specialisation's role (General, the pet's
 -- and the trainer's Other: the theme's brown)
 local ROLE = { TANK = { 0.35, 0.55, 0.9 }, HEALER = { 0.35, 0.78, 0.45 }, DAMAGER = { 0.84, 0.35, 0.29 } }
-local ROLE_WORD = { TANK = "Tank", HEALER = "Healer", DAMAGER = "Damage" }
+local ROLE_WORD = { TANK = Tr["Tank"], HEALER = Tr["Healer"], DAMAGER = Tr["Damage"] }
 local STEP = SPELL * 1.5                -- a turn of the wheel
 local BANK = Enum and Enum.SpellBookSpellBank or { Player = 0, Pet = 1 }
 local TYPE = Enum and Enum.SpellBookItemType or { None = 0, Spell = 1, FutureSpell = 2, PetAction = 3, Flyout = 4 }
 
 local W = ns.Window{
-    name = "MedalluinSpellbook", side = 1,
-    closeTip = "Close the spellbook.",
+    name = "MedalluinSpellbook", named = Tr["Spellbook"], side = 1,
+    closeTip = Tr["Close the spellbook."],
     Close = function() HideUIPanel(PlayerSpellsFrame) end,
     Lifted = function() return { MainMenuBarBackpackButton } end,
 }
@@ -117,17 +118,23 @@ end
 
 
 -- A skill line's role: the game's, by its specialisation, where it has
--- one; else by the tree's (English) name, damage for the rest. General
--- (the first line) has none.
+-- one; else, on an English client, by the tree's name; else by the class
+-- and the tree's place (the lines follow the talent trees' order, General
+-- first); damage for the rest. General (the first line) has none.
 local ROLE_BY_NAME = { Restoration = "HEALER", Holy = "HEALER", Discipline = "HEALER", Protection = "TANK",
     ["Feral Combat"] = "TANK" }
+local ENGLISH = (GetLocale and GetLocale() or "enUS"):match("^en") ~= nil
+local ROLE_BY_TAB = { DRUID = { [3] = "TANK", [4] = "HEALER" }, PALADIN = { [2] = "HEALER", [3] = "TANK" },
+    PRIEST = { [2] = "HEALER", [3] = "HEALER" }, SHAMAN = { [4] = "HEALER" }, WARRIOR = { [4] = "TANK" } }
 local function Role(line, l)
     if l == 1 or not line then return nil end
     if line.specID and GetSpecializationRoleByID then
         local ok, r = pcall(GetSpecializationRoleByID, line.specID)
         if ok and ROLE[r] then return r end
     end
-    return ROLE_BY_NAME[line.name] or "DAMAGER"
+    if ENGLISH then return ROLE_BY_NAME[line.name] or "DAMAGER" end
+    local _, class = UnitClass("player")
+    return ROLE_BY_TAB[class or ""] and ROLE_BY_TAB[class][l] or "DAMAGER"
 end
 
 -- a rank row: the rank's own slot (it casts that rank), under its spell
@@ -187,7 +194,7 @@ local function Trained()
             end
         end
     end
-    local other = { name = "Other", items = {} }
+    local other = { name = Tr["Other"], items = {} }
     for _, t in ipairs(ns.trainers.Class()) do
         local e = t.entry
         local section = lines[of[e.name]] or other
@@ -253,7 +260,7 @@ local function Sections(p)
         local info = SB.GetSpellBookItemInfo(slot, BANK.Pet)
         if info then table.insert(pet, { slot = slot, bank = BANK.Pet, info = info }) end
     end
-    Section(out, "Pet", pet, nil, nil, GetPetIcon and GetPetIcon() or nil)
+    Section(out, Tr["Pet"], pet, nil, nil, GetPetIcon and GetPetIcon() or nil)
     return out
 end
 
@@ -310,7 +317,7 @@ end
 -- your bars, Passive; each with its count, in the book's order within.
 -- Headed only when two have spells, and not on the trainer's page nor
 -- while Click Casting binds (nothing is missing then): else one list.
-local GROUPS = { { "Not on your bars", true }, { "On your bars" }, { "Passive" } }
+local GROUPS = { { Tr["Not on your bars"], true }, { Tr["On your bars"] }, { Tr["Passive"] } }
 local function Grouped(p, macros, binding)
     local list = p.held and p.held.list or {}
     local groups, filled = { {}, {}, {} }, 0
@@ -340,7 +347,8 @@ end
 -- out of combat (else at its end), and with the cursor empty, since the
 -- swap goes through it (a busy cursor waits for the next change).
 local pending
-local MODES = { { "all", "Every spell" }, { "marked", "Only those marked" }, { "none", "None" } }
+-- each mode as the Top rank button's tip names it, mid-sentence
+local MODE_WORD = { all = Tr["every spell"], marked = Tr["only those marked"], none = Tr["none"] }
 local function Mode()
     local m = ns.db.spellbookUpRank
     return (m == "all" or m == "none") and m or "marked"
@@ -415,14 +423,14 @@ local function Sub(item)
     local info = item.info
     if item.trainer then
         local e = item.trainer
-        return (e.rank and e.rank .. " · " or "") .. (item.now and "Now" or format("Level %d", e.level))
+        return (e.rank and e.rank .. " · " or "") .. (item.now and Tr["Now"] or format(Tr["Level %d"], e.level))
             .. ((e.cost or 0) > 0 and " · " .. Money(e.cost) or "")
     end
     if info.itemType == TYPE.FutureSpell then
         local level = SB.GetSpellBookItemLevelLearned and SB.GetSpellBookItemLevelLearned(item.slot, item.bank)
-        return level and level > 0 and format("Level %d", level) or "Not learned yet"
+        return level and level > 0 and format(Tr["Level %d"], level) or Tr["Not learned yet"]
     end
-    if info.isPassive then return "Passive" end
+    if info.isPassive then return Tr["Passive"] end
     return info.subName ~= "" and info.subName or nil
 end
 
@@ -507,7 +515,8 @@ local function Word(s) return (tostring(s or ""):lower():gsub("^%l", string.uppe
 local function Costs(item)
     if item.trainer then
         local e = item.trainer
-        return item.now and "Now" or format("Level %d", e.level or 0), (e.cost or 0) > 0 and Money(e.cost) or nil
+        return item.now and Tr["Now"] or format(Tr["Level %d"], e.level or 0),
+            (e.cost or 0) > 0 and Money(e.cost) or nil
     end
     local info = item.info
     if info.isPassive or (info.itemType ~= TYPE.Spell and info.itemType ~= TYPE.PetAction) then return nil, nil end
@@ -517,7 +526,7 @@ local function Costs(item)
     if C_Spell.GetSpellInfo then
         local ok, s = pcall(C_Spell.GetSpellInfo, id)
         local ms = ok and type(s) == "table" and s.castTime
-        if type(ms) == "number" then cast = ms <= 0 and "Instant" or format("%g sec", ms / 1000) end
+        if type(ms) == "number" then cast = ms <= 0 and Tr["Instant"] or format(Tr["%g sec"], ms / 1000) end
     end
     if C_Spell.GetSpellPowerCost then
         local ok, list = pcall(C_Spell.GetSpellPowerCost, id)
@@ -527,7 +536,7 @@ local function Costs(item)
                 cost = format("%d %s", c.cost, word)
                 break
             elseif (c.costPercent or 0) > 0 then
-                cost = format("%d%% of base %s", c.costPercent, word:lower())
+                cost = format(Tr["%d%% of base %s"], c.costPercent, word:lower())
                 break
             end
         end
@@ -540,40 +549,42 @@ local function Tooltip(owner, item)
         local e = item.trainer
         ns.Tip(owner, ns.window.Outside, { title = e.name, color = GOLD,
             e.rank and { "body", e.rank, ns.colors.dim } or false,
-            { "body", item.now and "You can train it now." or format("Train it at level %d.", e.level) },
-            (e.cost or 0) > 0 and { "body", "Costs " .. Money(e.cost) } or false })
+            { "body", item.now and Tr["You can train it now."] or format(Tr["Train it at level %d."], e.level) },
+            (e.cost or 0) > 0 and { "body", format(Tr["Costs %s"], Money(e.cost)) } or false })
         return
     end
     ns.window.Outside(owner)
     GameTooltip:SetSpellBookItem(item.slot, item.bank)
     if Binding() and not Bindable(item) then
-        GameTooltip:AddLine(_G.CLICK_BINDING_NOT_AVAILABLE or "Click casting cannot bind this.",
+        GameTooltip:AddLine(_G.CLICK_BINDING_NOT_AVAILABLE or Tr["Click casting cannot bind this."],
             MISSING[1], MISSING[2], MISSING[3])
     elseif Binding() then
-        GameTooltip:AddLine(item.clicks and format("Bound to %s: click to change it.", item.clicks)
-            or "Click to bind it.", GOLD[1], GOLD[2], GOLD[3])
+        GameTooltip:AddLine(item.clicks and format(Tr["Bound to %s: click to change it."], item.clicks)
+            or Tr["Click to bind it."], GOLD[1], GOLD[2], GOLD[3])
     elseif item.clicks then
-        GameTooltip:AddLine("Click casting: " .. item.clicks, GOLD[1], GOLD[2], GOLD[3])
+        GameTooltip:AddLine(format(Tr["Click casting: %s"], item.clicks), GOLD[1], GOLD[2], GOLD[3])
     end
     if not Binding() and not item.rank and item.lower and #item.lower > 0 then
         local dim = ns.colors.dim
-        GameTooltip:AddLine(Open(item.info.name) and "Left-click to hide its ranks." or "Left-click to show its ranks.",
+        GameTooltip:AddLine(Open(item.info.name) and Tr["Left-click to hide its ranks."]
+            or Tr["Left-click to show its ranks."],
             dim[1], dim[2], dim[3])
     end
     if not Binding() and Markable(item) then
         local dim, m = ns.colors.dim, Mode()
         if m == "all" then
-            GameTooltip:AddLine("Kept on its top rank, as every spell is.", GOLD[1], GOLD[2], GOLD[3])
+            GameTooltip:AddLine(Tr["Kept on its top rank, as every spell is."], GOLD[1], GOLD[2], GOLD[3])
         elseif Marked(item.info.name) then
-            GameTooltip:AddLine(m == "none" and "Marked for top rank, but Top rank is off."
-                or "Kept on its top rank on your bars.", GOLD[1], GOLD[2], GOLD[3])
-            GameTooltip:AddLine("Shift+Right-click to unmark it.", dim[1], dim[2], dim[3])
+            GameTooltip:AddLine(m == "none" and Tr["Marked for top rank, but Top rank is off."]
+                or Tr["Kept on its top rank on your bars."], GOLD[1], GOLD[2], GOLD[3])
+            GameTooltip:AddLine(Tr["Shift+Right-click to unmark it."], dim[1], dim[2], dim[3])
         else
-            GameTooltip:AddLine("Shift+Right-click to keep it on its top rank.", dim[1], dim[2], dim[3])
+            GameTooltip:AddLine(Tr["Shift+Right-click to keep it on its top rank."], dim[1], dim[2], dim[3])
         end
     end
     if item.missing then
-        GameTooltip:AddLine(item.lowerOn and format("%s is on your bars.", item.lowerOn) or "Not on your action bars.",
+        GameTooltip:AddLine(item.lowerOn and format(Tr["%s is on your bars."], item.lowerOn)
+            or Tr["Not on your action bars."],
             MISSING[1], MISSING[2], MISSING[3])
     end
     GameTooltip:Show()
@@ -1033,9 +1044,9 @@ function Tabs(p)
         t.gem.stone:SetColorTexture(col[1], col[2], col[3], 1)
         local c = held and GOLD or ns.colors.dim
         t.name:SetTextColor(c[1], c[2], c[3])
-        local words = p.trainer and format("%d to learn", sec.count)
-            or format(sec.count == 1 and "%d spell" or "%d spells", sec.count)
-        if p.trainer and (sec.now or 0) > 0 then words = words .. format("  \194\183  %d now", sec.now) end
+        local words = p.trainer and format(Tr["%d to learn"], sec.count)
+            or ns.Plural(sec.count, format(Tr["%d |4spell:spells;"], sec.count))
+        if p.trainer and (sec.now or 0) > 0 then words = words .. "  \194\183  " .. format(Tr["%d now"], sec.now) end
         t.count:SetText(words)
         local cc = held and ns.colors.dim or OFF
         t.count:SetTextColor(cc[1], cc[2], cc[3])
@@ -1246,20 +1257,17 @@ local trainerPage, back
 -- Top rank's dialog over its button (ns.window.Choices, the quest log's
 -- Sort's look): every spell, only those marked, none
 local CHOICES = {
-    { "all", "Every spell", "Every spell on your bars rises to its highest rank as you learn it." },
-    { "marked", "Marked", "Only the spells you mark: Shift+Right-click one in the book. A blue chevron on its "
-        .. "icon shows it." },
-    { "none", "None", "Your bars keep the ranks you put on them." },
+    { "all", Tr["Every spell"], Tr["Every spell on your bars rises to its highest rank as you learn it."] },
+    { "marked", Tr["Marked"], Tr["Only the spells you mark: Shift+Right-click one in the book. A blue chevron on "
+        .. "its icon shows it."] },
+    { "none", Tr["None"], Tr["Your bars keep the ranks you put on them."] },
 }
 local topRank
 function W.topRank() return topRank end
-local function ModeName()
-    for _, m in ipairs(MODES) do if m[1] == Mode() then return m[2] end end
-end
 
 local function Controls(p, band)
     local row = ns.window.Segments(band, { height = band:GetHeight(), items = {
-        { key = "trainer", label = "Trainer", click = function()
+        { key = "trainer", label = Tr["Trainer"], click = function()
             if W.Current() == trainerPage then
                 -- the page it came from, or the first with a tab
                 local to = back and back.available and back
@@ -1272,21 +1280,21 @@ local function Controls(p, band)
                 W.Select(trainerPage)
             end
         end, tip = function()
-            return W.Current() == trainerPage and "Back to your spells."
-                or "What your class trainer has still to teach you."
+            return W.Current() == trainerPage and Tr["Back to your spells."]
+                or Tr["What your class trainer has still to teach you."]
         end },
-        { key = "toprank", label = "Top rank", click = function(button)
+        { key = "toprank", label = Tr["Top rank"], click = function(button)
             if button == "LeftButton" then topRank.Toggle() end
         end, tip = function()
-            return "Keeps spells on your action bars at their highest rank as you learn it: " .. ModeName():lower()
-                .. ". Click to choose. Shift+Right-click a spell to mark it."
+            return format(Tr["Keeps spells on your action bars at their highest rank as you learn it: %s. Click "
+                .. "to choose. Shift+Right-click a spell to mark it."], MODE_WORD[Mode()] or "")
         end },
     } })
     row:SetPoint("TOPLEFT")
     row:SetPoint("TOPRIGHT")
     p.margin = row
     topRank = topRank or ns.window.Choices({
-        name = "MedalluinSpellbookTopRank", title = "Keep on top rank", width = 240, choices = CHOICES,
+        name = "MedalluinSpellbookTopRank", title = Tr["Keep on top rank"], width = 240, choices = CHOICES,
         Get = Mode,
         Set = function(v) ns.SetOption("spellbookUpRank", v) end,
         -- over the page's own button: the page open now
@@ -1352,21 +1360,21 @@ end
 
 -- the book: every skill line, then the pet's
 do
-    local p = { key = "book", casts = true, order = 1, label = "Spellbook", glyph = "spellbook",
+    local p = { key = "book", casts = true, order = 1, label = Tr["Spellbook"], glyph = "spellbook",
         frame = "SpellBookFrame" }
     function p.Available() return SB ~= nil end
     Page(p)
 end
 -- macros: the game's macro window (spells/macros.lua)
 do
-    local p = { key = "macros", macros = true, order = 2, label = "Macros", glyph = "log",
+    local p = { key = "macros", macros = true, order = 2, label = Tr["Macros"], glyph = "log",
         frame = "SpellBookFrame" }
     function p.Available() return SB ~= nil end
     Page(p)
 end
 -- what the class trainers have still to teach, once one has been visited
 do
-    local p = { key = "trainer", trainer = true, tabless = true, order = 3, label = "Trainer",
+    local p = { key = "trainer", trainer = true, tabless = true, order = 3, label = Tr["Trainer"],
         frame = "SpellBookFrame", icon = 136243 }
     function p.Available() return ns.trainers.Visited() end
     Page(p)

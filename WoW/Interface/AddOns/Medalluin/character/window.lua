@@ -17,10 +17,11 @@
 --
 -- Built at login, and only when the Character window option is on.
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.Window{
-    name = "MedalluinCharacter", side = -1,
-    closeTip = "Close the character window.",
+    name = "MedalluinCharacter", named = Tr["Character"], side = -1,
+    closeTip = Tr["Close the character window."],
     Close = function() HideUIPanel(CharacterFrame) end,
     Open = function(page)
         if ToggleCharacter and _G[page.frame] then ToggleCharacter(page.frame, true) end

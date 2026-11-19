@@ -14,6 +14,7 @@
 --                                     game's type for it, "item" ...); nil when
 --                                     it is no item's or no rate is known
 local _, ns = ...
+local Tr = ns.L
 
 local qd = {}
 ns.questDrops = qd
@@ -159,7 +160,7 @@ function qd.Tag(quest, o)
     if not o or o.done then return o and o.text end
     local info = qd.For(quest, o.text, o.kind)
     if not info then return o.text end
-    return o.text .. "  " .. DIM .. "\194\183 " .. qd.Range(info) .. " drop|r"
+    return o.text .. "  " .. DIM .. "\194\183 " .. format(Tr["%s drop"], qd.Range(info)) .. "|r"
 end
 
 -- Its creatures in a tooltip: the item's name, each creature's rate
@@ -169,14 +170,15 @@ function qd.AddTooltip(tip, quest, o)
     if not info then return false end
     local d = DB()
     tip:AddLine(" ")
-    tip:AddLine((d and Try(d.items.Get, info.item, "name") or "Drops") .. ": drop rates", 0.941, 0.831, 0.533)
+    tip:AddLine(format(Tr["%s: drop rates"], d and Try(d.items.Get, info.item, "name") or Tr["Drops"]),
+        0.941, 0.831, 0.533)
     for i, r in ipairs(info.rates) do
         if i > MOST then
-            tip:AddLine(string.format("and %d more", #info.rates - MOST), 0.55, 0.52, 0.45)
+            tip:AddLine(string.format(Tr["and %d more"], #info.rates - MOST), 0.55, 0.52, 0.45)
             break
         end
         tip:AddDoubleLine(r.name, Pct(r.rate) .. "%", 0.95, 0.92, 0.82, 0.95, 0.92, 0.82)
     end
-    tip:AddLine("From QuestieDB.", 0.49, 0.46, 0.38)
+    tip:AddLine(Tr["From QuestieDB."], 0.49, 0.46, 0.38)
     return true
 end

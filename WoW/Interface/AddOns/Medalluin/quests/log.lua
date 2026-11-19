@@ -42,6 +42,7 @@
 -- then by name), or the log's own order. A heading's sort still orders
 -- the quests inside each zone.
 local _, ns = ...
+local Tr = ns.L
 
 local Q = ns.questSource
 local WP = ns.waypoint
@@ -128,11 +129,11 @@ end
 -- The sorts: each column's value, and which way it runs first (the most
 -- worth first; the level and title from the low end).
 local SORTS = {
-    lvl = { word = "level", first = "up", value = function(q) return q.level or 0 end },
-    title = { word = "title", first = "up", value = function(q) return (q.title or ""):lower() end },
-    xp = { word = "XP", first = "down", value = function(q) return (q.rewards or {}).xp or 0 end },
-    item = { word = "item", first = "down", value = function(q) return (q.rewards or {}).items and 1 or 0 end },
-    coin = { word = "coin", first = "down", value = function(q) return (q.rewards or {}).money or 0 end },
+    lvl = { word = Tr["level"], first = "up", value = function(q) return q.level or 0 end },
+    title = { word = Tr["title"], first = "up", value = function(q) return (q.title or ""):lower() end },
+    xp = { word = Tr["XP"], first = "down", value = function(q) return (q.rewards or {}).xp or 0 end },
+    item = { word = Tr["item"], first = "down", value = function(q) return (q.rewards or {}).items and 1 or 0 end },
+    coin = { word = Tr["coin"], first = "down", value = function(q) return (q.rewards or {}).money or 0 end },
 }
 
 -- the sort in use: its key and "up" or "down"; nil, the log's order
@@ -175,9 +176,9 @@ end
 -- The sort button's orders (the tracker's, quests/tracker.lua), or the
 -- log's own (none).
 local ORDERS = {
-    { false, "Log order", "The zones and their quests as the game lists them." },
-    { "level", "Level", "The lowest quests first, and the zones by their lowest quest." },
-    { "zone", "Zone", "The zone you are in first, then the rest by name." },
+    { false, Tr["Log order"], Tr["The zones and their quests as the game lists them."] },
+    { "level", Tr["Level"], Tr["The lowest quests first, and the zones by their lowest quest."] },
+    { "zone", Tr["Zone"], Tr["The zone you are in first, then the rest by name."] },
 }
 local function Order()
     local o = ns.db.questLogOrder
@@ -262,7 +263,7 @@ end
 
 local function LimitTip()
     local limit = Q.WatchLimit()
-    return limit and ("The game tracks at most " .. limit .. " quests.") or nil
+    return limit and format(Tr["The game tracks at most %d quests."], limit) or nil
 end
 
 -- ------------------------------------------------------------- the rows
@@ -296,7 +297,7 @@ local function Wheel(delta) log.Scroll(-delta * 3) end
 -- pick sorts and the dialog stays, its key lit. A click anywhere else, the
 -- button again, Escape, or the log closing shuts it.
 local orders = ns.window.Choices({
-    name = "MedalluinQuestLogOrders", title = "Sort the zones", width = 220, choices = ORDERS,
+    name = "MedalluinQuestLogOrders", title = Tr["Sort the zones"], width = 220, choices = ORDERS,
     Get = Order,
     Set = function(v)
         ns.db.questLogOrder = v
@@ -356,9 +357,10 @@ local function Row()
     r.eye:SetScript("OnEnter", function(self)
         local z = self:GetParent().data.zone
         local all = z.tracked == "all"
-        Tip(self, { title = all and "Stop tracking " .. z.name or "Track " .. z.name,
-            { "body", all and "Every quest in it is tracked." or z.tracked == "some"
-                and "Some of its quests are tracked: click to track them all." or "None of its quests is tracked." },
+        Tip(self, { title = format(all and Tr["Stop tracking %s"] or Tr["Track %s"], z.name),
+            { "body", all and Tr["Every quest in it is tracked."] or z.tracked == "some"
+                and Tr["Some of its quests are tracked: click to track them all."]
+                or Tr["None of its quests is tracked."] },
             not all and LimitTip() and { "hint", LimitTip() } or false })
     end)
     r.eye:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -456,7 +458,7 @@ local function FillQuest(r, q, n)
     r.lvl:SetText(q.level > 0 and q.level or "")
     r.lvl:SetTextColor(c[1], c[2], c[3])
     r.stripes:SetShown(not q.tracked)
-    r.title:SetText(q.title .. (q.state == -1 and "  (failed)" or ""))
+    r.title:SetText(q.title .. (q.state == -1 and "  " .. Tr["(failed)"] or ""))
     local k = q.tracked and 1 or UNTRACKED
     r.title:SetTextColor(c[1] * k, c[2] * k, c[3] * k)
     -- the title, as wide as the room up to the XP's column
@@ -538,8 +540,8 @@ function log.Refresh()
         if on then h.chev:SetTexture(ns.media .. "strips\\chevron-" .. dir) end
     end
     empty:SetShown(#lines == 0)
-    empty:SetText((search and search:GetText() or ""):match("%S") and "No quest has those words."
-        or "Your quest log is empty.")
+    empty:SetText((search and search:GetText() or ""):match("%S") and Tr["No quest has those words."]
+        or Tr["Your quest log is empty."])
     Thumb()
     if foot then
         foot:Set("untrack", { enabled = #quests > 0 })
@@ -585,7 +587,7 @@ local function Build(pageBody, _, band)
     count:SetPoint("LEFT", 4, 0)
     count:SetTextColor(unpack(DIM))
     foldAll = Control(head, "chevron-double", function()
-        return log.AnyOpen() and "Fold every zone." or "Open every zone."
+        return log.AnyOpen() and Tr["Fold every zone."] or Tr["Open every zone."]
     end, function(self)
         local fold = log.AnyOpen()
         local f = {}
@@ -640,19 +642,19 @@ local function Build(pageBody, _, band)
         b:SetScript("OnEnter", function(self)
             local now, dir = Sorting()
             local word = SORTS[key].word
-            local hint = now ~= key and "Click: sort each zone's quests by " .. word .. "."
-                or dir == SORTS[key].first and "Click: the other way round."
-                or "Click: back to the log's order."
-            Tip(self, { title = "Sort by " .. word, { "hint", hint } })
+            local hint = now ~= key and format(Tr["Click: sort each zone's quests by %s."], word)
+                or dir == SORTS[key].first and Tr["Click: the other way round."]
+                or Tr["Click: back to the log's order."]
+            Tip(self, { title = format(Tr["Sort by %s"], word), { "hint", hint } })
         end)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
         return b
     end
-    columns.lvl = Heading("lvl", "Lvl", "LEFT", 4)
-    columns.quest = Heading("title", "Quest", "LEFT", TITLE)
-    columns.xp = Heading("xp", "XP", "RIGHT", -AT_XP)
-    columns.item = Heading("item", "Item", "CENTER", -AT_ITEM)
-    columns.coin = Heading("coin", "Coin", "RIGHT", -AT_COIN)
+    columns.lvl = Heading("lvl", Tr["Lvl"], "LEFT", 4)
+    columns.quest = Heading("title", Tr["Quest"], "LEFT", TITLE)
+    columns.xp = Heading("xp", Tr["XP"], "RIGHT", -AT_XP)
+    columns.item = Heading("item", Tr["Item"], "CENTER", -AT_ITEM)
+    columns.coin = Heading("coin", Tr["Coin"], "RIGHT", -AT_COIN)
     columns.heads = { columns.lvl, columns.quest, columns.xp, columns.item, columns.coin }
     local under = columns:CreateTexture(nil, "ARTWORK")
     under:SetHeight(1)
@@ -681,22 +683,22 @@ local function Build(pageBody, _, band)
 
     -- the margin: track every quest, or none; Drop
     foot = ns.window.Segments(band, { height = band:GetHeight(), items = {
-        { key = "track", label = "Track all", group = "track", click = function()
+        { key = "track", label = Tr["Track all"], group = "track", click = function()
             TrackAll(quests)
             log.Refresh()
-        end, tip = function() return "Track every quest." .. (LimitTip() and (" " .. LimitTip()) or "") end },
-        { key = "untrack", label = "Untrack all", group = "track", click = function()
+        end, tip = function() return Tr["Track every quest."] .. (LimitTip() and (" " .. LimitTip()) or "") end },
+        { key = "untrack", label = Tr["Untrack all"], group = "track", click = function()
             UntrackAll(quests)
             log.Refresh()
-        end, tip = function() return "Stop tracking every quest." end },
-        { key = "sort", label = "Sort", icon = "sort", group = "track", click = function() orders.Toggle() end,
+        end, tip = function() return Tr["Stop tracking every quest."] end },
+        { key = "sort", label = Tr["Sort"], icon = "sort", group = "track", click = function() orders.Toggle() end,
             tip = function()
                 local o = OrderOf()
-                return "Sorted: " .. o[2] .. ". " .. o[3] .. " Click: choose another."
+                return format(Tr["Sorted: %s."], o[2]) .. " " .. o[3] .. " " .. Tr["Click: choose another."]
             end },
-        { key = "drop", label = "Drop\226\128\166", group = "drop", color = RED, click = function()
+        { key = "drop", label = Tr["Drop\226\128\166"], group = "drop", color = RED, click = function()
             if ns.questDrop then ns.questDrop.Toggle() end
-        end, tip = function() return "Pick quests to abandon, and abandon them in one go." end },
+        end, tip = function() return Tr["Pick quests to abandon, and abandon them in one go."] end },
     } })
     foot:SetPoint("TOPLEFT")
     foot:SetPoint("TOPRIGHT")
@@ -707,12 +709,12 @@ end
 
 local function Window()
     W = ns.Window{
-        name = "MedalluinQuestLog", side = 1, opaque = true, exclusive = true,
-        closeTip = "Close the quest log.",
+        name = "MedalluinQuestLog", named = Tr["Quest Log"], side = 1, opaque = true, exclusive = true,
+        closeTip = Tr["Close the quest log."],
         Close = function() log.Close() end,
         Lifted = function() return { MainMenuBarBackpackButton } end,
     }
-    page = { key = "quests", label = "Quests", tip = "Every quest in your log.", glyph = "quests", order = 1,
+    page = { key = "quests", label = Tr["Quests"], tip = Tr["Every quest in your log."], glyph = "quests", order = 1,
         flex = true, height = 120, bandUsed = true, bandFlush = true,
         Available = function() return true end,
         Build = Build,
@@ -768,7 +770,7 @@ function log.IsShown() return frame ~= nil and frame:IsShown() end
 
 -- The key's own binding (Bindings.xml), under the header console/minimap.lua
 -- names.
-BINDING_NAME_MEDALLUIN_QUESTLOG = "Quest log"
+BINDING_NAME_MEDALLUIN_QUESTLOG = Tr["Quest log"]
 function MedalluinToggleQuestLog()
     if log.On() and frame then
         log.Toggle()

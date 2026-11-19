@@ -6,6 +6,7 @@
 -- gathering professions a character knows, and by the profession's own
 -- page of the professions window (professions/crafting.lua).
 local _, ns = ...
+local Tr = ns.L
 
 ns.gatheringNodes = {
     -- by the profession's skill line ID, in the order the page lists them
@@ -86,16 +87,16 @@ ns.gatheringNodes = {
 -- recipe: red out of reach, orange always, yellow mostly, green now and
 -- then, grey never.
 local BANDS = {
-    { 25, { 1, 0.5, 0.25 }, "A skill point at every gathering." },
-    { 50, { 1, 1, 0 }, "A skill point most times." },
-    { 100, { 0.25, 0.75, 0.25 }, "A skill point now and then." },
+    { 25, { 1, 0.5, 0.25 }, Tr["A skill point at every gathering."] },
+    { 50, { 1, 1, 0 }, Tr["A skill point most times."] },
+    { 100, { 0.25, 0.75, 0.25 }, Tr["A skill point now and then."] },
 }
 function ns.GatheringChance(rank, need)
     if rank < need then
-        return { 1, 0.1, 0.1 }, format("Out of reach: %d more skill.", need - rank)
+        return { 1, 0.1, 0.1 }, format(Tr["Out of reach: %d more skill."], need - rank)
     end
     for _, b in ipairs(BANDS) do
         if rank < need + b[1] then return b[2], b[3] end
     end
-    return { 0.5, 0.5, 0.5 }, "No more skill from it."
+    return { 0.5, 0.5, 0.5 }, Tr["No more skill from it."]
 end

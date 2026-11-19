@@ -20,10 +20,11 @@
 -- Built when Blizzard_InspectUI loads, and only when the Inspect window
 -- option is on.
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.Window{
-    name = "MedalluinInspect", side = 1, exclusive = true,
-    closeTip = "Close the inspect window.",
+    name = "MedalluinInspect", named = Tr["Inspect"], side = 1, exclusive = true,
+    closeTip = Tr["Close the inspect window."],
     Close = function() if InspectFrame then HideUIPanel(InspectFrame) end end,
     Open = function() end,             -- the pages are ours alone: Blizzard's tab is left as it is
     Lifted = function() return { MainMenuBarBackpackButton } end,

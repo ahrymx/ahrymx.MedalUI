@@ -28,6 +28,7 @@
 -- the NPC box hide under it as they do under that window; detached, it
 -- covers nothing.
 local _, ns = ...
+local Tr = ns.L
 
 local Container = C_Container
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -47,7 +48,7 @@ local cover                             -- shown while the bank stands docked on
 local layer, buy                        -- the secure Purchase, on the strip (w.Layer)
 
 local W = ns.Window{
-    name = "MedalluinBank", side = -1, place = "bankPlace",
+    name = "MedalluinBank", named = Tr["Bank"], side = -1, place = "bankPlace",
     closeTip = "Close the bank.",
     Close = function() if C_Bank and C_Bank.CloseBankFrame then C_Bank.CloseBankFrame() end end,
     -- the portrait, and the queue's eye when it sits in its place

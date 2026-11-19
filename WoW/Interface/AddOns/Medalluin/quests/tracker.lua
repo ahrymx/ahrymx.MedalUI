@@ -71,6 +71,7 @@
 -- strips/tray.lua: the chat box comes down to the chat then). Blizzard's
 -- own quest tracker is hidden while this one is on.
 local _, ns = ...
+local Tr = ns.L
 
 local L = ns.stripLayout
 local Q = ns.questSource
@@ -89,7 +90,8 @@ local SHADE, FADE = 0.6, 6              -- the shade's darkest, and how fast it 
 local RULE = 6                          -- the gap each side of a rule
 local HEIGHT, LEAST = 400, { 320, 160 } -- the minimal view's first height, and its least size
 local SCALES = { 0.6, 1.5, 0.05 }       -- its scale: least, most, a step of the wheel
-local SORTS = { level = "Level", zone = "Zone" }
+local SORTS = { level = Tr["Sorted by level. Click: by level, by zone (yours first)."],
+    zone = Tr["Sorted by zone. Click: by level, by zone (yours first)."] }
 local BLUE, RED = { 0.35, 0.65, 1 }, { 1, 0.45, 0.25 }
 local GOSSIP = "Interface\\GossipFrame\\"
 local MARKS = {
@@ -323,7 +325,7 @@ local function Rows()
         end })
         if not folded[z.name] then
             for _, q in ipairs(z.quests) do
-                local state = q.state == -1 and " |cffe04040(Failed)|r" or ""
+                local state = q.state == -1 and " |cffe04040" .. Tr["(Failed)"] .. "|r" or ""
                 local click, enter = function(button) Click(q, button) end, function(row) Tip(row, q) end
                 local middle = function() Q.ShowOnMap(q) end
                 local wash = WP.Is(q.id) and WP.WASH or nil
@@ -641,7 +643,7 @@ local function Build()
     head:SetHeight(HEAD + 4)
     head:RegisterForClicks("LeftButtonUp")
     head:RegisterForDrag("LeftButton")
-    local ornament = ns.window.Ornament(head, "Quests")
+    local ornament = ns.window.Ornament(head, Tr["Quests"])
     ornament:SetPoint("LEFT")
     ornament:SetPoint("RIGHT")
     ornament.mid:SetFont(ns.font, HEAD, "")
@@ -667,11 +669,12 @@ local function Build()
         end
     end)
     head:SetScript("OnEnter", function(self)
-        ns.Tip(self, ns.window.Outside, { title = "Quests", color = GOLD,
-            { "body", ns.db.questsMinimised and "Click: show the quests."
-                or "Click: fold the tracker to this heading." },
-            not Full() and { "body", "Drag: move it.  Ctrl-wheel: its size.  The corner's grip: its shape." } or false,
-            { "hint", "Not in combat." } })
+        ns.Tip(self, ns.window.Outside, { title = Tr["Quests"], color = GOLD,
+            { "body", ns.db.questsMinimised and Tr["Click: show the quests."]
+                or Tr["Click: fold the tracker to this heading."] },
+            not Full() and { "body",
+                Tr["Drag: move it.  Ctrl-wheel: its size.  The corner's grip: its shape."] } or false,
+            { "hint", Tr["Not in combat."] } })
     end)
     head:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
@@ -681,12 +684,12 @@ local function Build()
     footer = CreateFrame("Frame", nil, frame)
     footer:SetHeight(CONTROL)
     local gear = Control(function() ns.OpenOptions("quests") end,
-        function() return "Medalluin's quest settings." end)
+        function() return Tr["Medalluin's quest settings."] end)
     Glyph(gear, "menu")
     gear:SetPoint("LEFT")
     local book = Control(function() MedalluinToggleQuestLog() end, function()
         local key = GetBindingKey and GetBindingKey("TOGGLEQUESTLOG")
-        return "The quest log" .. (key and (" (" .. key .. ")") or "") .. "."
+        return Tr["The quest log"] .. (key and (" (" .. key .. ")") or "") .. "."
     end)
     Glyph(book, "questlog")
     book:SetPoint("LEFT", gear, "RIGHT", 4, 0)
@@ -694,8 +697,8 @@ local function Build()
         if InCombatLockdown() then return end
         ns.SetOption("questsView", Full() and "minimal" or "full")
     end, function()
-        return Full() and "Minimal: a box of its own, to move and size."
-            or "Full: the character window's place, with the chat at its foot."
+        return Full() and Tr["Minimal: a box of its own, to move and size."]
+            or Tr["Full: the character window's place, with the chat at its foot."]
     end)
     viewButton:SetPoint("RIGHT")
     foldAll = Control(function()
@@ -707,7 +710,7 @@ local function Build()
         end
         ns.db.questsFolded = f
         Refresh()
-    end, function() return AnyOpen() and "Fold every zone." or "Open every zone." end)
+    end, function() return AnyOpen() and Tr["Fold every zone."] or Tr["Open every zone."] end)
     foldAll:SetPoint("RIGHT", viewButton, "LEFT", -4, 0)
     sortButton = Control(function()
         if InCombatLockdown() then return end
@@ -717,7 +720,7 @@ local function Build()
         ns.db.questsSort = order[at % #order + 1]
         Refresh()
     end, function()
-        return "Sorted by " .. SORTS[Sort()]:lower() .. ". Click: by level, by zone (yours first)."
+        return SORTS[Sort()]
     end)
     Glyph(sortButton, "sort")
     sortButton:SetPoint("RIGHT", foldAll, "LEFT", -4, 0)
@@ -744,7 +747,7 @@ local function Build()
     local body = CreateFrame("Frame", nil, frame)
     body:SetPoint("TOPLEFT", 0, -TOP)
     body:SetPoint("BOTTOMRIGHT", -PAD, PAD + FOOT)
-    list = ns.character.List(body, "No quests tracked.")
+    list = ns.character.List(body, Tr["No quests tracked."])
     list.fade = true
     -- the rows' font, unseen, to measure an objective's lines
     measure = ns.Text(frame, 12)

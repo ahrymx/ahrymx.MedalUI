@@ -22,6 +22,7 @@
 -- Retail's and Forever's (C_SuperTrack). A client without it has none:
 -- Toggle does nothing, Quest is nil.
 local _, ns = ...
+local Tr = ns.L
 
 local W = {
     WASH = { 0.35, 0.67, 1.00, 0.20 },
@@ -70,10 +71,10 @@ end
 
 function W.Distance(id)
     local d = Yards(id)
-    if d == "far" then return "far" end
+    if d == "far" then return Tr["far"] end
     if not d then return "" end
-    if d >= 10000 then return string.format("%.0fk yd", d / 1000) end
-    return string.format("%d yd", d)
+    if d >= 10000 then return string.format(Tr["%.0fk yd"], d / 1000) end
+    return string.format(Tr["%d yd"], d)
 end
 
 function W.Tag(id)

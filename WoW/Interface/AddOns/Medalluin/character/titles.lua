@@ -6,6 +6,7 @@
 -- by mask ID from 1 to GetNumTitles, the known ones with a player's name
 -- in them; SetCurrentTitle(-1) wears none.
 local _, ns = ...
+local Tr = ns.L
 
 local NONE = -1
 local list
@@ -23,7 +24,7 @@ local function Known()
         end
     end
     table.sort(out, function(a, b) return a.name < b.name end)
-    table.insert(out, 1, { id = NONE, name = PLAYER_TITLE_NONE or "No title" })
+    table.insert(out, 1, { id = NONE, name = PLAYER_TITLE_NONE or Tr["No title"] })
     return out
 end
 
@@ -42,6 +43,6 @@ function titles.Refresh()
 end
 
 function titles.Build(frame)
-    list = ns.character.List(frame, "No titles yet.")
+    list = ns.character.List(frame, Tr["No titles yet."])
     titles.list = list
 end

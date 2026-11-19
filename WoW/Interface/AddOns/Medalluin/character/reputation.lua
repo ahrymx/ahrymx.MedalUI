@@ -8,6 +8,7 @@
 -- by faction, not by index. A friendship's standing comes from
 -- C_GossipInfo, a renown's from C_MajorFactions (retail).
 local _, ns = ...
+local Tr = ns.L
 
 local R = C_Reputation
 local MAX_REACTION = 8
@@ -37,7 +38,7 @@ local function Standing(f)
     if R.IsMajorFaction and id and R.IsMajorFaction(id) and C_MajorFactions then
         local m = C_MajorFactions.GetMajorFactionData(id)
         if m then
-            local words = format("Renown %d", m.renownLevel or 0)
+            local words = format(Tr["Renown %d"], m.renownLevel or 0)
             return { min = 0, max = m.renownLevelThreshold, cur = m.renownReputationEarned,
                 color = { 0.0, 0.6, 0.9 }, text = words }, words
         end
@@ -96,19 +97,19 @@ local function Watch()
 end
 
 local TICKS = {
-    { label = "At war", tip = "At war with this faction: its members attack you on sight, and you them.",
+    { label = Tr["At war"], tip = Tr["At war with this faction: its members attack you on sight, and you them."],
         click = function()
             local _, i = Chosen()
             if i then R.ToggleFactionAtWar(i) end
             Refresh()
         end },
-    { label = "Inactive", tip = "Move this faction to the Inactive heading, out of the way.",
+    { label = Tr["Inactive"], tip = Tr["Move this faction to the Inactive heading, out of the way."],
         click = function(on)
             local _, i = Chosen()
             if i then R.SetFactionActive(i, not on) end
             Refresh()
         end },
-    { label = "Experience bar", tip = "Follow this faction on the reputation bar.",
+    { label = Tr["Experience bar"], tip = Tr["Follow this faction on the reputation bar."],
         click = function(on)
             local _, i = Chosen()
             if i then R.SetWatchedFactionByIndex(on and i or 0) end
@@ -139,14 +140,14 @@ end
 
 local page
 local function Build(body, foot)
-    list = ns.character.List(body, "No reputations yet.")
-    details = ns.character.Details(foot, TICKS, "Choose a faction to see its details.")
+    list = ns.character.List(body, Tr["No reputations yet."])
+    details = ns.character.Details(foot, TICKS, Tr["Choose a faction to see its details."])
     page.footHeight = details.height
     page.list, page.details = list, details
 end
 
 page = {
-    key = "reputation", label = "Reputation", frame = "ReputationFrame", order = 2,
+    key = "reputation", label = Tr["Reputation"], frame = "ReputationFrame", order = 2,
     height = 0, flex = true,
     events = { "UPDATE_FACTION", "MAJOR_FACTION_RENOWN_LEVEL_CHANGED", "MAJOR_FACTION_UNLOCKED" },
     Build = Build, Refresh = function() Refresh() end,

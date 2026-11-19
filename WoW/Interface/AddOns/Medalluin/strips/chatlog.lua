@@ -33,6 +33,7 @@
 -- player's link loses its line ID (it names the sender of a line of this
 -- session), and a Battle.net name its session's ID (as its plain text).
 local _, ns = ...
+local Tr = ns.L
 
 local GOLD = { 0.941, 0.831, 0.533 }
 local DIM = { 0.70, 0.66, 0.55 }
@@ -388,7 +389,7 @@ end
 
 local function Start()
     W = ns.Window{
-        name = "MedalluinChatLog", side = -1, place = "chatLogPlace", detachedOnly = true,
+        name = "MedalluinChatLog", named = Tr["Chat Log"], side = -1, place = "chatLogPlace", detachedOnly = true,
         closeTip = "Close the log.",
         Close = function() W.SetShown(false) end,
         Lifted = function() return {} end,

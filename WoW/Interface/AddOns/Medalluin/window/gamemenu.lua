@@ -2021,7 +2021,7 @@ local function Fill(page)
         if kind == "label" then
             l.word:SetPoint("LEFT", 0, 0)
             l.word:SetFont(ns.font, 9, "")
-            l.word:SetText((word or ""):upper())
+            l.word:SetText(ns.Upper(word))
             l.word:SetTextColor(DIM[1], DIM[2], DIM[3])
         else
             l.word:SetPoint("LEFT", 20, 0)
@@ -2133,7 +2133,7 @@ local function Fill(page)
         Line("label", Tr["Shape"])
         Seg({ { "vignette", Tr["Vignette"] }, { "even", Tr["Even"] } }, ns.db.gameMenuFilterShape or "vignette",
             function(v) ns.db.gameMenuFilterShape = v end)
-        Line("label", Tr["Strength"])
+        Line("label", Tr["Strength##filter"])
         local strengths = {}
         for _, v in ipairs(STRENGTHS) do table.insert(strengths, { v, format("%d%%", v * 100 + 0.5) }) end
         Seg(strengths, Strength(), function(v) ns.db.gameMenuFilterStrength = v end)
