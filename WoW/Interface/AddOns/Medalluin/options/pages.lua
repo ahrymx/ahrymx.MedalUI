@@ -970,7 +970,9 @@ function ns.OptionPages()
                 },
                 {
                     -- under Action Bars in the sidebar; greyed while the bar is off
-                    id = "paging", name = "Paging", under = "bar", intro = "Kept per profile.",
+                    id = "paging", name = "Paging", under = "bar",
+                    scope = "Kept per profile & class",
+                    intro = "Every character of a class shares it, separately for each profile.",
                     groups = paging,
                 },
                 {

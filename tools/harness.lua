@@ -5952,6 +5952,25 @@ if barPass then
     print("options.paging grid custom starts", ns.PagingStart("gridPaging"))
     for _, k in ipairs({ "gridPageStealth", "gridPageFlying", "gridPageForm1" }) do ns.SetOption(k, true) end
     gridCond("all on again")
+    -- paging is the class's (per profile): another class keeps its own, and
+    -- starts from what the profile held
+    ;(function()
+        local profile = ns.db.consoleProfile
+        MedalluinDB.profiles[profile].row2Paging = "page4"     -- as kept before paging moved
+        ns.SetOption("gridPageStealth", false)
+        ns.SetOption("row3Paging", "page2")
+        local mine = { stealth = ns.db.gridPageStealth, row3 = ns.db.row3Paging, row2 = ns.db.row2Paging }
+        classOf.player = "ROGUE"
+        local rogue = { stealth = ns.db.gridPageStealth, row3 = ns.db.row3Paging, row2 = ns.db.row2Paging }
+        classOf.player = nil
+        print("options.paging per class", "mine=" .. tostring(mine.stealth) .. "/" .. mine.row3 .. "/" .. mine.row2,
+            "rogue=" .. tostring(rogue.stealth) .. "/" .. rogue.row3 .. "/" .. rogue.row2,
+            "kept in=" .. tostring(MedalluinDB.classes and MedalluinDB.classes[(select(2, UnitClass("player")))]
+                and MedalluinDB.classes[(select(2, UnitClass("player")))][profile].gridPageStealth))
+        ns.SetOption("gridPageStealth", true)
+        ns.SetOption("row3Paging", "default")
+        MedalluinDB.profiles[profile].row2Paging = nil
+    end)()
     -- Settings > Shared: one value for an option many frames have, which a
     -- frame's own choice overrides (marked Own on its page, a gold corner
     -- in the grid); the frames following it hear its change

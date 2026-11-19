@@ -385,9 +385,6 @@ for _, key in ipairs({
     "consoleShowMouse", "consoleAlpha", "consoleFadedAlpha", "consoleFadeIn", "consoleFadeOut",
     "consoleMinimal", "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalRegen", "consoleMinimalTarget",
     "consoleMinimalHurt", "consoleMinimalGroup", "consoleMinimalMouse",
-    "bar1Paging", "bar1PagingCustom", "row2Paging", "row2PagingCustom", "row3Paging", "row3PagingCustom",
-    "gridPaging", "gridPagingCustom",
-    "gridPageFlying", "gridPageForm1", "gridPageForm2", "gridPageForm3", "gridPageStealth",
     "partyPets", "partyLayout", "partyRange", "auraGlow", "auraThreat", "auraCC", "auraBuffs", "auraBoss",
     "auraDebuffs",
     "editUnit", "editParty",
@@ -398,6 +395,16 @@ for key in pairs(DEFAULTS) do
     if key:match("^cdm[EUBT]%u") then PER_PROFILE[key] = true end
 end
 ns.PER_PROFILE = PER_PROFILE
+
+-- Paging (bars/paging.lua) is the class's: its forms, stances and stealth
+-- are, so every character of a class shares it, still per profile, in
+-- MedalluinDB.classes[class][profile]. A class's first look at a profile
+-- starts from what the profile held, where paging was kept until 2026-11-19.
+local PER_CLASS = {}
+for _, key in ipairs({ "bar1Paging", "bar1PagingCustom", "row2Paging", "row2PagingCustom", "row3Paging",
+    "row3PagingCustom", "gridPaging", "gridPagingCustom", "gridPageFlying", "gridPageForm1", "gridPageForm2",
+    "gridPageForm3", "gridPageStealth" }) do PER_CLASS[key] = true end
+ns.PER_CLASS = PER_CLASS
 
 -- The party's options: the console's (per profile, shaped and placed by
 -- it), or, while the Party layout is the widget, the widget's own (shared).
@@ -445,9 +452,32 @@ local function Profile()
     return PROFILES[p] and Open(p) and p or "reticule"
 end
 
+-- The class's own options for the profile in use (PER_CLASS), made from
+-- the profile's the first time.
+local function ClassStore(profile)
+    local class = UnitClass and select(2, UnitClass("player"))
+    if not class then return nil end
+    MedalluinDB.classes = MedalluinDB.classes or {}
+    local byClass = MedalluinDB.classes[class] or {}
+    MedalluinDB.classes[class] = byClass
+    profile = profile or Profile()
+    local t = byClass[profile]
+    if not t then
+        t = {}
+        local old = MedalluinDB.profiles[profile] or {}
+        for key in pairs(PER_CLASS) do t[key] = old[key] end
+        byClass[profile] = t
+    end
+    return t
+end
+
 -- Where the player's choice for an option is kept.
 local function Store(key)
-    if PER_PROFILE[key] then return MedalluinDB.profiles[Profile()] end
+    if PER_CLASS[key] then
+        local t = ClassStore()
+        if t then return t end
+    end
+    if PER_PROFILE[key] or PER_CLASS[key] then return MedalluinDB.profiles[Profile()] end
     return MedalluinDB.global
 end
 
@@ -577,7 +607,12 @@ end
 
 -- Reset profile: the current profile's options back to its own.
 function ns.ResetProfile()
-    Relayer(function() wipe(MedalluinDB.profiles[Profile()]) end)
+    Relayer(function()
+        wipe(MedalluinDB.profiles[Profile()])
+        -- this class's paging on it too
+        local t = ClassStore()
+        if t then wipe(t) end
+    end)
 end
 
 -- A saved table from before profiles is flat, every option at the top with
