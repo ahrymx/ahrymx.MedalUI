@@ -42,7 +42,7 @@ local LINE = { 0.227, 0.196, 0.141 }            -- an empty slot's edge
 -- smoothly from its middle, tinted and stretched as each light needs
 local GLOW = "character\\glow"
 local TURN = 0.012                              -- the model's turn, in radians per pixel dragged
-local SWITCH = 22 + 10                          -- the details' switch, and the gap under it
+local SWITCH = 26 + 10                          -- the details' switch, and the gap under it
 local VIEWS = { { "stats", "Stats", "Your stats." }, { "titles", "Titles", "Wear a title you have earned." },
     { "sets", "Sets", "Your equipment sets." } }
 
@@ -467,15 +467,17 @@ local function Details(foot)
         if v[1] == "stats" or part.available then table.insert(keys, v) end
     end
     -- Stats, Titles, Sets joined, centred over the details
-    local w = 90
     local items = {}
     for _, v in ipairs(keys) do
         table.insert(items, { key = v[1], label = v[2], group = "views", click = function() Show(v[1]) end,
             tip = function() return v[3] end })
     end
-    switch = ns.window.Segments(foot, { height = 22, items = items })
-    switch:SetSize(#keys * w - (#keys - 1), 22)
-    switch:SetPoint("TOP", foot, "TOP", 0, 0)
+    -- (2026-11-19, /workspace/sleek-character.png) words over a hairline,
+    -- the held one underlined, the hairline across the page
+    switch = ns.window.Segments(foot, { height = 26, tabs = true, items = items })
+    switch:SetHeight(26)
+    switch:SetPoint("TOPLEFT", foot, "TOPLEFT", 0, 0)
+    switch:SetPoint("TOPRIGHT", foot, "TOPRIGHT", 0, 0)
     local height
     for _, v in ipairs(keys) do
         local key = v[1]

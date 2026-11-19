@@ -18,14 +18,18 @@
 -- number serves every class.
 local _, ns = ...
 
-local ROW, RIBBON, BADGE, GAP = 22, 50, 58, 10
+local ROW, RIBBON, BADGE, GAP = 22, 50, 54, 10
+-- (2026-11-19, /workspace/sleek-character.png) the ribbon a gold band with
+-- hairlines, the item level in a medallion's ring, the rows on hairlines,
+-- each resistance an ink cell: its gem, its school, its value, its tint under
+local HAIR = { 0.204, 0.176, 0.129 }
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local SCHOOLS = { "Arcane", "Fire", "Frost", "Nature", "Shadow" }
 -- each school's box: its tint
 local SCHOOL_COLOR = { Arcane = { 0.6, 0.45, 1 }, Fire = { 1, 0.36, 0.16 }, Frost = { 0.36, 0.66, 1 },
     Nature = { 0.32, 0.86, 0.36 }, Shadow = { 0.67, 0.3, 0.84 } }
-local BOX = 28                                  -- a resistance's box, its height
+local BOX, LABEL = 34, 16                       -- a resistance's cell, its height; the label over them
 local SCHOOL_CLASS = { Arcane = 6, Fire = 2, Frost = 4, Nature = 3, Shadow = 5 }   -- Enum.Damageclass
 
 local function Best(...)
@@ -173,11 +177,11 @@ end
 -- ------------------------------------------------------------- the ribbon
 local function Cell(foot, i)
     local c = CreateFrame("Frame", nil, foot)
-    c.label = ns.Text(c, 12)
-    c.label:SetPoint("TOP", 0, -7)
-    c.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    c.label = ns.Text(c, 10)
+    c.label:SetPoint("TOP", 0, -9)
+    c.label:SetTextColor(unpack(ns.colors.dim))
     c.value = ns.Text(c, 17)
-    c.value:SetPoint("BOTTOM", 0, 7)
+    c.value:SetPoint("BOTTOM", 0, 8)
     c.index = i
     return c
 end
@@ -187,29 +191,51 @@ local function Ribbon(foot)
     frame:SetPoint("TOPLEFT")
     frame:SetPoint("TOPRIGHT")
     frame:SetHeight(RIBBON)
-    local edge = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
-    edge:SetAllPoints()
-    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    local well = frame:CreateTexture(nil, "BACKGROUND", nil, 2)
-    well:SetPoint("TOPLEFT", 1, -1)
-    well:SetPoint("BOTTOMRIGHT", -1, 1)
-    well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
-    -- the badge in the middle, standing out of the ribbon at both edges
+    -- a gold band, bright at the middle, a hairline on each edge
+    for k, at in ipairs({ "LEFT", "RIGHT" }) do
+        local half = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
+        half:SetPoint("TOP" .. at)
+        half:SetPoint("BOTTOM")
+        half:SetPoint(at == "LEFT" and "BOTTOMRIGHT" or "BOTTOMLEFT", frame, "BOTTOM")
+        if half.SetGradient and CreateColor then
+            half:SetColorTexture(1, 1, 1, 1)
+            local lo = CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.04)
+            local hi = CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.3)
+            half:SetGradient("HORIZONTAL", k == 1 and lo or hi, k == 1 and hi or lo)
+        else
+            half:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.15)
+        end
+    end
+    frame.edges = {}
+    for _, at in ipairs({ "TOP", "BOTTOM" }) do
+        local e = frame:CreateTexture(nil, "BORDER")
+        e:SetHeight(1)
+        e:SetPoint(at .. "LEFT")
+        e:SetPoint(at .. "RIGHT")
+        e:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        table.insert(frame.edges, e)
+    end
+    -- the item level in a medallion's ring in the middle, over the band's
+    -- edges: the gold rim, a dark line in it, the ink well
     local b = CreateFrame("Frame", nil, frame)
-    b:SetSize(BADGE, RIBBON + 6)
+    b:SetSize(BADGE, BADGE)
     b:SetPoint("CENTER")
-    local bEdge = b:CreateTexture(nil, "BACKGROUND", nil, 1)
-    bEdge:SetAllPoints()
-    bEdge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-    local bWell = b:CreateTexture(nil, "BACKGROUND", nil, 2)
-    bWell:SetPoint("TOPLEFT", 1, -1)
-    bWell:SetPoint("BOTTOMRIGHT", -1, 1)
-    bWell:SetColorTexture(0.24, 0.16, 0.08, 1)
-    b.value = ns.Text(b, 21)
+    b:SetFrameLevel(frame:GetFrameLevel() + 2)
+    b.rings = {}
+    for k, ring in ipairs({ { BADGE, GOLD }, { BADGE - 3, ns.colors.ink }, { BADGE - 5, GOLD_D },
+        { BADGE - 7, ns.colors.ink } }) do
+        local t = b:CreateTexture(nil, "BACKGROUND", nil, k)
+        t:SetSize(ring[1], ring[1])
+        t:SetPoint("CENTER")
+        t:SetTexture(ns.media .. "strips\\round")
+        t:SetVertexColor(ring[2][1], ring[2][2], ring[2][3], 1)
+        b.rings[k] = t
+    end
+    b.value = ns.Text(b, 19)
     b.value:SetPoint("CENTER", 0, 4)
     b.value:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    b.label = ns.Text(b, 10)
-    b.label:SetPoint("BOTTOM", 0, 5)
+    b.label = ns.Text(b, 8)
+    b.label:SetPoint("CENTER", 0, -12)
     b.label:SetText("ilvl")
     b.label:SetTextColor(unpack(ns.colors.dim))
     -- two cells each side, each a quarter of what the badge leaves
@@ -222,6 +248,13 @@ local function Ribbon(foot)
         local x = (i - 1) * cell + (i > 2 and BADGE or 0)
         c:SetPoint("TOPLEFT", frame, "TOPLEFT", x, 0)
         cells[i] = c
+        if i == 1 or i == 3 then
+            -- a hairline between the pair
+            c.split = frame:CreateTexture(nil, "BORDER")
+            c.split:SetSize(1, RIBBON - 20)
+            c.split:SetPoint("CENTER", c, "RIGHT", 0, 0)
+            c.split:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
+        end
     end
     return frame, cells, b
 end
@@ -235,14 +268,15 @@ local function Rows(foot, entries, side)
         local half = ns.character.width / 2
         r:SetWidth(half - 8)
         r.side = side
-        -- every other row on a faint stripe (Fill shows it)
-        r.stripe = r:CreateTexture(nil, "BACKGROUND")
-        r.stripe:SetAllPoints()
-        r.stripe:SetColorTexture(1, 0.93, 0.75, 0.04)
-        r.stripe:Hide()
+        -- a hairline at its foot (Fill hides the column's last)
+        r.hair = r:CreateTexture(nil, "BACKGROUND")
+        r.hair:SetHeight(1)
+        r.hair:SetPoint("BOTTOMLEFT")
+        r.hair:SetPoint("BOTTOMRIGHT")
+        r.hair:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
         r.label = ns.Text(r, 13)
         r.label:SetPoint("LEFT", 4, 0)
-        r.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+        r.label:SetTextColor(unpack(ns.colors.text))
         r.value = ns.Text(r, 13)
         r.value:SetPoint("RIGHT", -4, 0)
         list[i] = r
@@ -250,36 +284,64 @@ local function Rows(foot, entries, side)
     return list
 end
 
--- The five resistances: a row of boxes across the panel, each edged in
--- gold, its ground tinted in its school's colour, its value in the middle;
--- the school in its tooltip.
+-- The five resistances: a label and a hairline, then a row of ink cells
+-- across the panel, each with its school's gem, its name and its value, a
+-- line of its tint along its foot; the school in its tooltip too.
 local function Resist(foot)
     local frame = CreateFrame("Frame", nil, foot)
-    frame:SetHeight(BOX)
+    frame:SetHeight(LABEL + BOX)
     frame:SetPoint("BOTTOMLEFT")
     frame:SetPoint("BOTTOMRIGHT")
     frame.cells = {}
+    frame.label = ns.Text(frame, 10)
+    frame.label:SetPoint("TOPLEFT", 0, 0)
+    frame.label:SetText("Resistances")
+    frame.label:SetTextColor(unpack(ns.colors.dim))
+    frame.hair = frame:CreateTexture(nil, "BACKGROUND")
+    frame.hair:SetHeight(1)
+    frame.hair:SetPoint("LEFT", frame.label, "RIGHT", 8, 0)
+    frame.hair:SetPoint("RIGHT", frame, "TOPRIGHT", 0, -6)
+    frame.hair:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
     local gap = 6
     local w = math.floor((ns.character.width - (#SCHOOLS - 1) * gap) / #SCHOOLS)
     local x = math.floor((ns.character.width - #SCHOOLS * w - (#SCHOOLS - 1) * gap) / 2)
     for i, school in ipairs(SCHOOLS) do
         local c = CreateFrame("Frame", nil, frame)
         c:SetSize(w, BOX)
-        c:SetPoint("TOPLEFT", frame, "TOPLEFT", x, 0)
+        c:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -LABEL)
         x = x + w + gap
         local col = SCHOOL_COLOR[school]
         c.edge = c:CreateTexture(nil, "BACKGROUND", nil, -2)
         c.edge:SetAllPoints()
-        c.edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        c.edge:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
         c.well = c:CreateTexture(nil, "BACKGROUND", nil, -1)
         c.well:SetPoint("TOPLEFT", 1, -1)
         c.well:SetPoint("BOTTOMRIGHT", -1, 1)
-        c.well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
-        c.tint = c:CreateTexture(nil, "BACKGROUND", nil, 0)
-        c.tint:SetAllPoints(c.well)
-        c.tint:SetColorTexture(col[1], col[2], col[3], 0.28)
+        c.well:SetColorTexture(0.094, 0.086, 0.075, 1)
+        c.tint = c:CreateTexture(nil, "ARTWORK")
+        c.tint:SetHeight(2)
+        c.tint:SetPoint("BOTTOMLEFT")
+        c.tint:SetPoint("BOTTOMRIGHT")
+        c.tint:SetColorTexture(col[1] * 0.75, col[2] * 0.75, col[3] * 0.75, 1)
+        -- the gem: a square on its corner, gold under the school's colour
+        c.gem = c:CreateTexture(nil, "ARTWORK", nil, 2)
+        c.gem:SetSize(7, 7)
+        c.gem:SetPoint("CENTER", c, "LEFT", 13, 0)
+        c.gem:SetColorTexture(col[1], col[2], col[3], 1)
+        c.gemRim = c:CreateTexture(nil, "ARTWORK", nil, 1)
+        c.gemRim:SetSize(9, 9)
+        c.gemRim:SetPoint("CENTER", c.gem)
+        c.gemRim:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        if c.gem.SetRotation then
+            c.gem:SetRotation(math.pi / 4)
+            c.gemRim:SetRotation(math.pi / 4)
+        end
+        c.name = ns.Text(c, 10)
+        c.name:SetPoint("LEFT", 22, 0)
+        c.name:SetText(school)
+        c.name:SetTextColor(unpack(ns.colors.dim))
         c.value = ns.Text(c, 14)
-        c.value:SetPoint("CENTER", 0, 0)
+        c.value:SetPoint("RIGHT", -8, 0)
         c.school = school
         c:EnableMouse(true)
         c:SetScript("OnEnter", function(self)
@@ -306,7 +368,7 @@ function stats.Build(foot)
     stats.split = split
     if layout.resist then
         resist = Resist(foot)
-        stats.height = stats.height + GAP + BOX
+        stats.height = stats.height + GAP + LABEL + BOX
     end
     stats.ribbon, stats.badge, stats.columns, stats.resist = ribbon, badge, columns, resist
     stats.forever = layout == FOREVER
@@ -318,14 +380,15 @@ ns.character.ribbon = { height = RIBBON, row = ROW, gap = GAP }
 
 -- One column: the rows that read, top down; the rest hidden.
 local function Fill(rows, entries, side)
-    local y, k = RIBBON + 3 + GAP, 0
+    local y, k, last = RIBBON + 3 + GAP, 0, nil
     for i, entry in ipairs(entries) do
         local r = rows[i]
         local text = Read(entry)
         r:SetShown(text ~= nil)
         if text then
             k = k + 1
-            r.stripe:SetShown(k % 2 == 1)
+            r.hair:Show()
+            last = r
             r.label:SetText(Label(entry))
             r.value:SetText(text)
             r:ClearAllPoints()
@@ -334,6 +397,7 @@ local function Fill(rows, entries, side)
             y = y + ROW
         end
     end
+    if last then last.hair:Hide() end
 end
 
 function stats.Refresh()
@@ -352,7 +416,10 @@ function stats.Refresh()
         for _, c in ipairs(resist.cells) do
             -- base, real, effective, bonus: the effective one, as Blizzard's pane shows
             local ok, _, _, total = pcall(UnitResistance, "player", SCHOOL_CLASS[c.school])
-            c.value:SetText(ok and type(total) == "number" and Whole(total) or "--")
+            local has = ok and type(total) == "number"
+            c.value:SetText(has and Whole(total) or "--")
+            local tc = has and total > 0 and ns.colors.text or ns.colors.dim
+            c.value:SetTextColor(tc[1], tc[2], tc[3])
         end
     end
 end

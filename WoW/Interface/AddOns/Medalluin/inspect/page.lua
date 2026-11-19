@@ -232,7 +232,7 @@ local function Details(foot)
                     local side = j == 1 and -1 or 1
                     local r = ns.character.Rows(foot, { entry }, side)[1]
                     r.entry = entry
-                    r.stripe:SetShown(k % 2 == 1)
+                    r.line = k
                     if line.wide then r:SetWidth(ns.character.width) end
                     r:SetPoint(side < 0 and "TOPLEFT" or "TOPRIGHT", 0, -y)
                     table.insert(rows, r)
@@ -245,6 +245,8 @@ local function Details(foot)
                 y = y + R.row
             end
         end
+        -- a hairline under each row but a part's last
+        for _, r in ipairs(rows) do r.hair:SetShown(r.line < k) end
         columns[i] = { name = part[1], rows = rows }
     end
     page.footHeight = y

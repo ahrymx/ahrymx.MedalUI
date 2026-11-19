@@ -15717,7 +15717,7 @@ if args.inspect then
             local rows = {}
             for _, r in ipairs(part.rows) do
                 table.insert(rows, r.label.text .. "=" .. tostring(r.value.text)
-                    .. (r.stripe.shown == false and "" or "~") .. "@" .. tostring(select(5, r:GetPoint(1)))
+                    .. (r.hair.shown == false and "" or "_") .. "@" .. tostring(select(5, r:GetPoint(1)))
                     .. "/" .. tostring(r.w))
             end
             print(tag .. " " .. part.name, table.concat(rows, " "))
@@ -15997,6 +15997,50 @@ if characterPass then
                 "shown=" .. tostring(h.medal.shown), "step=" .. pt(h.step) .. " " .. h.step.w .. "x" .. h.step.h,
                 "count=" .. pt(h.count), "name=" .. pt(h.label, 1) .. " / " .. pt(h.label, 2)
                 .. " " .. tostring(h.label.justifyH))
+            do  -- the margin: the metal down the screen's edge, docked only
+                local mt = w.metal
+                local bg = w.chrome.bg
+                local function cols()
+                    local o = {}
+                    for _, c in ipairs(mt.columns) do o[#o + 1] = select(4, c:GetPoint(1)) end
+                    return table.concat(o, ",")
+                end
+                print("char.margin", "rail=" .. tostring(mt and mt.shown) .. " " .. pt(mt) .. " / " .. pt(mt, 2),
+                    "columns=" .. cols(), "bg=" .. pt(bg) .. " / " .. pt(bg, 2),
+                    "close=" .. pt(w.close), "head=" .. pt(h) .. " w" .. tostring(h.w),
+                    "first=" .. tostring(select(5, ns.character.pages[1].body:GetPoint(1))))
+            end
+            do  -- the page's pieces, gilded: the switch, the ribbon, the ring, the rows, the resistances
+                local st, pd = ns.character.stats, nil
+                for _, p in ipairs(ns.character.pages) do if p.key == "character" then pd = p end end
+                local sw = pd and pd.switch
+                local function held()
+                    local o = {}
+                    for _, b in ipairs(sw.buttons) do
+                        if b.shown then o[#o + 1] = b.label.text .. (b.mark.shown and "*" or "") end
+                    end
+                    return table.concat(o, " ")
+                end
+                local hairs = {}
+                for _, r in ipairs(st.columns.left) do
+                    if r.shown then hairs[#hairs + 1] = r.hair.shown and "_" or "." end
+                end
+                local cells = {}
+                for _, c in ipairs(st.resist and st.resist.cells or {}) do
+                    cells[#cells + 1] = c.name.text .. "=" .. tostring(c.value.text)
+                        .. string.format("(%.2f)", c.tint.color and c.tint.color[1] or -1)
+                end
+                print("char.sleek", "switch=" .. (sw and (tostring(sw.buttons[1].tabs) .. ":" .. held()) or "-"),
+                    "hair=" .. tostring(sw and sw.hair and sw.hair.shown ~= false),
+                    "ribbon=" .. tostring(#(st.ribbon.edges or {})) .. " edges", "ring=" .. #(st.badge.rings or {})
+                        .. " " .. tostring(st.badge.value.text) .. "/" .. tostring(st.badge.label.text),
+                    "rows=" .. table.concat(hairs), "resist=" .. table.concat(cells, " "))
+                if sw and sw.byKey.titles then
+                    sw.byKey.titles.scripts.OnClick(sw.byKey.titles, "LeftButton")
+                    print("char.sleek titles", held())
+                    sw.byKey.stats.scripts.OnClick(sw.byKey.stats, "LeftButton")
+                end
+            end
             h.medal.scripts.OnClick(h.medal, "LeftButton")
             print("char.medal click", "open=" .. tostring(d.IsOpen()))
             h.medal.scripts.OnClick(h.medal, "LeftButton")

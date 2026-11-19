@@ -104,6 +104,14 @@ local MEDALLION = L.chatLeft                    -- the medallion's width: the st
 local OVER = ART.height - L.stripHeight         -- how far the medallion stands above the strip
 local BAND = OVER - 5                           -- the margin, up to its rule: as the chat's and the side panel's
 local BOTTOM = BAND + RULE                      -- the page's (or its details') foot
+-- A docked window's margin (2026-11-19, mockup B of /workspace/margin-B.png,
+-- made one grid in /workspace/sleek-chrome.png): its head and pages stand
+-- this far in from the screen's top, and this and PAD in from its edge; the
+-- window's gold frame only on its inner side and foot, the screen being the
+-- frame on the others, and flush against the screen's edge a gold rail
+-- (RAIL: its columns, outer first, bevelled), top to foot. Floating, none.
+local MARGIN = 10
+local RAIL = { { 0.27, 0.22, 0.11 }, { 0.80, 0.69, 0.41 }, { 0.98, 0.90, 0.67 }, { 0.37, 0.29, 0.14 } }
 local LIFT = 20                                 -- the medallion's buttons' level over the window's
 local HEIGHT, LEAST = 480, { WIDTH, 240 }        -- a detached window's first height, its least size
 local SCALES = { 0.6, 1.4, 0.05 }               -- a detached window's scale: least, most, a step
@@ -114,7 +122,7 @@ local SHADOW, DROP = 12, 3                      -- a floating window's shadow: h
 local UNDER = 44                                -- a floating window's tab's underline
 local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118, 0.102, 0.071, 0.8 } }
 
-ns.window = { width = WIDTH - 2 * PAD, pad = PAD, band = BAND }
+ns.window = { width = WIDTH - 2 * PAD - MARGIN, pad = PAD, band = BAND }
 
 -- A secure button b set over region by numbers from its layer's (its
 -- parent's) own corner and scale, never anchored to region (see w.Layer);
@@ -329,7 +337,11 @@ ns.window.Button = Button
 --
 --   local row = ns.window.Segments(parent, { height, fit, size (the
 --               words', 12), iconSize (24), tipAt, items, soft (true:
---               Face's soft look; "open": tabs with no box, Bare's) })
+--               Face's soft look; "open": tabs with no box, Bare's),
+--               tabs (2026-11-19, /workspace/sleek-character.png: Bare's,
+--               the held one's underline as wide as its word over a gold
+--               fade bright at its middle, the others' words dim, a
+--               hairline under the row) })
 --   row:Fill({ { key, label, icon, group, tip() -> text, click(button),
 --                selected, enabled, shown, color } ... })   (again: the
 --               buttons kept, their words and deeds changed)
@@ -353,7 +365,8 @@ local ICON_PAD = 12                              -- a fit button's room past its
 local function Paint(b)
     b.mark:SetShown(b.selected and true or false)
     b.glow:SetShown(b.enabled)
-    local c = not b.enabled and ns.colors.dim or b.color or b.selected and GOLD or ns.colors.text
+    local c = not b.enabled and ns.colors.dim or b.color or b.selected and GOLD
+        or b.tabs and ns.colors.dim or ns.colors.text
     b.label:SetTextColor(c[1], c[2], c[3])
     b.icon:SetAlpha(not b.enabled and 0.3 or (b.selected or b.lit) and 1 or 0.6)
     local lit = b.lit
@@ -373,6 +386,14 @@ local function Segments(parent, spec)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(spec.height)
     row.buttons, row.byKey, row.gaps = {}, {}, {}
+    if spec.tabs then
+        spec.soft = "open"
+        row.hair = row:CreateTexture(nil, "BACKGROUND")
+        row.hair:SetHeight(1)
+        row.hair:SetPoint("BOTTOMLEFT")
+        row.hair:SetPoint("BOTTOMRIGHT")
+        row.hair:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.45)
+    end
     local n = 0                         -- the buttons in use
 
     function row:Layout()
@@ -457,6 +478,33 @@ local function Segments(parent, spec)
                 end
                 b.label = ns.Text(face, spec.size or 12)
                 b.label:SetPoint("CENTER")
+                if spec.tabs then
+                    -- the underline as wide as the word; the fade across,
+                    -- bright at the middle, in place of Bare's rise
+                    b.tabs = true
+                    local line = b.mark.line
+                    line:ClearAllPoints()
+                    line:SetPoint("BOTTOMLEFT", b.label, "LEFT", -4, -(spec.height / 2))
+                    line:SetPoint("BOTTOMRIGHT", b.label, "RIGHT", 4, -(spec.height / 2))
+                    local regions = { b.mark:GetRegions() }
+                    for _, t in ipairs(regions) do
+                        if t ~= line then t:Hide() end
+                    end
+                    for k, at in ipairs({ "LEFT", "RIGHT" }) do
+                        local half = b.mark:CreateTexture(nil, "BACKGROUND")
+                        half:SetPoint("TOP" .. at, 0, 0)
+                        half:SetPoint("BOTTOM", 0, 0)
+                        half:SetPoint(at == "LEFT" and "BOTTOMRIGHT" or "BOTTOMLEFT", b, "BOTTOM", 0, 0)
+                        if half.SetGradient and CreateColor then
+                            half:SetColorTexture(1, 1, 1, 1)
+                            local lo = CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0)
+                            local hi = CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.35)
+                            half:SetGradient("HORIZONTAL", k == 1 and lo or hi, k == 1 and hi or lo)
+                        else
+                            half:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.15)
+                        end
+                    end
+                end
                 b.icon = face:CreateTexture(nil, "ARTWORK")
                 b.icon:SetSize(spec.iconSize or 24, spec.iconSize or 24)
                 b.icon:SetPoint("CENTER")
@@ -956,7 +1004,7 @@ local docked = { [-1] = {}, [1] = {} }
 function ns.Window(spec)
     local side = spec.side
     local pages = {}
-    local w = { pages = pages, width = WIDTH - 2 * PAD, side = side,
+    local w = { pages = pages, width = WIDTH - 2 * PAD - MARGIN, side = side,
         band = { left = side < 0 and MEDALLION + PAD or PAD, right = side < 0 and PAD or MEDALLION + PAD,
             height = BAND } }
     local window, close, rule, footRule, medal, view, grip
@@ -968,6 +1016,18 @@ function ns.Window(spec)
     local tabs = {}
     local drop = {}             -- the pages' dropdown (Tabs): its head, its list beside the window
     local Corner                -- (Tabs) the cross's corner
+    -- the margin docked (MARGIN, above): the top's, the left's, the right's
+    -- (the edge's side only); floating, none
+    local function Inset()
+        local m = floating and 0 or MARGIN
+        return m, side < 0 and m or 0, side > 0 and m or 0
+    end
+    -- the chrome's (the head's, the cross's) insets from the window's sides:
+    -- the outer side's to the pages' edge, as theirs (one grid)
+    local function Edges()
+        local m = floating and 0 or MARGIN + PAD
+        return side < 0 and m or 0, side > 0 and m or 0
+    end
     local listener = CreateFrame("Frame")
     w.listener = listener
     w.exclusive = spec.exclusive and true or false
@@ -1086,8 +1146,9 @@ function ns.Window(spec)
         footRule:SetShown(shown)
         if shown then
             footRule:ClearAllPoints()
-            footRule:SetPoint("TOPLEFT", PAD, -(pageTop + height + RULE))
-            footRule:SetPoint("TOPRIGHT", -PAD, -(pageTop + height + RULE))
+            local _, li, ri = Inset()
+            footRule:SetPoint("TOPLEFT", PAD + li, -(pageTop + height + RULE))
+            footRule:SetPoint("TOPRIGHT", -(PAD + ri), -(pageTop + height + RULE))
             current.foot:SetHeight(current.footHeight)
         end
         window:SetHeight(total)
@@ -1215,15 +1276,21 @@ function ns.Window(spec)
     -- The look, floating or docked (the tabs follow in Tabs)
     local function Chrome(off)
         floating = off
+        -- docked, the ink over the frame at the top and the screen's edge
+        local bg = chrome.bg
+        bg:ClearAllPoints()
+        bg:SetPoint("TOPLEFT", (off or side > 0) and 1 or 0, off and -1 or 0)
+        bg:SetPoint("BOTTOMRIGHT", (off or side < 0) and -1 or 0, 1)
         chrome.edge:SetAlpha(off and FLOAT.edge or 1)
         chrome.lit:SetShown(off)
         chrome.head:SetShown(off)
         for _, p in ipairs(chrome.shadow) do p:SetShown(off) end
         rule:SetAlpha(off and FLOAT.rule or 1)
         local inset = off and 1 or PAD
+        local el, er = Edges()                  -- (on the pages' grid)
         window.bandRule:ClearAllPoints()
-        window.bandRule:SetPoint("BOTTOMLEFT", inset, BAND)
-        window.bandRule:SetPoint("BOTTOMRIGHT", -inset, BAND)
+        window.bandRule:SetPoint("BOTTOMLEFT", math.max(inset, el), BAND)
+        window.bandRule:SetPoint("BOTTOMRIGHT", -math.max(inset, er), BAND)
         footRule:SetAlpha(off and FLOAT.rule or 1)
         for _, b in ipairs({ close, view }) do
             Boxed(b, not off)
@@ -1403,18 +1470,26 @@ function ns.Window(spec)
 
     -- The rule along the head's foot (rows of tabs high), the window's
     -- width, and the pages under it
-    local function Under(rows)
-        pageTop = TOP + (rows - 1) * (TAB - 1)
+    local function Under(rows, medallion)
+        local top, li, ri = Inset()
+        local el, er = Edges()
+        pageTop = TOP + (rows - 1) * (TAB - 1) + top
+        -- under the dropdown's medallion: below the step's foot, a rule's gap
+        if medallion then pageTop = math.max(pageTop, top + medallion + RULE) end
         rule:ClearAllPoints()
-        rule:SetPoint("TOPLEFT", 0, -(rows * (TAB - 1)))
-        rule:SetPoint("TOPRIGHT", 0, -(rows * (TAB - 1)))
+        rule:SetPoint("TOPLEFT", el, -(rows * (TAB - 1) + top))
+        rule:SetPoint("TOPRIGHT", -er, -(rows * (TAB - 1) + top))
         for _, p in ipairs(pages) do
             if p.body then
                 p.body:ClearAllPoints()
-                p.body:SetPoint("TOPLEFT", PAD, -pageTop)
-                p.body:SetPoint("TOPRIGHT", -PAD, -pageTop)
+                p.body:SetPoint("TOPLEFT", PAD + li, -pageTop)
+                p.body:SetPoint("TOPRIGHT", -(PAD + ri), -pageTop)
+                p.foot:ClearAllPoints()
+                p.foot:SetPoint("BOTTOMLEFT", PAD + li, BOTTOM)
+                p.foot:SetPoint("BOTTOMRIGHT", -(PAD + ri), BOTTOM)
             end
         end
+        if window.metal then window.metal.Set(not floating) end
     end
 
     -- ------------------------------------------------------ the dropdown
@@ -1704,10 +1779,10 @@ function ns.Window(spec)
         f:ClearAllPoints()
         f.notch:ClearAllPoints()
         if s == 1 then
-            f:SetPoint("TOPRIGHT", window, "TOPLEFT", -(MEDAL / 2 + 6), 0)
+            f:SetPoint("TOPRIGHT", window, "TOPLEFT", -(MEDAL / 2 + 6), -(Inset()))
             f.notch:SetPoint("CENTER", f, "TOPRIGHT", 0, -TAB / 2)
         else
-            f:SetPoint("TOPLEFT", window, "TOPRIGHT", MEDAL / 2 + 6, 0)
+            f:SetPoint("TOPLEFT", window, "TOPRIGHT", MEDAL / 2 + 6, -(Inset()))
             f.notch:SetPoint("CENTER", f, "TOPLEFT", 0, -TAB / 2)
         end
         -- the held row's fade and bar from the side towards the screen's
@@ -1735,8 +1810,10 @@ function ns.Window(spec)
     -- the cross in the window's top corner, the view glyph beside it: the
     -- right, or the left for a mirrored head
     Corner = function(left)
+        local top = Inset()
+        local el, er = Edges()
         close:ClearAllPoints()
-        close:SetPoint(left and "TOPLEFT" or "TOPRIGHT", 0, 0)
+        if left then close:SetPoint("TOPLEFT", el, -top) else close:SetPoint("TOPRIGHT", -er, -top) end
         if view then
             view:ClearAllPoints()
             if left then
@@ -1777,7 +1854,6 @@ function ns.Window(spec)
             local m = CreateFrame("Button", nil, h)
             m:SetSize(MEDAL, MEDAL)
             m:SetFrameLevel(h:GetFrameLevel() + 12)
-            m:SetPoint("CENTER", window, "TOP" .. near, 0, -MEDAL / 2)
             m:RegisterForClicks("LeftButtonUp")
             m:SetScript("OnClick", function() drop.Toggle() end)
             m:SetScript("OnEnter", function() local f = h:GetScript("OnEnter") if f then f(h) end end)
@@ -1800,29 +1876,29 @@ function ns.Window(spec)
             local st = CreateFrame("Frame", nil, h)
             st:SetFrameLevel(h:GetFrameLevel() + 10)
             st:SetSize(STEP, MEDAL - TAB + 2)
-            st:SetPoint("TOP" .. near, window, "TOP" .. near, 1 * out, -(TAB - 2))
             local fill = st:CreateTexture(nil, "BACKGROUND")
             fill:SetAllPoints()
             fill:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
             local foot = st:CreateTexture(nil, "ARTWORK")
             foot:SetHeight(1)
-            foot:SetPoint("BOTTOM" .. near, 0, 0)
-            foot:SetPoint("BOTTOM" .. far, 0, 0)
-            foot:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-            -- the slant: from the foot's end up to the head's foot
             local rise, run = MEDAL - TAB, SLANT
+            foot:SetPoint("BOTTOM" .. near, 0, 0)
+            foot:SetPoint("BOTTOM" .. far, -run * out, 0)
+            foot:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            -- the slant: from the foot's end up to the head's foot, inside
+            -- the step, which covers the head's foot as far as its top
             local slant = st:CreateTexture(nil, "ARTWORK")
             slant:SetSize(math.sqrt(rise * rise + run * run) + 1, 1)
-            slant:SetPoint("CENTER", st, "BOTTOM" .. far, run / 2 * out, rise / 2)
+            slant:SetPoint("CENTER", st, "BOTTOM" .. far, -run / 2 * out, rise / 2)
             slant:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
             if slant.SetRotation then slant:SetRotation(out * math.atan2(rise, run)) end
             h.step = st
             h.label:Hide()
             h.count = ns.Text(h, 10)
-            h.count:SetPoint(near, MEDAL / 2 * out + 8 * out, 0)
-            h.count:SetTextColor(FAINT[1], FAINT[2], FAINT[3])
+            h.count:SetPoint(near, (MEDAL / 2 + 12) * out, 0)
+            h.count:SetTextColor(unpack(ns.colors.dim))
             h.label = ns.Text(h, 14)
-            h.label:SetPoint(near, (MEDAL / 2 + 56) * out, 0)
+            h.label:SetPoint(near, (MEDAL / 2 + 60) * out, 0)
             h.label:SetPoint(far, -(TAB + 8) * out, 0)
             h.label:SetJustifyH("CENTER")
             h.label:SetWordWrap(false)
@@ -1845,10 +1921,19 @@ function ns.Window(spec)
         end
         local controls = 1 + (view and 1 or 0)
         local edge = controls * TAB - (controls - 1)
-        h:SetWidth((window:GetWidth() or WIDTH) - edge - GAP)
+        local top = Inset()
+        local el, er = Edges()
+        -- joined to the cross: sharing its edge (a pixel's overlap)
+        h:SetWidth((window:GetWidth() or WIDTH) - edge + 1 - el - er)
         h:SetHeight(TAB)
         h:ClearAllPoints()
-        h:SetPoint(mirror and "TOPRIGHT" or "TOPLEFT", 0, 0)
+        h:SetPoint(mirror and "TOPRIGHT" or "TOPLEFT", 0, -top)
+        -- the medallion and the step by it, down by the margin too
+        local near = mirror and "RIGHT" or "LEFT"
+        h.medal:ClearAllPoints()
+        h.medal:SetPoint("CENTER", window, "TOP" .. near, 0, -(top + MEDAL / 2))
+        h.step:ClearAllPoints()
+        h.step:SetPoint("TOP" .. near, window, "TOP" .. near, mirror and -1 or 1, -(top + TAB - 2))
         Boxed(h, not floating)
         h:Show()
         close:SetHeight(TAB)
@@ -1919,7 +2004,7 @@ function ns.Window(spec)
         if Dropped() then
             for _, b in ipairs(tabs) do b:Hide() end
             Drop(first, second)
-            Under(1)
+            Under(1, MEDAL)
             return
         end
         if drop.head then
@@ -1929,7 +2014,9 @@ function ns.Window(spec)
         end
         Corner(false)
         local controls = 1 + (view and 1 or 0)
-        local full = window:GetWidth() or WIDTH
+        local top = Inset()
+        local li, ri = Edges()
+        local full = (window:GetWidth() or WIDTH) - li - ri
         local edge = controls * TAB - (controls - 1)    -- the cross and the view glyph, joined
         local room = full - edge - GAP
         local tall = #second > 0 and 2 * TAB - 1 or TAB
@@ -1996,7 +2083,7 @@ function ns.Window(spec)
                 if prev then
                     b:SetPoint("LEFT", prev, "RIGHT", -1, 0)
                 else
-                    b:SetPoint("TOPLEFT", 0, -(r - 1) * (TAB - 1))
+                    b:SetPoint("TOPLEFT", li, -((r - 1) * (TAB - 1) + top))
                 end
                 Boxed(b, not floating)
                 Mark(b, p == current)
@@ -2061,9 +2148,10 @@ function ns.Window(spec)
         chrome.edge = edge
         chrome.shadow = Shadow()
         local bg = window:CreateTexture(nil, "BACKGROUND", nil, 2)
-        bg:SetPoint("TOPLEFT", 1, -1)
-        bg:SetPoint("BOTTOMRIGHT", -1, 1)
+        bg:SetPoint("TOPLEFT", side > 0 and 1 or 0, 0)          -- (docked first: Chrome)
+        bg:SetPoint("BOTTOMRIGHT", side < 0 and -1 or 0, 1)
         bg:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], spec.opaque and 1 or 0.94)
+        chrome.bg, window.chrome = bg, chrome     -- (the harness reads them)
         -- floating: the head's quiet band, and a lit line along the top
         chrome.head = window:CreateTexture(nil, "BACKGROUND", nil, 3)
         chrome.head:SetPoint("TOPLEFT", 1, -1)
@@ -2098,6 +2186,28 @@ function ns.Window(spec)
         bandRule:SetPoint("BOTTOMLEFT", PAD, BAND)
         bandRule:SetPoint("BOTTOMRIGHT", -PAD, BAND)
         window.bandRule = bandRule
+        -- the margin's rail (docked): flush against the screen's edge, the
+        -- window's height; its columns (RAIL) outer first
+        do
+            local metal = CreateFrame("Frame", nil, window)
+            metal:SetWidth(#RAIL)
+            metal:SetFrameLevel(window:GetFrameLevel() + 2)
+            local outer = side < 0 and "LEFT" or "RIGHT"
+            metal:SetPoint("TOP" .. outer, 0, 0)
+            metal:SetPoint("BOTTOM" .. outer, 0, 0)
+            metal.columns = {}
+            for k, c in ipairs(RAIL) do
+                local t = metal:CreateTexture(nil, "ARTWORK")
+                t:SetWidth(1)
+                t:SetPoint("TOP" .. outer, (k - 1) * (side < 0 and 1 or -1), 0)
+                t:SetPoint("BOTTOM" .. outer, (k - 1) * (side < 0 and 1 or -1), 0)
+                t:SetColorTexture(c[1], c[2], c[3], 1)
+                metal.columns[k] = t
+            end
+            metal.Set = function(on) metal:SetShown(on) end
+            metal:Hide()
+            window.metal = metal
+        end
         Medal()
 
         -- the cross flush in the top right corner
