@@ -101,6 +101,8 @@ end
 --------------------------------------------------
 ns.GLOBAL_FONT = "__global"
 local MARCELLUS = "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
+-- Medalluin's face for Cyrillic (its core.lua chooses the same)
+local FORUM = "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf"
 local KNOWN_FONTS = {
     ["Arial Narrow"] = "Fonts\\ARIALN.TTF",
     ["Friz Quadrata TT"] = "Fonts\\FRIZQT__.TTF",
@@ -130,15 +132,18 @@ local function HasMedalluin()
     return C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Medalluin") and true or false
 end
 
--- Marcellus has Latin letters only: other client languages keep the game's font
-local function LatinClient()
+-- Medalluin's face for this client's letters: Marcellus for Latin, Forum
+-- for Cyrillic; none for Korean and Chinese (the game's font then)
+local function MedalluinFace()
     local locale = GetLocale and GetLocale() or "enUS"
-    return not (locale == "ruRU" or locale == "koKR" or locale == "zhCN" or locale == "zhTW")
+    if locale == "ruRU" then return FORUM end
+    if locale == "koKR" or locale == "zhCN" or locale == "zhTW" then return nil end
+    return MARCELLUS
 end
 
 function ns.GetFontPath(face)
     if face == nil or face == ns.GLOBAL_FONT then
-        if HasMedalluin() and LatinClient() then return MARCELLUS end
+        if HasMedalluin() and MedalluinFace() then return MedalluinFace() end
         return BaseFont()
     end
     local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)

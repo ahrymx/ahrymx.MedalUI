@@ -52,8 +52,13 @@
 local ADDON = "WoW/Interface/AddOns/Medalluin/"
 local args, modern = {}, false
 local argClass
+-- "ruRU" (any four-letter locale, ab + CD): the client's language; its
+-- translation loads and the face follows it (core.lua). Unasked, enUS
+-- (a global: the main chunk is at its local limit)
+argLocale = nil
 for _, a in ipairs(arg) do
     if a == "modern" then modern = true
+    elseif a:match("^%l%l%u%u$") then argLocale = a
     elseif a:match("^%u+$") then argClass = a
     else table.insert(args, a) end
 end
@@ -5541,12 +5546,19 @@ end
 -- ------------------------------------------------------------ load + fire
 local ns = {}
 harnessNS = ns     -- for the helpers above it (harnessNextFrame)
+GetLocale = function() return argLocale or "enUS" end
 for line in io.lines(ADDON .. "Medalluin.toc") do
-    if line:match("%.lua$") then
-        local chunk = assert(loadfile(ADDON .. line:gsub("\\", "/")))
+    local file = line:match("^([^#][^%[]-%.lua)")
+    -- a translation loads only on its own client
+    local only = line:match("%[AllowLoadTextLocale (.-)%]")
+    if only and not only:find(GetLocale(), 1, true) then file = nil end
+    if file then
+        local chunk = assert(loadfile(ADDON .. file:gsub("\\", "/")))
         chunk("Medalluin", ns)
     end
 end
+-- (2026-11-19) the face for the client's letters, when a locale is asked
+if argLocale then print("locale", GetLocale(), "font=" .. tostring(ns.font)) end
 for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "Medalluin") end
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD" }) do
     for _, f in ipairs(events[e] or {}) do

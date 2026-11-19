@@ -125,6 +125,8 @@ read_globals = {
     "PlaceAction", "SELECTED_CHAT_FRAME", "ChatFontNormal", "GetNormalizedRealmName", "UnitFullName", "C_ChatInfo", "GetPlayerInfoByGUID", "GetGuildRosterInfo", "GetNumGuildMembers", "C_FriendList", "TooltipDataProcessor", "SetOverrideBindingClick", "ClearOverrideBindings", "ClearCursor", "CursorHasItem", "GetCursorInfo", "PickupSpell", "PickupItem", "C_Item", "C_MountJournal",
     "C_PetJournal", "C_SpellBook", "C_EquipmentSet", "C_SpecializationInfo", "GetSpecialization",
     "GetActiveTalentGroup", "Enum",
+    -- the client's language (core.lua's face; the translation)
+    "GetLocale",
     -- the character window (character/)
     "CharacterFrame", "SkillsFrame", "UnitPVPName", "UnitStat", "UnitArmor", "UnitAttackPower", "UnitResistance",
     "UnitSpellHaste", "UnitDefenseSkill", "UnitFactionGroup", "UnitSex", "GetAverageItemLevel", "GetAvoidance",

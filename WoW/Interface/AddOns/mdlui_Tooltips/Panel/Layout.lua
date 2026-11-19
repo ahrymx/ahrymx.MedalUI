@@ -33,6 +33,9 @@ end
 -- A commercial font: used from EllesmereUI's folder, never copied here.
 local ELLESMERE_BOLD = "Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway Bold.ttf"
 local MEDALLUIN_FONT = "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
+-- Medalluin's face for Cyrillic: Marcellus has none (Medalluin's core.lua
+-- chooses the same)
+local MEDALLUIN_CYRILLIC = "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf"
 local MAX_WIDTH = 408
 -- Wrapping prose is capped at this inner width; other rows fit on one line.
 local PROSE_WIDTH = 270
@@ -205,7 +208,9 @@ local function titleFont()
     -- Expressway and Marcellus SC have no Hangul or Chinese; use the client's header font there.
     local locale = GetLocale()
     if locale == "koKR" or locale == "zhCN" or locale == "zhTW" then return fontOf(GameTooltipHeaderText) end
-    if medalluinInstalled() then return MEDALLUIN_FONT end
+    if medalluinInstalled() then return locale == "ruRU" and MEDALLUIN_CYRILLIC or MEDALLUIN_FONT end
+    -- (Expressway has no Cyrillic either)
+    if locale == "ruRU" then return fontOf(GameTooltipHeaderText) end
     return ellesmereInstalled() and ELLESMERE_BOLD or fontOf(GameTooltipHeaderText)
 end
 

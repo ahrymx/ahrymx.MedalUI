@@ -2,7 +2,19 @@
 local _, ns = ...
 
 ns.media = "Interface\\AddOns\\Medalluin\\media\\"
-ns.font = ns.media .. "fonts\\MarcellusSC-Regular.ttf"
+-- The face, by the client's letters (2026-11-19, a player's issue: Marcellus
+-- SC has no Cyrillic, so a Russian client drew squares): Forum, a serif
+-- of the same carved capitals with Cyrillic, on ruRU; the game's own on
+-- Korean and Chinese, which no bundled face covers; else Marcellus SC.
+-- The companions choose the same (mdlui_Tooltips, mdlui_RadialMenu).
+local FACE = { ruRU = "fonts\\Forum-Regular.ttf" }
+local GAME_FACE = { koKR = true, zhCN = true, zhTW = true }
+local locale = GetLocale and GetLocale() or "enUS"
+if GAME_FACE[locale] then
+    ns.font = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+else
+    ns.font = ns.media .. (FACE[locale] or "fonts\\MarcellusSC-Regular.ttf")
+end
 ns.bar = ns.media .. "bar"
 
 -- Sampled from the H mockup so code-drawn fills sit in the art's palette.

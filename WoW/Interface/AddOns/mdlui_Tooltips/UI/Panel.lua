@@ -13,7 +13,11 @@ local _, ns = ...
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local ART = "Interface\\AddOns\\mdlui_Tooltips\\art\\ui\\"
-local SERIF = "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
+-- Medalluin's serif for this client's letters: Marcellus SC for Latin,
+-- Forum for Cyrillic (Medalluin's core.lua chooses the same)
+local SERIF = (GetLocale and GetLocale() == "ruRU")
+    and "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf"
+    or "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
 
 -- Medalluin's palette (core.lua and options/controls.lua)
 local C = {
@@ -99,7 +103,8 @@ local Inset = Panel.Inset
 
 -- Medalluin's serif for a heading, at size, while Medalluin is there and the
 -- client's letters are Latin; else the game's own face.
-local LATIN = not ({ koKR = true, zhCN = true, zhTW = true, ruRU = true })[GetLocale and GetLocale() or "enUS"]
+-- (a bundled serif: Latin's and Cyrillic's; Korean and Chinese have none)
+local LATIN = not ({ koKR = true, zhCN = true, zhTW = true })[GetLocale and GetLocale() or "enUS"]
 function Panel.Heading(fs, size, color)
     local serif = LATIN and ns.Game and ns.Game.addonInstalled and ns.Game.addonInstalled("Medalluin")
     if not (serif and fs:SetFont(SERIF, size or 14, "")) then

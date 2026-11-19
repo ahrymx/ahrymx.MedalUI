@@ -296,6 +296,7 @@ if GetLocale() == "ruRU" then
         { "Arial Narrow", "Fonts\\ARIALN.TTF" },
         { "Morpheus", "Fonts\\MORPHEUS_CYR.TTF" },
         { "Skurri", "Fonts\\SKURRI_CYR.TTF" },
+        { "Forum (Medalluin)", "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf" },
     }
 elseif GetLocale() == "koKR" then
     GAME_FONTS = {
