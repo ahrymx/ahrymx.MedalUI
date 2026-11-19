@@ -17696,15 +17696,25 @@ if spellPass then
         end
         for i, c in ipairs(p.rows) do
             if c.shown and i >= (from or 1) and i <= (to or #p.rows) then
-                if c.kind == "rank" then
-                    table.insert(list, string.format(" |%s(%s|%s%s)[%s]", c.rank.text, c.rcast.text, c.rcost.text,
-                        "", over(c)))
+                -- (2026-11-19) a heading #Name(n), red ! ; a spell's ranks [n] on
+                -- its plate and its chevron v (open) or > ; an open group's
+                -- rows | (the bar); a rank's stem ' when it stops (the last)
+                local g = c.bar.shown and "|" or ""
+                if c.kind == "heading" then
+                    local tc = c.hname.textColor
+                    local red = tc and tc[1] > 0.8 and tc[2] < 0.5
+                    table.insert(list, string.format("#%s(%s)%s", c.hname.text, c.hcount.text, red and "!" or ""))
+                elseif c.kind == "rank" then
+                    local last = c.stem.points.BOTTOMLEFT and c.stem.points.BOTTOMLEFT[2] == "LEFT"
+                    table.insert(list, string.format("%s |%s%s(%s|%s%s)[%s]", g, last and "'" or "", c.rank.text,
+                        c.rcast.text, c.rcost.text, "", over(c)))
                 else
                     local stack = ""
-                    for _, st in ipairs(c.stack) do
-                        if st.rim.shown then stack = stack .. (st.rim.color and st.rim.color[1] > 0.9 and "*" or "=") end
+                    if c.plate.shown then
+                        stack = "[" .. c.plate.text.text .. "]" .. (c.chev.shown and ((c.chev.rotation or 0) == 0
+                            and "v" or ">") or "")
                     end
-                    table.insert(list, string.format("%s%s(%s|%s|%s,%.1f%s)[%s]%s", stack ~= "" and stack .. " " or "",
+                    table.insert(list, string.format("%s%s%s(%s|%s|%s,%.1f%s)[%s]%s", g, stack ~= "" and stack .. " " or "",
                         c.name.text, c.sub.text, c.cast.text, c.cost.text, c.icon.alpha or 1,
                         "", over(c), c.hair.shown and "_" or ""))
                 end
@@ -18118,7 +18128,7 @@ if spellPass then
                 local said
                 GameTooltip.AddLine = function(_, t) said = t end
                 c.scripts.OnEnter(c)
-                table.insert(out, c.name.text .. (red and "!" or "") .. (c.miss.shown and "~" or "")
+                table.insert(out, c.name.text .. (red and "!" or "")
                     .. (red and "@" .. tostring(-c.edge.points.TOPLEFT[3]) or "") .. (said and "<" .. said .. ">" or ""))
             end
         end
@@ -18127,7 +18137,59 @@ if spellPass then
     end
     book.Refresh()
     rows("book.ranks", 4)
+    -- (2026-11-19, mockup B) a spell with ranks opened: the bar down its
+    -- group, the plate and the chevron down, the tree's last stem stopping
+    do
+        local hw = row("Healing Wave")
+        if hw then
+            hw.scripts.OnClick(hw, "LeftButton")
+            rows("book.grouped open")
+            local r = row("Healing Wave", "Rank 4")
+            print("book.grouped tree", r and ("wash=" .. tostring(r.gwash.shown) .. " branch=" .. tostring(r.branch.shown)
+                .. " rhair=" .. tostring(r.rhair.shown)) or "no rank row")
+            hw = row("Healing Wave")
+            hw.scripts.OnClick(hw, "LeftButton")
+            rows("book.grouped shut")
+        else
+            print("book.grouped open", "no row")
+        end
+    end
     edges("book.bars")
+    -- (2026-11-19, mockup B of /workspace/bookpage-sheet.png) the page:
+    -- the parchment tiled to its size, its shades, the dotted rules, a
+    -- heading's underline in its ink
+    do
+        local pp = B.Current().paper
+        if pp then
+            local function at(pt)
+                local q = pp.points[pt]
+                return q and (pt .. " " .. q[3] .. "," .. q[4]) or (pt .. " -")
+            end
+            if pp.scripts.OnSizeChanged then pp.scripts.OnSizeChanged(pp, 440, 512) end
+            local tc = pp.page.coords or {}
+            local sh = {}
+            for k, t in pairs(pp.shades) do
+                sh[#sh + 1] = k .. "=" .. tostring((k == "LEFT" or k == "RIGHT") and t.w or t.h)
+            end
+            -- (General's tab: its spells under both headings)
+            local cell = B.Current().specs.cells[1]
+            cell.scripts.OnClick(cell, "LeftButton")
+            table.sort(sh)
+            local hd, sp
+            for _, c in ipairs(B.Current().rows) do
+                if c.shown and c.kind == "heading" and not hd then hd = c end
+                if c.shown and c.kind == "spell" and c.hair.shown and not sp then sp = c end
+            end
+            print("book.page", tostring(pp.page.texture):match("[^\\]+$"), at("TOPLEFT"), at("BOTTOMRIGHT"),
+                "tile=" .. string.format("%.2f,%.2f", tc[2] or -1, tc[4] or -1), "shades=" .. table.concat(sh, " "),
+                "rule=" .. (sp and (tostring(sp.hair.texture):match("[^\\]+$") .. string.format(" x%.1f",
+                    (sp.hair.coords or {})[2] or -1)) or "-"),
+                "heading=" .. (hd and (hd.hname.font and hd.hname.font[2] or "?") .. " under="
+                    .. tostring(hd.hunder.shown) or "-"))
+        else
+            print("book.page", "none")
+        end
+    end
     -- no marks when asked for none
     ns.SetOption("spellbookMissing", false)
     edges("book.no marks")
@@ -18136,17 +18198,16 @@ if spellPass then
     -- nothing then: a shift-type2 no handler has), a chevron on its icon,
     -- and the lower rank on the bar rises at once
     do
+        -- (each spell in its own tab: Lightning Bolt asked first, then
+        -- Rockbiter's tab opened for the rest)
+        local bolt = tostring(button("Lightning Bolt").attrs["shift-type2"])
         local rb = button("Rockbiter Weapon")
-        print("book.toprank attrs", "shift-type2=" .. tostring(rb.attrs["shift-type2"]),
-            "bolt=" .. tostring(button("Lightning Bolt").attrs["shift-type2"]))
+        print("book.toprank attrs", "shift-type2=" .. tostring(rb.attrs["shift-type2"]), "bolt=" .. bolt)
         local function chevron()
-            for _, c in ipairs(B.Current().rows) do
-                if c.shown and c.kind == "spell" and c.name.text == "Rockbiter Weapon" then
-                    local g = c.top.glyph.vertex or {}
-                    return tostring(c.top.shown) .. " blue=" .. tostring(g[3] and g[3] > 0.9 and g[1] < 0.5)
-                end
-            end
-            return "no row"
+            local c = row("Rockbiter Weapon")
+            if not c then return "no row" end
+            local g = c.top.glyph.vertex or {}
+            return tostring(c.top.shown) .. " blue=" .. tostring(g[3] and g[3] > 0.9 and g[1] < 0.5)
         end
         print("book.toprank mode", tostring(ns.db.spellbookUpRank), "chevron=" .. chevron())
         modsDown.SHIFT = true
@@ -18288,8 +18349,12 @@ if spellPass then
     end
     scrolled("book.trainer tall")
     local trH = tr.body.h
-    tr.body.h = 3 * 40
-    tr.scroller.scroll.h = 3 * 40
+    -- (one tab's spells now, Other's three: a body shorter than them)
+    for _, t in ipairs(tr.specs and tr.specs.cells or {}) do
+        if t.shown and t.name.text == "Other" then t.scripts.OnClick(t, "LeftButton") end
+    end
+    tr.body.h = 2 * 30
+    tr.scroller.scroll.h = 2 * 30
     tr.Refresh()
     scrolled("book.trainer short")
     tr.holder.scripts.OnMouseWheel(tr.holder, -1)

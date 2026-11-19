@@ -8,12 +8,14 @@
 --   | <> General    | <> Elemental  |<> Enhancement | <> Restor.. |
 --   |    9 spells   |   11 spells   |   13 spells   |   9 spells  |
 --   +---------------+---------------+=====[held]====+-------------+
+--   Not on your bars 2 ---------------------------------------------
 --     [icon] Attack                                     Instant   |
 --     ------------------------------------------------------------ | (bar,
---     [ic]]] Healing Wave                                 3 sec   |  in the
---            Rank 5 · Shift+Middle                     200 Mana   |  margin)
---        |   Rank 5                       3 sec        200 Mana
---        |   Rank 4                       3 sec        155 Mana
+--   On your bars 6 ------------------------------------------------ |  in the
+--   | [icon] Healing Wave v                               3 sec   |  margin)
+--   |  [5]   Rank 5 · Shift+Middle                     200 Mana   |
+--   |    |-- Rank 5                       3 sec        200 Mana
+--   |    '-- Rank 1                     1.5 sec         25 Mana
 --   ...
 --   ---------------------------------------------------------------
 --   [Trainer]                                            (backpack)
@@ -25,11 +27,15 @@
 -- brown), its name, its count; the open one held (MedalluinCharDB.bookTab,
 -- by name, each page its own). Under it that line's spells, on hairlines,
 -- scrolled, the bar out in the window's margin by the rail (Scroller's
--- outside). A spell is a row the window's width, at its
--- highest rank learned, with its cast time over its cost at the right.
--- One with ranks has its icon stacked; a left click on it lists each rank
--- under it (MedalluinCharDB.bookOpen, by name), highest first, each a row
--- that casts that rank. The right button casts; the left only drags (and
+-- outside), under headings (2026-11-19, mockup B of
+-- /workspace/booklist-sheet.png): Not on your bars, On your bars, Passive,
+-- each with its count (Grouped). A spell is a row the window's width, at
+-- its highest rank learned, with its cast time over its cost at the right.
+-- One with ranks has how many on a plate at its icon's foot and a chevron
+-- after its name; a left click on it lists each rank under it
+-- (MedalluinCharDB.bookOpen, by name), highest first, on a tree from its
+-- icon, a gold bar and a wash down the group, each a row that casts that
+-- rank. The right button casts; the left only drags (and
 -- shows ranks). Macros is the game's macro window in the book's look
 -- (spells/macros.lua). The margin holds, once a class trainer has been visited (spells/trainers.lua),
 -- Trainer: a page without a tab, in the same look, of what is still to
@@ -37,7 +43,7 @@
 -- belong to (Other for the rest); Trainer again goes back.
 --
 -- A spell on no action bar, nor in a macro on one, wears a red edge
--- (spellbookMissing). Top rank, in the margin beside Trainer, keeps spells on
+-- and stands under Not on your bars (spellbookMissing). Top rank, in the margin beside Trainer, keeps spells on
 -- the bars at their highest rank (spellbookUpRank): every spell, only those
 -- marked, or none. Shift+Right-click marks a spell or unmarks it (per
 -- character, MedalluinCharDB.upRank, by name), and a marked one wears a
@@ -64,9 +70,12 @@ local BLUE = { 0.43, 0.63, 0.92 }       -- a cost
 local SLOTS = 180                       -- the action slots looked through
 local SPELL, RANK = 36, 24              -- a spell's row, a rank's
 local SPECS_H = 44                      -- the tabs' panel, joined under the head
-local HAIR = { 0.204, 0.176, 0.129 }    -- between the rows
 local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held
-local ICON, SMALL, INDENT = 30, 26, 20  -- a spell's icon, one with ranks (stacked), the icon's left
+local ICON, INDENT = 30, 20             -- a spell's icon, its left
+local HEADING = 28                      -- a group's heading
+local PAGE = 256                        -- the parchment's tile (media/spellbook, art/spellbook)
+local DOTS = 8                          -- the dotted rule's tile
+local FAINT = { 0.141, 0.122, 0.094 }   -- between a spell's ranks
 local RIGHT = 80                        -- the cast time and cost's column
 local EDGE = 12                         -- the cast time and cost, in from the card's edge
 -- a section's colour, by its specialisation's role (General, the pet's
@@ -248,11 +257,10 @@ local function Sections(p)
     return out
 end
 
--- the page's sections (its tabs), and the open one's entries
+-- the page's sections (its tabs)
 local function Items(p)
     p.sections = Sections(p)
     p.held = Held(p)
-    return Entries(p.held)
 end
 
 -- ------------------------------------------------------------ on the bars
@@ -295,6 +303,36 @@ local function Missing(item, macros)
         if Placed(low.info, macros) then return true, low.info.subName end
     end
     return true
+end
+
+-- (2026-11-19, mockup B of /workspace/booklist-sheet.png) The open tab's
+-- entries under headings: Not on your bars (each spell Missing finds), On
+-- your bars, Passive; each with its count, in the book's order within.
+-- Headed only when two have spells, and not on the trainer's page nor
+-- while Click Casting binds (nothing is missing then): else one list.
+local GROUPS = { { "Not on your bars", true }, { "On your bars" }, { "Passive" } }
+local function Grouped(p, macros, binding)
+    local list = p.held and p.held.list or {}
+    local groups, filled = { {}, {}, {} }, 0
+    for _, item in ipairs(list) do
+        if binding or p.trainer then
+            item.missing, item.lowerOn = false, nil
+        else
+            item.missing, item.lowerOn = Missing(item, macros)
+        end
+        local g = item.missing and 1 or item.info.isPassive and 3 or 2
+        table.insert(groups[g], item)
+    end
+    for _, g in ipairs(groups) do if #g > 0 then filled = filled + 1 end end
+    if filled < 2 or binding or p.trainer then return Entries(p.held) end
+    local out = {}
+    for k, g in ipairs(groups) do
+        if #g > 0 then
+            table.insert(out, { heading = GROUPS[k][1], count = #g, red = GROUPS[k][2], key = "h" .. k })
+            for _, e in ipairs(Entries({ list = g })) do table.insert(out, e) end
+        end
+    end
+    return out
 end
 
 -- ------------------------------------------------------------- up-ranking
@@ -579,37 +617,58 @@ end
 local function Row(p, i)
     local c = CreateFrame("Button", nil, p.scroller.child)
     c:SetFrameLevel(p.scroller.child:GetFrameLevel() + 3)
-    -- the hairline at a spell's foot, from its name's column (Refresh
-    -- hides it on the last, and over ranks)
+    -- the hairline at a row's foot, from the icon's left (Refresh hides
+    -- it on a group's last, over a heading and between ranks)
     c.hair = c:CreateTexture(nil, "BACKGROUND", nil, -6)
     c.hair:SetHeight(1)
-    c.hair:SetPoint("BOTTOMLEFT", INDENT + ICON + 8, 0)
+    c.hair:SetPoint("BOTTOMLEFT", INDENT, 0)
     c.hair:SetPoint("BOTTOMRIGHT", 0, 0)
-    c.hair:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
+    -- (2026-11-19, mockup B of /workspace/bookpage-sheet.png) dotted, as
+    -- a ledger's: its tile repeated along it (Place sets how many)
+    c.hair:SetTexture(ns.media .. "spellbook\\dots", "REPEAT", "REPEAT")
+    c.hair:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
     -- a spell: its icon (stacked when it has ranks to show), its words
     c.icon = c:CreateTexture(nil, "ARTWORK")
     c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     c.edge = c:CreateTexture(nil, "BACKGROUND", nil, 5)
     c.edge:SetPoint("TOPLEFT", c.icon, -1, 1)
     c.edge:SetPoint("BOTTOMRIGHT", c.icon, 1, -1)
-    -- the stack: a frame or two peeking out behind the icon, up and right
-    c.stack = {}
-    for k = 1, 2 do
-        local rim = c:CreateTexture(nil, "BACKGROUND", nil, 4 - 2 * k)
-        rim:SetPoint("TOPLEFT", c.icon, 3 * k - 1, 3 * k + 1)
-        rim:SetPoint("BOTTOMRIGHT", c.icon, 3 * k + 1, 3 * k - 1)
-        local fill = c:CreateTexture(nil, "BACKGROUND", nil, 5 - 2 * k)
-        fill:SetPoint("TOPLEFT", rim, 1, -1)
-        fill:SetPoint("BOTTOMRIGHT", rim, -1, 1)
-        fill:SetColorTexture(0.12, 0.1, 0.08, 1)
-        c.stack[k] = { rim = rim, fill = fill }
+    -- a spell with ranks: how many on a plate at the icon's foot (the
+    -- gear slots' item level's look), a chevron after its name
+    c.plate = CreateFrame("Frame", nil, c)
+    c.plate:SetSize(14, 12)
+    c.plate:SetPoint("CENTER", c.icon, "BOTTOM", 0, 0)
+    c.plate:SetFrameLevel(c:GetFrameLevel() + 2)
+    local pe = c.plate:CreateTexture(nil, "BACKGROUND")
+    pe:SetAllPoints()
+    pe:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    local pw = c.plate:CreateTexture(nil, "BACKGROUND", nil, 1)
+    pw:SetPoint("TOPLEFT", 1, -1)
+    pw:SetPoint("BOTTOMRIGHT", -1, 1)
+    pw:SetColorTexture(0.055, 0.05, 0.04, 0.95)
+    c.plate.text = ns.Text(c.plate, 9)
+    c.plate.text:SetPoint("CENTER", 0, 0)
+    c.plate.text:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    c.chev = c:CreateTexture(nil, "ARTWORK")
+    c.chev:SetSize(9, 9)
+    c.chev:SetTexture(ns.media .. "strips\\chevron-down")
+    c.chev:SetTexCoord(6 / 32, 26 / 32, 6 / 32, 26 / 32)
+    -- an open spell and its ranks: a gold bar down the inner edge, a soft
+    -- wash brightening outwards
+    c.bar = c:CreateTexture(nil, "BACKGROUND", nil, -1)
+    c.bar:SetWidth(2)
+    c.bar:SetPoint("TOPLEFT")
+    c.bar:SetPoint("BOTTOMLEFT")
+    c.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    c.gwash = c:CreateTexture(nil, "BACKGROUND", nil, -3)
+    c.gwash:SetAllPoints()
+    if c.gwash.SetGradient and CreateColor then
+        c.gwash:SetColorTexture(1, 1, 1, 1)
+        c.gwash:SetGradient("HORIZONTAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0),
+            CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.14))
+    else
+        c.gwash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.07)
     end
-    -- a spell on no bar: a wash under the row (with the icon's red ring)
-    c.miss = c:CreateTexture(nil, "BACKGROUND", nil, -2)
-    c.miss:SetPoint("TOPLEFT", 1, 0)
-    c.miss:SetPoint("BOTTOMRIGHT", -1, 0)
-    c.miss:SetColorTexture(MISSING[1], MISSING[2], MISSING[3], 0.12)
-    c.miss:Hide()
     -- a click-cast binding: a small mouse in a gold ring on the icon's
     -- bottom corner; kept on its top rank: a double chevron, up, on its top
     local function Badge(glyph, at, dy)
@@ -665,17 +724,39 @@ local function Row(p, i)
     c.cost:SetPoint("BOTTOMRIGHT", -EDGE, 5)
     c.cost:SetJustifyH("RIGHT")
     c.cost:SetTextColor(unpack(BLUE))
-    -- a rank: a gold line down from its spell's (stacked) icon, its rank,
-    -- its numbers, on a faint band
-    c.rband = c:CreateTexture(nil, "BACKGROUND", nil, -3)
-    c.rband:SetPoint("TOPLEFT", 1, 0)
-    c.rband:SetPoint("BOTTOMRIGHT", -1, 0)
-    c.rband:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.1)
+    -- a rank: on a tree from under its spell's icon (a stem down, a
+    -- branch to its name; the last's stem stops at its branch), its
+    -- numbers on one line, a faint line between the ranks
     c.stem = c:CreateTexture(nil, "ARTWORK")
     c.stem:SetWidth(1)
-    c.stem:SetPoint("TOPLEFT", INDENT + SMALL / 2, 0)
-    c.stem:SetPoint("BOTTOMLEFT", INDENT + SMALL / 2, 0)
     c.stem:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    c.branch = c:CreateTexture(nil, "ARTWORK")
+    c.branch:SetHeight(1)
+    c.branch:SetPoint("LEFT", INDENT + ICON / 2, 0)
+    c.branch:SetWidth(14)
+    c.branch:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    c.rhair = c:CreateTexture(nil, "BACKGROUND", nil, -6)
+    c.rhair:SetHeight(1)
+    c.rhair:SetPoint("BOTTOMLEFT", INDENT + ICON + 8, 0)
+    c.rhair:SetPoint("BOTTOMRIGHT", -4, 0)
+    c.rhair:SetColorTexture(FAINT[1], FAINT[2], FAINT[3], 1)
+    -- a group's heading, as a book's: its name (red: not on your bars)
+    -- underlined in its ink, its count after, and under both a rule on to
+    -- the edge
+    c.hname = ns.Text(c, 13)
+    c.hname:SetPoint("BOTTOMLEFT", 6, 9)
+    c.hcount = ns.Text(c, 10)
+    c.hcount:SetPoint("BOTTOMLEFT", c.hname, "BOTTOMRIGHT", 8, 0)
+    c.hcount:SetTextColor(unpack(ns.colors.dim))
+    c.hunder = c:CreateTexture(nil, "BORDER")
+    c.hunder:SetHeight(1)
+    c.hunder:SetPoint("TOPLEFT", c.hname, "BOTTOMLEFT", 0, -2)
+    c.hunder:SetPoint("TOPRIGHT", c.hname, "BOTTOMRIGHT", 0, -2)
+    c.hline = c:CreateTexture(nil, "BACKGROUND")
+    c.hline:SetHeight(1)
+    c.hline:SetPoint("BOTTOMLEFT", 6, 4)
+    c.hline:SetPoint("BOTTOMRIGHT", 0, 4)
+    c.hline:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
     c.rank = ns.Text(c, 11)
     c.rank:SetPoint("LEFT", INDENT + ICON + 8, 0)
     c.rcast = ns.Text(c, 10)
@@ -706,19 +787,21 @@ local function Row(p, i)
 end
 
 local PARTS = {
-    spell = { "icon", "edge", "name", "sub", "cast", "cost", "hair" },
-    rank = { "rband", "stem", "rank", "rcast", "rcost" },
+    spell = { "icon", "edge", "name", "sub", "cast", "cost" },
+    rank = { "stem", "branch", "rank", "rcast", "rcost" },
+    heading = { "hname", "hcount", "hunder", "hline" },
 }
 local function Kind(c, kind)
     for k, list in pairs(PARTS) do
         for _, part in ipairs(list) do c[part]:SetShown(k == kind) end
     end
-    for _, part in ipairs({ "miss", "badge", "top", "halo" }) do c[part]:Hide() end
-    for _, s in ipairs(c.stack) do
-        s.rim:Hide()
-        s.fill:Hide()
+    for _, part in ipairs({ "badge", "top", "halo", "plate", "chev", "bar", "gwash", "hair", "rhair" }) do
+        c[part]:Hide()
     end
     c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    -- a heading is no button: no highlight under the pointer, no click
+    c:EnableMouse(kind ~= "heading")
+    c.glow:SetShown(kind ~= "heading")
     c.kind = kind
 end
 
@@ -729,10 +812,11 @@ local function Place(p, items)
     local y = 0
     for i, item in ipairs(items) do
         local c = p.rows[i] or Row(p, i)
-        local h = item.rank and RANK or SPELL
+        local h = item.heading and HEADING or item.rank and RANK or SPELL
         c:ClearAllPoints()
         c:SetPoint("TOPLEFT", 0, -y)
         c:SetSize(width, h)
+        c.hair:SetTexCoord(0, (width - INDENT) / DOTS, 0, 0.5)
         c.y, c.h = y, h
         c:Show()
         y = y + h
@@ -974,61 +1058,135 @@ local function Panel(p)
     return panel
 end
 
+-- The page under the list (2026-11-19, mockup B of
+-- /workspace/bookpage-sheet.png): a dark aged parchment, tiled, from the
+-- window's inner frame to the rail and up to the tabs' panel's foot; the
+-- spine's shadow down its inner edge (the left: the book stands on the
+-- right), and it darkens at its top, its foot and its outer edge.
+local function Paper(body)
+    local f = CreateFrame("Frame", nil, body)
+    local pad = ns.window.pad
+    f:SetPoint("TOPLEFT", -(pad - 1), 5)
+    f:SetPoint("BOTTOMRIGHT", pad - 4, 0)
+    f:SetFrameLevel(body:GetFrameLevel())
+    f.page = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+    f.page:SetAllPoints()
+    f.page:SetTexture(ns.media .. "spellbook\\parchment", "REPEAT", "REPEAT")
+    f:SetScript("OnSizeChanged", function(self, w, h)
+        self.page:SetTexCoord(0, (w or 0) / PAGE, 0, (h or 0) / PAGE)
+    end)
+    f.shades = {}
+    -- black fading inwards from an edge: its side, how far, how dark
+    for _, e in ipairs({ { "LEFT", 16, 0.55 }, { "TOP", 14, 0.35 }, { "BOTTOM", 18, 0.4 }, { "RIGHT", 8, 0.3 } }) do
+        local at, size, a = e[1], e[2], e[3]
+        local t = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+        local across = at == "LEFT" or at == "RIGHT"
+        if across then
+            t:SetPoint("TOP" .. at)
+            t:SetPoint("BOTTOM" .. at)
+            t:SetWidth(size)
+        else
+            t:SetPoint(at .. "LEFT")
+            t:SetPoint(at .. "RIGHT")
+            t:SetHeight(size)
+        end
+        if t.SetGradient and CreateColor then
+            t:SetColorTexture(1, 1, 1, 1)
+            local dark, clear = CreateColor(0, 0, 0, a), CreateColor(0, 0, 0, 0)
+            -- (a gradient runs left to right, bottom to top)
+            local first = (at == "LEFT" or at == "BOTTOM")
+            t:SetGradient(across and "HORIZONTAL" or "VERTICAL", first and dark or clear, first and clear or dark)
+        else
+            t:SetColorTexture(0, 0, 0, a / 2)
+        end
+        f.shades[at] = t
+    end
+    return f
+end
+
 -- ------------------------------------------------------------------ pages
 local Band
 function Refresh(p)
     if not p.scroller then return end
-    local items = Items(p)
-    Place(p, items)
+    Items(p)
     local macros = Macros()
-    local bound = ns.db.spellbookClickCast and ns.clickcast and { ns.clickcast.Bound() }
     local binding = Binding()
+    local items = Grouped(p, macros, binding)
+    Place(p, items)
+    local bound = ns.db.spellbookClickCast and ns.clickcast and { ns.clickcast.Bound() }
     local cbf = _G.ClickBindingFrame
     -- the halo while nothing is in the binder: pick one
     local ready = binding and cbf and ns.clickcast.Step and ns.clickcast.Step() == 1
     for i, item in ipairs(items) do
         local c = p.rows[i]
-        do
+        local nxt = items[i + 1]
+        if item.heading then
+            Kind(c, "heading")
+            c.item = nil
+            c.hname:SetText(item.heading)
+            local hc = item.red and MISSING or GOLD
+            c.hname:SetTextColor(hc[1], hc[2], hc[3])
+            c.hunder:SetColorTexture(hc[1], hc[2], hc[3], 0.9)
+            c.hcount:SetText("· " .. tostring(item.count))
+        else
             Kind(c, item.rank and "rank" or "spell")
             c.item = item
             local info = item.info
             local cast, cost = Costs(item)
+            -- a hairline under it, but a group's last, over a heading and
+            -- over its ranks
+            c.hair:SetShown(nxt ~= nil and not nxt.rank and not nxt.heading)
+            -- an open spell and its ranks: the bar and the wash
+            local group = item.rank or Ranked(item) and Open(info.name)
+            c.bar:SetShown(group and true or false)
+            c.gwash:SetShown(group and true or false)
             if item.rank then
                 c.rank:SetText(info.subName ~= "" and info.subName or info.name)
                 c.rcast:SetText(cast or "")
                 c.rcost:SetText(cost or "")
-                -- in bind mode, a rank it cannot bind greyed
+                -- the tree: the last rank's stem stops at its branch
+                local last = not (nxt and nxt.rank)
+                c.stem:ClearAllPoints()
+                c.stem:SetPoint("TOPLEFT", INDENT + ICON / 2, 0)
+                if last then
+                    c.stem:SetPoint("BOTTOMLEFT", c, "LEFT", INDENT + ICON / 2, 0)
+                else
+                    c.stem:SetPoint("BOTTOMLEFT", INDENT + ICON / 2, 0)
+                end
+                c.rhair:SetShown(not last)
+                -- in bind mode, a rank it cannot bind greyed; the highest gold
                 local grey = binding and not Bindable(item)
-                c.rank:SetTextColor(unpack(grey and ns.colors.dim or ns.colors.text or { 1, 1, 1 }))
+                local top = item.of and item.info == item.of.info
+                c.rank:SetTextColor(unpack(grey and ns.colors.dim or top and GOLD or ns.colors.text or { 1, 1, 1 }))
             else
                 local ranks = Ranked(item) and #item.lower + 1 or 0
                 local unfolded = ranks > 1 and Open(info.name)
-                -- with ranks: a smaller icon, a frame or two stacked behind
-                -- it, gold while they show
+                -- with ranks: how many on the plate, the chevron after the
+                -- name (down and gold while they show)
                 c.icon:ClearAllPoints()
+                c.icon:SetSize(ICON, ICON)
+                c.icon:SetPoint("LEFT", INDENT, 0)
+                c.plate:SetShown(ranks > 1)
+                c.chev:SetShown(ranks > 1)
                 if ranks > 1 then
-                    c.icon:SetSize(SMALL, SMALL)
-                    c.icon:SetPoint("LEFT", INDENT, -2)
-                else
-                    c.icon:SetSize(ICON, ICON)
-                    c.icon:SetPoint("LEFT", INDENT, 0)
+                    c.plate.text:SetText(tostring(ranks))
+                    c.plate:SetWidth(math.max(14, math.floor((c.plate.text:GetStringWidth() or 0) + 8)))
+                    local ch = unfolded and GOLD or GOLD_D
+                    c.chev:SetVertexColor(ch[1], ch[2], ch[3])
+                    if c.chev.SetRotation then c.chev:SetRotation(unfolded and 0 or math.pi / 2) end
                 end
-                local rim = unfolded and GOLD or GOLD_D
-                for k, st in ipairs(c.stack) do
-                    local on = ranks > k
-                    st.rim:SetShown(on)
-                    st.fill:SetShown(on)
-                    st.rim:SetColorTexture(rim[1], rim[2], rim[3], 1)
-                end
-                -- a hairline under it, but the last and over its ranks
-                local nxt = items[i + 1]
-                c.hair:SetShown(nxt ~= nil and not nxt.rank)
                 c.icon:SetTexture(info.iconID)
                 local learned = info.itemType ~= TYPE.FutureSpell
                 if item.trainer then learned = item.now end
                 c.icon:SetDesaturated(not learned)
                 c.icon:SetAlpha((learned and not info.isPassive) and 1 or 0.6)
                 c.name:SetText(info.name)
+                if ranks > 1 then
+                    local room = (W.width or 300) - (INDENT + ICON + 8) - RIGHT - 14
+                    local tw = math.min(c.name:GetStringWidth() or 0, room)
+                    c.chev:ClearAllPoints()
+                    c.chev:SetPoint("CENTER", c, "TOPLEFT", INDENT + ICON + 8 + tw + 9, -11)
+                end
                 c.name:SetTextColor(unpack(learned and (info.isPassive and ns.colors.dim or GOLD) or ns.colors.dim))
                 -- its rank (the trainer's), how many it has folded away, its click
                 local sub
@@ -1036,9 +1194,6 @@ function Refresh(p)
                     sub = item.trainer.rank ~= "" and item.trainer.rank or nil
                 else
                     sub = Sub(item)
-                end
-                if ranks > 1 and not unfolded then
-                    sub = (sub and sub .. "  ·  " or "") .. format("%d ranks", ranks)
                 end
                 item.clicks = Clicks(item, bound)
                 if item.clicks then sub = (sub and sub .. "  ·  " or "") .. GOLD_HEX .. item.clicks .. "|r" end
@@ -1056,19 +1211,12 @@ function Refresh(p)
                     local g = Mode() == "marked" and BLUE or ns.colors.dim
                     c.top.glyph:SetVertexColor(g[1], g[2], g[3])
                 end
-                -- (in bind mode the bars are not the question: no red edge)
-                if binding then
-                    item.missing, item.lowerOn = false, nil
-                else
-                    item.missing, item.lowerOn = Missing(item, macros)
-                end
-                -- on no bar: a ring two pixels wide in red, and the wash
-                local edge, ring = item.missing and MISSING or GOLD_D, item.missing and 2 or 1
+                -- on no bar (Grouped asked; in bind mode none): a red ring
+                local edge = item.missing and MISSING or GOLD_D
                 c.edge:SetColorTexture(edge[1], edge[2], edge[3], 1)
                 c.edge:ClearAllPoints()
-                c.edge:SetPoint("TOPLEFT", c.icon, -ring, ring)
-                c.edge:SetPoint("BOTTOMRIGHT", c.icon, ring, -ring)
-                c.miss:SetShown(item.missing and true or false)
+                c.edge:SetPoint("TOPLEFT", c.icon, -1, 1)
+                c.edge:SetPoint("BOTTOMRIGHT", c.icon, 1, -1)
                 -- Click Casting open: what it can bind lit (a halo while a
                 -- slot waits), the rest grey
                 local can = binding and Bindable(item)
@@ -1172,8 +1320,10 @@ local function Page(spec)
             ns.macros.Build(p, body)
             return
         end
-        -- the tabs' panel (joined under the head); the list, its bar out by the rail
+        -- the tabs' panel (joined under the head); the list on its page,
+        -- its bar out by the rail
         Panel(p)
+        p.paper = Paper(body)
         local holder = CreateFrame("Frame", nil, body)
         holder:SetPoint("TOPLEFT")
         holder:SetPoint("BOTTOMRIGHT")
