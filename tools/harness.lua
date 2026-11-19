@@ -17642,19 +17642,22 @@ if spellPass then
     local function rows(tag, from, to)
         local p = B.Current()
         local list = {}
+        -- the tabs first: each its name, count, gem's colour; * the open one
+        if (from or 1) == 1 and p.specs then
+            local tabs = {}
+            for _, t in ipairs(p.specs.cells) do
+                if t.shown then
+                    local g = t.gem.stone.color
+                    table.insert(tabs, string.format("%s{%s}<%s>%s%s", t.name.text, t.count.text,
+                        g and string.format("%.2f,%.2f,%.2f", g[1], g[2], g[3]) or "-",
+                        t.wash.shown and "*" or "", t.name.font and t.name.font[2] ~= 12 and ("~" .. t.name.font[2]) or ""))
+                end
+            end
+            table.insert(list, "#[" .. table.concat(tabs, " | ") .. "]")
+        end
         for i, c in ipairs(p.rows) do
             if c.shown and i >= (from or 1) and i <= (to or #p.rows) then
-                if c.kind == "heading" then
-                    local card
-                    for _, k in ipairs(p.cards) do if k.shown and k.y == c.y then card = k end end
-                    local g = c.band.gradient
-                    table.insert(list, string.format("#%s{%s%s}<%s>card=%s%s", c.title.text,
-                        c.role.shown and (tostring(c.role.texture):match("role%-%a+") .. " ") or "", c.count.text,
-                        g and string.format("%.2f,%.2f,%.2f@%.2f-%.2f", g[2][1], g[2][2], g[2][3], g[2][4], g[3][4])
-                            or "flat",
-                        card and (card.y .. "+" .. card.h) or "none",
-                        card and card.mark and "~watermark" or ""))
-                elseif c.kind == "rank" then
+                if c.kind == "rank" then
                     table.insert(list, string.format(" |%s(%s|%s%s)[%s]", c.rank.text, c.rcast.text, c.rcost.text,
                         "", over(c)))
                 else
@@ -17662,9 +17665,9 @@ if spellPass then
                     for _, st in ipairs(c.stack) do
                         if st.rim.shown then stack = stack .. (st.rim.color and st.rim.color[1] > 0.9 and "*" or "=") end
                     end
-                    table.insert(list, string.format("%s%s(%s|%s|%s,%.1f%s)[%s]", stack ~= "" and stack .. " " or "",
+                    table.insert(list, string.format("%s%s(%s|%s|%s,%.1f%s)[%s]%s", stack ~= "" and stack .. " " or "",
                         c.name.text, c.sub.text, c.cast.text, c.cost.text, c.icon.alpha or 1,
-                        "", over(c)))
+                        "", over(c), c.hair.shown and "_" or ""))
                 end
             end
         end
@@ -17692,11 +17695,26 @@ if spellPass then
         end
     end
     -- a row by its spell's name (and rank, for a rank's row), and its button
-    local function row(name, rank)
+    local function find(name, rank)
         for _, c in ipairs(B.Current().rows) do
             if c.shown and c.item and c.item.info.name == name
                 and (rank == nil and c.kind == "spell" or rank and c.kind == "rank" and c.item.info.subName == rank) then
                 return c
+            end
+        end
+    end
+    -- (the spell in another tab: that tab clicked open first, as a player would)
+    local function row(name, rank)
+        local c = find(name, rank)
+        if c then return c end
+        local p = B.Current()
+        for _, t in ipairs(p.specs and p.specs.cells or {}) do
+            local sec = t.shown and t.section
+            for _, item in ipairs(sec and sec.list or {}) do
+                if item.info.name == name then
+                    t.scripts.OnClick(t, "LeftButton")
+                    return find(name, rank)
+                end
             end
         end
     end
@@ -17789,26 +17807,45 @@ if spellPass then
     rows("book.right on bolt", 5, 7)
     details("book.details")
 
-    -- 3b. a heading's left click collapses its section, and opens it again;
-    -- remembered
-    local function heading(name)
-        for _, c in ipairs(book.rows) do
-            if c.shown and c.kind == "heading" and c.title.text == name then return c end
+    -- 3b. (2026-11-19) a tab per section on the panel: a click opens its
+    -- spells alone, the list back at its top; kept per page
+    local function tab(name)
+        for _, t in ipairs(book.specs.cells) do
+            if t.shown and t.section and t.section.name == name then return t end
         end
     end
-    local elemH = heading("Elemental")
-    elemH.scripts.OnClick(elemH, "LeftButton")
-    rows("book.collapsed", 4, 8)
-    print("book.collapsed kept", tostring(MedalluinCharDB.bookShut and MedalluinCharDB.bookShut.Elemental),
+    local elemT = tab("Elemental")
+    elemT.scripts.OnClick(elemT, "LeftButton")
+    rows("book.tab elemental", 1, 6)
+    print("book.tab kept", tostring(MedalluinCharDB.bookTab and MedalluinCharDB.bookTab.book),
         "buttons=" .. (function()
             local n = 0
             for _, bb in ipairs(layer.buttons) do if bb.shown then n = n + 1 end end
             return n
-        end)())
+        end)(), "at=" .. book.scroller.target)
     book.Refresh()
-    rows("book.collapsed again", 4, 6)
-    heading("Elemental").scripts.OnClick(heading("Elemental"), "LeftButton")
-    rows("book.expanded", 4, 7)
+    rows("book.tab again", 1, 3)
+    local function at(f, pt)
+        local q = f.points[pt]
+        return q and (pt .. ">" .. (q[1] == w and "window" or tostring(q[1])) .. ":" .. q[2] .. " " .. q[3] .. "," .. q[4])
+            or (pt .. ">-")
+    end
+    local edges = {}
+    for _, e in ipairs(book.panel.edges) do
+        local a1 = next(e.points)
+        edges[#edges + 1] = tostring(a1)
+    end
+    table.sort(edges)
+    print("book.joined", at(book.panel, "TOPLEFT"), at(book.panel, "TOPRIGHT"), "h=" .. tostring(book.panel.h),
+        "edges=" .. table.concat(edges, ","), "body=" .. at(book.body, "TOPLEFT"),
+        "step=" .. tostring(w.dropdown and w.dropdown.head.step.shown)
+        .. " fill=" .. tostring(w.dropdown and w.dropdown.head.step.fill.w) .. "+" .. tostring(w.dropdown and #w.dropdown.head.step.wedge))
+    print("book.panel", "at=" .. tostring(book.specs == book.panel) .. " h="
+        .. tostring(book.specs.h), "list=" .. tostring(book.holder.points.TOPLEFT and book.holder.points.TOPLEFT[4]),
+        "bar=" .. (function()
+            local pt = book.scroller.bar.points.TOPLEFT
+            return pt and (tostring(pt[1] == book.holder and "holder" or pt[1]) .. ":" .. pt[2] .. " " .. pt[3]) or "-"
+        end)(), "list@" .. tostring(book.scroller.scroll.points.TOPLEFT[3]))
 
     -- 4. Healing Wave unfolds: its ranks, highest first, each its own cast
     -- and cost, each casting its own rank; remembered, and folds shut again
@@ -17868,11 +17905,11 @@ if spellPass then
     -- wheel scrolls, and the buttons follow
     tall(book, 3 * 36)
     rows("book.short", 1, 6)
-    book.body.scripts.OnMouseWheel(book.body, -1)
+    book.holder.scripts.OnMouseWheel(book.holder, -1)
     print("book.short wheel", "target=" .. book.scroller.target, "at=" .. book.scroller.offset)
     ease(book)
     rows("book.short scrolled", 1, 6)
-    for _ = 1, 20 do book.body.scripts.OnMouseWheel(book.body, -1) end
+    for _ = 1, 20 do book.holder.scripts.OnMouseWheel(book.holder, -1) end
     ease(book)
     print("book.short bottom", "at=" .. book.scroller.offset .. "/" .. book.scroller.scroll:GetVerticalScrollRange())
     rows("book.short bottom", 10)
@@ -17904,7 +17941,7 @@ if spellPass then
     tall(book, 3 * 36)
     local placed = {}
     for _, bb in ipairs(layer.buttons) do placed[bb] = bb.shown and bb.item and bb.item.info.name end
-    book.body.scripts.OnMouseWheel(book.body, -1)
+    book.holder.scripts.OnMouseWheel(book.holder, -1)
     ease(book)
     local moved = 0
     for _, bb in ipairs(layer.buttons) do
@@ -18188,15 +18225,11 @@ if spellPass then
     frame()
     rows("book.trainer")
     details("book.trainer summary")
-    for _, c in ipairs(tr.rows) do
-        if c.shown and c.kind == "heading" and c.title.text == "Elemental" then c.scripts.OnClick(c, "LeftButton") break end
+    for _, t in ipairs(tr.specs.cells) do
+        if t.shown and t.section and t.section.name == "Elemental" then t.scripts.OnClick(t, "LeftButton") break end
     end
-    rows("book.trainer collapsed")
-    print("book.trainer collapsed kept", tostring(MedalluinCharDB.bookShut["trainer:Elemental"]),
-        "book's=" .. tostring(MedalluinCharDB.bookShut.Elemental))
-    for _, c in ipairs(tr.rows) do
-        if c.shown and c.kind == "heading" and c.title.text == "Elemental" then c.scripts.OnClick(c, "LeftButton") break end
-    end
+    rows("book.trainer elemental")
+    print("book.trainer tab kept", tostring(MedalluinCharDB.bookTab.trainer), "book's=" .. tostring(MedalluinCharDB.bookTab.book))
     -- no secure buttons over the trainer's rows: they answer themselves
     local armed = 0
     for _, bb in ipairs(layer.buttons) do if bb.shown then armed = armed + 1 end end
@@ -18220,13 +18253,13 @@ if spellPass then
     tr.scroller.scroll.h = 3 * 40
     tr.Refresh()
     scrolled("book.trainer short")
-    tr.body.scripts.OnMouseWheel(tr.body, -1)
+    tr.holder.scripts.OnMouseWheel(tr.holder, -1)
     scrolled("book.trainer wheel")
     tr.scroller.scroll.scripts.OnUpdate(tr.scroller.scroll, 0.05)
     scrolled("book.trainer easing")
     for _ = 1, 40 do if tr.scroller.scroll.scripts.OnUpdate then tr.scroller.scroll.scripts.OnUpdate(tr.scroller.scroll, 0.05) end end
     scrolled("book.trainer eased")
-    for _ = 1, 10 do tr.body.scripts.OnMouseWheel(tr.body, -1) end
+    for _ = 1, 10 do tr.holder.scripts.OnMouseWheel(tr.holder, -1) end
     for _ = 1, 80 do if tr.scroller.scroll.scripts.OnUpdate then tr.scroller.scroll.scripts.OnUpdate(tr.scroller.scroll, 0.05) end end
     scrolled("book.trainer bottom")
     -- the bar pressed at its top: the list there at once, and following
@@ -18771,6 +18804,21 @@ if talentPass then
     -- 1. at login: a tab per tree, in the trees' order
     state("talents.login")
     print("talents.anchor", where(w), "parent=" .. tostring(w.parent == ns.strips[1]))
+    -- (2026-11-19) each tree's console in the panel joined under the head;
+    -- its readouts parted top to bottom, solid; the tree from just under it
+    do
+        local p = W.pages[1]
+        if p.panel then
+            local c = p.console
+            local sp = c and c.splits and c.splits[1]
+            print("talents.joined", "under=" .. tostring(p.under) .. " h=" .. tostring(p.panel.h),
+                "console in panel=" .. tostring(c and c.parent == p.panel and c.all == p.panel),
+                "split=" .. (sp and (tostring(sp.kind) .. " " .. tostring(sp.points.TOP and sp.points.TOP[4]) .. "/"
+                    .. tostring(sp.points.BOTTOM and sp.points.BOTTOM[4])) or "-"), "over=" .. tostring(p.over))
+        else
+            print("talents.joined", "not built")
+        end
+    end
     tabs("talents.tabs")
 
     -- 2. N opens Blizzard's frame on its talents tab: ours shows, parked

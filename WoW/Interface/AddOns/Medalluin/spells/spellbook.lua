@@ -3,35 +3,37 @@
 -- backpack's medallion. Forever only: retail's spellbook is one of its
 -- player-spells frame's pages, and keeps Blizzard's.
 --
---   [Spellbook][Macros]                                          [x]
---   ---------------------------------------------------------------
---   +-------------------------------------------------------------+
---   | General                                                   5 |
---   |   [icon] Attack                                     Instant |
---   +-------------------------------------------------------------+
---   | Restoration                                 Healer  ·  6  + |
---   |   [ic]]] Healing Wave                                 3 sec |
---   |          Rank 5 · Shift+Middle                     200 Mana |
---   |      |   Rank 5                       3 sec        200 Mana |
---   |      |   Rank 4                       3 sec        155 Mana |
+--   (o) 1 of 2              Spellbook                          v | x
+--   +---------------+---------------+---------------+-------------+
+--   | <> General    | <> Elemental  |<> Enhancement | <> Restor.. |
+--   |    9 spells   |   11 spells   |   13 spells   |   9 spells  |
+--   +---------------+---------------+=====[held]====+-------------+
+--     [icon] Attack                                     Instant   |
+--     ------------------------------------------------------------ | (bar,
+--     [ic]]] Healing Wave                                 3 sec   |  in the
+--            Rank 5 · Shift+Middle                     200 Mana   |  margin)
+--        |   Rank 5                       3 sec        200 Mana
+--        |   Rank 4                       3 sec        155 Mana
 --   ...
 --   ---------------------------------------------------------------
 --   [Trainer]                                            (backpack)
 --
--- One list, scrolled: a card for each skill line the book shows (General,
--- then each specialisation) and Pet last while the pet has spells. A
--- card's strip wears its specialisation's role (damage red, healer green,
--- tank blue; General and the pet the theme's brown), its icon faint behind
--- its rows; a left click on the strip collapses the card
--- (MedalluinCharDB.bookShut). A spell is a row the window's width, at its
+-- (2026-11-19, /workspace/spec-tabs-B.png) A panel under the head holds a
+-- tab for each skill line the book shows (General, then each
+-- specialisation) and Pet last while the pet has spells: its role's gem
+-- (damage red, healer green, tank blue; General and the pet the theme's
+-- brown), its name, its count; the open one held (MedalluinCharDB.bookTab,
+-- by name, each page its own). Under it that line's spells, on hairlines,
+-- scrolled, the bar out in the window's margin by the rail (Scroller's
+-- outside). A spell is a row the window's width, at its
 -- highest rank learned, with its cast time over its cost at the right.
 -- One with ranks has its icon stacked; a left click on it lists each rank
 -- under it (MedalluinCharDB.bookOpen, by name), highest first, each a row
 -- that casts that rank. The right button casts; the left only drags (and
 -- shows ranks). Macros is the game's macro window in the book's look
 -- (spells/macros.lua). The margin holds, once a class trainer has been visited (spells/trainers.lua),
--- Trainer: a page without a tab, in the same cards, of what is still to
--- learn, now or at a later level, a card for each skill line its spells
+-- Trainer: a page without a tab, in the same look, of what is still to
+-- learn, now or at a later level, a tab for each skill line its spells
 -- belong to (Other for the rest); Trainer again goes back.
 --
 -- A spell on no action bar, nor in a macro on one, wears a red edge
@@ -60,18 +62,17 @@ local GOLD_D = { 0.541, 0.439, 0.204 }
 local MISSING = { 0.85, 0.3, 0.2 }      -- the edge of a spell on no bar
 local BLUE = { 0.43, 0.63, 0.92 }       -- a cost
 local SLOTS = 180                       -- the action slots looked through
-local HEAD, SPELL, RANK = 28, 36, 24    -- a section's strip, a spell's row, a rank's
-local SPACE, PAD = 10, 4                -- between the cards; under a card's last row
+local SPELL, RANK = 36, 24              -- a spell's row, a rank's
+local SPECS_H = 44                      -- the tabs' panel, joined under the head
+local HAIR = { 0.204, 0.176, 0.129 }    -- between the rows
+local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held
 local ICON, SMALL, INDENT = 30, 26, 20  -- a spell's icon, one with ranks (stacked), the icon's left
 local RIGHT = 80                        -- the cast time and cost's column
 local EDGE = 12                         -- the cast time and cost, in from the card's edge
-local PALE = { 1, 0.94, 0.8 }           -- a strip's title
 -- a section's colour, by its specialisation's role (General, the pet's
 -- and the trainer's Other: the theme's brown)
 local ROLE = { TANK = { 0.35, 0.55, 0.9 }, HEALER = { 0.35, 0.78, 0.45 }, DAMAGER = { 0.84, 0.35, 0.29 } }
 local ROLE_WORD = { TANK = "Tank", HEALER = "Healer", DAMAGER = "Damage" }
-local ROLE_GLYPH = { TANK = "role-tank", HEALER = "role-healer", DAMAGER = "role-damage" }
-local GUTTER = 10                       -- the scroll bar, left of the list
 local STEP = SPELL * 1.5                -- a turn of the wheel
 local BANK = Enum and Enum.SpellBookSpellBank or { Player = 0, Pet = 1 }
 local TYPE = Enum and Enum.SpellBookItemType or { None = 0, Spell = 1, FutureSpell = 2, PetAction = 3, Flyout = 4 }
@@ -105,18 +106,6 @@ local function Fold(name)
     MedalluinCharDB.bookOpen[name] = not Open(name) or nil
 end
 
--- A section collapsed to its heading (MedalluinCharDB.bookShut, by its
--- name; the trainer's apart from the book's)
-local function Shut(key)
-    local t = MedalluinCharDB and MedalluinCharDB.bookShut
-    return type(t) == "table" and t[key] == true
-end
-
-local function Collapse(key)
-    MedalluinCharDB = MedalluinCharDB or {}
-    MedalluinCharDB.bookShut = type(MedalluinCharDB.bookShut) == "table" and MedalluinCharDB.bookShut or {}
-    MedalluinCharDB.bookShut[key] = not Shut(key) or nil
-end
 
 -- A skill line's role: the game's, by its specialisation, where it has
 -- one; else by the tree's (English) name, damage for the rest. General
@@ -138,14 +127,17 @@ local function Rank(src, top)
         key = "r" .. tostring(src.info.actionID) }
 end
 
-local function Section(out, name, list, now, trainer, role, icon)
+-- a section, for its tab: { name, list, count, now (the trainer's: to
+-- learn now), role, icon }; none when it has nothing
+local function Section(out, name, list, now, role, icon)
     if #list == 0 then return end
-    local key = (trainer and "trainer:" or "") .. name
-    local shut = Shut(key)
-    table.insert(out, { heading = name, shut = key, closed = shut, count = #list, now = now, role = role,
-        icon = icon })
-    if shut then return end
-    for _, item in ipairs(list) do
+    table.insert(out, { name = name, list = list, count = #list, now = now, role = role, icon = icon })
+end
+
+-- a section's entries: each spell, and under one unfolded its ranks
+local function Entries(section)
+    local out = {}
+    for _, item in ipairs(section and section.list or {}) do
         item.key = item.key or tostring(item.info.actionID)
         table.insert(out, item)
         if item.lower and #item.lower > 0 and Open(item.info.name) then
@@ -153,6 +145,24 @@ local function Section(out, name, list, now, trainer, role, icon)
             for i = #item.lower, 1, -1 do table.insert(out, Rank(item.lower[i], item)) end
         end
     end
+    return out
+end
+
+-- the page's open tab (MedalluinCharDB.bookTab[page], by the section's
+-- name), or its first
+local function Held(p)
+    local t = MedalluinCharDB and MedalluinCharDB.bookTab
+    local name = type(t) == "table" and t[p.key]
+    for _, sec in ipairs(p.sections or {}) do
+        if sec.name == name then return sec end
+    end
+    return p.sections and p.sections[1]
+end
+
+local function Hold(p, name)
+    MedalluinCharDB = MedalluinCharDB or {}
+    MedalluinCharDB.bookTab = type(MedalluinCharDB.bookTab) == "table" and MedalluinCharDB.bookTab or {}
+    MedalluinCharDB.bookTab[p.key] = name
 end
 
 -- The trainer's services still to learn: no slot, nothing to cast.
@@ -184,7 +194,7 @@ local function Trained()
     for _, section in ipairs(order) do
         local now = 0
         for _, item in ipairs(section.items) do if item.now then now = now + 1 end end
-        Section(out, section.name, section.items, now, true, section.role, section.icon)
+        Section(out, section.name, section.items, now, section.role, section.icon)
     end
     return out
 end
@@ -220,13 +230,13 @@ local function Line(line)
     return out
 end
 
-local function Items(p)
+local function Sections(p)
     if p.trainer then return Trained() end
     local out = {}
     for l = 1, SB.GetNumSpellBookSkillLines() do
         local line = SB.GetSpellBookSkillLineInfo(l)
         if line and not line.shouldHide then
-            Section(out, line.name, Line(line), nil, false, Role(line, l), line.iconID)
+            Section(out, line.name, Line(line), nil, Role(line, l), line.iconID)
         end
     end
     local pet = {}
@@ -234,8 +244,15 @@ local function Items(p)
         local info = SB.GetSpellBookItemInfo(slot, BANK.Pet)
         if info then table.insert(pet, { slot = slot, bank = BANK.Pet, info = info }) end
     end
-    Section(out, "Pet", pet, nil, false, nil, GetPetIcon and GetPetIcon() or nil)
+    Section(out, "Pet", pet, nil, nil, GetPetIcon and GetPetIcon() or nil)
     return out
+end
+
+-- the page's sections (its tabs), and the open one's entries
+local function Items(p)
+    p.sections = Sections(p)
+    p.held = Held(p)
+    return Entries(p.held)
 end
 
 -- ------------------------------------------------------------ on the bars
@@ -441,7 +458,7 @@ local function Bind(item)
     f:AddNewAction(item.bank == BANK.Pet and T.PetAction or T.Spell, info.actionID)
 end
 
-local Refresh                           -- below: a page drawn again
+local Refresh, Tabs                     -- below: a page drawn again; its tabs
 
 -- ------------------------------------------------------------------ rows
 -- What a row's right side says: a spell's cast time over its cost, or the
@@ -551,36 +568,6 @@ end
 
 -- A section's card, pooled, under its rows: a dark box with a brown edge,
 -- its specialisation's icon faint at its top right under the strip.
-local function Card(p, n)
-    local k = CreateFrame("Frame", nil, p.scroller.child)
-    k:SetFrameLevel(p.scroller.child:GetFrameLevel() + 1)
-    local ink = ns.colors.ink
-    k.fill = k:CreateTexture(nil, "BACKGROUND", nil, -8)
-    k.fill:SetAllPoints()
-    k.fill:SetColorTexture(ink[1], ink[2], ink[3], 0.9)
-    k.edges = {}
-    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT" },
-        { "TOPRIGHT", "BOTTOMRIGHT" } }) do
-        local t = k:CreateTexture(nil, "BORDER")
-        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-        t:SetPoint(side[1])
-        t:SetPoint(side[2])
-        if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
-        k.edges[i] = t
-    end
-    p.cards[n] = k
-    return k
-end
-
--- a card from its strip's top to bottom; the icon square, as big as the
--- rows under the strip leave room for (none on a card that is only strip)
-local function Finish(k, width, bottom)
-    local h = bottom - k.y
-    k:ClearAllPoints()
-    k:SetPoint("TOPLEFT", 0, -k.y)
-    k:SetSize(width, h)
-    k:Show()
-end
 
 -- A row, pooled: one frame for each kind, its parts shown for the kind.
 --   strip   Restoration                              Healer · 6 (+)
@@ -591,27 +578,14 @@ end
 --   rank       |   Rank 4                  3 sec     155 Mana
 local function Row(p, i)
     local c = CreateFrame("Button", nil, p.scroller.child)
-    -- over the cards
     c:SetFrameLevel(p.scroller.child:GetFrameLevel() + 3)
-    -- a section's strip: its role's colour fading right, a line of it
-    -- under, the title, and its role and count at the right
-    c.band = c:CreateTexture(nil, "BACKGROUND", nil, -6)
-    c.band:SetPoint("TOPLEFT", 1, -1)
-    c.band:SetPoint("BOTTOMRIGHT", -1, 1)
-    c.line = c:CreateTexture(nil, "ARTWORK")
-    c.line:SetHeight(1)
-    c.line:SetPoint("BOTTOMLEFT", 1, 0)
-    c.line:SetPoint("BOTTOMRIGHT", -1, 0)
-    c.title = ns.Text(c, 14)
-    c.title:SetPoint("LEFT", 12, 0)
-    c.title:SetTextColor(unpack(PALE))
-    c.role = c:CreateTexture(nil, "ARTWORK")
-    c.role:SetSize(12, 12)
-    c.role:SetPoint("RIGHT", -10, 0)
-    c.role:SetVertexColor(PALE[1], PALE[2], PALE[3])
-    c.count = ns.Text(c, 11)
-    c.count:SetJustifyH("RIGHT")
-    c.count:SetTextColor(PALE[1] * 0.92, PALE[2] * 0.92, PALE[3] * 0.92)
+    -- the hairline at a spell's foot, from its name's column (Refresh
+    -- hides it on the last, and over ranks)
+    c.hair = c:CreateTexture(nil, "BACKGROUND", nil, -6)
+    c.hair:SetHeight(1)
+    c.hair:SetPoint("BOTTOMLEFT", INDENT + ICON + 8, 0)
+    c.hair:SetPoint("BOTTOMRIGHT", 0, 0)
+    c.hair:SetColorTexture(HAIR[1], HAIR[2], HAIR[3], 1)
     -- a spell: its icon (stacked when it has ranks to show), its words
     c.icon = c:CreateTexture(nil, "ARTWORK")
     c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
@@ -719,17 +693,11 @@ local function Row(p, i)
     c.glow = c:CreateTexture(nil, "HIGHLIGHT")
     c.glow:SetAllPoints(c.hit)
     c.glow:SetColorTexture(1, 1, 1, 0.08)
-    -- A strip: a left click collapses its section, or opens it again. A
-    -- spell, in combat (the secure layer away) or cut by the scroll's
+    -- A spell, in combat (the secure layer away) or cut by the scroll's
     -- edge: the left button shows or hides its ranks, the right casts
     -- nothing; Click Casting open, either binds
     c:SetScript("OnClick", function(self, button)
-        if self.shut then
-            Collapse(self.shut)
-            Refresh(p)
-        elseif self.item then
-            Press(p, self.item, button)
-        end
+        if self.item then Press(p, self.item, button) end
     end)
     c:SetScript("OnEnter", function(self) if self.item then Tooltip(self, self.item) end end)
     c:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -738,8 +706,7 @@ local function Row(p, i)
 end
 
 local PARTS = {
-    heading = { "band", "line", "title", "role", "count" },
-    spell = { "icon", "edge", "name", "sub", "cast", "cost" },
+    spell = { "icon", "edge", "name", "sub", "cast", "cost", "hair" },
     rank = { "rband", "stem", "rank", "rcast", "rcost" },
 }
 local function Kind(c, kind)
@@ -751,36 +718,18 @@ local function Kind(c, kind)
         s.rim:Hide()
         s.fill:Hide()
     end
-    c.shut = nil
-    if kind == "heading" then
-        c:RegisterForClicks("LeftButtonUp")
-    else
-        c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    end
+    c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     c.kind = kind
 end
 
--- The entries laid out top to bottom in the scroll's child, a card under
--- each section (its strip and rows, a little room under the last), a gap
--- between the cards; the rows and cards left over hidden.
+-- The entries laid out top to bottom in the scroll's child, the list's
+-- width; the rows left over hidden.
 local function Place(p, items)
-    local width = W.width - GUTTER
-    local y, n, card = 0, 0, nil
-    local function Close()
-        if not card then return end
-        if not card.shut then y = y + PAD end
-        Finish(card, width, y)
-    end
+    local width = W.width
+    local y = 0
     for i, item in ipairs(items) do
         local c = p.rows[i] or Row(p, i)
-        if item.heading then
-            Close()
-            if card then y = y + SPACE end
-            n = n + 1
-            card = p.cards[n] or Card(p, n)
-            card.y, card.shut, card.icon = y, item.closed, item.icon
-        end
-        local h = item.heading and HEAD or item.rank and RANK or SPELL
+        local h = item.rank and RANK or SPELL
         c:ClearAllPoints()
         c:SetPoint("TOPLEFT", 0, -y)
         c:SetSize(width, h)
@@ -788,12 +737,10 @@ local function Place(p, items)
         c:Show()
         y = y + h
     end
-    Close()
     for i = #items + 1, #p.rows do
         p.rows[i].item = nil
         p.rows[i]:Hide()
     end
-    for i = n + 1, #p.cards do p.cards[i]:Hide() end
     p.scroller.child:SetSize(width, math.max(1, y))
 end
 
@@ -898,6 +845,135 @@ local function Follow()
     end
 end
 
+-- ------------------------------------------------------------------- tabs
+-- The panel under the head (2026-11-19, /workspace/spec-tabs-B.png): a
+-- tab for each section, joined across, the console's box round them; in
+-- each its role's gem, its name and its count under, the open one held
+-- (a gold wash, a gold line under its words).
+local function Gem(parent)
+    local g = {}
+    g.rim = parent:CreateTexture(nil, "ARTWORK", nil, 1)
+    g.rim:SetSize(9, 9)
+    g.rim:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    g.stone = parent:CreateTexture(nil, "ARTWORK", nil, 2)
+    g.stone:SetSize(7, 7)
+    g.stone:SetPoint("CENTER", g.rim)
+    if g.rim.SetRotation then
+        g.rim:SetRotation(math.pi / 4)
+        g.stone:SetRotation(math.pi / 4)
+    end
+    return g
+end
+
+local function Cell(p, i)
+    local t = CreateFrame("Button", nil, p.specs)
+    t.wash = t:CreateTexture(nil, "BACKGROUND", nil, 3)
+    t.wash:SetPoint("TOPLEFT", 0, 0)
+    t.wash:SetPoint("BOTTOMRIGHT", 0, 0)
+    t.wash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.3)
+    t.line = t:CreateTexture(nil, "ARTWORK")
+    t.line:SetHeight(2)
+    t.line:SetPoint("BOTTOMLEFT", 10, 1)
+    t.line:SetPoint("BOTTOMRIGHT", -10, 1)
+    t.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    t.split = t:CreateTexture(nil, "BORDER")
+    t.split:SetWidth(1)
+    t.split:SetPoint("TOPLEFT", -1, 0)
+    t.split:SetPoint("BOTTOMLEFT", -1, 0)
+    t.split:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    t.name = ns.Text(t, 12)
+    t.name:SetPoint("CENTER", 0, 7)
+    t.name:SetWordWrap(false)
+    -- the gem beside the count, so a long name has the whole width
+    t.count = ns.Text(t, 9)
+    t.count:SetPoint("CENTER", 6, -9)
+    t.gem = Gem(t)
+    t.gem.rim:SetPoint("RIGHT", t.count, "LEFT", -6, 0)
+    local glow = t:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetAllPoints()
+    glow:SetColorTexture(1, 1, 1, 0.06)
+    t:SetScript("OnClick", function(self)
+        if not self.section then return end
+        Hold(p, self.section.name)
+        p.scroller.To(0, true)
+        Refresh(p)
+    end)
+    t:SetScript("OnEnter", function(self)
+        local sec = self.section
+        if not sec then return end
+        ns.Tip(self, ns.window.OutsideTop, { title = sec.name, color = GOLD,
+            sec.role and { "body", ROLE_WORD[sec.role] } or nil })
+    end)
+    t:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    p.specs.cells[i] = t
+    return t
+end
+
+-- the tabs as the sections now are, each a share of the panel's width;
+-- a name too wide drops a size or three (the gem is on the count's line)
+function Tabs(p)
+    local panel = p.specs
+    if not panel then return end
+    local list = p.sections or {}
+    local width = (panel:GetWidth() or 0) > 0 and panel:GetWidth() or (W.width + 2 * ns.window.pad)
+    -- the medallion and its step stand over the inner end (the left: the
+    -- book is on the right): that cell's words centred in what they leave
+    local clear = 40 + 6                -- the step under the head: 40 from the inner edge
+    for i, sec in ipairs(list) do
+        local t = panel.cells[i] or Cell(p, i)
+        local x0 = math.floor((i - 1) * width / #list)
+        local x1 = math.floor(i * width / #list)
+        t:ClearAllPoints()
+        t:SetPoint("TOPLEFT", panel, "TOPLEFT", x0, 0)
+        t:SetSize(x1 - x0, SPECS_H)
+        t.section = sec
+        local held = sec == p.held
+        t.wash:SetShown(held)
+        t.line:SetShown(held)
+        t.split:SetShown(i > 1)
+        local shift = i == 1 and clear / 2 or 0
+        t.name:ClearAllPoints()
+        t.name:SetPoint("CENTER", shift, 7)
+        t.count:ClearAllPoints()
+        t.count:SetPoint("CENTER", shift + 6, -9)
+        local room = (x1 - x0) - 10 - (i == 1 and clear or 0)
+        local size = 12
+        t.name:SetFont(ns.font, size, "")
+        t.name:SetText(sec.name)
+        while size > 9 and (t.name:GetStringWidth() or 0) > room do
+            size = size - 1
+            t.name:SetFont(ns.font, size, "")
+        end
+        t.name:SetWidth(math.min(room, math.ceil(t.name:GetStringWidth() or 0) + 1))
+        local col = ROLE[sec.role] or GOLD_D
+        t.gem.stone:SetColorTexture(col[1], col[2], col[3], 1)
+        local c = held and GOLD or ns.colors.dim
+        t.name:SetTextColor(c[1], c[2], c[3])
+        local words = p.trainer and format("%d to learn", sec.count)
+            or format(sec.count == 1 and "%d spell" or "%d spells", sec.count)
+        if p.trainer and (sec.now or 0) > 0 then words = words .. format("  \194\183  %d now", sec.now) end
+        t.count:SetText(words)
+        local cc = held and ns.colors.dim or OFF
+        t.count:SetTextColor(cc[1], cc[2], cc[3])
+        t:Show()
+    end
+    for i = #list + 1, #panel.cells do
+        panel.cells[i].section = nil
+        panel.cells[i]:Hide()
+    end
+    panel:SetShown(#list > 0)
+end
+
+-- the tabs in the panel the shell joins under the head (p.panel, spec
+-- under: its box the shell's)
+local function Panel(p)
+    local panel = p.panel
+    panel.cells = {}
+    panel:HookScript("OnSizeChanged", function() if p.sections then Tabs(p) end end)
+    p.specs = panel
+    return panel
+end
+
 -- ------------------------------------------------------------------ pages
 local Band
 function Refresh(p)
@@ -912,28 +988,7 @@ function Refresh(p)
     local ready = binding and cbf and ns.clickcast.Step and ns.clickcast.Step() == 1
     for i, item in ipairs(items) do
         local c = p.rows[i]
-        if item.heading then
-            Kind(c, "heading")
-            c.item, c.shut = nil, item.shut
-            -- its role's colour fading from the right (the screen's edge:
-            -- the book stands on the right) towards the middle, a line of it under
-            local col = ROLE[item.role] or GOLD_D
-            c.band:SetColorTexture(1, 1, 1, 1)
-            if c.band.SetGradient and CreateColor then
-                c.band:SetGradient("HORIZONTAL", CreateColor(col[1], col[2], col[3], 0.12),
-                    CreateColor(col[1], col[2], col[3], 0.55))
-            else
-                c.band:SetColorTexture(col[1], col[2], col[3], 0.3)
-            end
-            c.line:SetColorTexture(col[1], col[2], col[3], 1)
-            c.title:SetText(item.heading)
-            c.role:SetShown(item.role ~= nil)
-            if item.role then c.role:SetTexture(ns.media .. "strips\\" .. ROLE_GLYPH[item.role]) end
-            c.count:ClearAllPoints()
-            c.count:SetPoint("RIGHT", item.role and -28 or -10, 0)
-            c.count:SetText((item.role and ROLE_WORD[item.role] .. "  ·  " or "") .. item.count
-                .. ((item.now or 0) > 0 and format("  ·  %d to train now", item.now) or ""))
-        else
+        do
             Kind(c, item.rank and "rank" or "spell")
             c.item = item
             local info = item.info
@@ -965,6 +1020,9 @@ function Refresh(p)
                     st.fill:SetShown(on)
                     st.rim:SetColorTexture(rim[1], rim[2], rim[3], 1)
                 end
+                -- a hairline under it, but the last and over its ranks
+                local nxt = items[i + 1]
+                c.hair:SetShown(nxt ~= nil and not nxt.rank)
                 c.icon:SetTexture(info.iconID)
                 local learned = info.itemType ~= TYPE.FutureSpell
                 if item.trainer then learned = item.now end
@@ -1028,6 +1086,7 @@ function Refresh(p)
         end
     end
     p.scroller.To(p.scroller.target)
+    Tabs(p)
     Band(p)
     Follow()
 end
@@ -1102,7 +1161,8 @@ end
 
 local function Page(spec)
     local p = spec
-    p.rows, p.cards = {}, {}
+    p.rows = {}
+    if not p.macros then p.under = SPECS_H end
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true
     p.events = { "SPELLS_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "SPELL_UPDATE_ICON", "PLAYER_LEVEL_UP",
         "UNIT_PET", "PET_BAR_UPDATE", "ACTIONBAR_SLOT_CHANGED", "PLAYER_MONEY" }
@@ -1112,11 +1172,17 @@ local function Page(spec)
             ns.macros.Build(p, body)
             return
         end
-        p.scroller = ns.window.Scroller(body, GUTTER)
+        -- the tabs' panel (joined under the head); the list, its bar out by the rail
+        Panel(p)
+        local holder = CreateFrame("Frame", nil, body)
+        holder:SetPoint("TOPLEFT")
+        holder:SetPoint("BOTTOMRIGHT")
+        p.holder = holder
+        p.scroller = ns.window.Scroller(holder, 0, true)
         -- the buttons over the rows follow them as they scroll
         if p.casts then p.scroller.Moved = function() Follow() end end
-        body:EnableMouseWheel(true)
-        body:SetScript("OnMouseWheel", function(_, delta) p.scroller.To(p.scroller.target - delta * STEP) end)
+        holder:EnableMouseWheel(true)
+        holder:SetScript("OnMouseWheel", function(_, delta) p.scroller.To(p.scroller.target - delta * STEP) end)
     end
     function p.Refresh()
         if p.macros then

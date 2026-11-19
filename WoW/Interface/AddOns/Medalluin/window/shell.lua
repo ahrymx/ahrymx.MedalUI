@@ -104,12 +104,13 @@ local MEDALLION = L.chatLeft                    -- the medallion's width: the st
 local OVER = ART.height - L.stripHeight         -- how far the medallion stands above the strip
 local BAND = OVER - 5                           -- the margin, up to its rule: as the chat's and the side panel's
 local BOTTOM = BAND + RULE                      -- the page's (or its details') foot
--- A docked window's margin (2026-11-19, mockup B of /workspace/margin-B.png,
--- made one grid in /workspace/sleek-chrome.png): its head and pages stand
--- this far in from the screen's top, and this and PAD in from its edge; the
--- window's gold frame only on its inner side and foot, the screen being the
--- frame on the others, and flush against the screen's edge a gold rail
--- (RAIL: its columns, outer first, bevelled), top to foot. Floating, none.
+-- A docked window's margin (2026-11-19, mockup B of /workspace/margin-B.png;
+-- at the top only since /workspace/meld-sheet.png): its head and pages
+-- stand this far down from the screen's top; the window's gold frame only
+-- on its inner side and foot, the screen being the frame on the others,
+-- and flush against the screen's edge a gold rail (RAIL: its columns, outer
+-- first, bevelled), top to foot, the head and cross reaching it. Floating,
+-- none.
 local MARGIN = 10
 local RAIL = { { 0.27, 0.22, 0.11 }, { 0.80, 0.69, 0.41 }, { 0.98, 0.90, 0.67 }, { 0.37, 0.29, 0.14 } }
 local LIFT = 20                                 -- the medallion's buttons' level over the window's
@@ -122,7 +123,7 @@ local SHADOW, DROP = 12, 3                      -- a floating window's shadow: h
 local UNDER = 44                                -- a floating window's tab's underline
 local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118, 0.102, 0.071, 0.8 } }
 
-ns.window = { width = WIDTH - 2 * PAD - MARGIN, pad = PAD, band = BAND }
+ns.window = { width = WIDTH - 2 * PAD, pad = PAD, band = BAND }
 
 -- A secure button b set over region by numbers from its layer's (its
 -- parent's) own corner and scale, never anchored to region (see w.Layer);
@@ -552,18 +553,36 @@ ns.window.Segments = Segments
 -- it at once (now: the bar dragged). Lay the list out in s.child, and call
 -- To(s.target) as it changes, to keep it in range. s.Moved, if set, is
 -- called as the list moves.
-local function Scroller(body, gutter)
-    local s = { target = 0, offset = 0 }
+--
+-- outside (2026-11-19): the list fills the body and the bar stands out of
+-- it, beside its outer edge (the screen's side), in the window's margin:
+-- the shell places it (Edge, from Under) as the window docks or floats.
+local scrollers = {}
+local function Scroller(body, gutter, outside)
+    local s = { target = 0, offset = 0, body = body, outside = outside }
     local scroll = CreateFrame("ScrollFrame", nil, body)
-    scroll:SetPoint("TOPLEFT", gutter, 0)
+    scroll:SetPoint("TOPLEFT", outside and 0 or gutter, 0)
     scroll:SetPoint("BOTTOMRIGHT")
     local child = CreateFrame("Frame", nil, scroll)
     child:SetSize(1, 1)
     scroll:SetScrollChild(child)
     local bar = CreateFrame("Frame", nil, body)
-    bar:SetPoint("TOPLEFT")
-    bar:SetPoint("BOTTOMLEFT")
-    bar:SetWidth(gutter - 4)
+    if outside then
+        bar:SetWidth(6)
+        table.insert(scrollers, s)
+    else
+        bar:SetPoint("TOPLEFT")
+        bar:SetPoint("BOTTOMLEFT")
+        bar:SetWidth(gutter - 4)
+    end
+    -- beside the body's outer edge (side 1: its right), its middle offset out
+    function s.Edge(side, offset)
+        local at = side > 0 and "RIGHT" or "LEFT"
+        local x = side > 0 and offset - 3 or -(offset + 3)
+        bar:ClearAllPoints()
+        bar:SetPoint("TOPLEFT", body, "TOP" .. at, x, 0)
+        bar:SetPoint("BOTTOMLEFT", body, "BOTTOM" .. at, x, 0)
+    end
     local track = bar:CreateTexture(nil, "BACKGROUND")
     track:SetPoint("TOP")
     track:SetPoint("BOTTOM")
@@ -629,6 +648,7 @@ local function Scroller(body, gutter)
     return s
 end
 ns.window.Scroller = Scroller
+ns.window.scrollers = scrollers
 
 -- GameTooltip for owner, outside frame: beside its inner edge (side 1, a
 -- frame on the right strip: its left; -1: its right), its top level with
@@ -1004,7 +1024,7 @@ local docked = { [-1] = {}, [1] = {} }
 function ns.Window(spec)
     local side = spec.side
     local pages = {}
-    local w = { pages = pages, width = WIDTH - 2 * PAD - MARGIN, side = side,
+    local w = { pages = pages, width = WIDTH - 2 * PAD, side = side,
         band = { left = side < 0 and MEDALLION + PAD or PAD, right = side < 0 and PAD or MEDALLION + PAD,
             height = BAND } }
     local window, close, rule, footRule, medal, view, grip
@@ -1016,17 +1036,23 @@ function ns.Window(spec)
     local tabs = {}
     local drop = {}             -- the pages' dropdown (Tabs): its head, its list beside the window
     local Corner                -- (Tabs) the cross's corner
-    -- the margin docked (MARGIN, above): the top's, the left's, the right's
-    -- (the edge's side only); floating, none
+    local Bars                  -- (Make) the pages' outside scroll bars placed
+    local Joined                -- (Make) a page's panel joined under the head
+    -- the margin docked (MARGIN, above): the top's; the sides' none (the
+    -- left's, the right's kept for the callers); floating, none
     local function Inset()
-        local m = floating and 0 or MARGIN
-        return m, side < 0 and m or 0, side > 0 and m or 0
+        return floating and 0 or MARGIN, 0, 0
     end
-    -- the chrome's (the head's, the cross's) insets from the window's sides:
-    -- the outer side's to the pages' edge, as theirs (one grid)
+    -- the chrome's (the head's, the cross's, a joined panel's) insets from
+    -- the window's sides: docked, the outer side's to the rail
     local function Edges()
-        local m = floating and 0 or MARGIN + PAD
+        local m = floating and 0 or #RAIL
         return side < 0 and m or 0, side > 0 and m or 0
+    end
+    -- a page's top: under its joined panel (under), or the window's
+    local function TopOf(p)
+        if p and p.under and p.panel then return Inset() + TAB + p.under + RULE end
+        return pageTop
     end
     local listener = CreateFrame("Frame")
     w.listener = listener
@@ -1132,13 +1158,14 @@ function ns.Window(spec)
         if not current then return end
         local least = 0
         for _, p in ipairs(pages) do
-            if p.available and not p.flex then least = math.max(least, p.height + Foot(p)) end
+            if p.available and not p.flex then least = math.max(least, TopOf(p) + p.height + Foot(p)) end
         end
         local foot = Foot(current)
         local room = Room()
-        local total = math.max(pageTop + least + BOTTOM, room)
-        if current.flex then total = math.max(pageTop + 80 + foot + BOTTOM, math.min(total, room)) end
-        local height = total - pageTop - foot - BOTTOM
+        local at = TopOf(current)
+        local total = math.max(least + BOTTOM, room)
+        if current.flex then total = math.max(at + 80 + foot + BOTTOM, math.min(total, room)) end
+        local height = total - at - foot - BOTTOM
         current.body:SetHeight(height)
         if current.Fit then current.Fit(height) end
         local shown = foot > 0
@@ -1147,8 +1174,8 @@ function ns.Window(spec)
         if shown then
             footRule:ClearAllPoints()
             local _, li, ri = Inset()
-            footRule:SetPoint("TOPLEFT", PAD + li, -(pageTop + height + RULE))
-            footRule:SetPoint("TOPRIGHT", -(PAD + ri), -(pageTop + height + RULE))
+            footRule:SetPoint("TOPLEFT", PAD + li, -(at + height + RULE))
+            footRule:SetPoint("TOPRIGHT", -(PAD + ri), -(at + height + RULE))
             current.foot:SetHeight(current.footHeight)
         end
         window:SetHeight(total)
@@ -1409,6 +1436,7 @@ function ns.Window(spec)
             if p.body then
                 p.body:SetShown(p == page)
                 p.band:SetShown(p == page)
+                if p.panel then p.panel:SetShown(p == page) end
                 if p ~= page then p.foot:Hide() end
             end
             Remark(p, p == page)
@@ -1447,6 +1475,54 @@ function ns.Window(spec)
         return _G[p.frame] ~= nil
     end
 
+    -- the outside scroll bars of this window's pages (Scroller's outside):
+    -- between the rail and the pages docked, in the edge's pad floating
+    function Bars()
+        for _, sc in ipairs(ns.window.scrollers) do
+            local f = sc.body
+            while f and f ~= window do f = f:GetParent() end
+            if f then sc.Edge(side, floating and PAD / 2 or (PAD - #RAIL) / 2) end
+        end
+    end
+
+    -- A page's panel joined under the head (2026-11-19, /workspace/meld-sheet.png:
+    -- spec.under, its height): the head's span, from its foot down, its
+    -- top the head's foot line (no edge of its own there); ink with a
+    -- faint gold rising from its foot, gold down its sides and along its
+    -- foot; under the head's step and medallion. The page fills it.
+    function Joined(p)
+        local f = CreateFrame("Frame", nil, window)
+        f:SetFrameLevel(window:GetFrameLevel() + 1)
+        f:SetHeight(p.under)
+        local ink = ns.colors.ink
+        f.fill = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+        f.fill:SetAllPoints()
+        f.fill:SetColorTexture(ink[1], ink[2], ink[3], 1)
+        -- the gold rising from its foot, gone by its top: there it is the
+        -- head's step's ink, which runs over it unseen
+        f.glow = f:CreateTexture(nil, "BACKGROUND", nil, 2)
+        f.glow:SetAllPoints()
+        if f.glow.SetGradient and CreateColor then
+            f.glow:SetColorTexture(1, 1, 1, 1)
+            f.glow:SetGradient("VERTICAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.22),
+                CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0))
+        else
+            f.glow:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.1)
+        end
+        f.edges = {}
+        for _, e in ipairs({ { "TOPLEFT", "BOTTOMLEFT", true }, { "TOPRIGHT", "BOTTOMRIGHT", true },
+            { "BOTTOMLEFT", "BOTTOMRIGHT" } }) do
+            local t = f:CreateTexture(nil, "BORDER")
+            t:SetPoint(e[1])
+            t:SetPoint(e[2])
+            if e[3] then t:SetWidth(1) else t:SetHeight(1) end
+            t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            table.insert(f.edges, t)
+        end
+        f:Hide()
+        return f
+    end
+
     -- a page's frames, built the first time it is there
     local function Make(p)
         p.body = CreateFrame("Frame", nil, window)
@@ -1457,10 +1533,12 @@ function ns.Window(spec)
         p.foot:SetPoint("BOTTOMRIGHT", -PAD, BOTTOM)
         p.band = CreateFrame("Frame", nil, window)
         BandAt(p)
+        if p.under then p.panel = Joined(p) end
         p.body:Hide()
         p.foot:Hide()
         p.band:Hide()
         p.Build(p.body, p.foot, p.band)
+        Bars()
         if not p.bandUsed then
             local o = Ornament(p.band)
             o:SetPoint("LEFT", 0, 0)
@@ -1480,16 +1558,23 @@ function ns.Window(spec)
         rule:SetPoint("TOPLEFT", el, -(rows * (TAB - 1) + top))
         rule:SetPoint("TOPRIGHT", -er, -(rows * (TAB - 1) + top))
         for _, p in ipairs(pages) do
+            if p.panel then
+                p.panel:ClearAllPoints()
+                p.panel:SetPoint("TOPLEFT", el, -(top + TAB))
+                p.panel:SetPoint("TOPRIGHT", -er, -(top + TAB))
+            end
             if p.body then
+                local at = TopOf(p)
                 p.body:ClearAllPoints()
-                p.body:SetPoint("TOPLEFT", PAD + li, -pageTop)
-                p.body:SetPoint("TOPRIGHT", -(PAD + ri), -pageTop)
+                p.body:SetPoint("TOPLEFT", PAD + li, -at)
+                p.body:SetPoint("TOPRIGHT", -(PAD + ri), -at)
                 p.foot:ClearAllPoints()
                 p.foot:SetPoint("BOTTOMLEFT", PAD + li, BOTTOM)
                 p.foot:SetPoint("BOTTOMRIGHT", -(PAD + ri), BOTTOM)
             end
         end
         if window.metal then window.metal.Set(not floating) end
+        Bars()
     end
 
     -- ------------------------------------------------------ the dropdown
@@ -1876,12 +1961,26 @@ function ns.Window(spec)
             local st = CreateFrame("Frame", nil, h)
             st:SetFrameLevel(h:GetFrameLevel() + 10)
             st:SetSize(STEP, MEDAL - TAB + 2)
+            -- its ink the step's shape: square to the slant's foot, then a
+            -- column a pixel wide each, cut at the slant (nothing beyond it)
+            local rise, run = MEDAL - TAB, SLANT
+            local ink = ns.colors.ink
             local fill = st:CreateTexture(nil, "BACKGROUND")
-            fill:SetAllPoints()
-            fill:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
+            fill:SetPoint("TOP" .. near)
+            fill:SetPoint("BOTTOM" .. near)
+            fill:SetWidth(STEP - run)
+            fill:SetColorTexture(ink[1], ink[2], ink[3], 1)
+            st.wedge = {}
+            for i = 1, run do
+                local col = st:CreateTexture(nil, "BACKGROUND")
+                col:SetWidth(1)
+                col:SetHeight(math.max(1, (MEDAL - TAB + 2) - rise * (i - 0.5) / run))
+                col:SetPoint("TOP" .. near, (STEP - run + i - 1) * out, 0)
+                col:SetColorTexture(ink[1], ink[2], ink[3], 1)
+                st.wedge[i] = col
+            end
             local foot = st:CreateTexture(nil, "ARTWORK")
             foot:SetHeight(1)
-            local rise, run = MEDAL - TAB, SLANT
             foot:SetPoint("BOTTOM" .. near, 0, 0)
             foot:SetPoint("BOTTOM" .. far, -run * out, 0)
             foot:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
@@ -1892,6 +1991,7 @@ function ns.Window(spec)
             slant:SetPoint("CENTER", st, "BOTTOM" .. far, -run / 2 * out, rise / 2)
             slant:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
             if slant.SetRotation then slant:SetRotation(out * math.atan2(rise, run)) end
+            st.fill = fill
             h.step = st
             h.label:Hide()
             h.count = ns.Text(h, 10)
@@ -2117,6 +2217,7 @@ function ns.Window(spec)
             current = nil
             for _, p in ipairs(pages) do
                 if p.body then p.body:Hide(); p.foot:Hide(); p.band:Hide() end
+                if p.panel then p.panel:Hide() end
             end
             for _, p in ipairs(pages) do
                 if p.available then Select(p); break end

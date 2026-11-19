@@ -925,24 +925,30 @@ end
 --   c.state, c.status (the third); c.row
 local FILL = { 0.133, 0.118, 0.086 }
 local OFF = { 0.35, 0.33, 0.27 }        -- a control that cannot be used: its word
-local function Console(body, controls)
-    local c = CreateFrame("Frame", nil, body)
-    local out = ns.window.pad - 1
-    c:SetPoint("TOPLEFT", -out, LIFT)
-    c:SetPoint("TOPRIGHT", out, LIFT)
-    c:SetHeight(controls and CONSOLE or READOUTS)
-    local edge = c:CreateTexture(nil, "BACKGROUND")
-    edge:SetAllPoints()
-    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    local fill = c:CreateTexture(nil, "BACKGROUND", nil, 1)
-    fill:SetPoint("TOPLEFT", 1, -1)
-    fill:SetPoint("BOTTOMRIGHT", -1, 1)
-    fill:SetColorTexture(FILL[1], FILL[2], FILL[3], 1)
-    local shine = c:CreateTexture(nil, "BACKGROUND", nil, 2)
-    shine:SetPoint("TOPLEFT", 2, -3)
-    shine:SetPoint("TOPRIGHT", -2, -3)
-    shine:SetHeight(1)
-    shine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.15)
+local function Console(body, controls, slot)
+    local c = CreateFrame("Frame", nil, slot or body)
+    if slot then
+        -- (2026-11-19, /workspace/meld-sheet.png) in the panel the shell
+        -- joins under the head: its box the shell's
+        c:SetAllPoints(slot)
+    else
+        local out = ns.window.pad - 1
+        c:SetPoint("TOPLEFT", -out, LIFT)
+        c:SetPoint("TOPRIGHT", out, LIFT)
+        c:SetHeight(controls and CONSOLE or READOUTS)
+        local edge = c:CreateTexture(nil, "BACKGROUND")
+        edge:SetAllPoints()
+        edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        local fill = c:CreateTexture(nil, "BACKGROUND", nil, 1)
+        fill:SetPoint("TOPLEFT", 1, -1)
+        fill:SetPoint("BOTTOMRIGHT", -1, 1)
+        fill:SetColorTexture(FILL[1], FILL[2], FILL[3], 1)
+        local shine = c:CreateTexture(nil, "BACKGROUND", nil, 2)
+        shine:SetPoint("TOPLEFT", 2, -3)
+        shine:SetPoint("TOPRIGHT", -2, -3)
+        shine:SetHeight(1)
+        shine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.15)
+    end
     -- the readouts: three cells across the top, hairlines between
     local cells = {}
     for i = 1, 3 do
@@ -963,10 +969,23 @@ local function Console(body, controls)
     end
     c:SetScript("OnSizeChanged", c.Layout)
     c.Layout()
+    -- the parting between the readouts: joined, solid gold top to bottom
+    -- (the controls' rule under them); alone, a hairline fading at its ends
+    c.splits = {}
     for i = 1, 2 do
-        local rule = ns.window.Hair(c, true)
-        rule:SetPoint("TOP", cells[i], "TOPRIGHT", 0, -14)
-        rule:SetPoint("BOTTOM", cells[i], "BOTTOMRIGHT", 0, 14)
+        local rule
+        if slot then
+            rule = c:CreateTexture(nil, "BORDER")
+            rule:SetWidth(1)
+            rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            rule:SetPoint("TOP", cells[i], "TOPRIGHT", 0, 0)
+            rule:SetPoint("BOTTOM", cells[i], "BOTTOMRIGHT", 0, 0)
+        else
+            rule = ns.window.Hair(c, true)
+            rule:SetPoint("TOP", cells[i], "TOPRIGHT", 0, -14)
+            rule:SetPoint("BOTTOM", cells[i], "BOTTOMRIGHT", 0, 14)
+        end
+        c.splits[i] = rule
     end
     local function Pair(cell, size, color)
         -- the head over the middle, its line under, a gap between
@@ -1076,7 +1095,7 @@ local function Can(b, on)
 end
 
 local function Points(p, body)
-    local c = Console(body, true)
+    local c = Console(body, true, p.panel)
     p.console = c
     local row = c.row
     p.reset = Button(row, 64, function()
@@ -1258,6 +1277,9 @@ for i = 1, TREES do
     local p = { key = "tree" .. i, tree = i, order = i, label = "", frame = "TalentsFrame" }
     p.nodes, p.edges, p.halos = {}, {}, {}
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true
+    -- the console joined under the head (the shell's panel); the tree from
+    -- just under it
+    p.under, p.over = CONSOLE, 8
     p.events = { "TRAIT_CONFIG_UPDATED", "TRAIT_NODE_CHANGED", "TRAIT_TREE_CURRENCY_INFO_UPDATED",
         "PLAYER_TALENT_UPDATE", "ACTIVE_TALENT_GROUP_CHANGED", "SPELLS_CHANGED", "PLAYER_LEVEL_UP",
         "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }
