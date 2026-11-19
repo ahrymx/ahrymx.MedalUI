@@ -107,7 +107,9 @@ local function Walk(keep)
             local state = C_QuestLog.IsFailed(id) and -1 or C_QuestLog.IsComplete(id) and 1 or 0
             local objectives = {}
             for _, o in ipairs(C_QuestLog.GetQuestObjectives(id) or {}) do
-                if o.text and o.text ~= "" then table.insert(objectives, { text = o.text, done = o.finished }) end
+                if o.text and o.text ~= "" then
+                    table.insert(objectives, { text = o.text, done = o.finished, kind = o.type })
+                end
             end
             table.insert(out, { id = id, index = index, title = info.title, level = info.level or 0,
                 zone = zone or "Other", state = state, objectives = objectives, item = Item(index, id, state),

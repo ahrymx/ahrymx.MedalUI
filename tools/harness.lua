@@ -21707,6 +21707,53 @@ if questLogPass then (function()
             LibQuestieDB, QuestDB, UnitRace, UnitClass = nil, nil, raceWas, classWas
             show("questiedb gone")
         end)()
+        -- a quest item's drop rates from QuestieDB (quests/drops.lua): a
+        -- correction first (a number, or the table it points to), else the
+        -- server's, else Wowhead's; the objective found by its item's name
+        ;(function()
+            local qd = ns.questDrops
+            print("quest drops without questiedb", tostring(qd.For(400, "Gnoll Paw: 3/8")))
+            local quests = { [400] = { objectives = { nil, nil, { { 725 }, { 726 } } } },
+                [401] = { objectives = { nil, nil, { { 727 } } } } }
+            local items = { [725] = { name = "Gnoll Paw", npcDrops = { 117, 123, 124 } },
+                [726] = { name = "Gnoll Paw Bracer", npcDrops = { 117 } },
+                [727] = { name = "Murloc Fin", npcDrops = { 456 } } }
+            local npcs = { [117] = "Riverpaw Gnoll", [123] = "Riverpaw Mongrel", [124] = "Riverpaw Brute",
+                [456] = "Murloc Coastrunner" }
+            local support = {
+                QuestieClassicItemDrops = {
+                    wowheadData = "return { [725] = { [117] = 18.2, [123] = 9.6, [124] = 30 }, [727] = { [456] = 41.4 } }",
+                    cmangosData = "return { [725] = { [117] = 25, [123] = 12 }, [726] = { [117] = 0.4 } }",
+                },
+                -- 117: Wowhead's, over the server's; 124: the server has none, Wowhead's
+                QuestieItemDropCorrections = { Era = { [725] = { [117] = -1 } } },
+                DropDB = { correctionKeys = { WOWHEAD = -1, PSERVER = -2 } },
+            }
+            LibQuestieDB = { RequireContract = function(n) return n == 4 end,
+                Support = { Get = function(name) return support[name] end } }
+            QuestDB = { Get = function(id, key) return quests[id] and quests[id][key] end }
+            ItemDB = { Get = function(id, key) return items[id] and items[id][key] end }
+            NpcDB = { Get = function(id, key) return key == "name" and npcs[id] or nil end }
+            local function rates(info)
+                if not info then return "none" end
+                local o = {}
+                for _, r in ipairs(info.rates) do o[#o + 1] = r.name .. "=" .. r.rate end
+                return qd.Range(info) .. " " .. table.concat(o, ", ")
+            end
+            print("quest drops paw", rates(qd.For(400, "Gnoll Paw: 3/8")))
+            print("quest drops bracer, the longer name", rates(qd.For(400, "Gnoll Paw Bracer: 0/1")))
+            print("quest drops one item, its own words", rates(qd.For(401, "Fins collected: 2/12", "item")))
+            print("quest drops one item, a kill beside it", rates(qd.For(401, "Murlocs slain: 2/10", "monster")))
+            print("quest drops not an item", rates(qd.For(400, "Riverpaw Gnoll slain: 2/10", "monster")))
+            print("quest drops tag", qd.Tag(400, { text = "Gnoll Paw: 3/8" }),
+                "done=" .. qd.Tag(400, { text = "Gnoll Paw: 8/8", done = true }))
+            local tip = { lines = {} }
+            function tip:AddLine(s) self.lines[#self.lines + 1] = s end
+            function tip:AddDoubleLine(a, b) self.lines[#self.lines + 1] = a .. " " .. b end
+            qd.AddTooltip(tip, 400, { text = "Gnoll Paw: 3/8" })
+            print("quest drops tooltip", table.concat(tip.lines, " | "))
+            LibQuestieDB, QuestDB, ItemDB, NpcDB = nil, nil, nil, nil
+        end)()
         C_QuestLine,C_QuestLog.GetTitleForQuestID, C_QuestLog.IsQuestFlaggedCompleted, GetQuestUiMapID =
             was[1], was[2], was[3], was[4]
         C_QuestLog.RequestLoadQuestByID = load_

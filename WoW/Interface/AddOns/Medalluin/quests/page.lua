@@ -420,6 +420,10 @@ local function Draw(q)
         local counted = o.text:match("%d+%s*/%s*%d+")
         local have, need = Q.Count(o)
         local words = counted and (have .. "/" .. need .. "  " .. Q.Words(o)) or o.text
+        -- an item still wanted: its drop rate after it (quests/drops.lua),
+        -- in the line's own colour, as the rest is
+        local drop = not o.done and ns.questDrops and ns.questDrops.For(q.id, o.text, o.kind)
+        if drop then words = words .. "   \194\183 " .. ns.questDrops.Range(drop) .. " drop" end
         local at = y
         local _, h = Text((o.done and ns.Tick(DIM) .. " " or "") .. words, o.done and DIM or ns.colors.text, 10, 12,
             SEND + 4)

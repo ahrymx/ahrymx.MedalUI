@@ -204,6 +204,8 @@ local function Tip(row, q, objective)
         GameTooltip:SetText(q.title, GOLD[1], GOLD[2], GOLD[3])
         for _, o in ipairs(q.objectives) do GameTooltip:AddLine(o.text, 1, 1, 1) end
     end
+    -- an item objective's drop rates, creature by creature (quests/drops.lua)
+    if objective and ns.questDrops then ns.questDrops.AddTooltip(GameTooltip, q.id, objective) end
     ns.TipKeys(Q.Keys(q, objective))   -- the clicks, as the log's and the Zone tab's (quests/source.lua)
     GameTooltip:Show()
 end
@@ -211,8 +213,11 @@ end
 local function Click(q, button) Q.Click(q, button) end
 
 -- A long objective as the lines it takes, a row each, broken between words
--- (a word longer than a line keeps its own, cut).
-local function Wrap(text)
+-- (a word longer than a line keeps its own, cut). A colour broken across
+-- two lines (the drop rate's) is closed on the first and opened again on
+-- the next.
+local Wrap
+local function Lines(text)
     local room = Line()
     local font = Font("Objective")
     measure:SetFont(font[1], font[2], "")
@@ -230,6 +235,22 @@ local function Wrap(text)
         end
     end
     table.insert(lines, line)
+    return lines
+end
+function Wrap(text)
+    local lines, open = Lines(text), nil
+    for i, line in ipairs(lines) do
+        if open then line = open .. line end
+        local last = line:match(".*()|c%x%x%x%x%x%x%x%x")
+        local closed = line:match(".*()|r")
+        if last and (not closed or closed < last) then
+            open = line:sub(last, last + 9)
+            line = line .. "|r"
+        else
+            open = nil
+        end
+        lines[i] = line
+    end
     return lines
 end
 
@@ -317,7 +338,9 @@ local function Rows()
                     -- as the quest's, but Shift puts the objective in the chat box
                     local oclick = function(button) Q.ClickObjective(q, o, button) end
                     local oenter = function(row) Tip(row, q, o) end
-                    for j, line in ipairs(Wrap(o.text)) do
+                    -- an item still wanted: its drop rate after it (quests/drops.lua)
+                    local text = ns.questDrops and ns.questDrops.Tag(q.id, o) or o.text
+                    for j, line in ipairs(Wrap(text)) do
                         table.insert(rows, { label = line, depth = 1, pad = pad, lead = Lead(j, i == #objectives),
                             leadWidth = LEAD, dim = o.done, font = objective, group = q.id, wash = wash,
                             objective = o, click = oclick, middle = middle, enter = oenter })
