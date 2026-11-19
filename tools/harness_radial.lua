@@ -1339,3 +1339,30 @@ print("radial editor preset added", "radials " .. radialsBefore .. "->" .. #RM:G
     "radial tab=" .. tostring(win.tabs.radial:IsShown()), "catalog=" .. tostring(host.catalogCard:IsShown()))
 navTo(function(item) return item.preset == "voice" end)
 print("radial editor preset copies", tostring(host.presetCopies.text))
+
+-- ---- a radial made in the editor answers its key at once: the secure copy is synced after the
+-- edit, not at the next open (Toggle and the /click macros ask it before anything opens)
+do
+    local wasActivation = mdlui_RadialMenuDB.options.activation
+    mdlui_RadialMenuDB.options.activation = "toggle"
+    RM:ApplyOpening()
+    runTimers()
+    local fresh = RM:CreateRadial("Fresh")
+    RM:GetRadial(fresh).buttons = { { kind = "emote", emote = "WAVE" }, { kind = "emote", emote = "CHEER" } }
+    RM:RadialChanged(fresh)
+    RM:SetRadialKey(fresh, "CTRL-F")
+    local before = secureHeader:GetAttribute(fresh .. "-count")
+    runTimers()
+    local opens = runAttribute(secureHeader, "flare-openclick", fresh)
+    runAttribute(secureHeader, "flare-closeclick")
+    RM:RenameRadial(fresh, "Fresher")
+    runTimers()
+    local tagged = secureHeader:GetAttribute("tag-fresher")
+    print("radial new key", "count " .. tostring(before) .. "->" .. tostring(secureHeader:GetAttribute(fresh .. "-count")),
+        "toggle opens=" .. tostring(opens ~= false and opens ~= nil), "macro tag=" .. tostring(tagged == fresh))
+    RM:DeleteRadial(fresh)
+    runTimers()
+    print("radial new key deleted", "count=" .. tostring(secureHeader:GetAttribute(fresh .. "-count")))
+    mdlui_RadialMenuDB.options.activation = wasActivation
+    RM:ApplyOpening()
+end

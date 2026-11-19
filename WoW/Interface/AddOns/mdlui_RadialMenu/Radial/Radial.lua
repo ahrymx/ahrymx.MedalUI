@@ -2145,6 +2145,31 @@ function SyncSecure()
     SecureHandlerExecute(header, "CHILD = newtable()")
 end
 
+-- An edit (a radial made, renamed, deleted, its key, its buttons, who gets it): the secure copy
+-- is rewritten at once, not at the next open. Toggle and the /click macros ask the secure copy
+-- whether a radial has buttons before anything opens it, so a radial made since the last sync
+-- never opened there until a reload. Once a frame, after the edits; in a fight, at its end.
+do
+    local queued = false
+    local function SyncNow()
+        queued = false
+        if not header or isOpen then return end
+        if InCombatLockdown() then
+            layoutPending = true
+            return
+        end
+        syncDirty = false
+        ResolveAll()
+        SyncSecure()
+    end
+    function RM.MarkEdited()
+        syncDirty = true
+        if queued then return end
+        queued = true
+        C_Timer.After(0, SyncNow)
+    end
+end
+
 -- with Toggle the secure snippet opens the art itself (OnSecureOpen)
 local function OnPreClick(_, button, down)
     if down and not header:GetAttribute("flare-toggle") then OpenRadial(RM:GetRadial(button) and button or nil, "hold") end
@@ -2609,7 +2634,7 @@ local function NormalizeGroups(store)
 end
 
 local function GroupsChanged(self)
-    syncDirty = true
+    RM.MarkEdited()
     NormalizeGroups(GetStore())
     self:LoadActiveRadial()
 end
@@ -2649,7 +2674,7 @@ end
 
 function RM:RenameGroup(gid, name)
     local group = self:GetGroup(gid)
-    if group and name and name ~= "" then group.name = name; syncDirty = true end
+    if group and name and name ~= "" then group.name = name; RM.MarkEdited() end
 end
 
 -- its radials stay where they are, out of any group
@@ -2759,7 +2784,7 @@ end
 
 -- scope: who gets it (see AVAILABILITY below); a new radial has no key yet
 function RM:CreateRadial(name, scope)
-    syncDirty = true
+    RM.MarkEdited()
     local store = GetStore()
     if not store then return nil end
     local id = "r" .. store.nextRadialID
@@ -2772,7 +2797,7 @@ end
 
 -- a copy keeps the buttons and who gets it, but no key (it would only clash with the original)
 function RM:CopyRadial(id, name)
-    syncDirty = true
+    RM.MarkEdited()
     local data = self:GetRadial(id)
     if not data then return nil end
     local copy = self:CreateRadial(name or data.name)
@@ -2848,7 +2873,7 @@ function RM.ShownNames()
 end
 
 function RM:RenameRadial(id, name)
-    syncDirty = true
+    RM.MarkEdited()
     local data = self:GetRadial(id)
     if not (data and name and name ~= "") then return end
     local old = TagOf(data.name):lower()
@@ -2868,7 +2893,7 @@ function RM:RenameRadial(id, name)
 end
 
 function RM:DeleteRadial(id)
-    syncDirty = true
+    RM.MarkEdited()
     local store = GetStore()
     if not (store and store.radials[id]) then return end
     store.radials[id] = nil
@@ -2968,7 +2993,7 @@ end
 
 -- scope "" or nil: every character
 function RM:SetRadialScope(id, scope)
-    syncDirty = true
+    RM.MarkEdited()
     local data = self:GetRadial(id)
     if not data then return end
     scope = (scope ~= "" and scope) or nil
@@ -3007,7 +3032,7 @@ end
 
 -- sets the key for every character with the radial, or only for this one while it keeps its own
 function RM:SetRadialKey(id, key)
-    syncDirty = true
+    RM.MarkEdited()
     local data = self:GetRadial(id)
     if not data then return end
     key = (key and key ~= "") and key or nil
@@ -3073,7 +3098,7 @@ function RM:GetPadKey(id)
 end
 
 function RM:SetPadKey(id, key)
-    syncDirty = true
+    RM.MarkEdited()
     local data = self:GetRadial(id)
     if not data then return end
     data.padKey = (key and ns.ParsePadCombo(key)) and key or nil
@@ -3516,7 +3541,7 @@ end
 dirtyEvents:SetScript("OnEvent", RM.MarkDirty)
 
 function RM:RadialChanged(radialID)
-    syncDirty = true
+    RM.MarkEdited()
     -- a Custom Emote just put on the radial asks for its command, once the editor has redrawn
     if radialID then C_Timer.After(0, function() RM.CustomEmote.Ask(radialID) end) end
     if previewID and (radialID == nil or radialID == previewID) then
