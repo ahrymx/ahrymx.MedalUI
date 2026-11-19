@@ -918,7 +918,7 @@ function Tabs(p)
     local width = (panel:GetWidth() or 0) > 0 and panel:GetWidth() or (W.width + 2 * ns.window.pad)
     -- the medallion and its step stand over the inner end (the left: the
     -- book is on the right): that cell's words centred in what they leave
-    local clear = 40 + 6                -- the step under the head: 40 from the inner edge
+    local clear = (W.step or 40) + 6    -- the step under the head, from the inner edge
     for i, sec in ipairs(list) do
         local t = panel.cells[i] or Cell(p, i)
         local x0 = math.floor((i - 1) * width / #list)

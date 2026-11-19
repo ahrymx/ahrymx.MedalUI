@@ -1968,17 +1968,25 @@ function ns.Window(spec)
             local fill = st:CreateTexture(nil, "BACKGROUND")
             fill:SetPoint("TOP" .. near)
             fill:SetPoint("BOTTOM" .. near)
-            fill:SetWidth(STEP - run)
             fill:SetColorTexture(ink[1], ink[2], ink[3], 1)
             st.wedge = {}
             for i = 1, run do
                 local col = st:CreateTexture(nil, "BACKGROUND")
                 col:SetWidth(1)
                 col:SetHeight(math.max(1, (MEDAL - TAB + 2) - rise * (i - 0.5) / run))
-                col:SetPoint("TOP" .. near, (STEP - run + i - 1) * out, 0)
                 col:SetColorTexture(ink[1], ink[2], ink[3], 1)
                 st.wedge[i] = col
             end
+            -- its length: STEP, longer by the medallion's shift docked
+            function st.Length(len)
+                st:SetWidth(len)
+                fill:SetWidth(len - run)
+                for i, col in ipairs(st.wedge) do
+                    col:ClearAllPoints()
+                    col:SetPoint("TOP" .. near, (len - run + i - 1) * out, 0)
+                end
+            end
+            st.Length(STEP)
             local foot = st:CreateTexture(nil, "ARTWORK")
             foot:SetHeight(1)
             foot:SetPoint("BOTTOM" .. near, 0, 0)
@@ -1995,7 +2003,6 @@ function ns.Window(spec)
             h.step = st
             h.label:Hide()
             h.count = ns.Text(h, 10)
-            h.count:SetPoint(near, (MEDAL / 2 + 12) * out, 0)
             h.count:SetTextColor(unpack(ns.colors.dim))
             h.label = ns.Text(h, 14)
             h.label:SetPoint(near, (MEDAL / 2 + 60) * out, 0)
@@ -2029,9 +2036,17 @@ function ns.Window(spec)
         h:ClearAllPoints()
         h:SetPoint(mirror and "TOPRIGHT" or "TOPLEFT", 0, -top)
         -- the medallion and the step by it, down by the margin too
+        -- (2026-11-19) docked, in from the edge by a quarter of it, the
+        -- step and the count with it
         local near = mirror and "RIGHT" or "LEFT"
+        local out = mirror and -1 or 1
+        local shift = floating and 0 or MEDAL / 4
         h.medal:ClearAllPoints()
-        h.medal:SetPoint("CENTER", window, "TOP" .. near, 0, -(top + MEDAL / 2))
+        h.medal:SetPoint("CENTER", window, "TOP" .. near, shift * out, -(top + MEDAL / 2))
+        h.count:ClearAllPoints()
+        h.count:SetPoint(near, (MEDAL / 2 + 12 + shift) * out, 0)
+        h.step.Length(STEP + shift)
+        w.step = STEP + shift
         h.step:ClearAllPoints()
         h.step:SetPoint("TOP" .. near, window, "TOP" .. near, mirror and -1 or 1, -(top + TAB - 2))
         Boxed(h, not floating)
