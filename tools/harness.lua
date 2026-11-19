@@ -17896,9 +17896,42 @@ if spellPass then
     ns.SetOption("spellbookMissing", false)
     edges("book.no marks")
     ns.SetOption("spellbookMissing", true)
-    -- a spell kept on its highest rank (saved before the details' tick went):
-    -- the lower rank on the bar rises
-    MedalluinCharDB.upRank = { ["Rockbiter Weapon"] = true }
+    -- Top rank: Shift+Right-click marks a spell (its secure button casts
+    -- nothing then: a shift-type2 no handler has), a chevron on its icon,
+    -- and the lower rank on the bar rises at once
+    do
+        local rb = button("Rockbiter Weapon")
+        print("book.toprank attrs", "shift-type2=" .. tostring(rb.attrs["shift-type2"]),
+            "bolt=" .. tostring(button("Lightning Bolt").attrs["shift-type2"]))
+        local function chevron()
+            for _, c in ipairs(B.Current().rows) do
+                if c.shown and c.kind == "spell" and c.name.text == "Rockbiter Weapon" then
+                    local g = c.top.glyph.vertex or {}
+                    return tostring(c.top.shown) .. " blue=" .. tostring(g[3] and g[3] > 0.9 and g[1] < 0.5)
+                end
+            end
+            return "no row"
+        end
+        print("book.toprank mode", tostring(ns.db.spellbookUpRank), "chevron=" .. chevron())
+        modsDown.SHIFT = true
+        rb.scripts.PostClick(rb, "RightButton", true)     -- the press: nothing yet
+        print("book.toprank press", tostring(MedalluinCharDB.upRank and MedalluinCharDB.upRank["Rockbiter Weapon"]))
+        rb.scripts.PostClick(rb, "RightButton", false)
+        modsDown.SHIFT = nil
+        bars("book.uprank marked")
+        print("book.toprank marked", "chevron=" .. chevron())
+        -- the margin's button: lit while on; None dims the chevron
+        local margin = B.Current().margin
+        print("book.toprank button", "shown=" .. tostring(margin.byKey.toprank.shown),
+            "selected=" .. tostring(margin.byKey.toprank.selected))
+        ns.SetOption("spellbookUpRank", "none")
+        print("book.toprank none", "chevron=" .. chevron(), "selected=" .. tostring(margin.byKey.toprank.selected))
+        ns.SetOption("spellbookUpRank", "marked")
+        -- without MenuUtil, a click on Top rank goes to the next mode
+        margin.byKey.toprank.scripts.OnClick(margin.byKey.toprank, "LeftButton")
+        print("book.toprank click", tostring(ns.db.spellbookUpRank))
+        ns.SetOption("spellbookUpRank", "marked")
+    end
     B.UpRank()
     bars("book.uprank kept")
     print("book.uprank saved", tostring(MedalluinCharDB.upRank and MedalluinCharDB.upRank["Rockbiter Weapon"]))
@@ -17918,9 +17951,16 @@ if spellPass then
     actionSlots[3] = { "spell", 301 }
     fire("LEARNED_SPELL_IN_SKILL_LINE")
     bars("book.uprank unticked")
-    ns.SetOption("spellbookUpRankAll", true)
+    ns.SetOption("spellbookUpRank", "all")
     bars("book.uprank all")
-    ns.SetOption("spellbookUpRankAll", false)
+    -- None: marked or not, nothing moves
+    actionSlots[3] = { "spell", 301 }
+    MedalluinCharDB.upRank = { ["Rockbiter Weapon"] = true }
+    ns.SetOption("spellbookUpRank", "none")
+    fire("LEARNED_SPELL_IN_SKILL_LINE")
+    bars("book.uprank none")
+    MedalluinCharDB.upRank = nil
+    ns.SetOption("spellbookUpRank", "marked")
     -- the trainer: no tab until one is read; then what is left to learn,
     -- now first, the filter put back as the box's tab had it
     tabs("book.no trainer")

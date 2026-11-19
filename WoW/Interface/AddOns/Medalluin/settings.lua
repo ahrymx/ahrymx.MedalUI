@@ -113,7 +113,8 @@ local DEFAULTS = {
     inspect = true,         -- Medalluin's inspect window instead of Blizzard's
     spellbook = true,       -- Medalluin's spellbook instead of Blizzard's (Forever)
     spellbookMissing = true, -- a red edge on a spell on no action bar (nor in a macro on one)
-    spellbookUpRankAll = false, -- every spell kept on its highest rank on the bars (else only those ticked)
+    spellbookUpRank = "marked", -- spells kept on their highest rank on the bars: "all", "marked" (Shift+Right-click
+                                -- in the book, MedalluinCharDB.upRank) or "none"
     spellbookClickCast = true, -- click-cast bindings marked on their spells, and the book binding while /cc is open
     talents = true,         -- Medalluin's talents instead of Blizzard's (Forever)
     professions = true,     -- Medalluin's professions instead of Blizzard's (Forever)
@@ -680,6 +681,13 @@ local function Migrate(fresh)
     if db.global then
         for _, key in ipairs(gone) do db.global[key] = nil end
     end
+    -- Keep every spell on its highest rank (a checkbox) became Top rank:
+    -- Every spell, Only those marked or None
+    for _, store in ipairs({ db, db.global }) do
+        if store.spellbookUpRankAll == true and store.spellbookUpRank == nil then store.spellbookUpRank = "all" end
+        store.spellbookUpRankAll = nil
+    end
+    for name in pairs(PROFILES) do db.profiles[name].spellbookUpRankAll = nil end
     for key in pairs(DEFAULTS) do
         local v = db[key]
         if key ~= "consoleProfile" and v ~= nil then

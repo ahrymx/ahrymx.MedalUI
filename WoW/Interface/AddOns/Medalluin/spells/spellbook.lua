@@ -35,9 +35,13 @@
 -- belong to (Other for the rest); Trainer again goes back.
 --
 -- A spell on no action bar, nor in a macro on one, wears a red edge
--- (spellbookMissing). Asked to (spellbookUpRankAll, or a spell's own
--- MedalluinCharDB.upRank), a lower rank on a bar is swapped for the highest as
--- it is learned: out of combat, the cursor empty.
+-- (spellbookMissing). Top rank, in the margin beside Trainer, keeps spells on
+-- the bars at their highest rank (spellbookUpRank): every spell, only those
+-- marked, or none. Shift+Right-click marks a spell or unmarks it (per
+-- character, MedalluinCharDB.upRank, by name), and a marked one wears a
+-- blue double chevron on its icon's top right, as a bound one wears a mouse. A
+-- lower rank on a bar is swapped for the highest as it is learned, or as
+-- its spell is marked: out of combat, the cursor empty.
 --
 -- Casting is the client's: over each row wholly in view lies a secure
 -- button (type2 spell, or flyout: the right button) in a layer parented to the strip, not the window, because a
@@ -281,10 +285,30 @@ end
 -- out of combat (else at its end), and with the cursor empty, since the
 -- swap goes through it (a busy cursor waits for the next change).
 local pending
-local function Wanted(name)
-    if ns.db.spellbookUpRankAll then return true end
+local MODES = { { "all", "Every spell" }, { "marked", "Only those marked" }, { "none", "None" } }
+local function Mode()
+    local m = ns.db.spellbookUpRank
+    return (m == "all" or m == "none") and m or "marked"
+end
+local function Marked(name)
     local t = MedalluinCharDB and MedalluinCharDB.upRank
     return type(t) == "table" and t[name] == true
+end
+local function Wanted(name)
+    local m = Mode()
+    if m == "all" then return true end
+    return m == "marked" and Marked(name)
+end
+
+-- What can be marked: a spell of the player's own, cast, that has ranks
+-- (learned below it, or a "Rank 1" with more to come); its highest row
+local function Markable(item)
+    local info = item and item.info
+    if not info or item.rank or item.trainer or info.isPassive or item.bank ~= BANK.Player
+        or info.itemType ~= TYPE.Spell then
+        return false
+    end
+    return (item.lower and #item.lower > 0) or tostring(info.subName or ""):find("%d") ~= nil
 end
 
 local function UpRank()
@@ -319,6 +343,16 @@ local function UpRank()
     end
 end
 ns.spellbook.UpRank = UpRank
+
+-- a spell marked, or unmarked: the bars follow at once
+local function Mark(name)
+    if type(MedalluinCharDB) ~= "table" then return end
+    local t = type(MedalluinCharDB.upRank) == "table" and MedalluinCharDB.upRank or {}
+    MedalluinCharDB.upRank = t
+    t[name] = not t[name] or nil
+    if Wanted(name) then UpRank() end
+end
+ns.spellbook.Mark = Mark
 
 local Money = function(c) return ns.npc and ns.npc.Money(c) or tostring(c) end
 
@@ -471,6 +505,18 @@ local function Tooltip(owner, item)
         GameTooltip:AddLine(Open(item.info.name) and "Left-click to hide its ranks." or "Left-click to show its ranks.",
             dim[1], dim[2], dim[3])
     end
+    if not Binding() and Markable(item) then
+        local dim, m = ns.colors.dim, Mode()
+        if m == "all" then
+            GameTooltip:AddLine("Kept on its top rank, as every spell is.", GOLD[1], GOLD[2], GOLD[3])
+        elseif Marked(item.info.name) then
+            GameTooltip:AddLine(m == "none" and "Marked for top rank, but Top rank is off."
+                or "Kept on its top rank on your bars.", GOLD[1], GOLD[2], GOLD[3])
+            GameTooltip:AddLine("Shift+Right-click to unmark it.", dim[1], dim[2], dim[3])
+        else
+            GameTooltip:AddLine("Shift+Right-click to keep it on its top rank.", dim[1], dim[2], dim[3])
+        end
+    end
     if item.missing then
         GameTooltip:AddLine(item.lowerOn and format("%s is on your bars.", item.lowerOn) or "Not on your action bars.",
             MISSING[1], MISSING[2], MISSING[3])
@@ -486,9 +532,15 @@ end
 -- A click on a spell or a rank: Click Casting open, either button binds
 -- it; else the left shows or hides a spell's ranks (and does nothing on
 -- the rest). The right casts: the secure button's, the client's.
-local function Press(p, item, button)
+local function Press(p, item, button, down)
     if Binding() then
         Bind(item)
+    elseif button == "RightButton" and IsShiftKeyDown() and Markable(item) then
+        -- marked on the release (the secure button sees the press too)
+        if not down then
+            Mark(item.info.name)
+            Refresh(p)
+        end
     elseif ns.Linking(button) and item.info and (item.info.spellID or item.info.actionID) then
         ns.LinkInChat(ns.SpellLink(item.info.spellID or item.info.actionID))
     elseif button == "LeftButton" and Ranked(item) then
@@ -584,25 +636,37 @@ local function Row(p, i)
     c.miss:SetPoint("BOTTOMRIGHT", -1, 0)
     c.miss:SetColorTexture(MISSING[1], MISSING[2], MISSING[3], 0.12)
     c.miss:Hide()
-    -- a click-cast binding: a small mouse in a gold ring on the icon's corner
-    c.badge = CreateFrame("Frame", nil, c)
-    c.badge:SetSize(20, 20)
-    c.badge:SetPoint("CENTER", c.icon, "BOTTOMRIGHT", -3, 3)
-    local ring = c.badge:CreateTexture(nil, "ARTWORK", nil, 1)
-    ring:SetAllPoints()
-    ring:SetTexture(ns.media .. "strips\\round")
-    ring:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    local disc = c.badge:CreateTexture(nil, "ARTWORK", nil, 2)
-    disc:SetPoint("TOPLEFT", 1, -1)
-    disc:SetPoint("BOTTOMRIGHT", -1, 1)
-    disc:SetTexture(ns.media .. "strips\\round")
-    disc:SetVertexColor(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
-    c.badge.glyph = c.badge:CreateTexture(nil, "ARTWORK", nil, 3)
-    c.badge.glyph:SetSize(15, 15)
-    c.badge.glyph:SetPoint("CENTER")
-    c.badge.glyph:SetTexture(ns.media .. "strips\\mouse")
-    c.badge.glyph:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
-    c.badge:Hide()
+    -- a click-cast binding: a small mouse in a gold ring on the icon's
+    -- bottom corner; kept on its top rank: a double chevron, up, on its top
+    local function Badge(glyph, at, dy)
+        local b = CreateFrame("Frame", nil, c)
+        b:SetSize(15, 15)
+        b:SetPoint("CENTER", c.icon, at, -2, dy)
+        b.ring = b:CreateTexture(nil, "ARTWORK", nil, 1)
+        b.ring:SetAllPoints()
+        b.ring:SetTexture(ns.media .. "strips\\round")
+        b.ring:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        local disc = b:CreateTexture(nil, "ARTWORK", nil, 2)
+        disc:SetPoint("TOPLEFT", 1, -1)
+        disc:SetPoint("BOTTOMRIGHT", -1, 1)
+        disc:SetTexture(ns.media .. "strips\\round")
+        disc:SetVertexColor(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
+        b.glyph = b:CreateTexture(nil, "ARTWORK", nil, 3)
+        b.glyph:SetSize(11, 11)
+        b.glyph:SetPoint("CENTER")
+        b.glyph:SetTexture(ns.media .. "strips\\" .. glyph)
+        b.glyph:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+        b:Hide()
+        return b
+    end
+    -- each glyph cut to its drawing (its file is mostly margin), so it
+    -- fills the badge's disc
+    c.badge = Badge("mouse", "BOTTOMRIGHT", 2)
+    c.badge.glyph:SetTexCoord(8 / 32, 24 / 32, 5 / 32, 27 / 32)
+    c.badge.glyph:SetSize(9, 12)
+    c.top = Badge("chevron-double", "TOPRIGHT", -2)
+    c.top.glyph:SetTexCoord(7 / 32, 25 / 32, 27 / 32, 6 / 32)   -- the chevrons point down: turned up
+    c.top.glyph:SetSize(10, 12)
     -- while Click Casting is open, round a spell it can bind: a gold halo
     c.halo = c:CreateTexture(nil, "BACKGROUND", nil, -1)
     c.halo:SetPoint("TOPLEFT", c.icon, -4, 4)
@@ -682,7 +746,7 @@ local function Kind(c, kind)
     for k, list in pairs(PARTS) do
         for _, part in ipairs(list) do c[part]:SetShown(k == kind) end
     end
-    for _, part in ipairs({ "miss", "badge", "halo" }) do c[part]:Hide() end
+    for _, part in ipairs({ "miss", "badge", "top", "halo" }) do c[part]:Hide() end
     for _, s in ipairs(c.stack) do
         s.rim:Hide()
         s.fill:Hide()
@@ -754,7 +818,7 @@ local function Secure(i)
     b:SetScript("PostClick", function(self, button, down)
         -- binding: once a click, on its release (the press comes here too)
         if down and Binding() then return end
-        if self.item then Press(self.page, self.item, button) end
+        if self.item then Press(self.page, self.item, button, down) end
     end)
     b:SetScript("OnEnter", function(self) if self.item then Tooltip(self, self.item) end end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -786,6 +850,9 @@ local function Arm(b, item)
     b:SetAttribute("type", nil)
     b:SetAttribute("type2", kind)
     b:SetAttribute("spell", what)
+    -- Shift+Right on a spell that can be marked casts nothing: a type no
+    -- handler has, so only PostClick (Press) answers it
+    b:SetAttribute("shift-type2", Markable(item) and "medalluinTopRank" or nil)
 end
 
 -- Out of combat only: a button over each spell or rank row wholly in view,
@@ -922,6 +989,14 @@ function Refresh(p)
                     or ns.colors.text or { 1, 1, 1 }))
                 c.cost:SetText(cost or "")
                 c.badge:SetShown(item.clicks ~= nil and not binding)
+                -- marked for top rank: blue while Top rank is on its marks,
+                -- dim while it is on every spell or none
+                local top = not binding and Markable(item) and Marked(info.name)
+                c.top:SetShown(top)
+                if top then
+                    local g = Mode() == "marked" and BLUE or ns.colors.dim
+                    c.top.glyph:SetVertexColor(g[1], g[2], g[3])
+                end
                 -- (in bind mode the bars are not the question: no red edge)
                 if binding then
                     item.missing, item.lowerOn = false, nil
@@ -959,6 +1034,28 @@ end
 -- The margin, edge to edge (ns.window.Segments): Trainer, once a class
 -- trainer has been read, which opens its page and, from it, goes back.
 local trainerPage, back
+
+-- Top rank's menu: every spell, only those marked, none (the game's menu
+-- where it has one; else each click the next)
+local function TopRankMenu(owner)
+    if MenuUtil and MenuUtil.CreateContextMenu then
+        MenuUtil.CreateContextMenu(owner, function(_, root)
+            root:CreateTitle("Top rank")
+            for _, m in ipairs(MODES) do
+                root:CreateRadio(m[2], function() return Mode() == m[1] end,
+                    function() ns.SetOption("spellbookUpRank", m[1]) end)
+            end
+        end)
+        return
+    end
+    for i, m in ipairs(MODES) do
+        if m[1] == Mode() then ns.SetOption("spellbookUpRank", MODES[i % #MODES + 1][1]) return end
+    end
+end
+local function ModeName()
+    for _, m in ipairs(MODES) do if m[1] == Mode() then return m[2] end end
+end
+
 local function Controls(p, band)
     local row = ns.window.Segments(band, { height = band:GetHeight(), items = {
         { key = "trainer", label = "Trainer", click = function()
@@ -977,6 +1074,12 @@ local function Controls(p, band)
             return W.Current() == trainerPage and "Back to your spells."
                 or "What your class trainer has still to teach you."
         end },
+        { key = "toprank", label = "Top rank", click = function(button)
+            if button == "LeftButton" then TopRankMenu(p.margin.byKey.toprank) end
+        end, tip = function()
+            return "Keeps spells on your action bars at their highest rank as you learn it: " .. ModeName():lower()
+                .. ". Click to choose. Shift+Right-click a spell to mark it."
+        end },
     } })
     row:SetPoint("TOPLEFT")
     row:SetPoint("TOPRIGHT")
@@ -988,6 +1091,7 @@ end
 function Band(p)
     if not p.margin then return end
     p.margin:Set("trainer", { selected = p.trainer, shown = ns.trainers.Visited() })
+    p.margin:Set("toprank", { selected = Mode() ~= "none" })
 end
 
 local function Page(spec)
@@ -1072,8 +1176,8 @@ local function Start()
     end)
     -- a rank learned rises on the bars; a trainer read brings its button
     for _, e in ipairs({ "LEARNED_SPELL_IN_SKILL_LINE", "SPELLS_CHANGED" }) do ns.On(e, UpRank) end
-    ns.OnSetting("spellbookUpRankAll", function(on) if on then UpRank() end end)
-    for _, key in ipairs({ "spellbookMissing", "spellbookUpRankAll", "spellbookClickCast" }) do
+    ns.OnSetting("spellbookUpRank", function(m) if m ~= "none" then UpRank() end end)
+    for _, key in ipairs({ "spellbookMissing", "spellbookUpRank", "spellbookClickCast" }) do
         ns.OnSetting(key, function() W.Refresh() end)
     end
     for _, e in ipairs({ "TRAINER_SHOW", "TRAINER_UPDATE" }) do

@@ -1339,9 +1339,13 @@ function ns.OptionPages()
                             Check("spellbookMissing", "Mark spells not on a bar",
                                 "A red edge on a spell that is on none of your action bars, nor in a macro on one. Its "
                                 .. "tooltip says so, or names the lower rank that is."),
-                            Check("spellbookUpRankAll", "Keep every spell on its highest rank",
-                                "As you learn a rank, a lower rank of it on your action bars is swapped for it, out of "
-                                .. "combat. Unticked, only the spells whose details have it ticked."),
+                            Choice("spellbookUpRank", "Top rank", {
+                                { "all", "Every spell", "Every spell on your bars rises to its highest rank." },
+                                { "marked", "Only those marked", "Only the spells you mark: Shift+Right-click one in "
+                                    .. "the spellbook." },
+                                { "none", "None", "Your bars keep the ranks you put on them." },
+                            }, "As you learn a rank, a lower rank of it on your action bars is swapped for it, out "
+                                .. "of combat. Also the spellbook's Top rank button."),
                             Check("spellbookClickCast", "Mark click-cast bindings",
                                 "A spell bound in Click Casting (/cc) wears a small mouse on its icon, and its click "
                                 .. "follows its rank (Racial · Shift+Middle). While Click Casting is open, the spells "
