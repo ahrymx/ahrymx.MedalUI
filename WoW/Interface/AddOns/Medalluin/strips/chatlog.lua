@@ -40,9 +40,9 @@ local DIM = { 0.70, 0.66, 0.55 }
 local MAX = 1000                        -- lines kept for each window, at least
 local GUTTER, STEP = 10, 14 * 3         -- the scroll bar's room, a wheel's step (three lines)
 local INSET = 2                         -- the text's room inside the box
-local SECRET = "(a line the game keeps hidden)"
+local SECRET = Tr["(a line the game keeps hidden)"]
 local FADED = 0.6                       -- a saved line's colour, put back
-local DIVIDER = "\226\128\148 last session, saved %s \226\128\148"
+local DIVIDER = Tr["\226\128\148 last session, saved %s \226\128\148"]
 local DIVIDER_COLOR = { 0.66, 0.58, 0.37 }
 
 local logs = {}                         -- a chat frame -> its lines, oldest first
@@ -107,7 +107,7 @@ local function Label(f)
     local title = f and _G[f:GetName() .. "Tab"]
     local label = title and title.GetText and title:GetText()
     if (not label or label == "") and title and title.Text then label = title.Text:GetText() end
-    if not label or ns.IsSecret(label) or label == "" then label = f and f.name or "Chat" end
+    if not label or ns.IsSecret(label) or label == "" then label = f and f.name or Tr["Chat"] end
     return label
 end
 
@@ -123,12 +123,12 @@ local function Band()
     if not name then return end
     local f = frame
     local n = f and logs[f] and #logs[f] or 0
-    name:SetText(Label(f) .. " · " .. n .. (n == 1 and " line" or " lines"))
+    name:SetText(Label(f) .. " · " .. ns.Plural(n, format(Tr["%d |4line:lines;"], n)))
     if waiting > 0 then
-        note:SetText(waiting .. (waiting == 1 and " new line" or " new lines") .. ": click outside to see")
+        note:SetText(ns.Plural(waiting, format(Tr["%d new |4line:lines;: click outside to see"], waiting)))
         note:SetTextColor(unpack(GOLD))
     else
-        note:SetText("Drag to select, Ctrl+C to copy")
+        note:SetText(Tr["Drag to select, Ctrl+C to copy"])
         note:SetTextColor(unpack(DIM))
     end
 end
@@ -148,7 +148,7 @@ local function Heads()
     for _, f in ipairs(Windows()) do
         if f == picked then found = true end
         table.insert(items, { label = Label(f), selected = f == frame,
-            tip = function() return "Show " .. Label(f) .. "'s lines." end,
+            tip = function() return format(Tr["Show %s's lines."], Label(f)) end,
             click = function()
                 picked = f
                 Fill()
@@ -390,13 +390,13 @@ end
 local function Start()
     W = ns.Window{
         name = "MedalluinChatLog", named = Tr["Chat Log"], side = -1, place = "chatLogPlace", detachedOnly = true,
-        closeTip = "Close the log.",
+        closeTip = Tr["Close the log."],
         Close = function() W.SetShown(false) end,
         Lifted = function() return {} end,
     }
-    page = { key = "log", label = "Chat log", glyph = "log", order = 1, flex = true, bandUsed = true,
+    page = { key = "log", label = Tr["Chat log"], glyph = "log", order = 1, flex = true, bandUsed = true,
         height = 80,
-        tip = "A chat window's lines, a tab for each: drag to select, Ctrl+C to copy.",
+        tip = Tr["A chat window's lines, a tab for each: drag to select, Ctrl+C to copy."],
         Available = function() return true end,
         headTabs = Heads,
         Build = Build,

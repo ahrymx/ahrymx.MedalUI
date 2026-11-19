@@ -27,6 +27,7 @@
 -- counted from the auras out of combat, where they can be read; in combat
 -- the last count stands and the wheel goes as far as a list can hold.
 local _, ns = ...
+local Tr = ns.L
 
 local LIVE = "CustomAuraContainerTemplate"
 local ROW, GAP, HEAD = 16, 2, 18
@@ -47,8 +48,8 @@ local WHITE8 = "Interface\\Buttons\\WHITE8X8"
 
 -- The two lists, buffs then debuffs: the filter, the heading, the empty line.
 local LISTS = {
-    { key = "buffs", filter = "HELPFUL", title = "Buffs", empty = "No buffs." },
-    { key = "debuffs", filter = "HARMFUL", title = "Debuffs", empty = "No debuffs.", debuff = true },
+    { key = "buffs", filter = "HELPFUL", title = Tr["Buffs"], empty = Tr["No buffs."] },
+    { key = "debuffs", filter = "HARMFUL", title = Tr["Debuffs"], empty = Tr["No debuffs."], debuff = true },
 }
 
 local body, lists, rows
@@ -267,7 +268,7 @@ end
 
 -- --------------------------------------------------------------- the view
 local view = {
-    key = "auras", label = "Auras", option = "sideAuras",
+    key = "auras", label = Tr["Auras"], option = "sideAuras",
     -- (where the client can make an aura container: one made to find out,
     -- once, as the panel is built)
     Available = function()
@@ -329,10 +330,10 @@ view.buttons = {
         lit = function() return ns.db.aurasTimeless end,
         click = function() ns.SetOption("aurasTimeless", not ns.db.aurasTimeless) end,
         tip = function()
-            local what = "Forms, aspects, mounts and the like "
-            return "Never run out", ns.db.aurasTimeless
-                and what .. "are listed at the top. Click to leave them over the portrait only."
-                or what .. "are over the portrait only. Click to list them here too."
+            return Tr["Never run out"], ns.db.aurasTimeless
+                and Tr["Forms, aspects, mounts and the like are listed at the top. Click to leave them over the "
+                    .. "portrait only."]
+                or Tr["Forms, aspects, mounts and the like are over the portrait only. Click to list them here too."]
         end,
     },
 }

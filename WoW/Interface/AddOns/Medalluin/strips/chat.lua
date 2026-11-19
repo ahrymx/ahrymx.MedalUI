@@ -39,6 +39,7 @@
 --
 -- Built at login, and only when the Chat box option is on (settings.lua).
 local _, ns = ...
+local Tr = ns.L
 
 local L = ns.stripLayout
 local PARTS = ns.media .. "strips\\"
@@ -581,8 +582,8 @@ local function Cog()
         Row()
     end)
     cog:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_TOP", { title = "Chat buttons",
-            { "body", "The chat menu, friends, channels and the log." } })
+        ns.Tip(self, "ANCHOR_TOP", { title = Tr["Chat buttons"],
+            { "body", Tr["The chat menu, friends, channels and the log."] } })
     end)
     cog:SetScript("OnLeave", GameTooltip_Hide)
     tray = CreateFrame("Frame", "MedalluinChatDrawer", head)
@@ -600,8 +601,8 @@ local function Cog()
     local log = CreateFrame("Button", "MedalluinChatLogButton", tray)
     log:SetScript("OnClick", function() ns.ToggleChatLog() end)
     log:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_TOP", { title = "Log",
-            { "body", "The chat's history in a box of its own, to scroll and to copy from." } })
+        ns.Tip(self, "ANCHOR_TOP", { title = Tr["Log"],
+            { "body", Tr["The chat's history in a box of its own, to scroll and to copy from."] } })
     end)
     log:SetScript("OnLeave", GameTooltip_Hide)
     ns.chat.cog, ns.chat.drawer, ns.chat.divider, ns.chat.log = cog, tray, divider, log

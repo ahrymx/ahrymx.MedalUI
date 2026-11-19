@@ -42,6 +42,7 @@
 --           items, Trade goods, Other, Junk, and one slot per kind for the
 --           free ones, with how many there are
 local _, ns = ...
+local Tr = ns.L
 
 local Container = C_Container
 local SLOT, GAP, TITLE = 37, 4, 16
@@ -49,14 +50,14 @@ local GOLD = { 0.941, 0.831, 0.533 }
 
 -- The groups, in order, and what goes in each (the first that fits).
 local GROUPS = {
-    { key = "new", name = "New" },
-    { key = "equipment", name = "Equipment" },
-    { key = "consumable", name = "Consumables" },
-    { key = "quest", name = "Quest items" },
-    { key = "trade", name = "Trade goods" },
-    { key = "other", name = "Other" },
-    { key = "junk", name = "Junk" },
-    { key = "free", name = "Free slots" },
+    { key = "new", name = Tr["New"] },
+    { key = "equipment", name = Tr["Equipment"] },
+    { key = "consumable", name = Tr["Consumables"] },
+    { key = "quest", name = Tr["Quest items"] },
+    { key = "trade", name = Tr["Trade goods"] },
+    { key = "other", name = Tr["Other"] },
+    { key = "junk", name = Tr["Junk"] },
+    { key = "free", name = Tr["Free slots"] },
 }
 local CLASS = { [2] = "equipment", [4] = "equipment", [0] = "consumable", [12] = "quest",
     [3] = "trade", [5] = "trade", [7] = "trade", [8] = "trade", [9] = "trade", [19] = "trade" }
@@ -159,8 +160,8 @@ local function Guard(b)
         local bag, slot = Where(b)
         if button == "RightButton" then
             local info = C_Container.GetContainerItemInfo(bag, slot)
-            ns.locks.Say(format("%s is locked and is not sold. Alt+click it to unlock it.",
-                info and info.itemName or "That item"))
+            ns.locks.Say(format(Tr["%s is locked and is not sold. Alt+click it to unlock it."],
+                info and info.itemName or Tr["That item"]))
         elseif IsModifiedClick("CHATLINK") then
             local link = C_Container.GetContainerItemLink(bag, slot)
             ns.LinkInChat(link)

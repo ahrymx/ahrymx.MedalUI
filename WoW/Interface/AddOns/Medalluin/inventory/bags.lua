@@ -32,6 +32,7 @@
 --
 -- Only on clients with Blizzard's combined bags (Forever and retail).
 local _, ns = ...
+local Tr = ns.L
 
 local Container = C_Container
 local SLOT, GAP, PAD = 37, 4, 8
@@ -42,10 +43,11 @@ local GOLD_D = { 0.541, 0.439, 0.204 }
 
 -- The views, as the header's buttons show them.
 local VIEWS = {
-    { key = "bags", name = "Bags", icon = "view-bags", tip = "Show each bag on rows of its own, under its name." },
-    { key = "grid", name = "Grid", icon = "view-grid", tip = "Show every slot in one grid, bag by bag." },
-    { key = "groups", name = "Groups", icon = "view-groups",
-        tip = "Show the items in groups: new, equipment, consumables and the rest." },
+    { key = "bags", name = Tr["Bags"], icon = "view-bags",
+        tip = Tr["Show each bag on rows of its own, under its name."] },
+    { key = "grid", name = Tr["Grid"], icon = "view-grid", tip = Tr["Show every slot in one grid, bag by bag."] },
+    { key = "groups", name = Tr["Groups"], icon = "view-groups",
+        tip = Tr["Show the items in groups: new, equipment, consumables and the rest."] },
 }
 
 local window, body, search, money, free, drawer
@@ -90,16 +92,16 @@ end
 local function BagName(bag)
     local name = Container.GetBagName and Container.GetBagName(bag)
     if name and name ~= "" then return name end
-    if bag == KeyRing() then return KEYRING or "Key ring" end
-    if bag == 0 then return "Backpack" end
-    if bag == ReagentBag() then return "Reagent bag" end
-    return "Bag " .. bag
+    if bag == KeyRing() then return KEYRING or Tr["Key ring"] end
+    if bag == 0 then return Tr["Backpack"] end
+    if bag == ReagentBag() then return Tr["Reagent bag"] end
+    return format(Tr["Bag %d"], bag)
 end
 
 local function Money()
     local copper = GetMoney and GetMoney() or 0
     if GetMoneyString then return GetMoneyString(copper, true) end
-    return string.format("%dg %ds %dc", math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
+    return string.format(Tr["%dg %ds %dc"], math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
 end
 
 local function Free()
@@ -113,8 +115,8 @@ local function Free()
             spare, total = spare + f, total + n
         end
     end
-    local text = string.format("Free %d / %d", spare, total)
-    if rTotal > 0 then text = text .. string.format("   Reagents %d / %d", rSpare, rTotal) end
+    local text = string.format(Tr["Free %d / %d"], spare, total)
+    if rTotal > 0 then text = text .. string.format(Tr["   Reagents %d / %d"], rSpare, rTotal) end
     return text
 end
 
@@ -247,7 +249,7 @@ local function PressRing(ring)
     end)
     ring:HookScript("OnEnter", function(self)
         if GameTooltip:GetOwner() ~= self then return end
-        GameTooltip:AddLine(keysShown and "Hide your keys." or "Show your keys in your bags.", 1, 1, 1, true)
+        GameTooltip:AddLine(keysShown and Tr["Hide your keys."] or Tr["Show your keys in your bags."], 1, 1, 1, true)
         GameTooltip:Show()
     end)
 end
@@ -328,7 +330,7 @@ local function Title()
     b:SetHeight(20)
     b.label = ns.Text(b, 13)
     b.label:SetPoint("LEFT", 2, 0)
-    b.label:SetText("Bags")
+    b.label:SetText(Tr["Bags"])
     b.label:SetTextColor(unpack(GOLD))
     b:SetWidth(b.label:GetStringWidth() + 4)
     b:SetScript("OnClick", function()
@@ -337,8 +339,9 @@ local function Title()
     end)
     b:SetScript("OnEnter", function(self)
         self.label:SetTextColor(1, 1, 1)
-        ns.Tip(self, ns.window.OutsideTop, { title = drawer and drawer:IsShown() and "Hide your bags' slots."
-            or "Show your bags' slots: put a bag in, swap one or take one out.", color = ns.colors.white, wrap = true })
+        ns.Tip(self, ns.window.OutsideTop, { title = drawer and drawer:IsShown() and Tr["Hide your bags' slots."]
+            or Tr["Show your bags' slots: put a bag in, swap one or take one out."], color = ns.colors.white,
+                wrap = true })
     end)
     b:SetScript("OnLeave", function(self)
         self.label:SetTextColor(unpack(GOLD))
@@ -434,10 +437,10 @@ local function Build()
         table.insert(items, { key = v.key, label = v.name, icon = v.icon, group = "views",
             click = function() ns.SetOption("bagsView", v.key) end, tip = function() return v.tip end })
     end
-    table.insert(items, { key = "sort", label = "Sort", icon = "sort", group = "sort",
+    table.insert(items, { key = "sort", label = Tr["Sort"], icon = "sort", group = "sort",
         click = function() if Container.SortBags then Container.SortBags() end end,
-        tip = function() return "Sort the bags, as the game sorts them." end })
-    table.insert(items, { key = "close", label = "Close", icon = "close", group = "close",
+        tip = function() return Tr["Sort the bags, as the game sorts them."] end })
+    table.insert(items, { key = "close", label = Tr["Close"], icon = "close", group = "close",
         click = function() CloseAllBags() end })
     head = ns.window.Segments(window, { height = RULE + 1, fit = true, items = items })
     head:SetPoint("TOPRIGHT")

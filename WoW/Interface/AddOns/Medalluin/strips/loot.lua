@@ -24,6 +24,7 @@
 -- (the ones shown lit in their colour); at the foot, clear the log. All on
 -- the options page too.
 local _, ns = ...
+local Tr = ns.L
 
 local LH = C_LootHistory
 local HISTORY = LH and LH.GetSortedDropsForEncounter and LH.GetInfoForEncounter
@@ -133,7 +134,7 @@ local function Here()
     local zone = GetRealZoneText and GetRealZoneText() or ""
     local g = groups[1]
     if g and (g.encounterID and Now() - g.at < SAME or g.zone == zone) then return g end
-    g = Group(zone ~= "" and ("Trash  \194\183  " .. zone) or "Trash")
+    g = Group(zone ~= "" and format(Tr["Trash  \194\183  %s"], zone) or Tr["Trash"])
     g.zone = zone
     return g
 end
@@ -405,11 +406,11 @@ end
 -- What the list shows, in words: whose, and from which quality up (in its
 -- colour).
 local function Says()
-    local who = ns.db.lootWho == ns.LOOT_WHO.MINE and "Your loot" or "The group's loot"
+    local who = ns.db.lootWho == ns.LOOT_WHO.MINE and Tr["Your loot"] or Tr["The group's loot"]
     local q = ns.db.lootQuality
     local r, g, b = QualityColor(q)
     local name = string.format("|cff%02x%02x%02x%s|r", r * 255, g * 255, b * 255, QualityName(q))
-    return who .. "  \194\183  " .. (q == 0 and "every quality" or name .. " and better")
+    return who .. "  \194\183  " .. (q == 0 and Tr["every quality"] or format(Tr["%s and better"], name))
 end
 
 local empty, status
@@ -464,7 +465,7 @@ end
 
 -- ------------------------------------------------------------- the view
 local view = {
-    key = "loot", label = "Loot", option = "sideLoot",
+    key = "loot", label = Tr["Loot"], option = "sideLoot",
     Available = function() return true end,
 }
 ns.side.loot = view
@@ -480,7 +481,7 @@ function view.Build(f)
     empty = ns.Text(f, 10)
     empty:SetPoint("TOPLEFT", 4, -STATUS - 6)
     empty:SetTextColor(unpack(DIM))
-    empty:SetText("Nothing looted yet.")
+    empty:SetText(Tr["Nothing looted yet."])
     Patterns()
     if HISTORY then
         local infos = LH.GetAllEncounterInfos and LH.GetAllEncounterInfos() or {}
@@ -535,9 +536,9 @@ view.buttons = {
         end,
         tip = function()
             if ns.db.lootWho == ns.LOOT_WHO.MINE then
-                return "Mine", "Only what you looted or won. Click for the group's."
+                return Tr["Mine"], Tr["Only what you looted or won. Click for the group's."]
             end
-            return "The group's", "Everything the group looted, yours included. Click for yours only."
+            return Tr["The group's"], Tr["Everything the group looted, yours included. Click for yours only."]
         end,
     },
     {   -- the qualities, epic at the top: step i is the i-th from the best
@@ -547,9 +548,9 @@ view.buttons = {
         click = function(i) ns.SetOption("lootQuality", ns.LOOT_QUALITIES[#ns.LOOT_QUALITIES + 1 - i][1]) end,
         tip = function(i)
             local q = ns.LOOT_QUALITIES[#ns.LOOT_QUALITIES + 1 - i][1]
-            local title = q == 0 and "Every quality" or QualityName(q) .. " and better"
-            if q == ns.db.lootQuality then return title, "Shown now." end
-            return title, "Click to show these."
+            local title = q == 0 and Tr["Every quality"] or format(Tr["%s and better"], QualityName(q))
+            if q == ns.db.lootQuality then return title, Tr["Shown now."] end
+            return title, Tr["Click to show these."]
         end,
     },
 }
@@ -565,7 +566,7 @@ view.foot = {
         first = 0
         Refresh()
     end,
-    tip = function() return "Clear", "Clear the loot log. The game's own loot history keeps its rolls." end,
+    tip = function() return Tr["Clear"], Tr["Clear the loot log. The game's own loot history keeps its rolls."] end,
 }
 
 ns.SideView(view)

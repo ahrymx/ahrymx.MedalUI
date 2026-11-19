@@ -15240,6 +15240,7 @@ if bankPass then
         end
     end
     local function button(root, label)
+        label = ns.L[label]
         return find(root, function(r) return r.kind == "Button" and r.label
             and (r.label.text == label or r.data and r.data.icon and r.data.label == label) end)
     end

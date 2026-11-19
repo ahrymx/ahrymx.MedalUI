@@ -6,6 +6,7 @@
 -- shortcut keys, Medalluin's and the game's, then the clock nearest the
 -- console, wider, opening Blizzard's time manager.
 local _, ns = ...
+local Tr = ns.L
 
 local GOLD_B = { 0.91, 0.788, 0.431 }
 local SIZE = 13
@@ -41,7 +42,7 @@ end
 MainMenuBarBackpackButton:HookScript("OnEnter", function(self)
     local used, total = BagCount()
     ns.Tip(self, "ANCHOR_TOP", { title = BACKPACK_TOOLTIP or "Backpack",
-        { "bar", used, total, format("%d / %d slots used (%d%%)", used, total,
+        { "bar", used, total, format(Tr["%d / %d slots used (%d%%)"], used, total,
             total > 0 and math.floor(used / total * 100 + 0.5) or 0) } })
 end)
 
@@ -77,10 +78,10 @@ end)
 -- glyph, and the game's function opening it where no command answers.
 local SHORTCUTS = {
     { "/mui", "Medalluin", "achievement" },
-    { "/cdm", "Cooldown Manager", "legacy" },
-    { "/cc", "Click Casting", "spellbook", function() return ToggleClickBindingFrame end },
-    { "/macro", "Macros", "log" },
-    { nil, "Edit Mode", "view-grid", function()
+    { "/cdm", Tr["Cooldown Manager"], "legacy" },
+    { "/cc", Tr["Click Casting"], "spellbook", function() return ToggleClickBindingFrame end },
+    { "/macro", Tr["Macros"], "log" },
+    { nil, Tr["Edit Mode"], "view-grid", function()
         local f = EditModeManagerFrame
         return f and ShowUIPanel and function() ShowUIPanel(f) end
     end },

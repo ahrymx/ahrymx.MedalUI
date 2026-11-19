@@ -28,6 +28,7 @@
 -- frame of it is secure: the windows' own toggles do the work, in combat
 -- too.
 local _, ns = ...
+local Tr = ns.L
 
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
@@ -49,24 +50,24 @@ local function Toggle(f)
 end
 
 local TABS = {
-    { key = "character", setting = "trayCharacter", glyph = "character", name = "Character",
+    { key = "character", setting = "trayCharacter", glyph = "character", name = Tr["Character"],
         Available = function() return ns.db.character and CharacterFrame ~= nil and ToggleCharacter ~= nil end,
         IsOpen = function() return Shown(CharacterFrame) end,
         Toggle = function() ToggleCharacter("PaperDollFrame") end },
-    { key = "quests", setting = "trayQuests", glyph = "quests", name = "Quest tracker",
+    { key = "quests", setting = "trayQuests", glyph = "quests", name = Tr["Quest tracker"],
         Available = function() return ns.quests ~= nil end,
         IsOpen = function() return not ns.db.questsHidden end,
         Toggle = function() ns.SetOption("questsHidden", not ns.db.questsHidden) end,
-        words = { "Shown. Click: hide it.", "Hidden. Click: show it." } },
-    { key = "lfg", setting = "trayLFG", glyph = "lfg", name = "Group finder",
+        words = { Tr["Shown. Click: hide it."], Tr["Hidden. Click: show it."] } },
+    { key = "lfg", setting = "trayLFG", glyph = "lfg", name = Tr["Group finder"],
         Available = function() return ns.db.lfgWindow and ns.lfg ~= nil and MedalluinToggleLFG ~= nil end,
         IsOpen = function() return ns.lfg.IsShown() end,
         Toggle = function() MedalluinToggleLFG() end },
-    { key = "chatlog", setting = "trayChatLog", glyph = "log", name = "Chat log",
+    { key = "chatlog", setting = "trayChatLog", glyph = "log", name = Tr["Chat log"],
         Available = function() return ns.db.chat and ns.ToggleChatLog ~= nil end,
         IsOpen = function() return ns.ChatLogShown() end,
         Toggle = function() ns.ToggleChatLog() end },
-    { key = "cdm", setting = "trayCdm", glyph = "side-timeless", name = "Cooldown Manager",
+    { key = "cdm", setting = "trayCdm", glyph = "side-timeless", name = Tr["Cooldown Manager"],
         Available = function()
             return _G.CooldownViewerSettings ~= nil or C_AddOns ~= nil and C_AddOns.DoesAddOnExist ~= nil
                 and C_AddOns.DoesAddOnExist("Blizzard_CooldownViewer")
@@ -78,7 +79,7 @@ local TABS = {
             end
             Toggle(_G.CooldownViewerSettings)
         end },
-    { key = "cc", setting = "trayCc", glyph = "mouse", name = "Click Casting",
+    { key = "cc", setting = "trayCc", glyph = "mouse", name = Tr["Click Casting"],
         Available = function() return ToggleClickBindingFrame ~= nil end,
         IsOpen = function() return Shown(_G.ClickBindingFrame) end,
         Toggle = function() ToggleClickBindingFrame() end },
@@ -191,7 +192,8 @@ end
 function tray.Tip(b)
     local tab = b.tab
     local open = tab.IsOpen()
-    local words = tab.words and tab.words[open and 1 or 2] or open and "Open. Click: close it." or "Click: open it."
+    local words = tab.words and tab.words[open and 1 or 2]
+        or open and Tr["Open. Click: close it."] or Tr["Click: open it."]
     ns.Tip(b, "ANCHOR_RIGHT", { title = tab.name, color = GOLD, { "hint", words } })
 end
 

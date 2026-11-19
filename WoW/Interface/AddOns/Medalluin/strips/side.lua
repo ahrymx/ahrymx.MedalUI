@@ -37,6 +37,7 @@
 -- BACKGROUND strata, like the chat panel. Built at login, and only when the
 -- Side panel option is on; its tabs come and go with their own options.
 local _, ns = ...
+local Tr = ns.L
 
 local L = ns.stripLayout
 local PARTS = ns.media .. "strips\\"
@@ -273,8 +274,8 @@ local function Tab(view)
     end)
     tab.OnEnter = function(self)
         ns.Tip(self, ns.side.Beside, { title = view.label,
-            { "hint", closed and "Click to open the panel." or current == view and "Click to close the panel."
-                or "Click to show it." } })
+            { "hint", closed and Tr["Click to open the panel."] or current == view and Tr["Click to close the panel."]
+                or Tr["Click to show it."] } })
     end
     tab:SetScript("OnEnter", tab.OnEnter)
     tab:SetScript("OnLeave", function() GameTooltip:Hide() end)

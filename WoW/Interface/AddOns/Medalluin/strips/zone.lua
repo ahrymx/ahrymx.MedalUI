@@ -32,6 +32,7 @@
 -- The column: zoom in, zoom out, the minimap's tracking, the world map; at
 -- the foot, every quest here tracked (or, while they all are, none).
 local _, ns = ...
+local Tr = ns.L
 
 local PARTS = ns.media .. "strips\\"
 local ROW, LINE, HEAD, GAP = 18, 13, 22, 1
@@ -98,16 +99,19 @@ local function Words(o) return ns.questSource.Words(o) end
 -- An objective's words, shortened for its line: "... slain" (or killed)
 -- loses the word for a sword before the line; and when it is still too long
 -- for room, a name of two words or more gives its first as an initial
--- ("Dragonmaw Reclaimer" -> "D. Reclaimer"). The words, and whether a sword.
-local function Short(text, room, fs)
+-- ("Dragonmaw Reclaimer" -> "D. Reclaimer"). The words, and whether a sword
+-- (in another language, the words kept: a monster's objective has its sword).
+local ENGLISH = (GetLocale and GetLocale() or "enUS"):match("^en") ~= nil
+local function Short(text, room, fs, kind)
     local killed = text:match("^(.-)%s+[Ss]lain$") or text:match("^(.-)%s+[Kk]illed$")
     if killed then text = killed end
+    local sword = killed ~= nil or kind == "monster" and not ENGLISH
     fs:SetText(text)
     if room > 0 and (fs:GetStringWidth() or 0) > room then
         local initial, rest = text:match("^(%a)[%a'%-]*%s+(.+)$")
         if initial then text = initial .. ". " .. rest end
     end
-    return text, killed ~= nil
+    return text, sword
 end
 
 local function Progress(q)
@@ -123,7 +127,7 @@ end
 local function ItemName(id)
     local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
     if not name and GetItemInfo then name = GetItemInfo(id) end
-    return name or "Quest item"
+    return name or Tr["Quest item"]
 end
 
 local function ItemIcon(id)
@@ -153,7 +157,7 @@ local function Secure(i)
     glow:SetAllPoints()
     glow:SetColorTexture(1, 1, 1, 0.12)
     b:SetScript("OnEnter", function(self)
-        if self.item then ItemTip(self, self.item, "Click: use it.") end
+        if self.item then ItemTip(self, self.item, Tr["Click: use it."]) end
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     layer.buttons[i] = b
@@ -204,13 +208,13 @@ local function Tip(r)
     if not q then return end
     if r.line.item then
         -- (in combat: the secure button is away, the line under it shows)
-        ItemTip(r, r.line.item, "Usable here after combat.")
+        ItemTip(r, r.line.item, Tr["Usable here after combat."])
         return
     end
-    local state = q.state == 1 and "Complete." or q.state == -1 and "Failed." or nil
+    local state = q.state == 1 and Tr["Complete."] or q.state == -1 and Tr["Failed."] or nil
     local spec = { title = q.title,
-        { "body", "Level " .. q.level .. (state and ("  \194\183  " .. state) or "") },
-        { "body", q.tracked and "Tracked." or "Not tracked." } }
+        { "body", format(Tr["Level %d"], q.level) .. (state and ("  \194\183  " .. state) or "") },
+        { "body", q.tracked and Tr["Tracked."] or Tr["Not tracked."] } }
     for _, k in ipairs(ns.questSource.Keys(q, r.line.objective)) do table.insert(spec, k) end
     ns.Tip(r, ns.side.Beside, spec)
 end
@@ -259,7 +263,7 @@ local function Row()
         if not q then return end
         Light(q.id)
         r.fold:SetTextColor(unpack(GOLD))
-        ns.Tip(self, ns.side.Beside, { title = open[q.id] and "Hide its objectives." or "Show its objectives.",
+        ns.Tip(self, ns.side.Beside, { title = open[q.id] and Tr["Hide its objectives."] or Tr["Show its objectives."],
             color = ns.colors.white, wrap = true })
     end)
     r.folder:SetScript("OnLeave", function()
@@ -371,7 +375,7 @@ local function Fill(r, line, odd, top)
         r.count:SetText(o.text:match("%d+%s*/%s*%d+") and (a .. "/" .. b) or "")
         r.count:SetTextColor(unpack(DIM))
         local room = (list:GetWidth() or 0) - 20 - 6 - 3 - (r.count:GetStringWidth() or 0)
-        local words, kill = Short(Words(o), room, r.text)
+        local words, kill = Short(Words(o), room, r.text, o.kind)
         r.text:SetText(words)
         r.text:SetTextColor(unpack(DIM))
         r.sword:SetShown(kill)
@@ -478,7 +482,7 @@ end
 local function Tracking()
     if MenuUtil and MenuUtil.CreateContextMenu and C_Minimap and C_Minimap.GetNumTrackingTypes then
         MenuUtil.CreateContextMenu(ns.side.panel, function(_, root)
-            root:CreateTitle("Tracking")
+            root:CreateTitle(Tr["Tracking"])
             for i = 1, C_Minimap.GetNumTrackingTypes() do
                 local name = TrackingInfo(i)
                 if name then
@@ -507,7 +511,7 @@ end
 
 -- ------------------------------------------------------------- the view
 local view = {
-    key = "zone", label = "Zone", option = "sideZone",
+    key = "zone", label = Tr["Zone"], option = "sideZone",
     Available = function() return Minimap ~= nil and ns.questSource ~= nil end,
 }
 ns.side.zone = view
@@ -545,7 +549,7 @@ function view.Build(f)
     empty = ns.Text(list, 10)
     empty:SetPoint("TOPLEFT", 4, -HEAD - 4)
     empty:SetTextColor(unpack(DIM))
-    empty:SetText("No quests in this zone.")
+    empty:SetText(Tr["No quests in this zone."])
     f:HookScript("OnShow", Lend)
     f:HookScript("OnHide", function()
         Lend()
@@ -599,29 +603,29 @@ view.buttons = {
         glyph = function() return "side-zoom-in" end,
         lit = function() return false end,
         click = function() Zoom(1) end,
-        tip = function() return "Zoom in", "The mouse wheel on the map zooms too." end,
+        tip = function() return Tr["Zoom in"], Tr["The mouse wheel on the map zooms too."] end,
     },
     {
         glyph = function() return "side-zoom-out" end,
         lit = function() return false end,
         click = function() Zoom(-1) end,
-        tip = function() return "Zoom out", "The mouse wheel on the map zooms too." end,
+        tip = function() return Tr["Zoom out"], Tr["The mouse wheel on the map zooms too."] end,
     },
     {
         glyph = function() return "side-tracking" end,
         lit = function() return false end,
         click = function()
             if not Tracking() and UIErrorsFrame then
-                UIErrorsFrame:AddMessage("Medalluin: this client has no tracking menu.", 1, 0.82, 0)
+                UIErrorsFrame:AddMessage("Medalluin: " .. Tr["this client has no tracking menu."], 1, 0.82, 0)
             end
         end,
-        tip = function() return "Tracking", "What the minimap shows: herbs, ores, vendors and the like." end,
+        tip = function() return "Tracking", Tr["What the minimap shows: herbs, ores, vendors and the like."] end,
     },
     {
         glyph = function() return "side-worldmap" end,
         lit = function() return false end,
         click = function() if ToggleWorldMap then ToggleWorldMap() end end,
-        tip = function() return "World map", "Open or close the world map." end,
+        tip = function() return Tr["World map"], Tr["Open or close the world map."] end,
     },
 }
 view.foot = {
@@ -638,8 +642,8 @@ view.foot = {
         Refresh()
     end,
     tip = function()
-        if AllTracked() then return "Untrack this zone", "Stop tracking every quest in this zone." end
-        return "Track this zone", "Track every quest in this zone, as many as the game allows."
+        if AllTracked() then return Tr["Untrack this zone"], Tr["Stop tracking every quest in this zone."] end
+        return Tr["Track this zone"], Tr["Track every quest in this zone, as many as the game allows."]
     end,
 }
 

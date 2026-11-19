@@ -18,6 +18,7 @@
 -- at the foot, reset. Clicking a heading steps its list through what it can
 -- show (right click: back). All of it is on the options page too.
 local _, ns = ...
+local Tr = ns.L
 
 local DM = C_DamageMeter
 local T = Enum and Enum.DamageMeterType or {}
@@ -27,16 +28,16 @@ local function Type(name, value) return T[name] or value end
 -- amount per second where there is one. A rate type's amount is shown per
 -- second; the bar is the total in both (Blizzard's meter does the same).
 local METRIC = {
-    damage = { total = Type("DamageDone", 0), rate = Type("Dps", 1), name = "Damage",
-        rateName = "Damage per second", rateShort = "DPS" },
-    healing = { total = Type("HealingDone", 2), rate = Type("Hps", 3), name = "Healing",
-        rateName = "Healing per second", rateShort = "HPS" },
-    absorbs = { total = Type("Absorbs", 4), name = "Absorbs" },
-    interrupts = { total = Type("Interrupts", 5), name = "Interrupts" },
-    dispels = { total = Type("Dispels", 6), name = "Dispels" },
-    taken = { total = Type("DamageTaken", 7), name = "Damage taken", short = "Taken" },
-    avoidable = { total = Type("AvoidableDamageTaken", 8), name = "Avoidable damage taken",
-        short = "Avoidable" },
+    damage = { total = Type("DamageDone", 0), rate = Type("Dps", 1), name = Tr["Damage"],
+        rateName = Tr["Damage per second"], rateShort = "DPS" },
+    healing = { total = Type("HealingDone", 2), rate = Type("Hps", 3), name = Tr["Healing"],
+        rateName = Tr["Healing per second"], rateShort = "HPS" },
+    absorbs = { total = Type(Tr["Absorbs"], 4), name = Tr["Absorbs"] },
+    interrupts = { total = Type(Tr["Interrupts"], 5), name = Tr["Interrupts"] },
+    dispels = { total = Type(Tr["Dispels"], 6), name = Tr["Dispels"] },
+    taken = { total = Type("DamageTaken", 7), name = Tr["Damage taken"], short = Tr["Taken"] },
+    avoidable = { total = Type("AvoidableDamageTaken", 8), name = Tr["Avoidable damage taken"],
+        short = Tr["Avoidable"] },
 }
 local ORDER = {}
 for i, m in ipairs(ns.METER_METRICS) do ORDER[m[1]] = i end
@@ -156,7 +157,7 @@ local function List(option)
     head:SetScript("OnClick", function(_, mouse) Step(list, mouse == "RightButton" and -1 or 1) end)
     head:SetScript("OnEnter", function(self)
         ns.Tip(self, ns.side.Beside, { title = Metric(list).name,
-            { "body", "Click for the next thing to show; right click for the one before." } })
+            { "body", Tr["Click for the next thing to show; right click for the one before."] } })
     end)
     head:SetScript("OnLeave", function() GameTooltip:Hide() end)
     list.head = head
@@ -203,7 +204,7 @@ local function Layout()
 end
 
 local function When(list)
-    local label = Session() == S.OVERALL and "Overall" or "Current"
+    local label = Session() == S.OVERALL and Tr["Overall"] or Tr["Current"]
     local d = DM.GetSessionDurationSeconds and DM.GetSessionDurationSeconds(Session())
     if not ns.IsSecret(d) and d ~= nil and d > 0 then label = label .. "  " .. Clock(d) end
     list.when:SetText(label)
@@ -223,12 +224,12 @@ end
 local function Read(list)
     local ok, reason = true, nil
     if DM.IsDamageMeterAvailable then ok, reason = DM.IsDamageMeterAvailable() end
-    if not ok then return nil, reason ~= "" and reason or "The meter is not available here." end
+    if not ok then return nil, reason ~= "" and reason or Tr["The meter is not available here."] end
     local kind, rate = Asked(Metric(list))
     local session = DM.GetCombatSessionFromType(Session(), kind)
     local sources = session and session.combatSources or {}
     if #sources == 0 then
-        return nil, Session() == S.OVERALL and "Nothing yet." or "No fight yet."
+        return nil, Session() == S.OVERALL and Tr["Nothing yet."] or Tr["No fight yet."]
     end
     return session, nil, rate
 end
@@ -268,7 +269,7 @@ end
 
 -- --------------------------------------------------------------- the view
 local view = {
-    key = "meter", label = "Meter", option = "sideMeter",
+    key = "meter", label = Tr["Meter"], option = "sideMeter",
     Available = function() return DM ~= nil and DM.GetCombatSessionFromType ~= nil end,
 }
 
@@ -319,9 +320,10 @@ view.buttons = {
         click = function() ns.SetOption("meterSession", Session() == S.OVERALL and S.CURRENT or S.OVERALL) end,
         tip = function()
             if Session() == S.OVERALL then
-                return "Overall", "Every fight since the last reset. Click for the current fight."
+                return Tr["Overall"], Tr["Every fight since the last reset. Click for the current fight."]
             end
-            return "Current fight", "The fight you are in, or the last one. Click for every fight since the last reset."
+            return Tr["Current fight"],
+                Tr["The fight you are in, or the last one. Click for every fight since the last reset."]
         end,
     },
     {
@@ -329,8 +331,8 @@ view.buttons = {
         lit = function() return ns.db.meterRate end,
         click = function() ns.SetOption("meterRate", not ns.db.meterRate) end,
         tip = function()
-            return "Per second", ns.db.meterRate and "Damage and healing per second. Click for totals."
-                or "Damage and healing as totals. Click for per second."
+            return Tr["Per second"], ns.db.meterRate and Tr["Damage and healing per second. Click for totals."]
+                or Tr["Damage and healing as totals. Click for per second."]
         end,
     },
     {
@@ -338,8 +340,8 @@ view.buttons = {
         lit = function() return ns.db.meterColumns == 2 end,
         click = function() ns.SetOption("meterColumns", ns.db.meterColumns == 2 and 1 or 2) end,
         tip = function()
-            return ns.db.meterColumns == 2 and "Two lists" or "One list",
-                "Click for " .. (ns.db.meterColumns == 2 and "one list." or "two lists side by side.")
+            return ns.db.meterColumns == 2 and Tr["Two lists"] or Tr["One list"],
+                ns.db.meterColumns == 2 and Tr["Click for one list."] or Tr["Click for two lists side by side."]
         end,
     },
 }
@@ -349,7 +351,7 @@ view.foot = {
     click = function()
         if DM.ResetAllCombatSessions then DM.ResetAllCombatSessions() end
     end,
-    tip = function() return "Reset", "Clear every fight from the meter." end,
+    tip = function() return Tr["Reset"], Tr["Clear every fight from the meter."] end,
 }
 
 ns.SideView(view)

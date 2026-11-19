@@ -16,6 +16,7 @@
 --   ns.locks.Is(itemID), ns.locks.Toggle(itemID), ns.locks.Watch(fn),
 --   ns.locks.vendor (a vendor is open)
 local _, ns = ...
+local Tr = ns.L
 
 local locks = {}
 ns.locks = locks
@@ -52,7 +53,7 @@ ns.On("DELETE_ITEM_CONFIRM", function(_, name)
     local kind, id = GetCursorInfo()
     if kind ~= "item" or not locks.Is(id) then return end
     ClearCursor()
-    Say(format("%s is locked. Alt+click it in your bags to unlock it.", name or "That item"))
+    Say(format(Tr["%s is locked. Alt+click it in your bags to unlock it."], name or Tr["That item"]))
 end)
 
 -- ---------------------------------------------------------------- the vendor
@@ -69,7 +70,7 @@ end)
 -- ---------------------------------------------------------------- the tooltip
 -- "Locked" under any locked item's tooltip. mdlui_Tooltips knows the line by
 -- this text and moves it onto the item's binding line.
-Medalluin_LockedLine = "Locked"
+Medalluin_LockedLine = Tr["Locked"]
 local function Line(tooltip, id)
     if not ns.IsSecret(id) and locks.Is(id) then tooltip:AddLine(Medalluin_LockedLine, 0.45, 0.75, 1) end
 end

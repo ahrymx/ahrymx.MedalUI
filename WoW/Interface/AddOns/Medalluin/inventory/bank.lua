@@ -37,9 +37,10 @@ local BAG, BAR = 30, 24                 -- a bag slot, the purchase line
 local LOCK = "Interface\\Buttons\\LockButton-Locked-Up"
 local EMPTY = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"
 local VIEWS = {
-    { key = "bags", name = "Bags", icon = "view-bags", tip = "Each bag on rows of its own, under its name." },
-    { key = "grid", name = "Grid", icon = "view-grid", tip = "Every slot in one grid, bag by bag." },
-    { key = "groups", name = "Groups", icon = "view-groups", tip = "The items in groups: new, equipment and the rest." },
+    { key = "bags", name = Tr["Bags"], icon = "view-bags", tip = Tr["Each bag on rows of its own, under its name."] },
+    { key = "grid", name = Tr["Grid"], icon = "view-grid", tip = Tr["Every slot in one grid, bag by bag."] },
+    { key = "groups", name = Tr["Groups"], icon = "view-groups",
+        tip = Tr["The items in groups: new, equipment and the rest."] },
 }
 
 local function Money(c) return ns.npc and ns.npc.Money(c) or tostring(c) end
@@ -49,7 +50,7 @@ local layer, buy                        -- the secure Purchase, on the strip (w.
 
 local W = ns.Window{
     name = "MedalluinBank", named = Tr["Bank"], side = -1, place = "bankPlace",
-    closeTip = "Close the bank.",
+    closeTip = Tr["Close the bank."],
     Close = function() if C_Bank and C_Bank.CloseBankFrame then C_Bank.CloseBankFrame() end end,
     -- the portrait, and the queue's eye when it sits in its place
     Lifted = function()
@@ -69,7 +70,7 @@ local function Tabs(kind)
     for i, t in ipairs(C_Bank.FetchPurchasedBankTabData(kind) or {}) do
         table.insert(out, t.ID)
         local name = t.name ~= "" and t.name or Container.GetBagName and Container.GetBagName(t.ID)
-        names[t.ID] = name and name ~= "" and name or (i == 1 and "Bank" or format("Bank bag %d", i - 1))
+        names[t.ID] = name and name ~= "" and name or (i == 1 and Tr["Bank"] or format(Tr["Bank bag %d"], i - 1))
     end
     return out, names
 end
@@ -87,9 +88,9 @@ local function BagTip(b)
     if b.bought and b.worn then
         GameTooltip:SetBagItem(Where(b.page, b.index))
     elseif b.bought then
-        GameTooltip:SetText("An empty bag slot. Drop a bag here.")
+        GameTooltip:SetText(Tr["An empty bag slot. Drop a bag here."])
     else
-        GameTooltip:SetText("Not bought yet: Purchase buys the next.")
+        GameTooltip:SetText(Tr["Not bought yet: Purchase buys the next."])
     end
     GameTooltip:Show()
 end
@@ -142,8 +143,8 @@ local function Slots(p)
     -- the warband's first tab is bought elsewhere, as Blizzard's hides it
     local unbegun = #bought == 0 and p.kind == Enum.BankType.Account
     local upcoming = not unbegun and C_Bank.FetchNextPurchasableBankTabData(p.kind) or nil
-    p.price:SetText(unbegun and "The warband bank is not begun yet."
-        or upcoming and "Next bag slot: " .. Money(upcoming.tabCost) or "Every bag slot is bought.")
+    p.price:SetText(unbegun and Tr["The warband bank is not begun yet."]
+        or upcoming and format(Tr["Next bag slot: %s"], Money(upcoming.tabCost)) or Tr["Every bag slot is bought."])
     p.purchase:SetShown(upcoming ~= nil)
     p.next = upcoming
     p.purchase:SetAlpha(upcoming and upcoming.canAfford ~= false and 1 or 0.4)
@@ -206,12 +207,12 @@ local function Band(p, band)
         table.insert(items, { key = v.key, label = v.name, icon = v.icon, group = "views",
             click = function() ns.SetOption("bankView", v.key) end, tip = function() return v.tip end })
     end
-    table.insert(items, { key = "deposit", label = "Deposit", group = "deposit", click = function()
+    table.insert(items, { key = "deposit", label = Tr["Deposit"], group = "deposit", click = function()
         if C_Bank.AutoDepositItemsIntoBank then C_Bank.AutoDepositItemsIntoBank(p.kind) end
-    end, tip = function() return "Put what the bank takes in on its own into it, as the game's button does." end })
-    table.insert(items, { key = "sort", label = "Sort", icon = "sort", group = "sort", click = function()
+    end, tip = function() return Tr["Put what the bank takes in on its own into it, as the game's button does."] end })
+    table.insert(items, { key = "sort", label = Tr["Sort"], icon = "sort", group = "sort", click = function()
         if Container.SortBankBags then Container.SortBankBags() end
-    end, tip = function() return "Sort the bank, as the game sorts it." end })
+    end, tip = function() return Tr["Sort the bank, as the game sorts it."] end })
     local row = ns.window.Segments(band, { height = band:GetHeight(), fit = true, items = items })
     row:SetPoint("TOPRIGHT")
     p.row, p.deposit = row, row.byKey.deposit
@@ -227,9 +228,9 @@ local function Band(p, band)
 end
 
 local KINDS = {
-    { key = "bank", label = "Bank", tip = "The bank.", icon = "Interface\\Icons\\INV_Box_02",
+    { key = "bank", label = Tr["Bank"], tip = Tr["The bank."], icon = "Interface\\Icons\\INV_Box_02",
         kind = function() return Enum.BankType.Character end, order = 1 },
-    { key = "warband", label = "Warband", tip = "The warband's bank, shared by your characters.",
+    { key = "warband", label = Tr["Warband"], tip = Tr["The warband's bank, shared by your characters."],
         icon = "Interface\\Icons\\INV_Misc_Bag_10_Blue", order = 2,
         kind = function() return Enum.BankType.Account end },
 }
@@ -261,15 +262,15 @@ for _, k in ipairs(KINDS) do
         p.price:SetTextColor(unpack(GOLD))
         -- the face only: the secure button over it (Follow) presses the game's
         p.purchase = ns.window.Button(foot, 92, nil, function()
-            if p.next and p.next.canAfford == false then return "Not enough money." end
-            if InCombatLockdown() then return "Not in combat." end
-            if not (buy and buy:IsShown()) then return "Not here: the game's bank stands on its other tab." end
-            return "Buy the next bag slot, for " .. (p.next and Money(p.next.tabCost) or "-")
-                .. ". The game asks to be sure."
+            if p.next and p.next.canAfford == false then return Tr["Not enough money."] end
+            if InCombatLockdown() then return Tr["Not in combat."] end
+            if not (buy and buy:IsShown()) then return Tr["Not here: the game's bank stands on its other tab."] end
+            return format(Tr["Buy the next bag slot, for %s. The game asks to be sure."],
+                p.next and Money(p.next.tabCost) or "-")
         end)
         p.purchase:SetHeight(22)
         p.purchase:SetPoint("BOTTOMRIGHT", 0, 2)
-        p.purchase.label:SetText("Purchase")
+        p.purchase.label:SetText(Tr["Purchase"])
         Band(p, band)
     end
     function p.Refresh() Refresh(p) end
