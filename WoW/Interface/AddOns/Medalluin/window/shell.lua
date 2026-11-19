@@ -893,6 +893,20 @@ function ns.Window(spec)
         end
     end
 
+    -- Lowered under an open window that wants it up: another window on its
+    -- side that lifts the same button (the backpack: the book's, the
+    -- talents', the quest log's) closed, or opened detached, and put it back
+    -- on the strip; or it was opened in combat, where a protected one stays.
+    -- The open window lifts it again, out of combat.
+    local function Sunk()
+        if w.Detached() then return false end
+        local level = window:GetFrameLevel() + LIFT
+        for _, f in ipairs(spec.Lifted()) do
+            if f:GetFrameStrata() ~= window:GetFrameStrata() or f:GetFrameLevel() < level then return true end
+        end
+        return false
+    end
+
     local function Medal()
         medal = CreateFrame("Frame", nil, window)
         medal:SetFrameLevel(window:GetFrameLevel() + LIFT + 2)
@@ -1552,8 +1566,14 @@ function ns.Window(spec)
             Escape()
         end)
         -- a change is drawn once, at the next frame, and only while it is open
-        window:SetScript("OnUpdate", function()
+        local check = 0
+        window:SetScript("OnUpdate", function(_, elapsed)
             medal:SetAlpha(strip:GetEffectiveAlpha())
+            check = check + (elapsed or 0)
+            if check >= 0.25 then
+                check = 0
+                if Sunk() then Lift(true) end
+            end
             if dirty and current then
                 dirty = false
                 current.Refresh()

@@ -15996,6 +15996,17 @@ if characterPass then
             "margin=" .. where(w.bandRule))
     end
     medallion("char.medallion")
+    -- put back on the strip under the open window (another window that
+    -- lifts it closed): the window lifts it again within a quarter second
+    do
+        local b = CharacterMicroButton
+        b:SetFrameStrata(ns.strips[-1]:GetFrameStrata())
+        b:SetFrameLevel(ns.levels.stripWell)
+        w.scripts.OnUpdate(w, 0.1)
+        medallion("char.medallion sunk")
+        w.scripts.OnUpdate(w, 0.2)
+        medallion("char.medallion lifted again")
+    end
     -- the shortcuts: secure clicks on Blizzard's micro buttons, on the strip,
     -- following the window out of combat and hidden by a driver in it
     local row = _G.MedalluinCharacterShortcuts
