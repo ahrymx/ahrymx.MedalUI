@@ -289,6 +289,13 @@ def glyph(kind, x, y):
                  "M8.8,14.8 L11.2,14.8 L11.2,17.8 L8.8,17.8 Z M7.8,17.8 L12.2,17.8 L12.2,19.8 L7.8,19.8 Z")
         return (f'<g transform="translate({x},{y}) scale({s})" {f}>'
                 f'<path d="{sword}" transform="rotate(45 10 10.3)"/></g>')
+    if kind == "plans":         # a clipboard: its clip, and three rows each a talent's
+        # diamond and its line, cut from the board (the talents' plans)
+        board = ("M3,3 L7,3 L7,2 C7,1 8,0.5 10,0.5 C12,0.5 13,1 13,2 L13,3 L17,3 L17,19.5 L3,19.5 Z"
+                 "M8,3.2 L12,3.2 L12,5.2 L8,5.2 Z")
+        rows = "".join(f"M7,{y - 1.8} L8.8,{y} L7,{y + 1.8} L5.2,{y} Z M10.2,{y - 0.8} L15,{y - 0.8} "
+                       f"L15,{y + 0.8} L10.2,{y + 0.8} Z" for y in (8.6, 12.6, 16.6))
+        return P(board + rows, "evenodd")
     if kind == "misc":          # a lozenge, for a button this list does not know
         return P("M10,1.5 L18.5,10 L10,18.5 L1.5,10 Z M10,5.5 L14.5,10 L10,14.5 L5.5,10 Z", "evenodd")
     raise ValueError(kind)
@@ -539,7 +546,7 @@ TABS = ["character", "reputation", "currency", "skills", "pvp", "statistics",
         "view-bags", "view-grid", "view-groups", "track", "track-off",
         "chat-tools", "chat", "channels", "log", "side-auras", "side-meter", "side-loot", "side-zone", "waypoint", "mouse", "edit",
         "mouse-left", "mouse-right", "mouse-middle",
-        "role-tank", "role-healer", "role-damage", "sound", "sound-off", "radial"]
+        "role-tank", "role-healer", "role-damage", "sound", "sound-off", "radial", "plans"]
 
 
 def part(name, inner, size=32):
