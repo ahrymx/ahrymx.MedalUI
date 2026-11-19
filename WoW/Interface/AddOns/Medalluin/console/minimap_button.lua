@@ -8,6 +8,7 @@
 -- there is no drawer, and it sits inside the minimap's lower-left, clear of
 -- the ring.
 local _, ns = ...
+local Tr = ns.L
 
 local SIZE = 32
 
@@ -29,9 +30,10 @@ ns.minimapButton = button
 
 local function Tip(self)
     ns.Tip(self, "ANCHOR_LEFT", { title = "Medalluin",
-        { "row", "Left click", "settings", true },
-        { "row", "Right click", "simulate party frames (" .. (ns.db.simParty and "on" or "off") .. ")", true },
-        { "row", "Middle click", "unit frame editor", true } })
+        { "row", Tr["Left click"], Tr["settings"], true },
+        { "row", Tr["Right click"], ns.db.simParty and Tr["simulate party frames (on)"]
+            or Tr["simulate party frames (off)"], true },
+        { "row", Tr["Middle click"], Tr["unit frame editor"], true } })
 end
 
 button:SetScript("OnClick", function(self, mouse)

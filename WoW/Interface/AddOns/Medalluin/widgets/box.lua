@@ -11,6 +11,7 @@
 -- nothing secure, so it follows what is shown, in combat too: a boss that
 -- comes mid-fight lengthens it.
 local _, ns = ...
+local Tr = ns.L
 
 local C = ns.colors
 local GOLD, GOLD_D = { 0.769, 0.647, 0.341 }, { 0.541, 0.439, 0.204 }
@@ -123,7 +124,7 @@ local function Tab(box)
     end)
     tab:SetScript("OnEnter", function(self)
         ns.Tip(self, "ANCHOR_TOP", { title = self.label:GetText(), color = ns.colors.white,
-            { "hint", "Drag to move. Not in combat." } })
+            { "hint", Tr["Drag to move. Not in combat."] } })
     end)
     tab:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return tab
@@ -335,7 +336,7 @@ function ns.WidgetUnit(parent, name, unit, width, height, auras)
     b:SetScript("OnEnter", function(self)
         if self.stub then
             ns.Tip(self, "ANCHOR_RIGHT", { title = self.stub.name, color = ns.colors.white,
-                { "body", "Simulated", ns.colors.grey } })
+                { "body", Tr["Simulated"], ns.colors.grey } })
         elseif UnitFrame_OnEnter then
             UnitFrame_OnEnter(self)
         end

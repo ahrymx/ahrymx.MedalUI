@@ -7,6 +7,7 @@
 -- empty columns between, and the box closes up when combat ends. The skin
 -- is as tall as the fullest group (the holder keeps room for five).
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.WIDGET
 local ROWS = 5
@@ -123,14 +124,14 @@ local placed = {}
 local function Titles(groups, preview)
     local titles = {}
     if preview or not next(placed) then
-        for i, g in ipairs(groups) do titles[i] = "Group " .. g end
+        for i, g in ipairs(groups) do titles[i] = format(Tr["Group %d"], g) end
     else
         local last = 0
         for _, g in ipairs(groups) do last = math.max(last, placed[g]) end
         for i = 1, last do titles[i] = false end
-        for _, g in ipairs(groups) do titles[placed[g]] = "Group " .. g end
+        for _, g in ipairs(groups) do titles[placed[g]] = format(Tr["Group %d"], g) end
     end
-    if #titles == 0 then titles[1] = "Group 1" end
+    if #titles == 0 then titles[1] = format(Tr["Group %d"], 1) end
     return titles
 end
 

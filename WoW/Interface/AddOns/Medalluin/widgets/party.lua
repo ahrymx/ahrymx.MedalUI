@@ -10,6 +10,7 @@
 -- has no empty fourth row. It follows the buttons' showing and hiding, in
 -- combat too.
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.WIDGET
 -- a cell is 160x40 until the editor sizes it (ns.CellSize, editor.lua)
@@ -51,7 +52,7 @@ local function Skin()
     -- no party: the box hides; the player's cell alone until it does
     if ns.db.partyWidgetPlayer then last = (last or 0) + 1 end
     if not last then return end
-    ns.WidgetSkin(box, { "Party" }, CELL_W, (last - 1) * Step() + UNIT_H)
+    ns.WidgetSkin(box, { Tr["Party"] }, CELL_W, (last - 1) * Step() + UNIT_H)
 end
 
 local function LayCell(b, row, CELL_W, UNIT_H, step)

@@ -26,6 +26,7 @@
 -- puts up instead of bar 1: a vehicle's, an override, a temporary
 -- shapeshift or a possessed unit's.
 local _, ns = ...
+local Tr = ns.L
 
 -- Bar 1, Blizzard's rules as far as conditionals can say them: what takes
 -- over bar 1, skyriding, the page arrows, then the stance pages.
@@ -38,37 +39,38 @@ local MAIN = "[overridebar][vehicleui][possessbar][shapeshift] possess; [bonusba
 -- on the grid alone (the user's call, 2026-11-01).
 local GROUNDED = MAIN:gsub("%[bonusbar:5%] 11; ", "")
 
--- key: the option; base: the page it shows by default (nil: Blizzard's
+-- key: the option; name: the bar's own (its header's frame is named by
+-- it), label: as the options show it; base: the page it shows by default (nil: Blizzard's
 -- rules); default: the default's own conditional, where it has one.
 ns.PAGING_BARS = {
-    { key = "bar1Paging", name = "Bar 1", base = nil,
-      defaultLabel = "Blizzard's", defaultTip = "The game's own paging: the page arrows, stances, forms and "
+    { key = "bar1Paging", name = "Bar 1", label = Tr["Bar 1"], base = nil,
+      defaultLabel = Tr["Blizzard's"], defaultTip = Tr["The game's own paging: the page arrows, stances, forms and "
         .. "stealth, skyriding, vehicles and override bars. With the centre grid (the Reticule), "
-        .. "skyriding pages the grid instead, and bar 1 keeps its page." },
-    { key = "row2Paging", name = "Row 2", base = 6,
-      defaultLabel = "Action bar 2 (page 6)", defaultTip = "What Blizzard's action bar 2 shows." },
-    { key = "row3Paging", name = "Row 3", base = 5,
-      defaultLabel = "Action bar 3 (page 5)", defaultTip = "What Blizzard's action bar 3 shows." },
-    { key = "gridPaging", name = "Centre grid", base = 7, grid = true,
-      defaultLabel = "Forms, stealth, flying (7-11)", defaultTip = "The Reticule's: page 7, page 8 "
+        .. "skyriding pages the grid instead, and bar 1 keeps its page."] },
+    { key = "row2Paging", name = "Row 2", label = Tr["Row 2"], base = 6,
+      defaultLabel = Tr["Action bar 2 (page 6)"], defaultTip = Tr["What Blizzard's action bar 2 shows."] },
+    { key = "row3Paging", name = "Row 3", label = Tr["Row 3"], base = 5,
+      defaultLabel = Tr["Action bar 3 (page 5)"], defaultTip = Tr["What Blizzard's action bar 3 shows."] },
+    { key = "gridPaging", name = "Centre grid", label = Tr["Centre grid"], base = 7, grid = true,
+      defaultLabel = Tr["Forms, stealth, flying (7-11)"], defaultTip = Tr["The Reticule's: page 7, page 8 "
         .. "in the first form or stance, 9 in the second and third, 10 in stealth, and 11 on a skyriding "
         .. "mount, the page bar 1 flies on, so skyriding skills can go on the grid. Each one can be switched "
-        .. "off below." },
+        .. "off below."] },
 }
 -- The grid's default, a condition at a time, each switched on or off by its
 -- own option (the Paging page's switches): off, the grid stays on page 7
 -- there. Skyriding first, as on bar 1 (MAIN): a druid flying in a form flies.
 ns.GRID_PARTS = {
-    { key = "gridPageFlying", name = "Flying", page = 11, part = "[bonusbar:5] 11",
-      note = "On a skyriding mount: the page bar 1 flies on." },
-    { key = "gridPageForm1", name = "First form", page = 8, part = "[bonusbar:1] 8; [form:1] 8",
-      note = "Cat form, ghost wolf, battle stance, a rogue's stealth: the first form or stance." },
-    { key = "gridPageForm2", name = "Second form", page = 9, part = "[form:2] 9",
-      note = "Bear form, defensive stance: the second form or stance." },
-    { key = "gridPageForm3", name = "Third form", page = 9, part = "[form:3] 9",
-      note = "Travel form, berserker stance: the third form or stance." },
-    { key = "gridPageStealth", name = "Stealth", page = 10, part = "[stealth] 10",
-      note = "Stealth outside a form, as shadowmeld. A rogue's stealth and a druid's prowl are their first form." },
+    { key = "gridPageFlying", name = Tr["Flying"], page = 11, part = "[bonusbar:5] 11",
+      note = Tr["On a skyriding mount: the page bar 1 flies on."] },
+    { key = "gridPageForm1", name = Tr["First form"], page = 8, part = "[bonusbar:1] 8; [form:1] 8",
+      note = Tr["Cat form, ghost wolf, battle stance, a rogue's stealth: the first form or stance."] },
+    { key = "gridPageForm2", name = Tr["Second form"], page = 9, part = "[form:2] 9",
+      note = Tr["Bear form, defensive stance: the second form or stance."] },
+    { key = "gridPageForm3", name = Tr["Third form"], page = 9, part = "[form:3] 9",
+      note = Tr["Travel form, berserker stance: the third form or stance."] },
+    { key = "gridPageStealth", name = Tr["Stealth"], page = 10, part = "[stealth] 10",
+      note = Tr["Stealth outside a form, as shadowmeld. A rogue's stealth and a druid's prowl are their first form."] },
 }
 local function GridDefault()
     local parts = {}
@@ -88,13 +90,13 @@ end
 function ns.PagingChoices(bar)
     local list = { { "default", bar.defaultLabel, bar.defaultTip } }
     if not bar.grid then
-        table.insert(list, { "stances", bar.base and "Stances and stealth" or "Medalluin's (stances, vehicles)",
-            bar.base and ("Pages 7 to 10 for stances, forms and stealth, as bar 1's are; page " .. bar.base
-                .. " otherwise.") or "Blizzard's rules written as a conditional, so a page can be added "
-                .. "to it: start Custom from here." })
+        table.insert(list, { "stances", bar.base and Tr["Stances and stealth"] or Tr["Medalluin's (stances, vehicles)"],
+            bar.base and format(Tr["Pages 7 to 10 for stances, forms and stealth, as bar 1's are; page %d otherwise."],
+                bar.base) or Tr["Blizzard's rules written as a conditional, so a page can be added "
+                .. "to it: start Custom from here."] })
     end
-    for n = 1, 10 do table.insert(list, { "page" .. n, "Always page " .. n }) end
-    table.insert(list, { "custom", "Custom", "Your own conditional: Edit conditional below." })
+    for n = 1, 10 do table.insert(list, { "page" .. n, format(Tr["Always page %d"], n) }) end
+    table.insert(list, { "custom", Tr["Custom"], Tr["Your own conditional: Edit conditional below."] })
     return list
 end
 

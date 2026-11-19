@@ -15,6 +15,7 @@
 -- given its pieces and its tab's options by ns.AttachAuras (the raid's
 -- switch to the Battleground tab's inside one).
 local _, ns = ...
+local Tr = ns.L
 
 local Auras = C_UnitAuras
 local LossOfControl = C_LossOfControl
@@ -28,27 +29,30 @@ ns.DISPEL_TYPES = DISPEL_PRIORITY
 -- Retail and Forever share some ids under other names (527 is Purify on
 -- retail, Dispel Magic on Forever), so an id counts only under its own
 -- name; a spell whose id is not here is found by its name in the
--- spellbook, the class's only (two classes have a Purify).
+-- spellbook, the class's only (two classes have a Purify). On a client in
+-- another language the names are not these: there an id counts on its
+-- own, and an id the two share counts only on its own client (retail, or
+-- Forever: the one with SkillsFrame).
 local DISPEL_SPELLS = {
     { "SHAMAN", "Cure Poison", { "Poison" }, 526 },
     { "SHAMAN", "Cure Disease", { "Disease" }, 2870 },
     { "SHAMAN", "Cleanse Spirit", { "Curse" }, 51886 },
     { "SHAMAN", "Purify Spirit", { "Magic", "Curse" }, 77130 },
-    { "DRUID", "Remove Curse", { "Curse" }, 2782 },
+    { "DRUID", "Remove Curse", { "Curse" }, 2782, forever = true },
     { "DRUID", "Cure Poison", { "Poison" }, 8946 },
     { "DRUID", "Abolish Poison", { "Poison" }, 2893 },
-    { "DRUID", "Remove Corruption", { "Curse", "Poison" }, 2782 },
+    { "DRUID", "Remove Corruption", { "Curse", "Poison" }, 2782, retail = true },
     { "DRUID", "Nature's Cure", { "Magic", "Curse", "Poison" }, 88423 },
-    { "PRIEST", "Dispel Magic", { "Magic" }, 527, 988 },
+    { "PRIEST", "Dispel Magic", { "Magic" }, 527, 988, forever = true },
     { "PRIEST", "Cure Disease", { "Disease" }, 528 },
     { "PRIEST", "Abolish Disease", { "Disease" }, 552 },
-    { "PRIEST", "Purify", { "Magic", "Disease" }, 527 },
+    { "PRIEST", "Purify", { "Magic", "Disease" }, 527, retail = true },
     { "PRIEST", "Purify Disease", { "Disease" }, 213634 },
     { "PALADIN", "Purify", { "Poison", "Disease" }, 1152 },
     { "PALADIN", "Cleanse", { "Magic", "Poison", "Disease" }, 4987 },
     { "PALADIN", "Cleanse Toxins", { "Poison", "Disease" }, 213644 },
-    { "MAGE", "Remove Lesser Curse", { "Curse" }, 475 },
-    { "MAGE", "Remove Curse", { "Curse" }, 475 },
+    { "MAGE", "Remove Lesser Curse", { "Curse" }, 475, forever = true },
+    { "MAGE", "Remove Curse", { "Curse" }, 475, retail = true },
     { "MONK", "Detox", { "Magic", "Poison", "Disease" }, 115450 },
     { "MONK", "Detox", { "Poison", "Disease" }, 218164 },
     { "EVOKER", "Naturalize", { "Magic", "Poison" }, 360823 },
@@ -76,6 +80,16 @@ local function InBook(name)
     return ok and info ~= nil
 end
 
+local ENGLISH = (GetLocale and GetLocale() or "enUS"):match("^en") ~= nil
+
+-- an id's spell is the one listed: by its English name, or (in another
+-- language) by the client it is listed for
+local function Listed(s, id)
+    if ENGLISH then return SpellName(id) == s[2] end
+    local forever = SkillsFrame ~= nil
+    return not (s.forever and not forever or s.retail and forever)
+end
+
 local playerDispels = {}    -- type -> true
 local dispelSpells = {}     -- the names of the spells that grant them
 
@@ -85,16 +99,16 @@ local function UpdatePlayerDispels()
     local _, class = UnitClass("player")
     for _, s in ipairs(DISPEL_SPELLS) do
         if s[1] == class then
-            local have = false
+            local have, name = false, s[2]
             for k = 4, #s do
-                if Known(s[k], s.pet) and SpellName(s[k]) == s[2] then have = true end
+                if Known(s[k], s.pet) and Listed(s, s[k]) then have, name = true, SpellName(s[k]) or s[2] end
             end
-            if not have and not s.pet then have = InBook(s[2]) end
+            if not have and not s.pet and ENGLISH then have = InBook(s[2]) end
             if have then
                 for _, t in ipairs(s[3]) do playerDispels[t] = true end
                 local listed = false
-                for _, n in ipairs(dispelSpells) do if n == s[2] then listed = true end end
-                if not listed then table.insert(dispelSpells, s[2]) end
+                for _, n in ipairs(dispelSpells) do if n == name then listed = true end end
+                if not listed then table.insert(dispelSpells, name) end
             end
         end
     end
@@ -579,16 +593,16 @@ local function ApplyStubAuras(b)
             if b1 then
                 b1.icon:SetTexture("Interface\\Icons\\Spell_Nature_Rejuvenation")
                 b1.count:SetText("")
-                b1.tooltipTitle = "Rejuvenation"
-                b1.tooltipDesc = "Heals 1,420 over 15 sec."
+                b1.tooltipTitle = Tr["Rejuvenation"]
+                b1.tooltipDesc = Tr["Heals 1,420 over 15 sec."]
                 b1:Show()
             end
             local b2 = max >= 2 and b.buffWidgets[2]
             if b2 then
                 b2.icon:SetTexture("Interface\\Icons\\Spell_Nature_ResistNature")
                 b2.count:SetText("3")
-                b2.tooltipTitle = "Lifebloom (3)"
-                b2.tooltipDesc = "Heals 3,150 over 15 sec. When it expires, blooms for direct healing."
+                b2.tooltipTitle = Tr["Lifebloom (3)"]
+                b2.tooltipDesc = Tr["Heals 3,150 over 15 sec. When it expires, blooms for direct healing."]
                 b2:Show()
             end
         end
@@ -602,8 +616,8 @@ local function ApplyStubAuras(b)
             b.bossDebuff.expires = nil
             b.bossDebuff.timer:SetText("8")
             b.bossDebuff.count:SetText("2")
-            b.bossDebuff.tooltipTitle = "Cursed Agony"
-            b.bossDebuff.tooltipDesc = "Critical encounter mechanic. Inflicts heavy shadow damage every 2 sec."
+            b.bossDebuff.tooltipTitle = Tr["Cursed Agony"]
+            b.bossDebuff.tooltipDesc = Tr["Critical encounter mechanic. Inflicts heavy shadow damage every 2 sec."]
             b.bossDebuff:Show()
         else
             b.bossDebuff:Hide()
@@ -617,8 +631,8 @@ local function ApplyStubAuras(b)
             if k <= n then
                 btn.icon:SetTexture("Interface\\Icons\\" .. MINE_ICONS[k])
                 btn.count:SetText("")
-                btn.tooltipTitle = "Debuff " .. k
-                btn.tooltipDesc = "Simulated"
+                btn.tooltipTitle = format(Tr["Debuff %d"], k)
+                btn.tooltipDesc = Tr["Simulated"]
             end
             btn:SetShown(k <= n)
         end

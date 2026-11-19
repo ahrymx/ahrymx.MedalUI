@@ -10,6 +10,7 @@
 -- its unit is not casting, so the half shows. The window is 8px high: no
 -- room for a spell name or a time, so a cast is the fill and its spark.
 local _, ns = ...
+local Tr = ns.L
 
 local console, C = ns.console, ns.colors
 
@@ -97,13 +98,13 @@ xp.hit:SetScript("OnEnter", function(self)
     ns.Tip(self, "ANCHOR_TOP", { title = XP,
         { "bar", cur, max, format("%s / %s (%d%%)", BreakUpLargeNumbers(cur), BreakUpLargeNumbers(max),
             max > 0 and math.floor(cur / max * 100) or 0), ns.colors.xp },
-        restedXP and { "row", "Rested", BreakUpLargeNumbers(restedXP), true } or false })
+        restedXP and { "row", Tr["Rested"], BreakUpLargeNumbers(restedXP), true } or false })
 end)
 
 rep.hit:SetScript("OnEnter", function(self)
     local name, standing, value, span = Watched()
     if not name then
-        ns.Tip(self, "ANCHOR_TOP", { title = REPUTATION, { "body", "No faction watched." } })
+        ns.Tip(self, "ANCHOR_TOP", { title = REPUTATION, { "body", Tr["No faction watched."] } })
         return
     end
     local label = _G["FACTION_STANDING_LABEL" .. (standing or 4)] or ""

@@ -21,6 +21,7 @@
 -- the drawer is open its highlight stays lit. It and the drawer's line are
 -- drawn by art/bars/gen_bar.py; the buttons keep their own art.
 local _, ns = ...
+local Tr = ns.L
 
 local console = ns.console
 local PARTS = ns.media .. "bar\\"
@@ -186,8 +187,8 @@ function ns.BuildDrawer(tray)
         for _, b in ipairs(buttons) do
             if b:IsShown() then n = n + 1 end
         end
-        ns.Tip(self, "ANCHOR_TOP", { title = "Minimap buttons",
-            { "body", n > 0 and (n .. (n == 1 and " button" or " buttons")) or "None yet" } })
+        ns.Tip(self, "ANCHOR_TOP", { title = Tr["Minimap buttons"],
+            { "body", n > 0 and ns.Plural(n, format(Tr["%d |4button:buttons;"], n)) or Tr["None yet"] } })
     end)
     toggle:SetScript("OnLeave", GameTooltip_Hide)
 

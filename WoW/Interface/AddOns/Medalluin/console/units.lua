@@ -2,6 +2,7 @@
 -- and health share it, flush against each other), placed in its window. The left
 -- copy fills from the left edge, the right copy mirrors it.
 local _, ns = ...
+local Tr = ns.L
 
 local console, L, C = ns.console, ns.layout, ns.colors
 
@@ -328,13 +329,13 @@ end
 ns.UpdateUnitButton = UpdateAll
 
 local STUBS = {
-    party1 = { name = "Party 1", class = "PRIEST", role = "HEALER", powerType = 0, health = 85, maxHealth = 100,
+    party1 = { name = Tr["Party 1"], class = "PRIEST", role = "HEALER", powerType = 0, health = 85, maxHealth = 100,
         power = 80, maxPower = 100, leader = true },
-    party2 = { name = "Party 2", class = "MAGE", role = "DAMAGER", powerType = 0, health = 92, maxHealth = 100,
+    party2 = { name = Tr["Party 2"], class = "MAGE", role = "DAMAGER", powerType = 0, health = 92, maxHealth = 100,
         power = 100, maxPower = 100 },
-    party3 = { name = "Party 3", class = "WARRIOR", role = "TANK", powerType = 1, health = 78, maxHealth = 100,
+    party3 = { name = Tr["Party 3"], class = "WARRIOR", role = "TANK", powerType = 1, health = 78, maxHealth = 100,
         power = 45, maxPower = 100 },
-    party4 = { name = "Party 4", class = "ROGUE", role = "DAMAGER", powerType = 3, health = 88, maxHealth = 100,
+    party4 = { name = Tr["Party 4"], class = "ROGUE", role = "DAMAGER", powerType = 3, health = 88, maxHealth = 100,
         power = 70, maxPower = 100 },
 }
 
@@ -343,10 +344,10 @@ ns.partyStubs = STUBS     -- the simulation panel (simulate.lua) sets each membe
 
 -- a member's simulated pet, shown while its stub has .pet
 local PET_STUBS = {
-    partypet1 = { name = "Shadowfiend", class = "PRIEST", health = 80, maxHealth = 100 },
-    partypet2 = { name = "Water Elemental", class = "MAGE", health = 90, maxHealth = 100 },
-    partypet3 = { name = "Spirit Wolf", class = "SHAMAN", health = 70, maxHealth = 100 },
-    partypet4 = { name = "Imp", class = "WARLOCK", health = 100, maxHealth = 100 },
+    partypet1 = { name = Tr["Shadowfiend"], class = "PRIEST", health = 80, maxHealth = 100 },
+    partypet2 = { name = Tr["Water Elemental"], class = "MAGE", health = 90, maxHealth = 100 },
+    partypet3 = { name = Tr["Spirit Wolf"], class = "SHAMAN", health = 70, maxHealth = 100 },
+    partypet4 = { name = Tr["Imp"], class = "WARLOCK", health = 100, maxHealth = 100 },
 }
 
 local function AbbreviateName(name)
@@ -411,7 +412,7 @@ local function UpdatePartyPet(pet)
         pet.health:SetMinMaxValues(0, max)
         pet.health:SetValue(cur)
         pet.health:SetStatusBarColor(PetHealthColor(pet))
-        pet.name:SetText(AbbreviateName(ns.Or(UnitName(unit), "Pet")))
+        pet.name:SetText(AbbreviateName(ns.Or(UnitName(unit), Tr["Pet"])))
         if pet.value then
             if not UnitIsConnected(unit) then
                 pet.value:SetText(PLAYER_OFFLINE)
@@ -538,7 +539,7 @@ local function Spawn(unit, forWidget)
     b:SetScript("OnEnter", function(self)
         if self.stub and not UnitExists(self.unit) then
             ns.Tip(self, "ANCHOR_RIGHT", { title = self.stub.name, color = ns.colors.white,
-                { "body", "Simulated party member", ns.colors.grey } })
+                { "body", Tr["Simulated party member"], ns.colors.grey } })
         elseif UnitFrame_OnEnter then
             UnitFrame_OnEnter(self)
         end
@@ -792,7 +793,7 @@ local function SpawnPet(parentBtn, unit, side)
     pet:SetScript("OnEnter", function(self)
         if self.stub and not UnitExists(self.unit) then
             ns.Tip(self, "ANCHOR_RIGHT", { title = self.stub.name, color = ns.colors.white,
-                { "body", "Simulated party pet", ns.colors.grey } })
+                { "body", Tr["Simulated party pet"], ns.colors.grey } })
         elseif UnitFrame_OnEnter then
             UnitFrame_OnEnter(self)
         end

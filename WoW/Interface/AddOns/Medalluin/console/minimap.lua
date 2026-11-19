@@ -2,6 +2,7 @@
 -- a touch larger than the hole so its edge tucks under the gold. Zoom is on
 -- the mouse wheel. (The combat swap to the CC tracker comes later.)
 local _, ns = ...
+local Tr = ns.L
 
 local console = ns.console
 -- the hover label's look: the window trim on a brown well, both see-through
@@ -58,13 +59,13 @@ function ns.MinimapPinned() return pin end
 function ns.ToggleMinimap()
     if not ns.MinimapMoves() then
         if UIErrorsFrame then
-            UIErrorsFrame:AddMessage("Medalluin: only the Reticule profile's minimap moves.", 1, 0.82, 0)
+            UIErrorsFrame:AddMessage(Tr["Medalluin: only the Reticule profile's minimap moves."], 1, 0.82, 0)
         end
         return
     end
     if lent then
         if UIErrorsFrame then
-            UIErrorsFrame:AddMessage("Medalluin: the minimap is in the side panel's Zone tab.", 1, 0.82, 0)
+            UIErrorsFrame:AddMessage(Tr["Medalluin: the minimap is in the side panel's Zone tab."], 1, 0.82, 0)
         end
         return
     end
@@ -87,7 +88,7 @@ end
 -- the binding's code runs outside the addon, so it calls a global
 function MedalluinToggleMinimap() ns.ToggleMinimap() end
 BINDING_HEADER_MEDALLUIN = "Medalluin"
-BINDING_NAME_MEDALLUIN_MINIMAP = "Minimap: console or corner"
+BINDING_NAME_MEDALLUIN_MINIMAP = Tr["Minimap: console or corner"]
 
 ns.On("PLAYER_LOGIN", function()
     local _, r, top, bottom = unpack(ns.windows.ring)
@@ -243,7 +244,7 @@ ns.On("PLAYER_LOGIN", function()
         grip:SetScript("OnMouseUp", function(_, button) if button == "LeftButton" then drag.Stop() end end)
         grip:SetScript("OnEnter", function(self)
             ns.Tip(self, "ANCHOR_TOP", { title = self.label:GetText(), color = ns.colors.white,
-                { "hint", "Drag to move." } })
+                { "hint", Tr["Drag to move."] } })
         end)
         grip:SetScript("OnLeave", function() GameTooltip:Hide() end)
         ns.minimapGrip = grip

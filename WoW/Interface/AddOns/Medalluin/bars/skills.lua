@@ -19,6 +19,7 @@
 -- the profile until the slot is used for something else; a kind of action
 -- Medalluin does not know is left where it is.
 local addonName, ns = ...
+local Tr = ns.L
 
 local SLOTS = 180
 local RANDOM_MOUNT = 268435455   -- GetActionInfo's mount id for "Summon Random Favorite Mount"
@@ -159,8 +160,8 @@ local function Restore(profile)
     if lost > 0 then
         local name = profile
         for _, p in ipairs(ns.PROFILE_NAMES) do if p[1] == profile then name = p[2]:gsub(" %(.*%)$", "") end end
-        Say(("%d %s of the %s profile could not come back (not in your bags, or not known)."):format(
-            lost, lost == 1 and "skill" or "skills", name))
+        Say(ns.Plural(lost, format(Tr["%d |4skill:skills; of the %s profile could not come back (not in your bags, "
+            .. "or not known)."], lost, name)))
     end
 end
 
@@ -173,7 +174,7 @@ function ns.SwitchSkills(from, to)
     if not MedalluinCharDB then return end
     if InCombatLockdown() then
         waiting = waiting or from
-        Say("the profile's skills and keys come on the bars when combat ends.")
+        Say(Tr["the profile's skills and keys come on the bars when combat ends."])
     end
     ns.OutOfCombat(function()
         waiting = nil
@@ -195,8 +196,8 @@ end)
 ns.On("PLAYER_LOGIN", function()
     if not (MedalluinDB and MedalluinDB.arenaLeft and MedalluinCharDB) or MedalluinCharDB.arenaLeft then return end
     MedalluinCharDB.arenaLeft = true
-    Say("the Arena console is set aside till its redesign after 1.0; you are on the Reticule. Its options, "
-        .. "skills and keys are the ones you chose on it; Arena's are kept.")
+    Say(Tr["the Arena console is set aside till its redesign after 1.0; you are on the Reticule. Its options, "
+        .. "skills and keys are the ones you chose on it; Arena's are kept."])
     ns.SwitchSkills("arena", ns.db.consoleProfile)
 end)
 

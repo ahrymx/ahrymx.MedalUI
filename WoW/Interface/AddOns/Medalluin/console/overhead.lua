@@ -13,6 +13,7 @@
 -- (a totem flyout's beside it, right or left as the option says);
 -- a detached cell's beside it, towards the screen's middle (window/shell.lua's marks).
 local _, ns = ...
+local Tr = ns.L
 
 local C = ns.colors
 local A, PIECES, CHIPS = ns.overheadArt, ns.overheadPieces, ns.overheadChips
@@ -275,7 +276,7 @@ local function CreateCell(unit, kind, chip)
     b:SetScript("OnEnter", function(self)
         if self.stub and not UnitExists(self.unit) then
             ns.Tip(self, "ANCHOR_RIGHT", { title = self.stub.name or self.unit, color = C.white,
-                { "body", "Simulated", C.grey } })
+                { "body", Tr["Simulated"], C.grey } })
         elseif UnitFrame_OnEnter then
             UnitFrame_OnEnter(self)
         end
@@ -715,14 +716,15 @@ end
 -- in the Enemies set's state; the pet, focus and target of target each while
 -- the panel's Overhead tab has them, hurt with it.
 local OVERHEAD_STUBS = {
-    boss1 = { name = "High Warlord Naj'entus", health = 85, maxHealth = 100, power = 100, class = "WARRIOR", boss = 1 },
-    boss2 = { name = "Supremus", health = 92, maxHealth = 100, power = 50, class = "WARRIOR", boss = 2 },
-    boss3 = { name = "Teron Gorefiend", health = 64, maxHealth = 100, power = 100, class = "WARLOCK", boss = 3 },
-    boss4 = { name = "Gurtogg Bloodboil", health = 100, maxHealth = 100, power = 30, class = "WARRIOR", boss = 4 },
-    boss5 = { name = "Reliquary of Souls", health = 41, maxHealth = 100, power = 70, class = "PRIEST", boss = 5 },
-    pet = { name = "Shadowfiend", health = 75, maxHealth = 100, power = 80, class = "PRIEST" },
-    focus = { name = "Lady Sacrolash", health = 60, maxHealth = 100, power = 100, class = "MAGE" },
-    targettarget = { name = "Main Tank", health = 88, maxHealth = 100, power = 40, class = "WARRIOR" },
+    boss1 = { name = Tr["High Warlord Naj'entus"], health = 85, maxHealth = 100, power = 100, class = "WARRIOR",
+        boss = 1 },
+    boss2 = { name = Tr["Supremus"], health = 92, maxHealth = 100, power = 50, class = "WARRIOR", boss = 2 },
+    boss3 = { name = Tr["Teron Gorefiend"], health = 64, maxHealth = 100, power = 100, class = "WARLOCK", boss = 3 },
+    boss4 = { name = Tr["Gurtogg Bloodboil"], health = 100, maxHealth = 100, power = 30, class = "WARRIOR", boss = 4 },
+    boss5 = { name = Tr["Reliquary of Souls"], health = 41, maxHealth = 100, power = 70, class = "PRIEST", boss = 5 },
+    pet = { name = Tr["Shadowfiend"], health = 75, maxHealth = 100, power = 80, class = "PRIEST" },
+    focus = { name = Tr["Lady Sacrolash"], health = 60, maxHealth = 100, power = 100, class = "MAGE" },
+    targettarget = { name = Tr["Main Tank"], health = 88, maxHealth = 100, power = 40, class = "WARRIOR" },
 }
 
 ns.bossStubs = { OVERHEAD_STUBS.boss1, OVERHEAD_STUBS.boss2, OVERHEAD_STUBS.boss3, OVERHEAD_STUBS.boss4,

@@ -16,6 +16,7 @@
 -- real unit is never touched. Nothing here is saved: a reload starts from the
 -- defaults. The player and target are not simulated. Drag it by any free spot.
 local _, ns = ...
+local Tr = ns.L
 
 local MEMBERS = { "party1", "party2", "party3", "party4" }
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -30,7 +31,10 @@ local HOLD = 3              -- seconds the answers stay up, as for a real check
 -- each member's answer to a ready check, in turn
 local ANSWERS = { party1 = "ready", party2 = "ready", party3 = "notready", party4 = "ready" }
 local HEALTH = { 100, 60, 25 }  -- a member's health, click by click
-local TABS = { { "party", "Party" }, { "raid", "Raid" }, { "enemies", "Enemies" }, { "overhead", "Overhead" } }
+local TABS = { { "party", Tr["Party"], Tr["The simulated party frames."] },
+    { "raid", Tr["Raid"], Tr["The simulated raid frames."] },
+    { "enemies", Tr["Enemies"], Tr["The simulated enemies frames."] },
+    { "overhead", Tr["Overhead"], Tr["The simulated overhead frames."] } }
 
 local panel
 local tab = "party"
@@ -148,20 +152,21 @@ local function Label(parent, y, text)
 end
 
 -- A count: label, -, the number (a click for none or all), +. A panel of
--- its own passes its redraw, and when the count applies.
+-- its own passes its redraw, and when the count applies. what: the tips,
+-- { fewer, more, many (a format of min and max) }.
 local function Count(page, y, id, label, min, max, get, set, what, redraw, can)
     can = can or function() return true end
     Label(page, y, label)
     local function By(n) set(math.max(min, math.min(max, get() + n))) end
     Button(page, COL0, y, 22, { id = id .. ".less", label = "-", click = function() By(-1) end, redraw = redraw,
         enabled = function() return can() and get() > min end,
-        tip = function() return "One " .. what .. " fewer." end })
+        tip = function() return what[1] end })
     Button(page, COL0 + 26, y, IW - COL0 - 52, { id = id, text = function() return tostring(get()) end,
         click = function() set(get() == min and max or min) end, redraw = redraw, enabled = can,
-        tip = function() return "How many " .. what .. "s. Click for " .. min .. ", or " .. max .. "." end })
+        tip = function() return format(what[3], min, max) end })
     Button(page, IW - 22, y, 22, { id = id .. ".more", label = "+", click = function() By(1) end, redraw = redraw,
         enabled = function() return can() and get() < max end,
-        tip = function() return "One " .. what .. " more." end })
+        tip = function() return what[2] end })
     return y - ROW
 end
 
@@ -182,14 +187,14 @@ end
 
 -- A set's auras, a button each across the page.
 local AURAS = {
-    glow = { "Dispel", "A debuff you can dispel: the frame's border glows." },
-    cc = { "CC", "Crowd control, in the frame's centre." },
-    boss = { "Boss", "A boss's debuff, in the frame's centre." },
-    buffs = { "Buffs", "Heals over time on the frame." },
-    mine = { "Debuffs", "Debuffs on the frame: your damage over time on an enemy." },
+    glow = { Tr["Dispel"], Tr["A debuff you can dispel: the frame's border glows."] },
+    cc = { Tr["CC"], Tr["Crowd control, in the frame's centre."] },
+    boss = { Tr["Boss"], Tr["A boss's debuff, in the frame's centre."] },
+    buffs = { Tr["Buffs"], Tr["Heals over time on the frame."] },
+    mine = { Tr["Debuffs"], Tr["Debuffs on the frame: your damage over time on an enemy."] },
 }
 local function Auras(page, y, set, keys)
-    Label(page, y, "Auras")
+    Label(page, y, Tr["Auras"])
     y = y - 18
     local w = (IW - (#keys - 1) * 3) / #keys
     for k, key in ipairs(keys) do
@@ -197,7 +202,7 @@ local function Auras(page, y, set, keys)
         Button(page, (k - 1) * (w + 3), y, w, { id = set .. ".aura." .. key, label = a[1],
             lit = function() return ns.sim[set].auras[key] == true end,
             click = function() ns.sim[set].auras[key] = not ns.sim[set].auras[key] end,
-            tip = function() return a[2] .. " On at least one frame while lit." end })
+            tip = function() return a[2] .. " " .. Tr["On at least one frame while lit."] end })
     end
     return y - ROW
 end
@@ -207,8 +212,9 @@ local function Here(i) return function() return i <= ns.sim.party.count end end
 
 local function PartyPage(page)
     local p = ns.sim.party
-    local y = Count(page, 0, "party.count", "Members", 1, 4, function() return p.count end,
-        function(n) p.count = n end, "member")
+    local y = Count(page, 0, "party.count", Tr["Members"], 1, 4, function() return p.count end,
+        function(n) p.count = n end,
+        { Tr["One member fewer."], Tr["One member more."], Tr["How many members. Click for %d, or %d."] })
     for i, u in ipairs(MEMBERS) do
         local head = ns.Text(page, 10)
         head:SetPoint("TOP", page, "TOPLEFT", COL0 + (i - 1) * COL + CW / 2, y - 3)
@@ -232,51 +238,52 @@ local function PartyPage(page)
         end
         y = y - ROW
     end
-    Row("health", "Health", nil, function(s)
+    Row("health", Tr["Health"], nil, function(s)
         local next = HEALTH[1]
         for k, h in ipairs(HEALTH) do
             if h == s.health then next = HEALTH[k % #HEALTH + 1] end
         end
         s.health = next
-    end, function(name, s) return name .. " is at " .. s.health .. "%. Click for "
-        .. (s.health == 100 and 60 or s.health == 60 and 25 or 100) .. "%." end)
-    Row("dead", "Dead", function(s) return s.dead == true end, function(s) s.dead = not s.dead end,
-        function(name, s) return name .. (s.dead and " is dead. Click to bring them back." or
-            " is alive. Click to kill them.") end)
-    Row("offline", "Offline", function(s) return s.offline == true end, function(s) s.offline = not s.offline end,
-        function(name, s) return name .. (s.offline and " is offline. Click to bring them back." or
-            " is online. Click to disconnect them.") end)
-    Row("away", "Out of range", function(s) return s.inRange == false end,
+    end, function(name, s) return format(Tr["%s is at %d%%. Click for %d%%."], name, s.health,
+        s.health == 100 and 60 or s.health == 60 and 25 or 100) end)
+    Row("dead", Tr["Dead"], function(s) return s.dead == true end, function(s) s.dead = not s.dead end,
+        function(name, s) return format(s.dead and Tr["%s is dead. Click to bring them back."]
+            or Tr["%s is alive. Click to kill them."], name) end)
+    Row("offline", Tr["Offline"], function(s) return s.offline == true end, function(s) s.offline = not s.offline end,
+        function(name, s) return format(s.offline and Tr["%s is offline. Click to bring them back."]
+            or Tr["%s is online. Click to disconnect them."], name) end)
+    Row("away", Tr["Out of range"], function(s) return s.inRange == false end,
         function(s) s.inRange = s.inRange == false end,
-        function(name, s) return name .. (s.inRange == false and " is out of range. Click to bring them near."
-            or " is in range. Click to move them away.") end,
+        function(name, s) return format(s.inRange == false and Tr["%s is out of range. Click to bring them near."]
+            or Tr["%s is in range. Click to move them away."], name) end,
         function() return ns.PartyOption("partyRange") ~= 0 end)
-    Row("pet", "Pet", function(s) return s.pet == true end, function(s) s.pet = not s.pet end,
-        function(name, s) return name .. (s.pet and " has a pet. Click to dismiss it." or
-            " has no pet. Click to summon one.") end,
+    Row("pet", Tr["Pet"], function(s) return s.pet == true end, function(s) s.pet = not s.pet end,
+        function(name, s) return format(s.pet and Tr["%s has a pet. Click to dismiss it."]
+            or Tr["%s has no pet. Click to summon one."], name) end,
         function() return ns.PartyPets() end)
     y = Auras(page, y - 4, "party", { "glow", "cc", "boss", "buffs", "mine" })
     local half = (IW - 4) / 2
-    Button(page, 0, y - 4, half, { id = "party.ready", label = "Ready check",
+    Button(page, 0, y - 4, half, { id = "party.ready", label = Tr["Ready check"],
         lit = function() return check ~= nil and check.kind == "ready" end,
         click = function() StartCheck("ready") end,
-        tip = function() return "The members answer in turn: ready, ready, not ready, ready." end })
-    Button(page, half + 4, y - 4, half, { id = "party.role", label = "Role check",
+        tip = function() return Tr["The members answer in turn: ready, ready, not ready, ready."] end })
+    Button(page, half + 4, y - 4, half, { id = "party.role", label = Tr["Role check"],
         lit = function() return check ~= nil and check.kind == "role" end,
         click = function() StartCheck("role") end,
-        tip = function() return "The members confirm their roles in turn." end })
+        tip = function() return Tr["The members confirm their roles in turn."] end })
     return y - 4 - ROW
 end
 
 local function RaidPage(page)
     local r = ns.sim.raid
-    local y = Count(page, 0, "raid.groups", "Groups", 1, 8, function() return r.groups end,
-        function(n) r.groups = n end, "group")
+    local y = Count(page, 0, "raid.groups", Tr["Groups"], 1, 8, function() return r.groups end,
+        function(n) r.groups = n end,
+        { Tr["One group fewer."], Tr["One group more."], Tr["How many groups. Click for %d, or %d."] })
     y = Toggles(page, y - 4, "raid", function() return r end, {
-        { "hurt", "Hurt", "Members below full health." },
-        { "dead", "Dead", "At least one member is dead." },
-        { "offline", "Offline", "At least one member is offline." },
-        { "away", "Out of range", "At least one member is out of range.",
+        { "hurt", Tr["Hurt"], Tr["Members below full health."] },
+        { "dead", Tr["Dead"], Tr["At least one member is dead."] },
+        { "offline", Tr["Offline"], Tr["At least one member is offline."] },
+        { "away", Tr["Out of range"], Tr["At least one member is out of range."],
             function() return ns.RaidRange() ~= 0 end },
     })
     return Auras(page, y - 4, "raid", { "glow", "cc", "boss", "mine" })
@@ -284,13 +291,15 @@ end
 
 local function EnemiesPage(page)
     local e = ns.sim.enemies
-    local y = Count(page, 0, "enemies.bosses", "Bosses", 0, 5, function() return e.bosses end,
-        function(n) e.bosses = n end, "boss")
-    y = Count(page, y, "enemies.arena", "Arena", 0, 5, function() return e.arena end,
-        function(n) e.arena = n end, "arena enemy")
+    local y = Count(page, 0, "enemies.bosses", Tr["Bosses"], 0, 5, function() return e.bosses end,
+        function(n) e.bosses = n end,
+        { Tr["One boss fewer."], Tr["One boss more."], Tr["How many bosses. Click for %d, or %d."] })
+    y = Count(page, y, "enemies.arena", Tr["Arena"], 0, 5, function() return e.arena end,
+        function(n) e.arena = n end, { Tr["One arena enemy fewer."], Tr["One arena enemy more."],
+            Tr["How many arena enemies. Click for %d, or %d."] })
     y = Toggles(page, y - 4, "enemies", function() return e end, {
-        { "hurt", "Hurt", "Bosses and arena enemies below full health." },
-        { "dead", "Dead", "At least one boss and arena enemy is dead." },
+        { "hurt", Tr["Hurt"], Tr["Bosses and arena enemies below full health."] },
+        { "dead", Tr["Dead"], Tr["At least one boss and arena enemy is dead."] },
     })
     return Auras(page, y - 4, "enemies", { "cc", "mine" })
 end
@@ -298,10 +307,10 @@ end
 local function OverheadPage(page)
     local o = ns.sim.overhead
     return Toggles(page, 0, "overhead", function() return o end, {
-        { "pet", "Pet", "Your pet's frame, over the console." },
-        { "focus", "Focus", "Your focus's frame." },
-        { "targettarget", "Target of target", "Your target's target's frame." },
-        { "hurt", "Hurt", "These frames below full health." },
+        { "pet", Tr["Pet"], Tr["Your pet's frame, over the console."] },
+        { "focus", Tr["Focus"], Tr["Your focus's frame."] },
+        { "targettarget", Tr["Target of target"], Tr["Your target's target's frame."] },
+        { "hurt", Tr["Hurt"], Tr["These frames below full health."] },
     })
 end
 
@@ -351,13 +360,13 @@ ns.simKit = { Chrome = Chrome, Button = Button, Label = Label, Count = Count, To
     ROW = ROW, PAD = PAD, IW = IW }
 
 local function Build()
-    panel = Chrome("MedalluinSimPanel", "Simulated frames", "LEFT", 16, 120)
+    panel = Chrome("MedalluinSimPanel", Tr["Simulated frames"], "LEFT", 16, 120)
 
     local tw = (IW - 2 * (#TABS - 1)) / #TABS
     for k, t in ipairs(TABS) do
         Button(panel, PAD + (k - 1) * (tw + 2), -(PAD + 16 + 4), tw, { id = "tab." .. t[1], label = t[2],
             lit = function() return tab == t[1] end, click = function() Show(t[1]) end,
-            tip = function() return "The simulated " .. t[2]:lower() .. " frames." end })
+            tip = function() return t[3] end })
     end
     for _, t in ipairs(TABS) do
         local page = CreateFrame("Frame", nil, panel)
@@ -367,9 +376,9 @@ local function Build()
         pages[t[1]] = page
     end
 
-    foot = Button(panel, PAD, 0, IW, { id = "end", label = "End simulation",
+    foot = Button(panel, PAD, 0, IW, { id = "end", label = Tr["End simulation"],
         click = function() ns.SetOption("simParty", false) end,
-        tip = function() return "Turn off Simulate party frames." end })
+        tip = function() return Tr["Turn off Simulate party frames."] end })
     Show(tab)
 
     panel:SetScript("OnUpdate", function(_, elapsed)

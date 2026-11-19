@@ -7,6 +7,7 @@
 -- Boss frames); Blizzard's are retired either way (blizzard.lua).
 -- Blizzard's arena frames give way to the Arena widget.
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.WIDGET
 
@@ -105,7 +106,7 @@ ns.bossWidget = Column({
     name = "MedalluinBossWidget", key = "bossWidgetPoint", default = { "RIGHT", "RIGHT", -260, 160 },
     hover = "bossMoverHover",
     unit = "boss", editKey = "editBoss",
-    title = function(n) return n > 1 and "Bosses" or "Boss" end,
+    title = function(n) return n > 1 and Tr["Bosses"] or Tr["Boss"] end,
     on = BossesHere,
     preview = function() return ns.sim.enemies.bosses end,
     -- the overhead's simulated bosses, with the power a cell here draws
@@ -122,17 +123,18 @@ ns.OnSetting("bossFrames", function() ns.UpdateWidgets() end)
 
 -- ------------------------------------------------------------ arena
 local ARENA_STUBS = {
-    { name = "Arena 1", class = "ROGUE", health = 90, maxHealth = 100, power = 60, maxPower = 100, powerType = 3 },
-    { name = "Arena 2", class = "PRIEST", health = 70, maxHealth = 100, power = 80, maxPower = 100, powerType = 0 },
-    { name = "Arena 3", class = "WARRIOR", health = 50, maxHealth = 100, power = 30, maxPower = 100, powerType = 1 },
-    { name = "Arena 4", class = "HUNTER", health = 80, maxHealth = 100, power = 90, maxPower = 100, powerType = 2 },
-    { name = "Arena 5", class = "DRUID", health = 35, maxHealth = 100, power = 50, maxPower = 100, powerType = 0 },
+    { name = Tr["Arena 1"], class = "ROGUE", health = 90, maxHealth = 100, power = 60, maxPower = 100, powerType = 3 },
+    { name = Tr["Arena 2"], class = "PRIEST", health = 70, maxHealth = 100, power = 80, maxPower = 100, powerType = 0 },
+    { name = Tr["Arena 3"], class = "WARRIOR", health = 50, maxHealth = 100, power = 30, maxPower = 100,
+        powerType = 1 },
+    { name = Tr["Arena 4"], class = "HUNTER", health = 80, maxHealth = 100, power = 90, maxPower = 100, powerType = 2 },
+    { name = Tr["Arena 5"], class = "DRUID", health = 35, maxHealth = 100, power = 50, maxPower = 100, powerType = 0 },
 }
 ns.arenaWidget = Column({
     name = "MedalluinArenaWidget", key = "arenaWidgetPoint", default = { "RIGHT", "RIGHT", -260, -120 },
     hover = "arenaMoverHover",
     unit = "arena", editKey = "editArena",
-    title = function() return "Arena" end,
+    title = function() return Tr["Arena"] end,
     on = function() return true end,
     preview = function() return ns.sim.enemies.arena end,
     stubs = ARENA_STUBS,

@@ -768,7 +768,7 @@ function ns.OptionPages()
             "A macro conditional naming the page, e.g. [mod:shift] 2; [stealth] 7; 1. \"possess\" is the "
             .. "bar the game puts up for a vehicle, an override or a possessed unit. Saving it picks Custom.")))
         table.insert(paging, {
-            title = pb.name,
+            title = pb.label,
             tip = pb.grid and "The Reticule's 2x5 grid in the centre bay."
                 or pb.base and ("Shown with Rows at " .. pb.name:match("%d") .. " or more.")
                 or "Action bar 1, in the bar's frame.",
