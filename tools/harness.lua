@@ -16035,6 +16035,39 @@ if characterPass then
                     "ribbon=" .. tostring(#(st.ribbon.edges or {})) .. " edges", "ring=" .. #(st.badge.rings or {})
                         .. " " .. tostring(st.badge.value.text) .. "/" .. tostring(st.badge.label.text),
                     "rows=" .. table.concat(hairs), "resist=" .. table.concat(cells, " "))
+                -- (2026-11-19) each stat's tooltip, through its OnEnter
+                do
+                    local lines = {}
+                    local set, add, two = GameTooltip.SetText, GameTooltip.AddLine, GameTooltip.AddDoubleLine
+                    GameTooltip.SetText = function(_, t) lines = { tostring(t) } end
+                    GameTooltip.AddLine = function(_, t) lines[#lines + 1] = tostring(t) end
+                    GameTooltip.AddDoubleLine = function(_, l, r) lines[#lines + 1] = tostring(l) .. "=" .. tostring(r) end
+                    local function hover(tag, f)
+                        lines = {}
+                        local on = f and f.scripts and f.scripts.OnEnter
+                        if on then on(f) end
+                        print("char.tip " .. tag, (#lines > 0 and table.concat(lines, "; "):gsub("|c%x%x%x%x%x%x%x%x", "")
+                            :gsub("|r", "") or "(none)"), "wash=" .. tostring(f and f.wash and f.wash.shown))
+                        local off = f and f.scripts and f.scripts.OnLeave
+                        if off then off(f) end
+                    end
+                    local function row(name)
+                        for _, side in ipairs({ "left", "right" }) do
+                            for _, r in ipairs(st.columns[side]) do
+                                if r.shown and r.label.text == name then return r end
+                            end
+                        end
+                    end
+                    for _, name in ipairs({ "Health", "Strength", "Agility", "Spirit", "Attack Power", "Spell Power",
+                        "Defense", "Block" }) do
+                        hover(name, row(name))
+                    end
+                    hover("ribbon1", st.ribbon.cells[1])
+                    hover("ribbon4", st.ribbon.cells[4])
+                    hover("badge", st.badge)
+                    if st.resist then hover("fire", st.resist.cells[2]) end
+                    GameTooltip.SetText, GameTooltip.AddLine, GameTooltip.AddDoubleLine = set, add, two
+                end
                 if sw and sw.byKey.titles then
                     sw.byKey.titles.scripts.OnClick(sw.byKey.titles, "LeftButton")
                     print("char.sleek titles", held())
