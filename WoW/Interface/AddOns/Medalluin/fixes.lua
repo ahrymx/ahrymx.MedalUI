@@ -10,6 +10,7 @@
 --   Find() true while the issue is there
 --   Fix()  puts it right; the dialog then reloads, so a fix only saves
 local _, ns = ...
+local Tr = ns.L
 
 local issues = {}
 function ns.KnownIssue(issue) table.insert(issues, issue) end
@@ -54,8 +55,8 @@ end
 
 ns.KnownIssue({
     id = "editModeConsoleAnchor",
-    chat = "your saved Edit Mode layout still pins game frames (the Cooldown Manager) to Medalluin's frames, "
-        .. "left by an older version. It makes the game's cooldown bars report errors \"tainted by Medalluin\".",
+    chat = Tr["your saved Edit Mode layout still pins game frames (the Cooldown Manager) to Medalluin's frames, "
+        .. "left by an older version. It makes the game's cooldown bars report errors \"tainted by Medalluin\"."],
     Find = function() return #Stuck(Layouts()) > 0 end,
     Fix = function()
         local layouts = Layouts()
@@ -91,17 +92,18 @@ end
 -- The fixes and the reload run from the Fix button's own click: ReloadUI
 -- from anything else is blocked (see settings.lua's profile reload).
 StaticPopupDialogs.MEDALLUIN_FIX_ISSUES = {
-    text = "Medalluin found %s left by an older version that updating does not undo:\n\n%s\n\n"
-        .. "Fix now? The interface reloads to finish. You can do it later with " .. COMMAND .. ".",
-    button1 = "Fix and reload",
-    button2 = "Later",
+    -- (the popup fills the two %s: what was found, and the list)
+    text = Tr["Medalluin found %s left by an older version that updating does not undo:\n\n%s\n\n"
+        .. "Fix now? The interface reloads to finish. You can do it later with /mui fix-issues."],
+    button1 = Tr["Fix and reload"],
+    button2 = Tr["Later"],
     OnAccept = function()
         local failed = false
         for _, issue in ipairs(Found()) do
             local ok, err = pcall(issue.Fix)
             if not ok then
                 failed = true
-                Say("could not fix it (" .. tostring(err) .. "). Try again with " .. COMMAND .. ".")
+                Say(format(Tr["could not fix it (%s). Try again with %s."], tostring(err), COMMAND))
             end
         end
         if not failed then ReloadUI() end
@@ -118,7 +120,8 @@ local function Offer(found)
     end
     local lines = {}
     for _, issue in ipairs(found) do table.insert(lines, "- " .. issue.chat) end
-    StaticPopup_Show("MEDALLUIN_FIX_ISSUES", #found == 1 and "a problem" or (#found .. " problems"),
+    StaticPopup_Show("MEDALLUIN_FIX_ISSUES", #found == 1 and Tr["a problem"]
+        or ns.Plural(#found, format(Tr["%d |4problem:problems;"], #found)),
         table.concat(lines, "\n"))
 end
 
@@ -126,7 +129,7 @@ end
 function ns.FixIssues()
     local found = Found()
     if #found == 0 then
-        Say("no known issues found.")
+        Say(Tr["no known issues found."])
         return
     end
     Offer(found)
@@ -140,7 +143,7 @@ function ns.CheckIssues()
     if #found == 0 then return end
     local offered, fresh = Offered(), false
     for _, issue in ipairs(found) do
-        Say(issue.chat .. " Type " .. COMMAND .. " to fix it.")
+        Say(format(Tr["%s Type %s to fix it."], issue.chat, COMMAND))
         if not offered[issue.id] then
             offered[issue.id] = true
             fresh = true

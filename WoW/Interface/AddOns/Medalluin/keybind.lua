@@ -11,6 +11,7 @@
 -- ends when combat starts. Faded bars come back while it is on
 -- (bars/bar.lua's fade asks ns.keybinding).
 local _, ns = ...
+local Tr = ns.L
 
 -- A button's binding command, by its name: Blizzard's bars bind through
 -- their own commands, so a key set here shows in Blizzard's Keybindings page
@@ -19,18 +20,18 @@ local _, ns = ...
 -- Medalluin's own, with click bindings, the form Blizzard's buttons read a
 -- hotkey from when they have no command of their own.
 local BARS = {
-    { "ActionButton", "ACTIONBUTTON", "Action bar 1", 12 },
-    { "MultiBarBottomLeftButton", "MULTIACTIONBAR1BUTTON", "Action bar 2", 12 },
-    { "MultiBarBottomRightButton", "MULTIACTIONBAR2BUTTON", "Action bar 3", 12 },
-    { "MultiBarRightButton", "MULTIACTIONBAR3BUTTON", "Action bar 4", 12 },
-    { "MultiBarLeftButton", "MULTIACTIONBAR4BUTTON", "Action bar 5", 12 },
-    { "MultiBar5Button", "MULTIACTIONBAR5BUTTON", "Action bar 6", 12 },
-    { "MultiBar6Button", "MULTIACTIONBAR6BUTTON", "Action bar 7", 12 },
-    { "MultiBar7Button", "MULTIACTIONBAR7BUTTON", "Action bar 8", 12 },
-    { "StanceButton", "SHAPESHIFTBUTTON", "Stance bar", 10 },
-    { "PetActionButton", "BONUSACTIONBUTTON", "Pet bar", 10 },
-    { "MultiCastActionButton", "MULTICASTACTIONBUTTON", "Totem bar", 12 },
-    { "MedalluinBar7Button", false, "Centre grid", 10 },
+    { "ActionButton", "ACTIONBUTTON", Tr["Action bar 1"], 12 },
+    { "MultiBarBottomLeftButton", "MULTIACTIONBAR1BUTTON", Tr["Action bar 2"], 12 },
+    { "MultiBarBottomRightButton", "MULTIACTIONBAR2BUTTON", Tr["Action bar 3"], 12 },
+    { "MultiBarRightButton", "MULTIACTIONBAR3BUTTON", Tr["Action bar 4"], 12 },
+    { "MultiBarLeftButton", "MULTIACTIONBAR4BUTTON", Tr["Action bar 5"], 12 },
+    { "MultiBar5Button", "MULTIACTIONBAR5BUTTON", Tr["Action bar 6"], 12 },
+    { "MultiBar6Button", "MULTIACTIONBAR6BUTTON", Tr["Action bar 7"], 12 },
+    { "MultiBar7Button", "MULTIACTIONBAR7BUTTON", Tr["Action bar 8"], 12 },
+    { "StanceButton", "SHAPESHIFTBUTTON", Tr["Stance bar"], 10 },
+    { "PetActionButton", "BONUSACTIONBUTTON", Tr["Pet bar"], 10 },
+    { "MultiCastActionButton", "MULTICASTACTIONBUTTON", Tr["Totem bar"], 12 },
+    { "MedalluinBar7Button", false, Tr["Centre grid"], 10 },
 }
 -- The totem bar's two spells, one button each (the summon is the page's:
 -- Call of the Elements, of the Ancestors, of the Spirits)
@@ -39,9 +40,9 @@ local function Summon()
     return "MULTICASTSUMMONBUTTON" .. (bar and bar.currentPage or 1)
 end
 local SINGLES = {
-    MultiCastSummonSpellButton = { Summon, "Totem bar, summon",
+    MultiCastSummonSpellButton = { Summon, Tr["Totem bar, summon"],
         { "MULTICASTSUMMONBUTTON1", "MULTICASTSUMMONBUTTON2", "MULTICASTSUMMONBUTTON3" } },
-    MultiCastRecallSpellButton = { function() return "MULTICASTRECALLBUTTON1" end, "Totem bar, recall",
+    MultiCastRecallSpellButton = { function() return "MULTICASTRECALLBUTTON1" end, Tr["Totem bar, recall"],
         { "MULTICASTRECALLBUTTON1" } },
 }
 
@@ -74,7 +75,7 @@ local function Find(btn)
     for _, bar in ipairs(BARS) do
         local n = name:match("^" .. bar[1] .. "(%d+)$")
         if n then
-            return Command(bar[2] and bar[2] .. n, name), bar[3] .. ", button " .. n
+            return Command(bar[2] and bar[2] .. n, name), format(Tr["%s, button %s"], bar[3], n)
         end
     end
 end
@@ -162,8 +163,8 @@ local function Tip()
     local keys = Keys(command)
     for i, key in ipairs(keys) do keys[i] = KeyText(key) end
     ns.Tip(binder, "ANCHOR_TOP", { title = label,
-        { "body", #keys > 0 and table.concat(keys, ", ") or "Not bound" },
-        { "hint", "Press a key to bind it. Esc removes its keys." } })
+        { "body", #keys > 0 and table.concat(keys, ", ") or Tr["Not bound"] },
+        { "hint", Tr["Press a key to bind it. Esc removes its keys."] } })
 end
 
 local function Press(key)
@@ -235,11 +236,11 @@ local function Banner()
     edge:SetColorTexture(0.88, 0.72, 0.29, 1)
     local title = ns.Text(banner, 15)
     title:SetPoint("TOP", 0, -8)
-    title:SetText("Key binding")
+    title:SetText(Tr["Key binding"])
     local hint = ns.Text(banner, 11)
     hint:SetPoint("TOP", title, "BOTTOM", 0, -4)
     hint:SetTextColor(unpack(ns.colors.dim))
-    hint:SetText("Point at a button and press a key. Esc over it removes its keys.")
+    hint:SetText(Tr["Point at a button and press a key. Esc over it removes its keys."])
     banner.hint = hint
     local done = CreateFrame("Button", "MedalluinKeybindDone", banner, "UIPanelButtonTemplate")
     done:SetSize(64, 20)
@@ -284,7 +285,7 @@ end
 local function Start()
     if ns.keybinding then return end
     if InCombatLockdown() then
-        print("|cffe0b84aMedalluin|r: key bindings cannot change in combat.")
+        print("|cffe0b84aMedalluin|r: " .. Tr["key bindings cannot change in combat."])
         return
     end
     ns.keybinding = true

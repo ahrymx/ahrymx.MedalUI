@@ -15,6 +15,7 @@
 -- The consoles hold secure buttons, so they move only out of combat; a drag
 -- in combat waits for it to end (ns.OutOfCombat, in the placement).
 local _, ns = ...
+local Tr = ns.L
 
 local UI = ns.OptionsUI
 local C = UI.colors
@@ -26,14 +27,14 @@ local SCALE_MIN, SCALE_MAX, SCALE_STEP = 0.5, 1.5, 0.05
 
 local CONSOLES = {
     {
-        id = "console", name = "Console",
+        id = "console", name = Tr["Console"],
         frame = function() return ns.console end,
         place = function() if ns.PlaceConsole then ns.PlaceConsole() end end,
         -- the bottom console rises from the screen's foot
         minY = -200, maxY = REACH_Y,
     },
     {
-        id = "overhead", name = "Overhead",
+        id = "overhead", name = Tr["Overhead"],
         frame = function() return ns.overhead end,
         place = function() if ns.PlaceOverhead then ns.PlaceOverhead() end end,
         -- the overhead hangs from the screen's top
@@ -43,7 +44,7 @@ local CONSOLES = {
     {
         -- the Reticule's minimap in the screen's corner (console/minimap.lua);
         -- its mover shows where the corner is even while the minimap is in the bay
-        id = "minimap", name = "Corner minimap", label = "Size",
+        id = "minimap", name = Tr["Corner minimap"], label = Tr["Size"],
         frame = function() return ns.minimapBezel end,
         place = function() if ns.PlaceMinimap then ns.PlaceMinimap() end end,
         minY = -REACH_Y, maxY = 40,
@@ -83,16 +84,16 @@ local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 -- down (UI.Slider's fast).
 local function Specs(c)
     return {
-        scale = { kind = "slider", key = Key(c, "Scale"), label = c.label or "Scale", fast = true,
+        scale = { kind = "slider", key = Key(c, "Scale"), label = c.label or Tr["Scale"], fast = true,
             min = SCALE_MIN, max = SCALE_MAX, step = SCALE_STEP,
             text = function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end,
-            tip = "Its size, as a share of the size it is drawn at. Shift steps five, Ctrl ten; hold to repeat." },
-        x = { kind = "slider", key = Key(c, "X"), label = "Across", fast = true,
+            tip = Tr["Its size, as a share of the size it is drawn at. Shift steps five, Ctrl ten; hold to repeat."] },
+        x = { kind = "slider", key = Key(c, "X"), label = Tr["Across"], fast = true,
             min = -REACH_X, max = REACH_X, step = 1,
-            tip = "Right of where it is drawn, or left below zero. Shift steps five, Ctrl ten; hold to repeat." },
-        y = { kind = "slider", key = Key(c, "Y"), label = "Up", fast = true,
+            tip = Tr["Right of where it is drawn, or left below zero. Shift steps five, Ctrl ten; hold to repeat."] },
+        y = { kind = "slider", key = Key(c, "Y"), label = Tr["Up"], fast = true,
             min = c.minY, max = c.maxY, step = 1,
-            tip = "Up from where it is drawn, or down below zero. Shift steps five, Ctrl ten; hold to repeat." },
+            tip = Tr["Up from where it is drawn, or down below zero. Shift steps five, Ctrl ten; hold to repeat."] },
     }
 end
 
@@ -114,9 +115,10 @@ function ns.ConsolePlaceGroups(Group, ids)
         for _, c in ipairs(CONSOLES) do
             if c.id == id[1] then
                 local s = Specs(c)
-                local reset = { kind = "button", label = "Reset " .. c.name:lower(), click = function() Reset(c) end,
-                    tip = c.noScale and "Back to where the profile draws it."
-                        or "Back to where the profile draws it, at its own size." }
+                local reset = { kind = "button", label = format(Tr["Reset %s"], c.name:lower()),
+                    click = function() Reset(c) end,
+                    tip = c.noScale and Tr["Back to where the profile draws it."]
+                        or Tr["Back to where the profile draws it, at its own size."] }
                 if c.noScale then
                     table.insert(groups, Group(id[2] or c.name, s.x, s.y, reset))
                 else
@@ -251,7 +253,7 @@ local function Mover(c)
     end
     m.label = UI.Serif(m, 14, C.text)
     m.label:SetPoint("CENTER")
-    m.label:SetText("Medalluin " .. c.name:lower())
+    m.label:SetText(format(Tr["Medalluin %s"], c.name:lower()))
     Paint(m)
 
     -- a drag places it (Dragger); a press that is not one selects it
@@ -284,20 +286,20 @@ function Popup(c)
         UI.Skin(popup, C.panel)
         popup.title = UI.Serif(popup, 14, C.goldBright)
         popup.title:SetPoint("TOP", 0, -12)
-        popup.close = UI.Button(popup, "Close", 80, 22, function()
+        popup.close = UI.Button(popup, Tr["Close"], 80, 22, function()
             popup:Hide()
             selected = nil
             for _, m in pairs(movers) do Paint(m) end
         end, nil, "quiet")
         popup.close:SetPoint("BOTTOMRIGHT", -12, 12)
-        popup.reset = UI.Button(popup, "Reset", 80, 22, function()
+        popup.reset = UI.Button(popup, Tr["Reset"], 80, 22, function()
             if popup.console then Reset(popup.console) end
-        end, "Back to where the profile draws it, at its own size.")
+        end, Tr["Back to where the profile draws it, at its own size."])
         popup.reset:SetPoint("BOTTOMLEFT", 12, 12)
         popup.byConsole = {}
     end
     popup.console = c
-    popup.title:SetText("Medalluin " .. c.name:lower())
+    popup.title:SetText(format(Tr["Medalluin %s"], c.name:lower()))
     -- a viewer's popup is wider: its look beside its place
     local looks = c.look and ns.CdmLookSpecs and ns.CdmLookSpecs(c.look)
     if looks then popup:SetSize(LOOK_X + LOOK_W + 12, LOOK_H) else popup:SetSize(POPUP_W, POPUP_H) end

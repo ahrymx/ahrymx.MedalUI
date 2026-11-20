@@ -20,6 +20,7 @@
 -- the right one stay each other's mirror. A widget's cells are all the
 -- left copy: outer is left.
 local _, ns = ...
+local Tr = ns.L
 
 local E = {}
 ns.editor = E
@@ -28,21 +29,21 @@ ns.editor = E
 -- What a text piece can show: { value, name on the menu, tip }.
 E.FORMATS = {
     name = {
-        { "full", "Full", "The whole name." },
-        { "short", "Initials", "Every word but the last as its initial: \"J. Smith\"." },
+        { "full", Tr["Full"], Tr["The whole name."] },
+        { "short", Tr["Initials"], Tr["Every word but the last as its initial: \"J. Smith\"."] },
     },
     value = {
-        { "percent", "Percent", "\"82%\"." },
-        { "current", "Current", "\"41.2k\"." },
-        { "both", "Current and percent", "\"41.2k | 82%\"." },
-        { "stacked", "Percent over current", "\"82%\" with \"41.2k\" on a line under it." },
-        { "deficit", "Missing", "\"-9.1k\", blank at full health. Where the game keeps the numbers secret, the "
-            .. "percent." },
+        { "percent", Tr["Percent"], "\"82%\"." },
+        { "current", Tr["Current"], "\"41.2k\"." },
+        { "both", Tr["Current and percent"], "\"41.2k | 82%\"." },
+        { "stacked", Tr["Percent over current"], Tr["\"82%\" with \"41.2k\" on a line under it."] },
+        { "deficit", Tr["Missing"], Tr["\"-9.1k\", blank at full health. Where the game keeps the numbers secret, the "
+            .. "percent."] },
     },
     powerValue = {
-        { "both", "Current and percent", "\"8.2k | 60%\"." },
-        { "current", "Current", "\"8.2k\"." },
-        { "percent", "Percent", "\"60%\"." },
+        { "both", Tr["Current and percent"], "\"8.2k | 60%\"." },
+        { "current", Tr["Current"], "\"8.2k\"." },
+        { "percent", Tr["Percent"], "\"60%\"." },
     },
 }
 
@@ -51,21 +52,21 @@ E.FORMATS = {
 -- "row" of icons, or the "cell" itself), and how to find it on a button.
 -- A text piece has formats; one hidden by default starts with its Shown off.
 local PIECES = {
-    cell = { label = "Cell size", type = "cell" },
+    cell = { label = Tr["Cell size"], type = "cell" },
     -- the power bar's height (ns.LayPower, console/units.lua); 0 none
-    power = { label = "Power bar", type = "bar" },
-    name = { label = "Name", type = "text", get = function(b) return b.name end },
-    level = { label = "Level", type = "text", get = function(b) return b.levelText end },
-    value = { label = "Health value", type = "text", get = function(b) return b.value end },
-    powerValue = { label = "Power value", type = "text", get = function(b) return b.powerValue end },
-    role = { label = "Role", type = "icon", get = function(b) return b.roleFrame end },
-    leader = { label = "Leader", type = "icon", get = function(b) return b.leaderFrame end },
-    status = { label = "Ready check", type = "icon", get = function(b) return b.statusWidget end },
-    cc = { label = "Crowd control", type = "icon", get = function(b) return b.ccWidget end },
-    boss = { label = "Boss debuff", type = "icon", get = function(b) return b.bossDebuff end },
+    power = { label = Tr["Power bar"], type = "bar" },
+    name = { label = Tr["Name"], type = "text", get = function(b) return b.name end },
+    level = { label = Tr["Level"], type = "text", get = function(b) return b.levelText end },
+    value = { label = Tr["Health value"], type = "text", get = function(b) return b.value end },
+    powerValue = { label = Tr["Power value"], type = "text", get = function(b) return b.powerValue end },
+    role = { label = Tr["Role"], type = "icon", get = function(b) return b.roleFrame end },
+    leader = { label = Tr["Leader"], type = "icon", get = function(b) return b.leaderFrame end },
+    status = { label = Tr["Ready check"], type = "icon", get = function(b) return b.statusWidget end },
+    cc = { label = Tr["Crowd control"], type = "icon", get = function(b) return b.ccWidget end },
+    boss = { label = Tr["Boss debuff"], type = "icon", get = function(b) return b.bossDebuff end },
     -- (a row's From: whose auras, yours or all; E.FROM, ns.RowFrom)
-    buffs = { label = "Buffs", type = "row", get = function(b) return b.buffWidgets end },
-    mine = { label = "Debuffs", type = "row", get = function(b) return b.mineWidgets end },
+    buffs = { label = Tr["Buffs"], type = "row", get = function(b) return b.buffWidgets end },
+    mine = { label = Tr["Debuffs"], type = "row", get = function(b) return b.mineWidgets end },
 }
 E.PIECES = PIECES
 
@@ -92,29 +93,29 @@ end
 -- Unit Frames page has too names it (shows): the editor's Shown is that
 -- option, not a second one. A widget's cell has its size from cell.
 E.FRAMES = {
-    { id = "unit", key = "editUnit", name = "Player · Target", buttons = function()
+    { id = "unit", key = "editUnit", name = Tr["Player · Target"], buttons = function()
         return { ns.units.player, ns.units.target }
     end, pieces = { "name", "level", "leader", "value", "powerValue", "power", "cc", "boss", "buffs", "mine" },
       shows = { cc = "auraCC", boss = "auraBoss", buffs = "auraBuffs", mine = "auraDebuffs" } },
-    { id = "party", key = "editParty", name = "Party", buttons = Party(false),
+    { id = "party", key = "editParty", name = Tr["Party"], buttons = Party(false),
       pieces = { "name", "level", "value", "power", "role", "leader", "status", "cc", "boss", "buffs", "mine" },
       hidden = { value = true },
       shows = { cc = "auraCC", boss = "auraBoss", buffs = "auraBuffs", mine = "auraDebuffs" } },
-    { id = "partyWidget", key = "editPartyWidget", name = "Party widget", buttons = Party(true),
+    { id = "partyWidget", key = "editPartyWidget", name = Tr["Party widget"], buttons = Party(true),
       cell = { 160, 40 },
       pieces = { "cell", "name", "level", "value", "power", "role", "leader", "status", "cc", "boss", "buffs",
           "mine" },
       hidden = { value = true },
       shows = { cc = "partyWidgetCC", boss = "partyWidgetBoss", buffs = "partyWidgetBuffs",
           mine = "partyWidgetDebuffs" } },
-    { id = "raid", key = "editRaid", name = "Raid", buttons = Cells("raid"), cell = { 112, 36 },
+    { id = "raid", key = "editRaid", name = Tr["Raid"], buttons = Cells("raid"), cell = { 112, 36 },
       pieces = { "cell", "name", "level", "value", "power", "leader", "cc", "boss", "mine" },
       hidden = { level = true },
       shows = { cc = "raidCC", boss = "raidBoss", mine = "raidDebuffs" } },
-    { id = "boss", key = "editBoss", name = "Boss", buttons = Cells("boss"), cell = { 180, 40 },
+    { id = "boss", key = "editBoss", name = Tr["Boss"], buttons = Cells("boss"), cell = { 180, 40 },
       pieces = { "cell", "name", "level", "value", "power", "mine" },
       shows = { mine = "bossWidgetMine" } },
-    { id = "arena", key = "editArena", name = "Arena", buttons = Cells("arena"), cell = { 160, 40 },
+    { id = "arena", key = "editArena", name = Tr["Arena"], buttons = Cells("arena"), cell = { 160, 40 },
       pieces = { "cell", "name", "level", "value", "power", "cc", "mine" },
       hidden = { level = true },
       shows = { cc = "arenaCC", mine = "arenaMine" } },
@@ -213,7 +214,7 @@ end
 
 -- What a piece can hang from: a button's frame, its bars, its name.
 E.ON = {
-    { "health", "Health bar" }, { "power", "Power bar" }, { "frame", "Frame" }, { "name", "Name" },
+    { "health", Tr["Health bar"] }, { "power", Tr["Power bar"] }, { "frame", Tr["Frame"] }, { "name", Tr["Name"] },
 }
 local function OnRegion(b, on)
     if on == "health" then return b.health end
@@ -364,7 +365,7 @@ end
 
 -- ------------------------------------------------------------ apply
 local OUTLINE = { none = "", thin = "OUTLINE", thick = "THICKOUTLINE" }
-E.OUTLINES = { { "none", "None" }, { "thin", "Thin" }, { "thick", "Thick" } }
+E.OUTLINES = { { "none", Tr["None"] }, { "thin", Tr["Thin"] }, { "thick", Tr["Thick"] } }
 
 local function Restore(r, shot, text)
     r:ClearAllPoints()
@@ -560,8 +561,8 @@ end
 
 -- Whose auras a row shows (its From): "mine", cast by you, or "all".
 E.FROM = {
-    { "mine", "Cast by you", "Only the auras you cast." },
-    { "all", "All", "Every aura on the unit, whoever cast it." },
+    { "mine", Tr["Cast by you"], Tr["Only the auras you cast."] },
+    { "all", Tr["All"], Tr["Every aura on the unit, whoever cast it."] },
 }
 
 -- Whose auras a row of button b shows: its frame's From, else its own
@@ -747,11 +748,11 @@ ns.On("PLAYER_LOGIN", function() E.ApplyAll() end)
 -- tint, crowd control, a boss debuff, buffs, debuffs. The frames on screen are
 -- not touched, but for the tint, which is the console's.
 E.PREVIEWS = {
-    { "Magic", "Magic", dispel = true }, { "Curse", "Curse", dispel = true },
-    { "Poison", "Poison", dispel = true }, { "Disease", "Disease", dispel = true },
-    { "Bleed", "Bleed", dispel = true },
-    { "threat", "Threat" }, { "combat", "Combat" },
-    { "cc", "CC" }, { "boss", "Boss" }, { "buffs", "Buffs" }, { "mine", "Debuffs" },
+    { "Magic", Tr["Magic"], dispel = true }, { "Curse", Tr["Curse"], dispel = true },
+    { "Poison", Tr["Poison"], dispel = true }, { "Disease", Tr["Disease"], dispel = true },
+    { "Bleed", Tr["Bleed"], dispel = true },
+    { "threat", Tr["Threat"] }, { "combat", Tr["Combat"] },
+    { "cc", Tr["CC"] }, { "boss", Tr["Boss"] }, { "buffs", Tr["Buffs"] }, { "mine", Tr["Debuffs"] },
 }
 E.preview = {}
 
@@ -785,5 +786,5 @@ function E.PreviewText()
     local on = {}
     for _, p in ipairs(E.PREVIEWS) do if E.preview[p[1]] then table.insert(on, p[2]) end end
     if not on[1] then return "" end
-    return "Previewing: " .. table.concat(on, ", ")
+    return format(Tr["Previewing: %s"], table.concat(on, ", "))
 end
