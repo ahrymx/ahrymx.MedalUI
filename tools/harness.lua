@@ -689,6 +689,8 @@ function Region:SetFocus()
     if old and old.scripts.OnEditFocusLost then old.scripts.OnEditFocusLost(old) end
     if self.scripts.OnEditFocusGained then self.scripts.OnEditFocusGained(self) end
 end
+function Region:SetCursorPosition(n) self.cursor = n end
+function Region:GetCursorPosition() return self.cursor or 0 end
 function Region:ClearFocus()
     if focused ~= self then return end
     focused = nil
@@ -18695,6 +18697,26 @@ if spellPass then
             "layer=" .. tostring(MM.layer.shown) .. "/" .. tostring(MM.layer.stateDrivers
                 and MM.layer.stateDrivers.visibility or "-"))
         print("book.macros switch", switch())
+        -- a press in the well off the text: the box focused, its cursor at the end
+        do
+            local c = MM.editor and MM.editor.catcher
+            MacroFrameText:ClearFocus()
+            if c then c.scripts.OnMouseDown(c, "LeftButton") end
+            print("book.macros well press", "catcher=" .. tostring(c ~= nil)
+                .. " over the well=" .. tostring(c ~= nil and c.all == MM.editor.well),
+                "under=" .. tostring(c and c:GetFrameLevel() < MacroFrameText:GetFrameLevel()),
+                "focus=" .. tostring(MacroFrameText:HasFocus()),
+                "cursor=" .. tostring(MacroFrameText.cursor) .. "/" .. #(MacroFrameText:GetText() or ""))
+            MacroFrameText:ClearFocus()
+            -- a new macro: no text, the cursor at its start
+            local was = MacroFrameText:GetText()
+            MacroFrameText:SetText("")
+            if c then c.scripts.OnMouseDown(c, "LeftButton") end
+            print("book.macros well press empty", "focus=" .. tostring(MacroFrameText:HasFocus()),
+                "cursor=" .. tostring(MacroFrameText.cursor))
+            MacroFrameText:ClearFocus()
+            MacroFrameText:SetText(was)
+        end
         macros.body.h = 900
         MM.scroller.scroll.h = 900 - 26 - 8 - 232 - 10
         MM.Refresh()

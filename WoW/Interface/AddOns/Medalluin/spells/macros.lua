@@ -620,6 +620,19 @@ local function Strip(f)
     MacroFrameTextButton:ClearAllPoints()
     MacroFrameTextButton:SetAllPoints(scroll)
     MacroFrameTextButton:EnableMouse(false)
+    -- a multi-line box takes a press only on its lines (2026-11-20: a new
+    -- macro, no lines, could hardly be clicked into): under it, the whole
+    -- well; a press there off the text focuses the box, its cursor at the
+    -- end. On the text the box takes the press itself, its cursor there.
+    local catcher = CreateFrame("Frame", nil, editor.well)
+    catcher:SetAllPoints(editor.well)
+    catcher:SetFrameLevel(math.max(0, math.min(scroll:GetFrameLevel(), MacroFrameText:GetFrameLevel()) - 1))
+    catcher:EnableMouse(true)
+    catcher:SetScript("OnMouseDown", function()
+        MacroFrameText:SetFocus()
+        MacroFrameText:SetCursorPosition(#(MacroFrameText:GetText() or ""))
+    end)
+    editor.catcher = catcher            -- (the harness reads it)
 end
 
 -- The name and icon picker: our box and a title strip it is dragged by,
