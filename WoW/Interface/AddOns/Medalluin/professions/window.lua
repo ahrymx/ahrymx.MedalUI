@@ -72,9 +72,20 @@ local SPELL_Y = 140                     -- a pillar's spells' top
 -- the art (art/professions/gen_overview.py): a pillar's scene the bottom
 -- 400 px of a 256x512, as wide as the pillar; the night's sky the top 346 px
 -- of a 512x512 and its land the bottom 401, as wide as the page; between
--- them, on a tall screen, the horizon's colour
+-- them, on a tall screen, the horizon's colour. One set for each style
+-- (the Overview art option, professionsArt), in its folder; the horizons
+-- as the generator prints them.
 local SCENE_PX, SKY_PX, LAND_PX, TEX = 400, 346, 401, 512
-local HORIZON = { 0x23 / 255, 0x25 / 255, 0x32 / 255 }
+local HORIZON = {
+    engraved = { 0.087, 0.075, 0.055 },
+    painted = { 0.138, 0.157, 0.259 },
+    poster = { 0.098, 0.118, 0.192 },
+}
+-- a scene's texture in the chosen style
+local function Art(name)
+    local style = HORIZON[ns.db and ns.db.professionsArt] and ns.db.professionsArt or "engraved"
+    return ns.media .. "professions\\" .. style .. "\\" .. name, HORIZON[style]
+end
 local COOLDOWNS, COOL_ROW = 6, 24       -- the cooldowns listed, at most; a row
 local CROSS, FAINT = 16, 0.45           -- Unlearn's cross, and its alpha at rest
 local CARDS = 5                         -- two primaries and three secondaries
@@ -322,7 +333,7 @@ local function Fill(c, prof)
     local learned = prof.name ~= nil
     if c.art then
         c.art:SetShown(learned and prof.skillLine ~= nil)
-        if learned and prof.skillLine then c.art:SetTexture(ns.media .. "professions\\" .. prof.skillLine) end
+        if learned and prof.skillLine then c.art:SetTexture((Art(prof.skillLine))) end
     end
     c.icon:SetTexture(learned and prof.icon or NONE)
     c.icon:SetDesaturated(not learned)
@@ -567,12 +578,23 @@ function overview.Build(body, _, band)
         return t
     end
     overview.sky, overview.horizon, overview.land = Tex(-2), Tex(-2), Tex(-1)
-    overview.sky:SetTexture(ns.media .. "professions\\sky")
-    overview.land:SetTexture(ns.media .. "professions\\land")
-    overview.horizon:SetColorTexture(HORIZON[1], HORIZON[2], HORIZON[3], 1)
+    overview.Dress()
     -- what it takes is measured as it is laid out (Refresh); until then, the cards
     overview.height = PILLAR + SEC_H + GAP
 end
+
+-- The night and the pillars' scenes in the chosen style (Build, and the
+-- Overview art option as it changes)
+function overview.Dress()
+    local sky, horizon = Art("sky")
+    overview.sky:SetTexture(sky)
+    overview.land:SetTexture((Art("land")))
+    overview.horizon:SetColorTexture(horizon[1], horizon[2], horizon[3], 1)
+    for _, c in ipairs(overview.cards) do
+        if c.art and c.prof and c.prof.skillLine then c.art:SetTexture((Art(c.prof.skillLine))) end
+    end
+end
+ns.OnSetting("professionsArt", function() if overview.sky then overview.Dress() end end)
 
 -- One scene from the first heading under the pillars down to Camping's
 -- foot: the sky hung from the top, the land standing on the foot, the

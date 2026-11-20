@@ -1400,6 +1400,15 @@ L["Open a profession with a cooldown (Transmute, Mooncloth...) to track it here.
 L["Your characters' cooldown crafts on this realm, as each last saw them."] =
     "Ремесленные восстановления ваших персонажей на этом сервере, как каждый видел их в последний раз."
 L["Overview"] = "Обзор"
+L["Overview art"] = "Картины обзора"
+L["Engraved"] = "Гравюра"
+L["Gold etching on dark: calm behind the words."] = "Золотая гравюра на тёмном: спокойный фон за словами."
+L["Painted"] = "Живопись"
+L["Full colour, with painted light and haze."] = "Полный цвет, с написанным светом и дымкой."
+L["Poster"] = "Плакат"
+L["A few flat tones for each scene, crisp."] = "Несколько плоских тонов на сцену, чётко."
+L["The pictures behind the Overview's primary professions and its night sky."] =
+    "Картины за основными профессиями обзора и его ночным небом."
 L["Primary professions"] = "Основные профессии"
 L["Secondary professions"] = "Вторичные профессии"
 L["Camping"] = "Лагерь"

@@ -1475,7 +1475,14 @@ function ns.OptionPages()
                         Tr["Your professions in one window standing on the side panel: an overview, and a tab for each "
                         .. "profession that crafts, with its recipes and Create. Crafting and the overview's spells "
                         .. "work out of combat. Untick it to keep the game's professions."], true),
-                    nil),
+                    {
+                        Group(Tr["Overview"],
+                            Choice("professionsArt", Tr["Overview art"], {
+                                { "engraved", Tr["Engraved"], Tr["Gold etching on dark: calm behind the words."] },
+                                { "painted", Tr["Painted"], Tr["Full colour, with painted light and haze."] },
+                                { "poster", Tr["Poster"], Tr["A few flat tones for each scene, crisp."] },
+                            }, Tr["The pictures behind the Overview's primary professions and its night sky."])),
+                    }),
                 Part("questlog", Tr["Quest log"], false,
                     Check("questLog", Tr["Quest log"],
                         Tr["Every quest in your log in a window on the right strip, as the spellbook's: by zone, each "

@@ -20728,6 +20728,13 @@ if profPass then
     P.learned[2] = 2
     fire("SKILL_LINES_CHANGED")
     frame()
+    -- the Overview art option: each style's scenes and horizon, at once
+    for _, style in ipairs({ "painted", "poster", "engraved" }) do
+        ns.SetOption("professionsArt", style)
+        local hz = ov.horizon.color or {}
+        print("prof.art style", style, tostring(ov.cards[1].art.texture), tostring(ov.sky.texture),
+            tostring(ov.land.texture), string.format("horizon=%.3f,%.3f,%.3f", hz[1] or -1, hz[2] or -1, hz[3] or -1))
+    end
 
     -- 8. combat: the list waits, Create does nothing, the layer goes
     click(pageOf("craft1").tab)

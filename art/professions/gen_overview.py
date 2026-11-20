@@ -1,466 +1,708 @@
 #!/usr/bin/env python3
-"""The professions' Overview artwork (professions/window.lua), in the
-layered, illustrated look the user chose (2026-11-17,
-/workspace/professions-art-mock.png): soft gradients, silhouettes in ranks,
-mist and glow, dark enough that the page's words read over it.
+"""The professions' Overview artwork (professions/window.lua), in three
+styles the player chooses between (the Overview art option, 2026-11-20,
+/workspace/profart-mock-all.png): Engraved (the default), Painted, Poster.
 
-- A scene for each primary profession, behind its pillar: its craft at
-  the foot (a meadow, a lamplit cave, a forge...), fading out to nothing
-  towards the top, where the pillar's icon, name and bar stand.
-- One scene behind the other three sections, in two pieces so it never
-  stretches: the sky (stars, the milky way, a moon), hung from the
-  Secondary professions' heading, and the land (mountains, ranks of firs,
-  the forest floor and the camp), standing on Camping's foot. Between them,
-  on a tall screen, the code fills the horizon's colour (HORIZON).
+Each scene is built once, as layers back to front (a mask, a colour, a
+depth, its texture, a rim light, a hatching angle) with glows among them
+and point lights over them, then rendered three ways:
 
-    python3 art/professions/gen_overview.py   -> assets/professions/*.png,
-        media/professions/<skillLine>.tga, sky.tga and land.tga,
-        render/overview.png
+- painted: textured fills hazed by depth, lit by the lights, rim-lit,
+  the nearest layer out of focus, a restrained bloom, grain, a vignette;
+- engraved: the painted scene's light as gold hatching on ink, each layer
+  at its own angle, the brightest cross-hatched, the outlines cut;
+- poster: the painted scene's light posterized to six tones of the
+  scene's four colours, rim edges, a paper grain.
 
-Drawn in "design" pixels, 1.35 to a UI unit (the screenshot's scale), and
-rendered at the texture's own:
+The scenes:
+- one for each primary profession, behind its pillar: its craft at the
+  foot, fading out towards the top, where the icon, name and bar stand;
+- the night behind the other three sections, rendered whole and cut in
+  two so it never stretches: the sky (stars, the milky way, the moon),
+  hung from the Secondary professions' heading, and the land (mountains,
+  firs in the mist, the camp), standing on Camping's foot. The sky's foot
+  and the land's top are both the style's horizon colour, which the code
+  fills between them on a tall screen (HORIZON, printed for window.lua).
+
+    python3 art/professions/gen_overview.py
+        -> media/professions/<style>/<skillLine>.tga, sky.tga, land.tga,
+           assets/professions/<style>/*.png,
+           render/overview-<style>.png
+
+Drawn at twice the texture's size and halved:
   a pillar's scene: 219 x 342 units, the bottom 256x400 of a 256x512;
   the sky: 444 x 300 units, the top 512x346 of a 512x512;
   the land: 444 x 348 units, the bottom 512x401 of a 512x512.
-The code shows the part it has room for, by texture coordinates.
 """
 import math
 import os
 import random
-import subprocess
+import shutil
 import sys
-from io import BytesIO
 
-from PIL import Image, ImageChops, ImageDraw
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, "art", "console"))
 import export  # noqa: E402
 
-D = 1.35                                # design pixels to a unit
-PILLAR = (296, 462, 256, 400, 512)      # design w, h; rendered w, h; the texture's height
-SKY = (600, 405, 512, 346, 512)
-LAND = (600, 470, 512, 401, 512)
-HORIZON = "#232532"                     # the sky's foot; the code fills it between the sky and the land
-GOLD = "#c4a557"
+MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "professions")
+ASSETS = os.path.join(ROOT, "assets", "professions")
+STYLES = ("engraved", "painted", "poster")
+SS = 3                                  # masks drawn this much finer
+PILLAR = (219, 342, 256, 400, 512)      # units w, h; texture w, h; the texture's height
+SKY = (444, 300, 512, 346, 512)
+LAND = (444, 348, 512, 401, 512)
+S = 1.0                                 # pixels to a unit while a scene is drawn (set per scene)
 
 
-def render(defs, body, size):
-    dw, dh, w, h, _ = size
-    doc = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {dw} {dh}">'
-           f'<defs>{defs}</defs>{body}</svg>')
-    out = subprocess.run(["rsvg-convert", "-w", str(w), "-h", str(h)], input=doc.encode(), capture_output=True,
-                         check=True).stdout
-    return Image.open(BytesIO(out)).convert("RGBA")
+# ----------------------------------------------------------------- toolkit
+def noise(h, w, scale, seed, octaves=5):
+    """Value noise, octaves summed, 0..1."""
+    rng = np.random.default_rng(seed)
+    out = np.zeros((h, w), np.float32)
+    amp, tot = 1.0, 0.0
+    for _ in range(octaves):
+        gh, gw = max(2, int(h / scale) + 2), max(2, int(w / scale) + 2)
+        g = rng.random((gh, gw)).astype(np.float32)
+        im = Image.fromarray((g * 255).astype(np.uint8)).resize((w, h), Image.BICUBIC)
+        out += amp * np.asarray(im, np.float32) / 255
+        tot += amp
+        amp *= 0.5
+        scale /= 2
+    return out / tot
 
 
-def fade(img, top=None, foot=None):
-    """Clear at the top, full from `top` (a fraction of the height) down;
-    and clear at the foot over its last `foot` pixels."""
-    w, h = img.size
-    m = Image.new("L", (w, h), 255)
-    d = ImageDraw.Draw(m)
-    for y in range(h):
-        a = 1.0
-        if top:
-            t = min(1.0, y / (h * top))
-            a = t * t * (3 - 2 * t)
-        if foot and h - y < foot:
-            a = min(a, (h - y) / foot)
-        d.line([(0, y), (w, y)], fill=int(255 * a))
-    img.putalpha(ImageChops.multiply(img.split()[3], m))
-    return img
+def mask(h, w, draw):
+    """A shape drawn finer and brought down: 0..1."""
+    im = Image.new("L", (w * SS, h * SS), 0)
+    draw(ImageDraw.Draw(im), SS)
+    return np.asarray(im.resize((w, h), Image.LANCZOS), np.float32) / 255
 
 
-# ----------------------------------------------------------------- shapes
-def ridge(rnd, w, base, amp, step, jag=0.5):
-    """A hill or mountain line, left to right."""
-    pts, x = [], -10.0
-    y = base - rnd.uniform(0, amp)
-    while x < w + step:
-        pts.append((x, y))
-        x += step * rnd.uniform(0.6, 1.4)
-        y = min(base, max(base - amp, y + rnd.uniform(-amp, amp) * jag))
-    return pts
+def blur(a, r):
+    if r <= 0:
+        return a
+    if a.ndim == 3:
+        return np.stack([blur(a[..., i], r) for i in range(a.shape[2])], -1)
+    m = max(float(a.max()), 1e-6)
+    im = Image.fromarray(np.clip(a / m * 255, 0, 255).astype(np.uint8))
+    return np.asarray(im.filter(ImageFilter.GaussianBlur(r)), np.float32) / 255 * m
 
 
-def poly(pts, foot):
-    return (f"M{pts[0][0]:.1f} {foot} " + " ".join(f"L{x:.1f} {y:.1f}" for x, y in pts)
-            + f" L{pts[-1][0]:.1f} {foot} Z")
+def hexc(s):
+    if not isinstance(s, str):
+        return np.asarray(s, np.float32)
+    s = s.lstrip("#")
+    return np.array([int(s[i:i + 2], 16) / 255 for i in (0, 2, 4)], np.float32)
 
 
-def smooth(pts, foot):
-    d = f"M{pts[0][0]:.1f} {foot} L{pts[0][0]:.1f} {pts[0][1]:.1f} "
-    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
-        d += f"Q{x0:.1f} {y0:.1f} {(x0 + x1) / 2:.1f} {(y0 + y1) / 2:.1f} "
-    return d + f"L{pts[-1][0]:.1f} {pts[-1][1]:.1f} L{pts[-1][0]:.1f} {foot} Z"
-
-
-def under(pts, x, fallback):
-    near = [y for xx, y in pts if abs(xx - x) < 70]
-    return min(near) if near else fallback
-
-
-def pine(x, base, h):
-    """A fir: three tiers and a trunk."""
-    w = h * 0.42
-    d = ""
-    for t0, t1, sw in ((0.0, 0.42, 0.55), (0.25, 0.7, 0.8), (0.5, 0.95, 1.0)):
-        top, bot = base - h + h * t0, base - h + h * t1
-        hw = w / 2 * sw
-        d += (f"M{x:.1f} {top:.1f} L{x + hw:.1f} {bot:.1f} L{x + hw * 0.35:.1f} {bot - 2:.1f} "
-              f"L{x - hw * 0.35:.1f} {bot - 2:.1f} L{x - hw:.1f} {bot:.1f} Z ")
-    return d + f"M{x - h * 0.03:.1f} {base - h * 0.08:.1f} h{h * 0.06:.1f} v{h * 0.1:.1f} h{-h * 0.06:.1f} Z "
-
-
-def gear(cx, cy, r, teeth, hole=0.35):
-    pts = []
-    for i in range(teeth * 4):
-        a = i / (teeth * 4) * 2 * math.pi
-        rr = r if i % 4 in (1, 2) else r * 0.84
-        pts.append(f"{cx + rr * math.cos(a):.1f} {cy + rr * math.sin(a):.1f}")
-    d = "M" + " L".join(pts) + " Z"
-    hr = r * hole
-    return d + f" M{cx + hr:.1f} {cy} A{hr:.1f} {hr:.1f} 0 1 0 {cx - hr:.1f} {cy} A{hr:.1f} {hr:.1f} 0 1 0 " \
-               f"{cx + hr:.1f} {cy} Z"
-
-
-def motes(rnd, n, box, col, r=(0.8, 1.6), a=(0.3, 0.8), blur=False):
-    x0, y0, x1, y1 = box
-    out = ""
-    for _ in range(n):
-        x, y = rnd.uniform(x0, x1), rnd.uniform(y0, y1)
-        rr = rnd.uniform(*r)
-        f = ' filter="url(#b)"' if blur else ""
-        out += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{rr:.1f}" fill="{col}" opacity="{rnd.uniform(*a):.2f}"{f}/>'
+def shift(m, dx, dy):
+    out = np.zeros_like(m)
+    h, w = m.shape
+    out[max(dy, 0):h + min(dy, 0), max(dx, 0):w + min(dx, 0)] = \
+        m[max(-dy, 0):h + min(-dy, 0), max(-dx, 0):w + min(-dx, 0)]
     return out
 
 
-def ground(top, bottom, glow=None, cy=0.8):
-    """A scene's ground: clear at the top, its colour at the foot; glow, a
-    soft pool of light low in it."""
-    g = (f'<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
-         f'<stop offset="0" stop-color="{top}" stop-opacity="0"/>'
-         f'<stop offset="0.45" stop-color="{top}" stop-opacity="0.9"/>'
-         f'<stop offset="1" stop-color="{bottom}"/></linearGradient>'
-         '<filter id="b"><feGaussianBlur stdDeviation="1.6"/></filter>'
-         '<filter id="g"><feGaussianBlur stdDeviation="4"/></filter>'
-         '<filter id="gg"><feGaussianBlur stdDeviation="10"/></filter>')
-    if glow:
-        g += (f'<radialGradient id="glow" cx="0.5" cy="{cy}"><stop offset="0" stop-color="{glow}" '
-              f'stop-opacity="0.26"/><stop offset="1" stop-color="{glow}" stop-opacity="0"/></radialGradient>')
-    w, h = PILLAR[0], PILLAR[1]
-    body = f'<rect width="{w}" height="{h}" fill="url(#bg)"/>'
-    if glow:
-        body += f'<rect width="{w}" height="{h}" fill="url(#glow)"/>'
-    return g, body
+def vgrad(h, w, stops):
+    y = np.linspace(0, 1, h, dtype=np.float32)
+    out = np.zeros((h, 3), np.float32)
+    for (a0, c0), (a1, c1) in zip(stops, stops[1:]):
+        t = np.clip((y - a0) / (a1 - a0), 0, 1)[:, None]
+        sel = ((y >= a0) & (y <= a1))[:, None]
+        out = np.where(sel, hexc(c0) * (1 - t) + hexc(c1) * t, out)
+    return np.repeat(out[:, None, :], w, 1)
 
 
-# ------------------------------------------------------- the pillars' scenes
-# Each 296x462 design pixels; the craft low, under the pillar's spells.
-def herbalism(rnd, w, h):
-    defs, body = ground("#16201a", "#1c2a1e", "#9ccf7a")
-    for base, amp, col in ((h * 0.72, 30, "#1a2a20"), (h * 0.84, 22, "#18271c"), (h * 0.94, 14, "#121c14")):
-        body += f'<path d="{smooth(ridge(rnd, w, base, amp, 70, 0.6), h)}" fill="{col}"/>'
-    for _ in range(9):
-        x = rnd.uniform(8, w - 8)
-        top = h - rnd.uniform(70, 170)
-        bend = rnd.uniform(-14, 14)
-        body += (f'<path d="M{x:.1f} {h} Q{x + bend:.1f} {(h + top) / 2:.1f} {x + bend * 0.6:.1f} {top:.1f}" '
-                 f'stroke="#203a26" stroke-width="2.2" fill="none"/>')
-        for k in range(3):
-            ly = top + (h - top) * (0.25 + 0.22 * k)
-            side = 1 if k % 2 else -1
-            lx = x + bend * (1 - (ly - top) / (h - top)) * 0.8
-            body += (f'<path d="M{lx:.1f} {ly:.1f} q{side * 14:.1f} -12 {side * 26:.1f} -6 '
-                     f'q{-side * 12:.1f} 10 {-side * 26:.1f} 6 Z" fill="#24442b"/>')
-        if rnd.random() < 0.6:
-            fx, fy = x + bend * 0.6, top
-            col = rnd.choice(["#e6d39a", "#c9a0d8", "#f0e8d0"])
-            for p in range(6):
-                a = p / 6 * 2 * math.pi
-                px, py = fx + 5 * math.cos(a), fy + 5 * math.sin(a)
-                body += (f'<ellipse cx="{px:.1f}" cy="{py:.1f}" rx="4" ry="2.2" transform="rotate('
-                         f'{math.degrees(a):.0f} {px:.1f} {py:.1f})" fill="{col}" opacity="0.75"/>')
-            body += f'<circle cx="{fx:.1f}" cy="{fy:.1f}" r="2.4" fill="#e8b84a"/>'
-    body += motes(rnd, 22, (0, h * 0.45, w, h * 0.95), "#e8f0a0", (1.2, 1.8), (0.2, 0.6), True)
-    return defs, body
+def grid(h, w):
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    return yy, xx
 
 
-def mining(rnd, w, h):
-    defs, body = ground("#1c1a1c", "#211d1c", "#ffb860", 0.78)
-    defs += ('<linearGradient id="cr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9fd8ff" '
-             'stop-opacity="0.9"/><stop offset="1" stop-color="#3a6fa0" stop-opacity="0.8"/></linearGradient>')
-    for base, amp, col in ((h * 0.64, 26, "#2a2526"), (h * 0.78, 22, "#221e1e"), (h * 0.92, 16, "#191616")):
-        body += f'<path d="{poly(ridge(rnd, w, base, amp, 40, 0.9), h)}" fill="{col}"/>'
-        for _ in range(3):
-            x, y = rnd.uniform(10, w - 50), base + rnd.uniform(6, 26)
-            body += f'<ellipse cx="{x + 20:.1f}" cy="{y:.1f}" rx="16" ry="7" fill="#ffcf6a" opacity="0.16" ' \
-                    f'filter="url(#g)"/>'
-            for _ in range(4):
-                ox, oy, r = x + rnd.uniform(6, 34), y + rnd.uniform(-5, 5), rnd.uniform(1.6, 3.2)
-                body += (f'<path d="M{ox - r:.1f} {oy:.1f} L{ox:.1f} {oy - r:.1f} L{ox + r:.1f} {oy:.1f} '
-                         f'L{ox:.1f} {oy + r * 0.8:.1f} Z" fill="#e8b14a" opacity="0.85"/>')
-    cx, cy = w * 0.78, h - 18
-    body += f'<ellipse cx="{cx}" cy="{cy - 20}" rx="50" ry="40" fill="#6ab0e8" opacity="0.14" filter="url(#g)"/>'
-    for dx, ht, wd, ang in ((-18, 44, 10, -18), (0, 64, 13, 0), (16, 50, 11, 16), (30, 30, 8, 30), (-32, 26, 8, -32)):
-        x = cx + dx
-        rot = f'transform="rotate({ang} {x:.1f} {cy})"'
-        body += (f'<path d="M{x - wd / 2:.1f} {cy} L{x - wd / 2:.1f} {cy - ht * 0.75:.1f} L{x:.1f} {cy - ht:.1f} '
-                 f'L{x + wd / 2:.1f} {cy - ht * 0.75:.1f} L{x + wd / 2:.1f} {cy} Z" fill="url(#cr)" {rot} '
-                 f'opacity="0.8"/><path d="M{x:.1f} {cy - ht:.1f} L{x:.1f} {cy}" stroke="#e6f6ff" '
-                 f'stroke-width="0.8" {rot} opacity="0.6"/>')
-    px, py = w * 0.26, h - 24
-    body += (f'<path d="M{px} {py} L{px + 46} {py - 86}" stroke="#4a3220" stroke-width="5" stroke-linecap="round"/>'
-             f'<path d="M{px + 22} {py - 92} Q{px + 46} {py - 104} {px + 74} {py - 84} Q{px + 48} {py - 92} '
-             f'{px + 22} {py - 86} Z" fill="#8c8a90"/>'
-             f'<circle cx="{px - 14}" cy="{py - 30}" r="26" fill="#ffb860" opacity="0.22" filter="url(#g)"/>'
-             f'<rect x="{px - 20}" y="{py - 40}" width="12" height="16" rx="2" fill="#ffcf7a" opacity="0.85"/>'
-             f'<path d="M{px - 22} {py - 40} h16 M{px - 14} {py - 40} v-6" stroke="#3a2a18" stroke-width="2"/>')
-    body += motes(rnd, 18, (0, h * 0.55, w, h * 0.95), "#ffe6a0", (0.8, 1.0))
-    return defs, body
+def P(*pts):
+    """units to pixels, as a polygon's points (k: the mask's fineness, applied later)"""
+    return [(x * S, y * S) for x, y in pts]
 
 
-def alchemy(rnd, w, h):
-    defs, body = ground("#1a1626", "#211a2c", "#5ad08a", 0.82)
-    # a shelf of bottles behind, a table in front
-    sy = h - 150
-    body += f'<rect x="0" y="{sy}" width="{w}" height="6" fill="#2a2030"/>'
-    x = 10
-    while x < w - 20:
-        bw, bh = rnd.uniform(10, 18), rnd.uniform(22, 44)
-        neck = bw * 0.4
-        body += (f'<path d="M{x:.1f} {sy} L{x:.1f} {sy - bh * 0.7:.1f} Q{x:.1f} {sy - bh * 0.8:.1f} '
-                 f'{x + (bw - neck) / 2:.1f} {sy - bh * 0.82:.1f} L{x + (bw - neck) / 2:.1f} {sy - bh:.1f} '
-                 f'L{x + (bw + neck) / 2:.1f} {sy - bh:.1f} L{x + (bw + neck) / 2:.1f} {sy - bh * 0.82:.1f} '
-                 f'Q{x + bw:.1f} {sy - bh * 0.8:.1f} {x + bw:.1f} {sy - bh * 0.7:.1f} L{x + bw:.1f} {sy} Z" '
-                 f'fill="#17121e"/>')
-        if rnd.random() < 0.4:
-            col = rnd.choice(["#7a5ad0", "#d05a7a", "#5ab0d0"])
-            body += f'<rect x="{x + 2:.1f}" y="{sy - bh * 0.4:.1f}" width="{bw - 4:.1f}" height="{bh * 0.38:.1f}" ' \
-                    f'fill="{col}" opacity="0.35"/>'
-        x += bw + rnd.uniform(4, 12)
-    ty = h - 40
-    body += f'<rect x="0" y="{ty}" width="{w}" height="40" fill="#15111a"/>'
-    body += f'<rect x="0" y="{ty}" width="{w}" height="2" fill="#3a2e44"/>'
-    # the flask, its brew glowing green, vapour over it
-    fx, fy, r = w * 0.62, ty - 30, 30
-    body += f'<circle cx="{fx}" cy="{fy}" r="{r + 26}" fill="#5ad08a" opacity="0.18" filter="url(#gg)"/>'
-    body += (f'<path d="M{fx - 7} {fy - r - 30} L{fx - 7} {fy - r + 4} A{r} {r} 0 1 0 {fx + 7} {fy - r + 4} '
-             f'L{fx + 7} {fy - r - 30} Z" fill="#20302a" opacity="0.7" stroke="#a8e0c0" stroke-width="1.2" '
-             f'stroke-opacity="0.5"/>')
-    body += (f'<path d="M{fx - r + 2} {fy + 2} A{r - 2} {r - 2} 0 0 0 {fx + r - 2} {fy + 2} Z" fill="#5ad08a" '
-             f'opacity="0.75"/>')
-    body += motes(rnd, 8, (fx - 16, fy - 10, fx + 16, fy + 20), "#d8ffe6", (1.2, 2.4), (0.5, 0.9))
-    for k in range(3):
-        sx = fx + rnd.uniform(-4, 4)
-        body += (f'<path d="M{sx:.1f} {fy - r - 32} q{-10 + k * 8} -20 {4 + k * 2} -40 q{12 - k * 6} -18 '
-                 f'{-2 + k * 3} -36" stroke="#a8e0c0" stroke-width="2.2" fill="none" opacity="0.22" '
-                 f'filter="url(#b)"/>')
-    # a candle at the left
-    cx = w * 0.18
-    body += (f'<circle cx="{cx}" cy="{ty - 34}" r="20" fill="#ffb860" opacity="0.2" filter="url(#g)"/>'
-             f'<rect x="{cx - 5}" y="{ty - 26}" width="10" height="26" fill="#d8ccb0" opacity="0.8"/>'
-             f'<path d="M{cx} {ty - 38} q4 6 0 10 q-4 -4 0 -10 Z" fill="#ffd27a"/>')
-    return defs, body
+def kk(pts, k):
+    return [(x * k, y * k) for x, y in pts]
 
 
-def blacksmithing(rnd, w, h):
-    defs, body = ground("#1e1814", "#231a14", "#ff7a2a", 0.85)
-    # a stone wall, the forge's mouth glowing in it at the right
-    for row in range(5):
-        y = h - 200 + row * 26
-        off = 0 if row % 2 else 18
-        for x in range(-18 + off, w, 36):
-            body += f'<rect x="{x + 1}" y="{y + 1}" width="34" height="24" rx="3" fill="#221b17"/>'
-    mx, my = w * 0.8, h - 70
-    body += (f'<ellipse cx="{mx}" cy="{my}" rx="70" ry="60" fill="#ff7a2a" opacity="0.32" filter="url(#gg)"/>'
-             f'<path d="M{mx - 36} {my + 30} L{mx - 36} {my - 6} A36 36 0 0 1 {mx + 36} {my - 6} L{mx + 36} '
-             f'{my + 30} Z" fill="#ff8a2a" opacity="0.85"/>'
-             f'<path d="M{mx - 26} {my + 30} L{mx - 26} {my} A26 26 0 0 1 {mx + 26} {my} L{mx + 26} {my + 30} Z" '
-             f'fill="#ffd27a" opacity="0.8"/>')
-    body += motes(rnd, 14, (mx - 30, my + 14, mx + 30, my + 30), "#fff0b0", (1.4, 2.6), (0.6, 1))
-    body += f'<rect x="0" y="{h - 34}" width="{w}" height="34" fill="#161210"/>'
-    # the anvil on its block, a hammer leaning on it
-    ax, ay = w * 0.34, h - 34
-    body += (f'<rect x="{ax - 16}" y="{ay - 26}" width="32" height="26" fill="#1a1412"/>'
-             f'<path d="M{ax - 44} {ay - 46} L{ax + 34} {ay - 46} Q{ax + 52} {ay - 46} {ax + 62} {ay - 40} '
-             f'L{ax + 30} {ay - 34} L{ax + 14} {ay - 34} L{ax + 10} {ay - 26} L{ax - 10} {ay - 26} '
-             f'L{ax - 14} {ay - 34} L{ax - 36} {ay - 34} Q{ax - 44} {ay - 38} {ax - 44} {ay - 46} Z" fill="#141012"/>'
-             f'<path d="M{ax - 44} {ay - 46} L{ax + 34} {ay - 46} Q{ax + 52} {ay - 46} {ax + 62} {ay - 40}" '
-             f'stroke="#c47a3a" stroke-width="1.4" fill="none" opacity="0.7"/>'
-             f'<path d="M{ax - 70} {ay} L{ax - 40} {ay - 60}" stroke="#3a2818" stroke-width="5" '
-             f'stroke-linecap="round"/><rect x="{ax - 52}" y="{ay - 72}" width="26" height="12" rx="2" '
-             f'fill="#5a5258" transform="rotate(26 {ax - 40} {ay - 66})"/>')
-    # sparks thrown up from the anvil: short streaks, fanning out
-    for _ in range(16):
-        a = rnd.uniform(-2.5, -0.65)
-        r0, r1 = rnd.uniform(10, 30), rnd.uniform(4, 9)
-        sx, sy = ax + 6 + math.cos(a) * r0, ay - 50 + math.sin(a) * r0
-        body += (f'<path d="M{sx:.1f} {sy:.1f} l{math.cos(a) * r1:.1f} {math.sin(a) * r1:.1f}" stroke="#ffc060" '
-                 f'stroke-width="1.3" stroke-linecap="round" opacity="{rnd.uniform(0.5, 1):.2f}"/>')
-    return defs, body
+def leaf(d, k, x, y, ln, wd, ang, curl=0.25):
+    """A leaf (or a flame) from (x, y) in pixels, towards ang, its tip curling."""
+    left, right = [], []
+    for i in range(13):
+        t = i / 12
+        a = ang + curl * t * t
+        cx, cy = x + math.cos(a) * ln * t, y + math.sin(a) * ln * t
+        half = wd * math.sin(math.pi * t ** 0.8) * 0.5
+        nx, ny = -math.sin(a), math.cos(a)
+        left.append(((cx + nx * half) * k, (cy + ny * half) * k))
+        right.append(((cx - nx * half) * k, (cy - ny * half) * k))
+    d.polygon(left + right[::-1], fill=255)
 
 
-def enchanting(rnd, w, h):
-    defs, body = ground("#1b1530", "#1d1630", "#b88cff", 0.86)
-    defs += ('<linearGradient id="beam" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#c8a8ff" '
-             'stop-opacity="0.32"/><stop offset="1" stop-color="#c8a8ff" stop-opacity="0"/></linearGradient>'
-             '<linearGradient id="gem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0d8ff"/>'
-             '<stop offset="1" stop-color="#7a4ad0"/></linearGradient>')
-    cx, cy = w / 2, h - 44
-    body += f'<path d="M{cx - 90} {cy} L{cx - 50} {cy - 210} L{cx + 50} {cy - 210} L{cx + 90} {cy} Z" ' \
-            f'fill="url(#beam)"/>'
-    for rx, ry, a in ((110, 28, 0.55), (84, 21, 0.4), (58, 14, 0.35)):
-        body += (f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="none" stroke="#b88cff" stroke-width="5" '
-                 f'opacity="{a * 0.4}" filter="url(#g)"/><ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" '
-                 f'fill="none" stroke="#d8c0ff" stroke-width="1.2" opacity="{a}"/>')
-    for k in range(16):
-        a = k / 16 * 2 * math.pi
-        x, y = cx + 97 * math.cos(a), cy + 24.5 * math.sin(a)
-        body += f'<path d="M{x - 3:.1f} {y:.1f} L{x:.1f} {y - 4:.1f} L{x + 3:.1f} {y:.1f} L{x:.1f} {y + 4:.1f} Z" ' \
-                f'fill="#e8d8ff" opacity="0.6"/>'
-    gy = cy - 96
-    body += (f'<ellipse cx="{cx}" cy="{gy}" rx="34" ry="34" fill="#b88cff" opacity="0.25" filter="url(#gg)"/>'
-             f'<path d="M{cx} {gy - 30} L{cx + 14} {gy - 6} L{cx} {gy + 30} L{cx - 14} {gy - 6} Z" fill="url(#gem)" '
-             f'opacity="0.9"/><path d="M{cx} {gy - 30} L{cx} {gy + 30} M{cx - 14} {gy - 6} L{cx + 14} {gy - 6}" '
-             f'stroke="#fff" stroke-width="0.7" opacity="0.5"/>')
-    body += motes(rnd, 30, (10, h * 0.5, w - 10, h - 20), "#e0c8ff", (0.8, 2), (0.3, 0.9), True)
-    body += motes(rnd, 12, (10, h * 0.55, w - 10, h - 20), "#a8f0ff", (0.8, 1.4), (0.4, 0.9))
-    return defs, body
+def pine(d, k, x, base, h, w=None):
+    """A fir in pixels: four tiers and a trunk."""
+    w = w or h * 0.42
+    for i in range(4):
+        t0 = base - h * (0.18 + i * 0.2)
+        ww = w * (1 - i * 0.22)
+        d.polygon([((x - ww / 2) * k, (t0 + h * 0.22) * k), ((x + ww / 2) * k, (t0 + h * 0.22) * k),
+                   (x * k, (t0 - h * 0.12) * k)], fill=255)
+    d.rectangle([(x - w * 0.05) * k, (base - h * 0.2) * k, (x + w * 0.05) * k, base * k], fill=255)
 
 
-def engineering(rnd, w, h):
-    defs, body = ground("#141b22", "#141c24", "#6ab8ff", 0.8)
-    body += f'<path d="{gear(w * 0.16, h - 40, 74, 12)}" fill="#18212b" fill-rule="evenodd"/>'
-    body += f'<path d="{gear(w * 0.74, h - 70, 54, 10)}" fill="#1d2833" fill-rule="evenodd"/>'
-    body += f'<path d="{gear(w * 0.46, h - 120, 30, 8)}" fill="none" stroke="{GOLD}" stroke-width="1.6" ' \
-            f'opacity="0.55"/>'
-    body += f'<path d="{gear(w * 0.92, h - 150, 20, 7)}" fill="none" stroke="{GOLD}" stroke-width="1.2" ' \
-            f'opacity="0.4"/>'
-    # pipes along the foot, a joint and a gauge
-    py = h - 26
-    body += (f'<rect x="0" y="{py}" width="{w}" height="12" fill="#26313c"/><rect x="0" y="{py}" width="{w}" '
-             f'height="2" fill="#4a5a68"/><rect x="{w * 0.55}" y="{py - 4}" width="16" height="20" rx="2" '
-             f'fill="#323e4a"/><circle cx="{w * 0.36}" cy="{py - 16}" r="12" fill="#1a222a" stroke="{GOLD}" '
-             f'stroke-width="1.2" stroke-opacity="0.6"/><path d="M{w * 0.36} {py - 16} l6 -6" stroke="#ff8a5a" '
-             f'stroke-width="1.4"/>')
-    # a spark arcing between two posts
-    x0, x1, y = w * 0.5, w * 0.68, h - 160
-    body += (f'<rect x="{x0 - 3}" y="{y}" width="6" height="40" fill="#2a3440"/><rect x="{x1 - 3}" y="{y}" '
-             f'width="6" height="40" fill="#2a3440"/>')
-    pts, x = [], x0
-    while x < x1:
-        pts.append(f"{x:.1f} {y + rnd.uniform(-8, 8):.1f}")
-        x += 6
-    pts.append(f"{x1:.1f} {y}")
-    bolt = "M" + " L".join(pts)
-    body += (f'<path d="{bolt}" stroke="#8fd8ff" stroke-width="5" fill="none" opacity="0.4" filter="url(#g)"/>'
-             f'<path d="{bolt}" stroke="#e8f8ff" stroke-width="1.2" fill="none"/>')
-    body += motes(rnd, 16, (10, h * 0.55, w - 10, h - 30), "#a8e0ff", (0.8, 1.4), (0.3, 0.8))
-    return defs, body
-
-
-def leatherworking(rnd, w, h):
-    defs, body = ground("#1f1610", "#22180f", "#ffb060", 0.8)
-    defs += ('<radialGradient id="hide" cx="0.5" cy="0.45"><stop offset="0" stop-color="#7a5232"/>'
-             '<stop offset="1" stop-color="#3e2a19"/></radialGradient>')
-    # a frame, a hide laced into it
-    fx0, fx1, fy0, fy1 = w * 0.2, w * 0.86, h - 190, h - 26
-    body += (f'<rect x="{fx0 - 4}" y="{fy0 - 10}" width="8" height="{fy1 - fy0 + 30}" fill="#2c1f13"/>'
-             f'<rect x="{fx1 - 4}" y="{fy0 - 10}" width="8" height="{fy1 - fy0 + 30}" fill="#2c1f13"/>'
-             f'<rect x="{fx0 - 12}" y="{fy0}" width="{fx1 - fx0 + 24}" height="7" fill="#33241a"/>'
-             f'<rect x="{fx0 - 12}" y="{fy1 - 14}" width="{fx1 - fx0 + 24}" height="7" fill="#33241a"/>')
-    cx, cy = (fx0 + fx1) / 2, (fy0 + fy1) / 2 - 4
+def gear(d, k, cx, cy, r, teeth, hole=0.35, turn=0.0):
     pts = []
-    for k in range(18):
-        a = k / 18 * 2 * math.pi
-        rx, ry = (fx1 - fx0) / 2 - 20, (fy1 - fy0) / 2 - 22
-        bump = 1 + (0.18 if k % 3 == 0 else 0) - (0.08 if k % 3 == 1 else 0)
-        pts.append((cx + rx * bump * math.cos(a), cy + ry * bump * math.sin(a)))
-    d = f"M{pts[0][0]:.1f} {pts[0][1]:.1f} " + " ".join(
-        f"Q{pts[i][0]:.1f} {pts[i][1]:.1f} {(pts[i][0] + pts[(i + 1) % 18][0]) / 2:.1f} "
-        f"{(pts[i][1] + pts[(i + 1) % 18][1]) / 2:.1f}" for i in range(18)) + " Z"
-    body += f'<path d="{d}" fill="url(#hide)" opacity="0.95"/>'
-    body += f'<path d="{d}" fill="none" stroke="#c9a26a" stroke-width="1.2" stroke-dasharray="4 4" ' \
-            f'opacity="0.5" transform="translate({cx} {cy}) scale(0.9) translate({-cx} {-cy})"/>'
-    for k in range(0, 18, 2):
-        x, y = pts[k]
-        tx = fx0 if x < cx - 20 else fx1 if x > cx + 20 else x
-        ty = fy0 + 4 if y < cy - 20 else fy1 - 10 if y > cy + 20 else y
-        body += f'<path d="M{x:.1f} {y:.1f} L{tx:.1f} {ty:.1f}" stroke="#8a6a44" stroke-width="1" opacity="0.7"/>'
-    # a knife and an awl on the floor, a lantern's light from the left
-    body += (f'<circle cx="{w * 0.06}" cy="{h - 120}" r="40" fill="#ffb060" opacity="0.16" filter="url(#gg)"/>'
-             f'<rect x="0" y="{h - 14}" width="{w}" height="14" fill="#18110b"/>')
-    return defs, body
+    for i in range(teeth * 4):
+        a = turn + i / (teeth * 4) * 2 * math.pi
+        rr = r if (i % 4) in (0, 1) else r * 0.8
+        pts.append(((cx + math.cos(a) * rr) * k, (cy + math.sin(a) * rr) * k))
+    d.polygon(pts, fill=255)
+    d.ellipse([(cx - r * hole) * k, (cy - r * hole) * k, (cx + r * hole) * k, (cy + r * hole) * k], fill=0)
 
 
-def skinning(rnd, w, h):
-    defs, body = ground("#151a1e", "#151a1e", "#a8c0d8", 0.6)
-    for base, th, col, gap in ((h - 150, 40, "#1b2228", 14), (h - 100, 56, "#161c21", 20)):
-        d, x = "", rnd.uniform(-10, 0)
-        while x < w + 10:
-            d += pine(x, base + rnd.uniform(0, 8), th * rnd.uniform(0.75, 1.15))
-            x += gap * rnd.uniform(0.8, 1.6)
-        body += f'<path d="{d}" fill="{col}"/>'
-    body += f'<path d="{smooth(ridge(rnd, w, h - 40, 10, 60, 0.5), h)}" fill="#111518"/>'
-    # a drying rack, two pelts on it
-    rx0, rx1, ry = w * 0.22, w * 0.78, h - 150
-    body += (f'<path d="M{rx0 - 20} {h - 30} L{rx0} {ry - 10} L{rx0 + 20} {h - 30} M{rx1 - 20} {h - 30} '
-             f'L{rx1} {ry - 10} L{rx1 + 20} {h - 30}" stroke="#2e241c" stroke-width="5" fill="none"/>'
-             f'<path d="M{rx0 - 10} {ry} L{rx1 + 10} {ry}" stroke="#3a2c20" stroke-width="5"/>')
-    for px, pw, col in ((w * 0.38, 54, "#4a3626"), (w * 0.62, 46, "#5a4632")):
-        body += (f'<path d="M{px - pw / 2:.1f} {ry} Q{px - pw / 2 - 8:.1f} {ry + 40} {px - pw / 2 + 4:.1f} '
-                 f'{ry + 70} L{px - 8:.1f} {ry + 84} L{px:.1f} {ry + 100} L{px + 8:.1f} {ry + 84} '
-                 f'L{px + pw / 2 - 4:.1f} {ry + 70} Q{px + pw / 2 + 8:.1f} {ry + 40} {px + pw / 2:.1f} {ry} Z" '
-                 f'fill="{col}"/><path d="M{px - pw / 2 + 6:.1f} {ry + 6} L{px + pw / 2 - 6:.1f} {ry + 6}" '
-                 f'stroke="#c9a26a" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>')
+def dots(rng, n, box, r):
+    x0, y0, x1, y1 = box
+    return [(rng.uniform(x0, x1), rng.uniform(y0, y1), r * rng.uniform(0.6, 1.3)) for _ in range(n)]
+
+
+def spots(h, w, pts):
+    return mask(h, w, lambda d, k: [d.ellipse([(x - r) * k, (y - r) * k, (x + r) * k, (y + r) * k], fill=255)
+                                    for x, y, r in pts])
+
+
+def soft_ridge(w, base, amp, seed, scale):
+    n = noise(1, w, scale, seed, 5)[0]
+    n2 = noise(1, w, scale / 4, seed + 1, 3)[0]
+    return [(x, base - amp * (n[x] - 0.5) * 2 - amp * 0.3 * (n2[x] - 0.5)) for x in range(0, w, 2)] + [(w, base)]
+
+
+# ------------------------------------------------------------- the scene
+class Scene:
+    """Layers back to front, the glows among them; the lights; the backdrop;
+    the haze far layers sink into; the poster's four colours."""
+
+    def __init__(self, w, h, back, haze, palette):
+        self.w, self.h = w, h
+        self.back, self.haze, self.palette = back, hexc(haze), palette
+        self.layers, self.lights = [], []
+
+    def layer(self, m, col, depth, tex=0.25, rim=None, recv=1.0, angle=0.0, dof=0):
+        if dof:
+            m = blur(m, dof)
+        self.layers.append(dict(kind="layer", m=m, col=hexc(col), depth=depth, tex=tex, rim=rim, recv=recv,
+                                angle=angle))
+
+    def glow(self, m, col, r, power=1.0):
+        self.layers.append(dict(kind="glow", m=m, col=hexc(col), r=r, p=power))
+
+    def light(self, x, y, col, r, power=1.0):
+        self.lights.append((x, y, hexc(col), r, power))
+
+
+def lightmap(sc):
+    yy, xx = grid(sc.h, sc.w)
+    L = np.zeros((sc.h, sc.w, 3), np.float32)
+    for x, y, col, r, p in sc.lights:
+        d = np.sqrt((xx - x) ** 2 + (yy - y) ** 2) / r
+        L += (p / (1 + 6 * d * d))[..., None] * col
+    return L
+
+
+def rim_edge(m, rim):
+    dx, dy = int(round(rim[0] * S / 1.6)), int(round(rim[1] * S / 1.6))
+    return np.clip(m - shift(m, dx, dy), 0, 1)
+
+
+LUM = np.array([0.3, 0.55, 0.15], np.float32)
+
+
+def paint(sc, seed, flat=False):
+    """flat: the textures and the vignette left out (the poster's light)"""
+    h, w = sc.h, sc.w
+    tx = 0.15 if flat else 1.0
+    img = sc.back.copy()
+    L = lightmap(sc)
+    for i, ly in enumerate(sc.layers):
+        m = ly["m"]
+        if ly["kind"] == "glow":
+            img = img + blur(m, ly["r"])[..., None] * ly["col"] * ly["p"] * 0.7 + m[..., None] * ly["col"] * ly["p"] * 0.35
+            continue
+        tex = noise(h, w, (10 + 30 * ly["depth"]) * S / 1.6, seed + i, 6)
+        tex2 = noise(h, w, 3 * S / 1.6, seed + 50 + i, 2)
+        col = ly["col"] * (1 + tx * ly["tex"] * ((tex - 0.5) * 1.6 + (tex2 - 0.5) * 0.5))[..., None]
+        col = col * (1 - ly["depth"] * 0.6) + sc.haze * ly["depth"] * 0.6
+        col = col * (1 + L * ly["recv"] * 0.9)
+        if ly["rim"]:
+            edge = blur(rim_edge(m, ly["rim"]), 0.7 * S / 1.6) * (0.4 + 0.6 * np.clip(L.mean(-1) * 2, 0, 1))
+            col = col + (edge * ly["rim"][3] * 0.55)[..., None] * hexc(ly["rim"][2])
+        img = img * (1 - m[..., None]) + col * m[..., None]
+    bright = np.clip(img - 0.7, 0, None)
+    img += blur(bright, 5 * S / 1.6) * 0.5 + blur(bright, 16 * S / 1.6) * 0.35
+    if flat:
+        return np.clip(img, 0, 1)
+    img += (noise(h, w, 1.2 * S / 1.6, seed + 99, 1) - 0.5)[..., None] * 0.035
+    yy, xx = grid(h, w)
+    v = 1 - 0.35 * (((xx / w - 0.5) * 1.6) ** 2 + ((yy / h - 0.55) * 1.2) ** 2)
+    img *= np.clip(v, 0.5, 1)[..., None]
+    return np.clip(img, 0, 1)
+
+
+GOLD = hexc("#d9b768")
+INK = hexc("#15120d")
+
+
+def engrave(sc, seed, lit=None):
+    h, w = sc.h, sc.w
+    lum = (paint(sc, seed) if lit is None else lit) @ LUM
+    lum = np.clip((lum - 0.03) / 0.55, 0, 1) ** 1.1
+    yy, xx = grid(h, w)
+    out = np.zeros((h, w), np.float32)
+    per = 4.2 * S / 1.6
+    regions = [(None, 0.6)] + [(ly["m"], ly["angle"]) for ly in sc.layers if ly["kind"] == "layer"]
+    for k, (m, ang) in enumerate(regions):
+        wob = noise(h, w, 40 * S / 1.6, seed + k, 2) * 4 * S / 1.6
+        line = 0.5 + 0.5 * np.cos(2 * math.pi * (xx * math.cos(ang) + yy * math.sin(ang) + wob) / per)
+        hatch = np.clip((lum * 0.95 - line) * 3, 0, 1)
+        line2 = 0.5 + 0.5 * np.cos(2 * math.pi * (xx * math.cos(ang + 1.2) + yy * math.sin(ang + 1.2)) / per)
+        hatch = np.maximum(hatch, np.clip((lum - 0.55 - line2 * 0.6) * 4, 0, 1))
+        a = np.ones((h, w), np.float32) if m is None else m
+        out = out * (1 - a) + hatch * a
+        if m is not None:
+            o = max(1, int(round(S / 1.6)))
+            edge = np.clip(m - shift(m, o, o), 0, 1) + np.clip(m - shift(m, -o, -o), 0, 1)
+            out = np.maximum(out, np.clip(edge * 0.9, 0, 1) * (0.35 + 0.65 * np.clip(lum * 1.5, 0, 1)))
+    out *= 0.85
+    img = INK[None, None] * (1 - out[..., None]) + (GOLD * (0.6 + 0.4 * lum)[..., None]) * out[..., None]
+    for ly in sc.layers:
+        if ly["kind"] == "glow":
+            img += blur(ly["m"], ly["r"])[..., None] * (ly["col"] * 0.4 + GOLD * 0.6) * ly["p"] * 0.3
+    img += (noise(h, w, 1.2 * S / 1.6, seed + 99, 1) - 0.5)[..., None] * 0.03
+    return np.clip(img, 0, 1)
+
+
+def poster(sc, seed, lit=None):
+    h, w = sc.h, sc.w
+    # (its own light, untextured and softened: posterized, a texture's
+    # grain would break into blots)
+    lum = blur(paint(sc, seed, flat=True) @ LUM, 1.5 * S / 1.6)
+    ink, mid, acc, top = [hexc(c) for c in sc.palette]
+    q = np.round(np.clip(lum / 0.6, 0, 1) * 5) / 5
+    img = np.zeros((h, w, 3), np.float32)
+    for (a0, c0), (a1, c1) in zip(((0, ink), (0.35, mid), (0.7, acc)), ((0.35, mid), (0.7, acc), (1.0, top))):
+        t = np.clip((q - a0) / (a1 - a0), 0, 1)[..., None]
+        sel = ((q >= a0) & (q <= a1))[..., None]
+        img = np.where(sel, c0 * (1 - t) + c1 * t, img)
+    for ly in sc.layers:
+        if ly["kind"] == "layer" and ly["rim"]:
+            img += (rim_edge(ly["m"], ly["rim"]) * ly["rim"][3] * 0.5)[..., None] * top
+        elif ly["kind"] == "glow":
+            img += blur(ly["m"], ly["r"])[..., None] * ly["col"] * ly["p"] * 0.4
+    img *= (0.94 + 0.08 * noise(h, w, 2 * S / 1.6, seed + 7, 2))[..., None]
+    return np.clip(img, 0, 1)
+
+
+RENDER = {"painted": paint, "engraved": engrave, "poster": poster}
+
+
+# ------------------------------------------------------------ the pillars
+def pillar_scene(back, haze, palette):
+    global S
+    S = PILLAR[2] * 2 / PILLAR[0]
+    w, h = PILLAR[2] * 2, PILLAR[3] * 2
+    return Scene(w, h, vgrad(h, w, back), haze, palette), w, h
+
+
+def herbalism(rng):
+    sc, w, h = pillar_scene([(0, "#0f1612"), (0.45, "#1d3326"), (0.8, "#2c4a35"), (1, "#16231a")],
+                            "#22362b", ("#0d1410", "#25402e", "#7fa067", "#e9e3b0"))
+    shafts = mask(h, w, lambda d, k: [d.polygon(kk([(w * f, 0), (w * f + 26 * S, 0), (w * f - 70 * S, h),
+                                                    (w * f - 110 * S, h)], k), fill=int(255 * a))
+                                      for f, a in ((0.55, 0.5), (0.78, 0.35), (0.95, 0.25))])
+    sc.glow(blur(shafts, 10 * S) * 0.18, "#d9e8a8", 4 * S, 0.4)
+
+    def far(d, k):
+        for _ in range(9):
+            x, r = rng.uniform(-20, w + 20), rng.uniform(26, 44) * S
+            y = h * 0.52 + rng.uniform(-10, 10) * S
+            d.ellipse([(x - r) * k, (y - r) * k, (x + r) * k, (y + r * 2.4) * k], fill=255)
+    sc.layer(blur(mask(h, w, far), 2.5 * S), "#1c3524", 0.85, tex=0.3, angle=1.2)
+    hill = mask(h, w, lambda d, k: d.polygon(kk([(-5, h * 0.7)] + [(x, h * 0.68 - 22 * S * math.sin(x / w * 2.4 + 0.4))
+                                                                     for x in range(0, w + 6, 6)]
+                                                 + [(w + 5, h), (-5, h)], k), fill=255))
+    sc.layer(hill, "#1d3020", 0.45, tex=0.35, rim=(0, 2, "#c9d98a", 0.35), angle=0.2)
+
+    def stems(d, k, n, top, size):
+        for _ in range(n):
+            x0, ht, bend = rng.uniform(0, w), rng.uniform(*top) * S, rng.uniform(-18, 18) * S
+            pts = [(x0 + bend * (t / 10) ** 2, h + 4 - ht * t / 10) for t in range(11)]
+            d.line(kk(pts, k), fill=255, width=max(1, int(1.6 * S * k)))
+            for j in range(2, 10, 2):
+                x, y = pts[j]
+                side = 1 if j % 4 else -1
+                leaf(d, k, x, y, size * S * (1.1 - j / 14), size * S * 0.35, -math.pi / 2 + side * 1.0, side * 0.5)
+
+    def clump(d, k, n, y0, size):
+        for _ in range(n):
+            x, base = rng.uniform(-10, w + 10), h * y0 + rng.uniform(-8, 14) * S
+            for _ in range(rng.randint(4, 7)):
+                leaf(d, k, x, base, size * S * rng.uniform(0.7, 1.2), size * S * rng.uniform(0.28, 0.4),
+                     -math.pi / 2 + rng.uniform(-1.1, 1.1), rng.choice((-1, 1)) * rng.uniform(0.3, 0.8))
+    sc.layer(mask(h, w, lambda d, k: clump(d, k, 10, 0.78, 34)), "#4a7a45", 0.3, tex=0.35,
+             rim=(-1, 1, "#d7e59a", 0.5), angle=-0.6)
+    flowers = [(rng.uniform(25, w - 25), h - rng.uniform(80, 125) * S) for _ in range(5)]
+    sc.layer(mask(h, w, lambda d, k: stems(d, k, 7, (70, 120), 14)), "#3b6236", 0.15, tex=0.3,
+             rim=(-1, 1, "#e8f0b0", 0.6), angle=0.9)
+    pet = mask(h, w, lambda d, k: [[d.ellipse([(x + 5 * S * math.cos(a) - 3.4 * S) * k, (y + 5 * S * math.sin(a) - 3.4 * S) * k,
+                                               (x + 5 * S * math.cos(a) + 3.4 * S) * k, (y + 5 * S * math.sin(a) + 3.4 * S) * k],
+                                              fill=255) for a in np.linspace(0, 2 * math.pi, 6)[:-1]] for x, y in flowers])
+    sc.layer(pet, "#cfcdb4", 0.05, tex=0.1, recv=0.3)
+    sc.glow(spots(h, w, [(x, y, 2 * S) for x, y in flowers]), "#f2d36b", 2 * S, 0.6)
+    sc.glow(pet * 0.3, "#f0f5d0", 7 * S, 0.3)
+    yy, _ = grid(h, w)
+    sc.layer(np.clip((yy / h - 0.75) * 4, 0, 1) * 0.75, "#070b08", 0.0, tex=0.1, recv=0.0)
+    sc.layer(mask(h, w, lambda d, k: clump(d, k, 5, 1.02, 70)), "#132617", 0.0, tex=0.3,
+             rim=(-1, 1, "#c9dc8a", 0.4), angle=1.3, dof=2.2 * S)
+    sc.glow(spots(h, w, dots(rng, 26, (0, h * 0.35, w, h * 0.9), 1.2 * S)), "#d8f08a", 3 * S, 0.8)
+    sc.light(w * 0.8, h * 0.3, "#d8e8a0", w * 0.9, 0.5)
+    return sc
+
+
+def mining(rng):
+    sc, w, h = pillar_scene([(0, "#121010"), (0.5, "#1e1915"), (1, "#141110")],
+                            "#2b2622", ("#100d0b", "#3a2a1e", "#b0753a", "#f6d79a"))
+    yy, xx = grid(h, w)
+    cx = w * 0.42
+    tunnel = ((xx - cx) / (w * 0.32)) ** 2 + ((yy - h * 0.72) / (h * 0.36)) ** 2
+    rock = np.clip((tunnel - 1 + (noise(h, w, 50 * S, 5, 5) - 0.5) * 0.9) * 6, 0, 1) * np.clip((yy / h - 0.25) * 4, 0, 1)
+    sc.layer(rock, "#4a4038", 0.25, tex=0.8, rim=(2, -2, "#ffb46a", 0.4), angle=0.7)
+    sc.glow(np.clip(1 - tunnel * 1.4, 0, 1) * np.clip((yy / h - 0.45) * 5, 0, 1) * 0.25, "#5a3a20", 10 * S, 0.6)
+
+    def timber(d, k):
+        x0, x1, top = cx - w * 0.27, cx + w * 0.27, h * 0.5
+        for x in (x0, x1):
+            d.rectangle([(x - 5 * S) * k, top * k, (x + 5 * S) * k, h * k], fill=255)
+        d.rectangle([(x0 - 12 * S) * k, (top - 6 * S) * k, (x1 + 12 * S) * k, (top + 5 * S) * k], fill=255)
+    sc.layer(mask(h, w, timber), "#4a3322", 0.4, tex=0.5, rim=(2, 0, "#ffb46a", 0.6), angle=-0.4)
+
+    def rails(d, k):
+        vx, vy = cx, h * 0.72
+        for off in (-1, 1):
+            d.line([(vx + off * 6 * S) * k, vy * k, (vx + off * 70 * S) * k, h * k], fill=255, width=int(2.4 * S * k))
+        for i in range(8):
+            t = (i / 7) ** 1.7
+            y, hw = vy + (h - vy) * t, 6 * S + 74 * S * t
+            d.rectangle([(vx - hw) * k, y * k, (vx + hw) * k, (y + (1.5 + 5 * t) * S) * k], fill=255)
+    sc.layer(mask(h, w, rails), "#2d241c", 0.1, tex=0.4, rim=(0, -1, "#ffcf8a", 0.5), angle=0.0)
+    vein = np.clip((noise(h, w, 9 * S, 8, 3) - 0.68) * 8, 0, 1) * rock * ((xx < w * 0.25) | (xx > w * 0.68))
+    sc.glow(vein * 0.6, "#ffbf55", 1.5 * S, 0.6)
+    shards = []
+
+    def crystals(d, k):
+        bx, by = w * 0.8, h * 0.94
+        for dx, ht, lean in ((-22, 46, -0.35), (-8, 74, -0.1), (6, 92, 0.05), (20, 60, 0.3), (32, 38, 0.5)):
+            x = bx + dx * S
+            top = (x + lean * ht * S, by - ht * S)
+            wd = 7 * S
+            d.polygon(kk([(x - wd, by), (top[0] - 1, top[1] + 10 * S), top, (top[0] + 1, top[1] + 10 * S), (x + wd, by)], k),
+                      fill=255)
+            shards.append((x, top))
+    cm = mask(h, w, crystals)
+    sc.layer(cm, "#4d84c4", 0.0, tex=0.15, recv=0.2, rim=(-2, 0, "#d7f0ff", 0.9), angle=1.1)
+    half = mask(h, w, lambda d, k: [d.polygon(kk([(x, h * 0.94), t, (x + 7 * S, h * 0.94)], k), fill=255) for x, t in shards])
+    sc.glow(half * 0.35, "#9fd0ff", 1, 0.5)
+    sc.glow(cm * 0.5, "#5aa8ff", 14 * S, 0.5)
+
+    def pick(d, k):
+        x0, y0, x1, y1 = w * 0.12, h * 0.98, w * 0.3, h * 0.66
+        d.line([x0 * k, y0 * k, x1 * k, y1 * k], fill=255, width=int(3.2 * S * k))
+        d.arc([(x1 - 30 * S) * k, (y1 - 14 * S) * k, (x1 + 26 * S) * k, (y1 + 26 * S) * k], 200, 330,
+              fill=255, width=int(4.5 * S * k))
+    sc.layer(mask(h, w, pick), "#5a4232", 0.0, tex=0.3, rim=(2, -1, "#ffd08a", 0.8), angle=-0.9)
+    lx, ly = cx - w * 0.27 + 12 * S, h * 0.56
+    sc.glow(mask(h, w, lambda d, k: d.rounded_rectangle([(lx - 4 * S) * k, (ly - 6 * S) * k, (lx + 4 * S) * k, (ly + 6 * S) * k],
+                                                         radius=2 * S * k, fill=255)), "#ffd690", 3 * S, 1.4)
+    sc.light(lx, ly, "#ffae55", w * 0.6, 0.9)
+    sc.light(w * 0.8, h * 0.85, "#5fa0ff", w * 0.3, 0.5)
+    sc.glow(spots(h, w, dots(rng, 30, (0, h * 0.4, w, h), S)), "#ffc66a", 2 * S, 0.6)
+    return sc
+
+
+def alchemy(rng):
+    sc, w, h = pillar_scene([(0, "#110f16"), (0.5, "#1c1a26"), (1, "#121016")],
+                            "#28243a", ("#0e0c13", "#2c2440", "#5aa878", "#e6f4c8"))
+    # the wall's stones, the shelf and its bottles
+    yy, xx = grid(h, w)
+    stones = np.clip((noise(h, w, 24 * S, 21, 3) - 0.35) * 3, 0, 1) * np.clip((yy / h - 0.3) * 3, 0, 1)
+    sc.layer(stones * 0.6, "#2a2636", 0.6, tex=0.5, angle=0.3)
+    sy = h * 0.6
+
+    def shelf(d, k):
+        d.rectangle([0, sy * k, w * k, (sy + 4 * S) * k], fill=255)
+        x = 8 * S
+        while x < w - 12 * S:
+            bw, bh = rng.uniform(7, 13) * S, rng.uniform(16, 34) * S
+            neck = bw * 0.35
+            d.rectangle([x * k, (sy - bh) * k, (x + bw) * k, sy * k], fill=255)
+            d.rectangle([(x + bw / 2 - neck / 2) * k, (sy - bh - 6 * S) * k, (x + bw / 2 + neck / 2) * k, (sy - bh) * k], fill=255)
+            x += bw + rng.uniform(3, 9) * S
+    sc.layer(mask(h, w, shelf), "#3a3048", 0.35, tex=0.35, rim=(-1, 1, "#9fe0b0", 0.5), angle=-0.5)
+    # the bench
+    by = h * 0.88
+    sc.layer(mask(h, w, lambda d, k: d.rectangle([0, by * k, w * k, h * k], fill=255)), "#2b2230", 0.1, tex=0.5,
+             rim=(0, 2, "#cfe8b8", 0.5), angle=0.0)
+    # the flask: a round belly, a neck, its liquid glowing
+    fx, fr = w * 0.62, 30 * S
+    fy = by - fr
+
+    def flask(d, k):
+        d.ellipse([(fx - fr) * k, (fy - fr) * k, (fx + fr) * k, (fy + fr) * k], fill=255)
+        d.rectangle([(fx - 6 * S) * k, (fy - fr - 30 * S) * k, (fx + 6 * S) * k, fy * k], fill=255)
+    fm = mask(h, w, flask)
+    sc.layer(fm, "#283a34", 0.0, tex=0.2, recv=0.6, rim=(-2, 1, "#d8ffe0", 0.9), angle=1.0)
+    liquid = fm * (yy > fy - fr * 0.1) * (((xx - fx) ** 2 + (yy - fy) ** 2) < (fr * 0.88) ** 2)
+    sc.glow(liquid * 0.6, "#48c078", 2 * S, 0.6)
+    sc.glow(liquid * 0.5, "#40c070", 24 * S, 0.7)
+    sc.glow(spots(h, w, dots(rng, 9, (fx - fr * 0.6, fy, fx + fr * 0.6, fy + fr * 0.6), 2.2 * S)), "#e8ffd0", 1 * S, 0.7)
+    # smoke curling up from the neck
+    smoke = mask(h, w, lambda d, k: d.line(kk([(fx + math.sin(t / 7) * 8 * S * (1 + t / 30), fy - fr - 30 * S - t * 2.4 * S)
+                                               for t in range(40)], k), fill=255, width=int(3 * S * k)))
+    sc.glow(blur(smoke, 2 * S) * 0.5, "#b8c8c0", 4 * S, 0.5)
+    # a candle at the left
+    cx, cyy = w * 0.18, by
+    sc.layer(mask(h, w, lambda d, k: d.rectangle([(cx - 4 * S) * k, (cyy - 26 * S) * k, (cx + 4 * S) * k, cyy * k], fill=255)),
+             "#d8ccb0", 0.0, tex=0.15, recv=1.0, angle=0.5)
+    flame = mask(h, w, lambda d, k: leaf(d, k, cx, cyy - 26 * S, 11 * S, 5 * S, -math.pi / 2, 0.2))
+    sc.glow(flame, "#ffd27a", 2 * S, 1.3)
+    sc.light(cx, cyy - 32 * S, "#ffb860", w * 0.4, 0.8)
+    sc.light(fx, fy, "#50e080", w * 0.5, 0.9)
+    return sc
+
+
+def blacksmithing(rng):
+    sc, w, h = pillar_scene([(0, "#120f0d"), (0.5, "#1f1712"), (1, "#120e0b")],
+                            "#2e241c", ("#100c09", "#3c2416", "#c8642a", "#ffe0a0"))
+    yy, xx = grid(h, w)
+    # the brick wall
+    def bricks(d, k):
+        bh = 11 * S
+        for r in range(int(h / bh) + 1):
+            y = h * 0.35 + r * bh
+            off = (r % 2) * 12 * S
+            for c in range(-1, int(w / (24 * S)) + 2):
+                x = c * 24 * S + off
+                d.rectangle([(x + S) * k, (y + S) * k, (x + 23 * S) * k, (y + bh - S) * k], fill=255)
+    br = mask(h, w, bricks) * np.clip((yy / h - 0.35) * 5, 0, 1)
+    sc.layer(br, "#3a261c", 0.5, tex=0.5, rim=(1, -1, "#ff9a50", 0.3), angle=0.0)
+    # the forge's mouth, glowing
+    fx, fy, fw = w * 0.72, h * 0.72, 34 * S
+    mouth = mask(h, w, lambda d, k: (d.ellipse([(fx - fw) * k, (fy - fw) * k, (fx + fw) * k, (fy + fw) * k], fill=255),
+                                     d.rectangle([(fx - fw) * k, fy * k, (fx + fw) * k, (fy + 34 * S) * k], fill=255)))
+    yy2 = yy
+    coals = np.clip(1 - (yy2 - (fy - fw)) / (fw + 34 * S), 0, 1)
+    sc.layer(mouth, "#5a1e0c", 0.0, tex=0.5, recv=0.4, angle=0.4)
+    sc.layer(mouth * (1 - coals) * 0.9, "#e0782c", 0.0, tex=0.6, recv=0.3, angle=0.4)
+    sc.glow(mouth * (1 - coals) * 0.35, "#ffcf70", 4 * S, 0.6)
+    sc.glow(mouth * 0.4, "#ff7a2a", 40 * S, 0.7)
+    # the floor, the anvil, the hammer on it
+    floor = mask(h, w, lambda d, k: d.rectangle([0, h * 0.9 * k, w * k, h * k], fill=255))
+    sc.layer(floor, "#1c1410", 0.1, tex=0.4, rim=(0, 2, "#ffb070", 0.4), angle=0.2)
+    ax, ay = w * 0.34, h * 0.9
+
+    def anvil(d, k):
+        d.polygon(kk([(ax - 44 * S, ay - 40 * S), (ax + 30 * S, ay - 40 * S), (ax + 30 * S, ay - 30 * S),
+                      (ax + 12 * S, ay - 24 * S), (ax + 12 * S, ay - 12 * S), (ax + 24 * S, ay),
+                      (ax - 30 * S, ay), (ax - 18 * S, ay - 12 * S), (ax - 18 * S, ay - 26 * S),
+                      (ax - 30 * S, ay - 30 * S), (ax - 58 * S, ay - 36 * S)], k), fill=255)
+        d.line(kk([(ax - 6 * S, ay - 46 * S), (ax + 26 * S, ay - 66 * S)], k), fill=255, width=int(3 * S * k))
+        d.polygon(kk([(ax - 14 * S, ay - 50 * S), (ax + 2 * S, ay - 52 * S), (ax - 2 * S, ay - 40 * S), (ax - 14 * S, ay - 41 * S)], k),
+                  fill=255)
+    sc.layer(mask(h, w, anvil), "#2c2a2a", 0.0, tex=0.35, rim=(2, -1, "#ffb060", 1.0), angle=-0.7)
+    # sparks off the anvil
+    sp = [(ax + rng.gauss(0, 18) * S, ay - 44 * S - abs(rng.gauss(0, 30)) * S, rng.uniform(0.6, 1.3) * S) for _ in range(40)]
+    sc.glow(spots(h, w, sp), "#ffd070", 1.5 * S, 0.9)
+    sc.light(fx, fy, "#ff8a3a", w * 0.7, 1.1)
+    return sc
+
+
+def enchanting(rng):
+    sc, w, h = pillar_scene([(0, "#0f0c16"), (0.5, "#1e1430"), (1, "#110c18")],
+                            "#2a2040", ("#0d0a14", "#2e2050", "#8a6ad0", "#f0e2ff"))
+    yy, xx = grid(h, w)
+    cx, gy = w * 0.5, h * 0.88
+    # the beam rising from the circle
+    beam = mask(h, w, lambda d, k: d.polygon(kk([(cx - 26 * S, h * 0.45), (cx + 26 * S, h * 0.45), (cx + 70 * S, gy), (cx - 70 * S, gy)], k),
+                                             fill=255)) * np.clip((yy / h - 0.45) * 3, 0, 1)
+    sc.glow(blur(beam, 6 * S) * 0.35, "#a080ff", 6 * S, 0.6)
+    # the floor and the runic circle on it
+    sc.layer(mask(h, w, lambda d, k: d.rectangle([0, (gy - 6 * S) * k, w * k, h * k], fill=255)), "#1a1426", 0.2, tex=0.4,
+             rim=(0, 2, "#c0a0ff", 0.3), angle=0.1)
+
+    def circle(d, k):
+        for rx, wd in ((88, 2.0), (74, 1.2), (52, 1.0)):
+            ry = rx * 0.26
+            d.ellipse([(cx - rx * S) * k, (gy - ry * S) * k, (cx + rx * S) * k, (gy + ry * S) * k], outline=255, width=int(wd * S * k))
+        for i in range(12):
+            a = i / 12 * 2 * math.pi
+            x, y = cx + math.cos(a) * 81 * S, gy + math.sin(a) * 81 * 0.26 * S
+            d.polygon(kk([(x, y - 3 * S), (x + 2 * S, y), (x, y + 3 * S), (x - 2 * S, y)], k), fill=255)
+    ring = mask(h, w, circle)
+    sc.glow(ring, "#c8a8ff", 2.5 * S, 1.0)
+    # the crystal floating over it
+    ky = h * 0.62
+    crystal = mask(h, w, lambda d, k: d.polygon(kk([(cx, ky - 30 * S), (cx + 13 * S, ky - 4 * S), (cx, ky + 22 * S), (cx - 13 * S, ky - 4 * S)], k),
+                                                fill=255))
+    sc.layer(crystal, "#8a68e0", 0.0, tex=0.1, recv=0.3, rim=(-2, 1, "#ffffff", 1.0), angle=0.8)
+    facet = mask(h, w, lambda d, k: d.polygon(kk([(cx, ky - 30 * S), (cx + 13 * S, ky - 4 * S), (cx, ky + 22 * S)], k), fill=255))
+    sc.glow(facet * 0.3, "#e8dcff", 1, 0.6)
+    sc.glow(crystal * 0.6, "#9a70ff", 22 * S, 0.8)
+    sc.glow(spots(h, w, dots(rng, 34, (0, h * 0.35, w, gy), 1.1 * S)), "#e0d0ff", 2 * S, 0.8)
+    sc.light(cx, ky, "#9a7aff", w * 0.7, 1.0)
+    return sc
+
+
+def engineering(rng):
+    sc, w, h = pillar_scene([(0, "#0c1015"), (0.5, "#142030"), (1, "#0d1218")],
+                            "#1e2a3a", ("#0a0e13", "#1c3048", "#5c90c0", "#e4f2ff"))
+    gy = h * 0.88
+    sc.layer(mask(h, w, lambda d, k: [gear(d, k, w * 0.22, h * 0.7, 52 * S, 12, turn=0.2),
+                                      gear(d, k, w * 0.86, h * 0.62, 40 * S, 10, turn=0.5)]),
+             "#26384c", 0.55, tex=0.45, rim=(-1, 1, "#8ec8ff", 0.4), angle=0.7)
+    sc.layer(mask(h, w, lambda d, k: [gear(d, k, w * 0.58, h * 0.76, 34 * S, 9, turn=0.1),
+                                      gear(d, k, w * 0.36, h * 0.6, 22 * S, 8, turn=0.3)]),
+             "#3a4a5c", 0.25, tex=0.4, rim=(-2, 1, "#c8e4ff", 0.6), angle=-0.4)
+    # the bench, and a lamp on it
+    sc.layer(mask(h, w, lambda d, k: d.rectangle([0, gy * k, w * k, h * k], fill=255)), "#1e242c", 0.05, tex=0.45,
+             rim=(0, 2, "#a8d0ff", 0.5), angle=0.0)
+    # a spark jumping between two posts
+    p1, p2 = (w * 0.62, gy - 40 * S), (w * 0.86, gy - 46 * S)
+    sc.layer(mask(h, w, lambda d, k: [d.rectangle([(x - 2.5 * S) * k, y * k, (x + 2.5 * S) * k, gy * k], fill=255) for x, y in (p1, p2)]),
+             "#4a4038", 0.0, tex=0.3, rim=(1, 0, "#ffffff", 0.6), angle=0.9)
+    pts = [p1]
+    for i in range(1, 9):
+        t = i / 9
+        pts.append((p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t + rng.uniform(-9, 9) * S))
+    pts.append(p2)
+    arc = mask(h, w, lambda d, k: d.line(kk(pts, k), fill=255, width=int(1.6 * S * k)))
+    sc.glow(arc, "#d8f0ff", 2 * S, 1.3)
+    sc.glow(arc * 0.6, "#5aa8ff", 18 * S, 0.8)
+    # a gauge
+    gx, gyy = w * 0.2, gy - 14 * S
+    sc.layer(mask(h, w, lambda d, k: d.ellipse([(gx - 12 * S) * k, (gyy - 12 * S) * k, (gx + 12 * S) * k, (gyy + 12 * S) * k], fill=255)),
+             "#5a4a30", 0.0, tex=0.2, rim=(1, -1, "#ffe0a0", 0.8), angle=0.3)
+    sc.glow(mask(h, w, lambda d, k: d.line([gx * k, gyy * k, (gx + 7 * S) * k, (gyy - 6 * S) * k], fill=255, width=int(1.5 * S * k))),
+            "#ff8a50", 1 * S, 0.8)
+    sc.light((p1[0] + p2[0]) / 2, p1[1], "#7ab8ff", w * 0.6, 1.1)
+    return sc
+
+
+def leatherworking(rng):
+    sc, w, h = pillar_scene([(0, "#120e0b"), (0.5, "#221810"), (1, "#130e0a")],
+                            "#2e2216", ("#100b08", "#3e2818", "#a8703c", "#f4dcb0"))
+    cx, cy = w * 0.5, h * 0.68
+    fw, fh = 84 * S, 62 * S
+
+    def frame(d, k):
+        for x0, y0, x1, y1 in ((cx - fw, cy - fh, cx + fw, cy - fh + 7 * S), (cx - fw, cy + fh - 7 * S, cx + fw, cy + fh),
+                               (cx - fw, cy - fh, cx - fw + 7 * S, h), (cx + fw - 7 * S, cy - fh, cx + fw, h)):
+            d.rectangle([x0 * k, y0 * k, x1 * k, y1 * k], fill=255)
+    sc.layer(mask(h, w, frame), "#4a3220", 0.3, tex=0.5, rim=(2, -1, "#ffc070", 0.6), angle=-0.3)
+    # the hide stretched in it, laced to the frame
+    hide_pts = []
+    for i in range(24):
+        a = i / 24 * 2 * math.pi
+        r = 1 + 0.12 * math.sin(a * 3 + 0.5) + 0.06 * math.sin(a * 7)
+        hide_pts.append((cx + math.cos(a) * fw * 0.72 * r, cy + math.sin(a) * fh * 0.7 * r))
+    hide = mask(h, w, lambda d, k: d.polygon(kk(hide_pts, k), fill=255))
+    sc.layer(hide, "#5e3e24", 0.05, tex=0.55, recv=1.0, rim=(1, -1, "#ffd8a0", 0.6), angle=0.9)
+    lace = mask(h, w, lambda d, k: [d.line(kk([p, (cx + (p[0] - cx) * 1.32, cy + (p[1] - cy) * 1.36)], k), fill=255, width=int(1 * S * k))
+                                    for p in hide_pts[::2]])
+    sc.layer(lace, "#d0b080", 0.1, tex=0.1, angle=0.0)
+    stitch = mask(h, w, lambda d, k: [d.line(kk([(cx + (p[0] - cx) * 0.82, cy + (p[1] - cy) * 0.82),
+                                                  (cx + (q[0] - cx) * 0.82, cy + (q[1] - cy) * 0.82)], k), fill=255, width=int(1 * S * k))
+                                      for p, q in zip(hide_pts[::2], hide_pts[1::2])])
+    sc.glow(stitch * 0.5, "#ffe0b0", 0.5 * S, 0.5)
+    # a lamp at the left
+    lx, ly = w * 0.1, h * 0.55
+    sc.glow(spots(h, w, [(lx, ly, 6 * S)]), "#ffd080", 4 * S, 1.2)
+    sc.light(lx, ly, "#ffa050", w * 0.8, 1.1)
+    sc.layer(mask(h, w, lambda d, k: d.rectangle([0, h * 0.94 * k, w * k, h * k], fill=255)), "#1a120c", 0.0, tex=0.4,
+             rim=(0, 2, "#ffc080", 0.4), angle=0.2)
+    return sc
+
+
+def skinning(rng):
+    sc, w, h = pillar_scene([(0, "#0d1014"), (0.5, "#1a222c"), (1, "#0f1215")],
+                            "#28323e", ("#0b0e12", "#222e3a", "#7a8a96", "#f0e4cc"))
+    sc.layer(mask(h, w, lambda d, k: [pine(d, k, (i + rng.uniform(-0.3, 0.3)) * w / 9, h * 0.68, rng.uniform(50, 80) * S)
+                                      for i in range(10)]), "#1f2a34", 0.7, tex=0.3, rim=(-1, 1, "#9ab0c0", 0.3), angle=1.2)
+    sc.layer(mask(h, w, lambda d, k: d.rectangle([0, h * 0.86 * k, w * k, h * k], fill=255)), "#161c20", 0.2, tex=0.4,
+             rim=(0, 2, "#b8c8d0", 0.3), angle=0.0)
+    # the drying rack: two A-frames, a pole, two hides hung on it
+    ry = h * 0.6
+
+    def rack(d, k):
+        for x in (w * 0.14, w * 0.86):
+            d.line(kk([(x - 16 * S, h * 0.9), (x, ry - 6 * S), (x + 16 * S, h * 0.9)], k), fill=255, width=int(3 * S * k))
+        d.line(kk([(w * 0.1, ry), (w * 0.9, ry)], k), fill=255, width=int(3 * S * k))
+    sc.layer(mask(h, w, rack), "#3a2c20", 0.1, tex=0.4, rim=(1, -1, "#ffc890", 0.5), angle=-0.6)
+
+    def hides(d, k):
+        for x0, x1, drop in ((w * 0.22, w * 0.47, 78), (w * 0.53, w * 0.78, 66)):
+            m = (x0 + x1) / 2
+            pts = [(x0, ry), (x1, ry), (x1 + 4 * S, ry + drop * 0.45 * S), (x1 - 8 * S, ry + drop * 0.8 * S),
+                   (m + 6 * S, ry + drop * S), (m, ry + drop * 0.86 * S), (m - 6 * S, ry + drop * S),
+                   (x0 + 8 * S, ry + drop * 0.8 * S), (x0 - 4 * S, ry + drop * 0.45 * S)]
+            d.polygon(kk(pts, k), fill=255)
+    sc.layer(mask(h, w, hides), "#7a5636", 0.0, tex=0.55, rim=(1, -1, "#ffd8a8", 0.6), angle=0.8)
     # a knife in a stump
-    sx = w * 0.1
-    body += (f'<rect x="{sx - 16}" y="{h - 44}" width="32" height="30" rx="3" fill="#2a2018"/>'
-             f'<ellipse cx="{sx}" cy="{h - 44}" rx="16" ry="5" fill="#4a3a28"/>'
-             f'<path d="M{sx + 2} {h - 46} L{sx + 8} {h - 78} L{sx + 12} {h - 76} L{sx + 6} {h - 46} Z" '
-             f'fill="#b8c0c8" opacity="0.85"/><rect x="{sx + 7}" y="{h - 92}" width="6" height="16" rx="2" '
-             f'fill="#3a2818" transform="rotate(10 {sx + 10} {h - 84})"/>')
-    body += motes(rnd, 26, (0, h * 0.45, w, h - 20), "#e8f0ff", (0.8, 1.6), (0.2, 0.6), True)
-    return defs, body
+    sx, sy = w * 0.2, h * 0.94
+    sc.layer(mask(h, w, lambda d, k: d.rectangle([(sx - 12 * S) * k, (sy - 16 * S) * k, (sx + 12 * S) * k, sy * k], fill=255)),
+             "#3a2a1c", 0.0, tex=0.4, rim=(1, -1, "#ffc080", 0.5), angle=0.3)
+    sc.glow(mask(h, w, lambda d, k: d.polygon(kk([(sx - 1 * S, sy - 16 * S), (sx + 2 * S, sy - 40 * S), (sx + 4 * S, sy - 16 * S)], k),
+                                              fill=255)), "#c8d8e8", 1 * S, 0.7)
+    sc.light(w * 0.5, h * 0.3, "#9ab4d0", w * 0.9, 0.5)
+    sc.light(w * 0.95, h * 0.9, "#ff9a50", w * 0.5, 0.7)
+    return sc
 
 
-def tailoring(rnd, w, h):
-    defs, body = ground("#1f151c", "#22161e", "#e090b0", 0.8)
-    defs += ('<linearGradient id="cloth" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4a2234"/>'
-             '<stop offset="0.5" stop-color="#7a3a52"/><stop offset="1" stop-color="#4a2234"/></linearGradient>')
-    # cloth draped across the foot, in folds
-    body += (f'<path d="M0 {h - 90} Q{w * 0.3} {h - 130} {w * 0.55} {h - 96} Q{w * 0.8} {h - 64} {w} {h - 104} '
-             f'L{w} {h} L0 {h} Z" fill="url(#cloth)"/>')
-    for k in range(5):
-        x = w * (0.1 + k * 0.2)
-        body += (f'<path d="M{x:.1f} {h} Q{x + 10:.1f} {h - 50} {x - 4:.1f} {h - 100 + k * 6}" stroke="#2e1420" '
-                 f'stroke-width="3" fill="none" opacity="0.6"/>')
-    body += (f'<path d="M0 {h - 90} Q{w * 0.3} {h - 130} {w * 0.55} {h - 96} Q{w * 0.8} {h - 64} {w} {h - 104}" '
-             f'stroke="#e0a0b8" stroke-width="1.2" fill="none" opacity="0.45"/>')
-    # a spool, its thread
-    sx, sy = w * 0.76, h - 150
-    body += (f'<rect x="{sx - 20}" y="{sy - 40}" width="40" height="56" fill="#c9b48a" opacity="0.85"/>')
-    for k in range(9):
-        body += f'<path d="M{sx - 20} {sy - 36 + k * 6} L{sx + 20} {sy - 34 + k * 6}" stroke="#8a7650" ' \
-                f'stroke-width="1" opacity="0.6"/>'
-    body += (f'<ellipse cx="{sx}" cy="{sy - 42}" rx="28" ry="7" fill="#3a2418"/>'
-             f'<ellipse cx="{sx}" cy="{sy + 18}" rx="28" ry="7" fill="#2c1a12"/>')
-    # a needle, its thread looping from the spool
-    nx0, ny0, nx1, ny1 = w * 0.14, h - 120, w * 0.44, h - 190
-    body += (f'<path d="M{nx0} {ny0} L{nx1} {ny1}" stroke="#d8dce0" stroke-width="2.4" stroke-linecap="round"/>'
-             f'<ellipse cx="{nx1 - 4}" cy="{ny1 + 2}" rx="3" ry="1.4" fill="#22161e" '
-             f'transform="rotate(-24 {nx1 - 4} {ny1 + 2})"/>'
-             f'<path d="M{nx1 - 4} {ny1 + 2} C{w * 0.6} {h - 240} {w * 0.5} {h - 120} {sx - 20} {sy - 10}" '
-             f'stroke="#e8d8b0" stroke-width="1.2" fill="none" opacity="0.7"/>')
-    for _ in range(5):
-        x, y = rnd.uniform(20, w - 20), rnd.uniform(h - 60, h - 20)
-        body += (f'<path d="M{x:.1f} {y:.1f} l10 -6" stroke="#d8dce0" stroke-width="1" opacity="0.7"/>'
-                 f'<circle cx="{x:.1f}" cy="{y:.1f}" r="2" fill="#e05a7a"/>')
-    body += motes(rnd, 14, (0, h * 0.5, w, h - 30), "#ffd8e8", (0.8, 1.4), (0.2, 0.6), True)
-    return defs, body
+def tailoring(rng):
+    sc, w, h = pillar_scene([(0, "#120d12"), (0.5, "#24152a"), (1, "#130c13")],
+                            "#33223a", ("#100a10", "#3c1e3a", "#b0507a", "#f8e0d0"))
+    yy, xx = grid(h, w)
+    # the cloth draped in folds
+    def cloth(d, k):
+        top = [(x, h * 0.74 - 16 * S * math.sin(x / w * 5 + 0.6) - 8 * S * math.sin(x / w * 11)) for x in range(0, w + 4, 4)]
+        d.polygon(kk(top + [(w, h), (0, h)], k), fill=255)
+    cm = mask(h, w, cloth)
+    folds = (0.5 + 0.5 * np.sin(xx / w * 5 * math.pi + yy / h * 3)) * 0.5
+    sc.layer(cm, "#56203e", 0.1, tex=0.25, recv=1.0, rim=(0, 2, "#ffc0d8", 0.6), angle=0.5)
+    sc.layer(cm * folds * np.clip((yy / h - 0.74) * 6, 0, 1), "#3a1028", 0.0, tex=0.2, angle=0.5)
+    # pins in it
+    pins = [(rng.uniform(20, w - 20), h - rng.uniform(16, 50) * S) for _ in range(5)]
+    sc.glow(spots(h, w, [(x, y, 2 * S) for x, y in pins]), "#ff7a9a", 1 * S, 0.8)
+    # the spool
+    sx, sy = w * 0.74, h * 0.6
+    spool = mask(h, w, lambda d, k: (d.rectangle([(sx - 18 * S) * k, (sy - 30 * S) * k, (sx + 18 * S) * k, (sy + 30 * S) * k], fill=255),))
+    sc.layer(spool, "#d8c49a", 0.0, tex=0.15, recv=1.0, rim=(-1, 0, "#ffffff", 0.5), angle=0.0)
+    thread = spool * (0.5 + 0.5 * np.sin(yy / (1.6 * S) * math.pi))
+    sc.layer(thread * 0.4, "#a08868", 0.0, tex=0.1)
+    sc.layer(mask(h, w, lambda d, k: [d.ellipse([(sx - 24 * S) * k, (y - 5 * S) * k, (sx + 24 * S) * k, (y + 5 * S) * k], fill=255)
+                                      for y in (sy - 32 * S, sy + 32 * S)]), "#4a3020", 0.0, tex=0.4, rim=(-1, 1, "#ffd0a0", 0.6),
+             angle=0.4)
+    # the needle, its thread curling to the spool
+    n0, n1 = (w * 0.12, h * 0.66), (w * 0.44, h * 0.46)
+    sc.glow(mask(h, w, lambda d, k: d.line(kk([n0, n1], k), fill=255, width=int(1.8 * S * k))), "#e8eef8", 1 * S, 1.0)
+    curve = [(n1[0] + (sx - 18 * S - n1[0]) * t + math.sin(t * math.pi) * 30 * S, n1[1] - math.sin(t * math.pi * 1.4) * 40 * S
+              + (sy - n1[1]) * t) for t in np.linspace(0, 1, 30)]
+    sc.glow(mask(h, w, lambda d, k: d.line(kk(curve, k), fill=255, width=int(1 * S * k))), "#f0d8a0", 0.8 * S, 0.7)
+    sc.light(w * 0.6, h * 0.4, "#ff9ac0", w * 0.8, 0.7)
+    return sc
 
 
 PRIMARIES = {
@@ -470,157 +712,148 @@ PRIMARIES = {
 }
 
 
-# ------------------------------------------------------- the night's scene
-def sky():
-    """Stars, the milky way, the moon; clear at its top, the horizon's
-    colour at its foot."""
-    w, h = SKY[0], SKY[1]
-    rnd = random.Random(11)
-    defs = f'''
-      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#0d1020" stop-opacity="0"/>
-        <stop offset="0.10" stop-color="#0d1020" stop-opacity="1"/>
-        <stop offset="0.55" stop-color="#161a2c"/>
-        <stop offset="1" stop-color="{HORIZON}"/>
-      </linearGradient>
-      <radialGradient id="moonglow"><stop offset="0" stop-color="#e8dcb8" stop-opacity="0.35"/>
-        <stop offset="1" stop-color="#e8dcb8" stop-opacity="0"/></radialGradient>
-      <linearGradient id="milky" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#b8b4d8" stop-opacity="0"/>
-        <stop offset="0.5" stop-color="#b8b4d8" stop-opacity="0.10"/>
-        <stop offset="1" stop-color="#b8b4d8" stop-opacity="0"/></linearGradient>
-      <filter id="soft"><feGaussianBlur stdDeviation="6"/></filter>'''
-    body = f'<rect width="{w}" height="{h}" fill="url(#sky)"/>'
-    body += (f'<path d="M-40 {h * 0.7} Q{w * 0.4} {h * 0.15} {w + 40} {-20} L{w + 40} 50 Q{w * 0.45} {h * 0.35} '
-             f'-40 {h * 0.9} Z" fill="url(#milky)" filter="url(#soft)"/>')
-    for _ in range(200):
-        x = rnd.uniform(0, w)
-        y = 20 + (h * 0.8) * (rnd.random() ** 1.4)
-        r = rnd.choice([0.5, 0.6, 0.7, 0.9, 1.1, 1.4])
-        a = rnd.uniform(0.25, 0.9) * (1 - 0.7 * y / h)
-        col = rnd.choice(["#fff4d6", "#e8e6ff", "#ffe6b0"])
-        body += f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r}" fill="{col}" opacity="{a:.2f}"/>'
-    for _ in range(8):
-        x, y = rnd.uniform(20, w - 20), rnd.uniform(30, h * 0.5)
-        body += (f'<path d="M{x:.1f} {y - 5:.1f} L{x + 1:.1f} {y - 1:.1f} L{x + 5:.1f} {y:.1f} L{x + 1:.1f} '
-                 f'{y + 1:.1f} L{x:.1f} {y + 5:.1f} L{x - 1:.1f} {y + 1:.1f} L{x - 5:.1f} {y:.1f} L{x - 1:.1f} '
-                 f'{y - 1:.1f} Z" fill="#fff1c8" opacity="0.75"/>')
-    # the moon, between the second and third medallions
-    mx, my = w * 0.67, 78
-    body += f'<circle cx="{mx}" cy="{my}" r="46" fill="url(#moonglow)"/>'
-    body += (f'<path d="M{mx - 2} {my - 13} A13 13 0 1 0 {mx + 9} {my + 9} A10 10 0 1 1 {mx - 2} {my - 13} Z" '
-             f'fill="#efe2bd" opacity="0.85"/>')
-    return render(defs, body, SKY)
+# ---------------------------------------------------------------- the night
+def night(rng):
+    """The whole night, sky over land, 444 x 648 units."""
+    global S
+    S = SKY[2] * 2 / SKY[0]
+    w, h = SKY[2] * 2, int(round((SKY[1] + LAND[1]) * S))
+    sc = Scene(w, h, vgrad(h, w, [(0, "#090b14"), (0.3, "#141a30"), (0.5, "#2a2f4c"), (0.58, "#3a3550"), (1, "#0e0f16")]),
+               "#2a3048", ("#0b0d16", "#232a44", "#6d6f9a", "#f1d9a0"))
+    yy, xx = grid(h, w)
+    sky_h = SKY[1] * S                              # the sky's height in pixels
+    band = np.exp(-(((yy - (h * 0.02 + xx * 0.36)) / (h * 0.07)) ** 2))
+    sc.back = sc.back + (band * noise(h, w, 30 * S, 11, 6) ** 2 * (yy < sky_h * 1.4) * 0.55)[..., None] * hexc("#8f88b8")
+    st = [(rng.uniform(0, w), rng.uniform(0, sky_h * 1.3), rng.random() ** 3) for _ in range(420)]
+    sc.glow(mask(h, w, lambda d, k: [d.ellipse([(x - (0.4 + 1.3 * b) * S) * k, (y - (0.4 + 1.3 * b) * S) * k,
+                                                (x + (0.4 + 1.3 * b) * S) * k, (y + (0.4 + 1.3 * b) * S) * k],
+                                               fill=int(120 + 135 * b)) for x, y, b in st]), "#e8e6ff", 1.0 * S, 0.7)
+    mx, my = w * 0.72, sky_h * 0.3
+    moon = mask(h, w, lambda d, k: d.ellipse([(mx - 13 * S) * k, (my - 13 * S) * k, (mx + 13 * S) * k, (my + 13 * S) * k], fill=255))
+    bite = mask(h, w, lambda d, k: d.ellipse([(mx - 7 * S) * k, (my - 17 * S) * k, (mx + 19 * S) * k, (my + 9 * S) * k], fill=255))
+    sc.glow(np.clip(moon - bite, 0, 1), "#f3e6c0", 4 * S, 1.2)
+    sc.glow(moon * 0.25, "#a8a8d8", 30 * S, 0.8)
+    sc.light(mx, my, "#8f9ad8", w * 0.9, 0.35)
+    # the land starts at sky_h; its top band (LAND_TOP) is left to the horizon
+    land0 = sky_h + LAND_TOP * S
+    for i, (base, amp, col, dep) in enumerate([(land0 + 34 * S, 30, "#363c5c", 0.75), (land0 + 58 * S, 20, "#262b45", 0.55)]):
+        pts = soft_ridge(w, base, amp * S, 41 + i, 160 * S)
+        m = mask(h, w, lambda d, k, pts=pts: d.polygon(kk(pts + [(w, h), (0, h)], k), fill=255))
+        snow = np.clip((noise(h, w, 6 * S, 50 + i, 3) - 0.45) * 3, 0, 1) * np.clip(m - shift(m, -6, 10), 0, 1)
+        sc.layer(m, col, dep, tex=0.45, rim=(-2, 2, "#c9cdf0", 0.45), angle=0.9 - i * 0.5)
+        sc.glow(blur(snow, 1.5) * 0.25, "#aab4e8", 1, 0.4)
+    for k_, y in enumerate((land0 + 80 * S, land0 + 150 * S, land0 + 230 * S)):
+        mist = np.exp(-(((yy - y) / (14 * S)) ** 2)) * noise(h, w, 50 * S, 60 + k_, 3)
+        sc.glow(mist * 0.6, "#5c6080", 4 * S, 0.35)
+    for i, (base, size, n, col, dep) in enumerate([(land0 + 96 * S, 26, 70, "#262b40", 0.65),
+                                                   (land0 + 170 * S, 40, 46, "#1b1f2e", 0.45),
+                                                   (land0 + 262 * S, 62, 26, "#12141e", 0.2)]):
+        def firs(d, k, base=base, size=size, n=n):
+            for j in range(n):
+                pine(d, k, (j + rng.uniform(-0.4, 0.4)) * w / (n - 1), base + rng.uniform(-4, 6) * S, size * S * rng.uniform(0.7, 1.25))
+            d.rectangle([0, base * k, w * k, h * k], fill=255)
+        sc.layer(mask(h, w, firs), col, dep, tex=0.3, rim=(-2, 2, "#8a92c8", 0.35 - i * 0.08), angle=1.4 - i * 0.6)
+    gy = h - 26 * S
+
+    def framing(d, k):
+        for x, hh in ((w * 0.03, 230), (w * 0.1, 170), (w * 0.96, 250), (w * 0.88, 180)):
+            pine(d, k, x, h + 4, hh * S)
+        d.polygon(kk([(0, gy + 2 * S), (w * 0.3, gy), (w * 0.7, gy + S), (w, gy), (w, h), (0, h)], k), fill=255)
+    sc.layer(mask(h, w, framing), "#0c0d13", 0.0, tex=0.25, rim=(2, -1, "#ff9a4a", 0.6), angle=-0.5)
+    fx, tx = w * 0.56, w * 0.36
+
+    def tent(d, k):
+        d.polygon(kk([(tx - 34 * S, gy), (tx, gy - 46 * S), (tx + 34 * S, gy)], k), fill=255)
+        d.line(kk([(tx, gy - 46 * S), (tx, gy - 56 * S)], k), fill=255, width=int(1.5 * S * k))
+        d.polygon(kk([(tx, gy - 56 * S), (tx + 9 * S, gy - 53 * S), (tx, gy - 50 * S)], k), fill=255)
+        d.rectangle(kk([(fx - 34 * S, gy - 4 * S), (fx - 16 * S, gy)], k), fill=255)
+    sc.layer(mask(h, w, tent), "#2e2118", 0.0, tex=0.3, recv=0.8, rim=(2, 0, "#ffb060", 0.7), angle=0.4)
+    sc.glow(mask(h, w, lambda d, k: d.polygon(kk([(tx - 3 * S, gy), (tx + 2 * S, gy - 30 * S), (tx + 12 * S, gy)], k), fill=255)) * 0.6,
+            "#ff9a40", 2 * S, 0.7)
+    fire = mask(h, w, lambda d, k: [leaf(d, k, fx + dx, gy, hh * S, 9 * S, -math.pi / 2 + lean, curl)
+                                    for dx, hh, lean, curl in ((-4 * S, 15, -0.2, 0.5), (0, 24, 0.0, -0.4), (5 * S, 17, 0.25, -0.6))])
+    sc.glow(fire, "#ffb050", 3 * S, 1.6)
+    sc.glow(fire * 0.4, "#ff7a2a", 26 * S, 1.2)
+    sc.glow(spots(h, w, [(fx + rng.gauss(0, 9) * S, gy - rng.uniform(20, 70) * S, 0.8 * S) for _ in range(22)]), "#ffc070", 1.5 * S, 0.9)
+    sc.light(fx, gy - 10 * S, "#ff9040", w * 0.45, 1.1)
+    return sc, int(round(sky_h))
 
 
-def land():
-    """Far mountains, ranks of firs in the mist, down to the forest floor
-    and the camp in its clearing; clear above the mountains."""
-    w, h = LAND[0], LAND[1]
-    rnd = random.Random(23)
-    defs = '''
-      <radialGradient id="fire"><stop offset="0" stop-color="#ff9a3c" stop-opacity="0.5"/>
-        <stop offset="0.45" stop-color="#d0601c" stop-opacity="0.18"/>
-        <stop offset="1" stop-color="#d0601c" stop-opacity="0"/></radialGradient>
-      <linearGradient id="mist" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#8f8fa6" stop-opacity="0"/>
-        <stop offset="0.5" stop-color="#8f8fa6" stop-opacity="0.16"/>
-        <stop offset="1" stop-color="#8f8fa6" stop-opacity="0"/></linearGradient>
-      <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#121410"/><stop offset="1" stop-color="#0f0d0a"/></linearGradient>
-      <filter id="b"><feGaussianBlur stdDeviation="2"/></filter>'''
-    body = ""
-    far = ridge(rnd, w, 96, 70, 46, 0.9)
-    body += f'<path d="{poly(far, h)}" fill="#262b3d"/>'
-    body += f'<rect x="0" y="70" width="{w}" height="60" fill="url(#mist)"/>'
-    # ranks of firs, nearer ones darker and larger, down to the floor
-    floor_y = h - 150
-    ranks = [(128, 34, "#1d2230", 12), (176, 48, "#181b24", 17), (236, 66, "#14161c", 22),
-             (floor_y + 10, 92, "#101216", 28)]
-    for i, (base, th, col, gap) in enumerate(ranks):
-        hill = ridge(rnd, w, base, 10, 60, 0.6)
-        body += f'<path d="{smooth(hill, h)}" fill="{col}"/>'
-        d, x = "", rnd.uniform(-gap, 0)
-        while x < w + gap:
-            d += pine(x, under(hill, x, base) + 6, th * rnd.uniform(0.7, 1.15))
-            x += gap * rnd.uniform(0.7, 1.5)
-        body += f'<path d="{d}" fill="{col}"/>'
-        if i in (0, 1):
-            body += f'<rect x="0" y="{base - 24}" width="{w}" height="54" fill="url(#mist)"/>'
-    # the forest floor, the nearest firs at its edges, the camp in the middle
-    fl = ridge(rnd, w, floor_y + 34, 12, 80, 0.5)
-    body += f'<path d="{smooth(fl, h)}" fill="url(#floor)"/>'
-    d = ""
-    for x in (-6, 20, 44, w - 40, w - 14, w + 8):
-        d += pine(x, h - rnd.uniform(4, 30), rnd.uniform(150, 200))
-    body += f'<path d="{d}" fill="#0b0c0e"/>'
-    fx, fy = w * 0.52, h - 34
-    body += f'<ellipse cx="{fx}" cy="{fy}" rx="190" ry="120" fill="url(#fire)"/>'
-    # undergrowth along the floor: ferns and grass, lit near the fire
-    for _ in range(46):
-        x = rnd.uniform(0, w)
-        y = under(fl, x, floor_y + 34) + rnd.uniform(4, 60)
-        near = max(0.0, 1 - abs(x - fx) / 180)
-        col = "#2a1e12" if near > 0.4 else "#141310"
-        ht = rnd.uniform(6, 14)
-        body += (f'<path d="M{x - 5:.1f} {y:.1f} Q{x - 4:.1f} {y - ht:.1f} {x - 8:.1f} {y - ht - 3:.1f} M{x:.1f} '
-                 f'{y:.1f} L{x + 1:.1f} {y - ht - 4:.1f} M{x + 4:.1f} {y:.1f} Q{x + 6:.1f} {y - ht:.1f} '
-                 f'{x + 10:.1f} {y - ht - 2:.1f}" stroke="{col}" stroke-width="1.6" fill="none"/>')
-    # the tent, lit inside, its door open to the fire
-    tx, ty = w * 0.34, h - 16
-    body += (f'<path d="M{tx - 56} {ty} L{tx} {ty - 76} L{tx + 56} {ty} Z" fill="#2a1e14"/>'
-             f'<path d="M{tx} {ty - 76} L{tx + 56} {ty} L{tx + 18} {ty} Z" fill="#3a2716"/>'
-             f'<path d="M{tx - 12} {ty} L{tx} {ty - 36} L{tx + 12} {ty} Z" fill="#e08a3a" opacity="0.75"/>'
-             f'<path d="M{tx} {ty - 76} L{tx} {ty - 88} L{tx + 13} {ty - 84} Z" fill="{GOLD}" opacity="0.7"/>'
-             f'<path d="M{tx - 56} {ty} L{tx - 70} {ty + 2} M{tx + 56} {ty} L{tx + 70} {ty + 2}" stroke="#3a2a1a" '
-             f'stroke-width="1.2"/>')
-    # the fire: stones, logs, flame, sparks rising
-    for k in range(8):
-        a = k / 8 * math.pi
-        body += f'<ellipse cx="{fx + 22 * math.cos(a):.1f}" cy="{fy + 10 + 4 * math.sin(a):.1f}" rx="5" ry="3.5" ' \
-                f'fill="#2a241e"/>'
-    body += (f'<path d="M{fx - 18} {fy + 8} L{fx + 18} {fy + 2}" stroke="#3a2614" stroke-width="5" '
-             f'stroke-linecap="round"/><path d="M{fx - 16} {fy + 2} L{fx + 16} {fy + 9}" stroke="#2c1d10" '
-             f'stroke-width="5" stroke-linecap="round"/>'
-             f'<path d="M{fx - 10} {fy + 2} Q{fx - 12} {fy - 14} {fx - 3} {fy - 26} Q{fx - 2} {fy - 12} {fx + 3} '
-             f'{fy - 20} Q{fx + 12} {fy - 8} {fx + 9} {fy + 2} Z" fill="#ff8a2a"/>'
-             f'<path d="M{fx - 5} {fy + 2} Q{fx - 6} {fy - 8} {fx} {fy - 15} Q{fx + 6} {fy - 6} {fx + 4} {fy + 2} Z" '
-             f'fill="#ffd27a"/>')
-    body += motes(rnd, 14, (fx - 14, fy - 90, fx + 18, fy - 28), "#ffb45a", (0.7, 1.4), (0.4, 0.9))
-    # a log to sit on, a pack by the tent, a pot by the fire
-    body += (f'<rect x="{fx - 76}" y="{fy + 4}" width="36" height="9" rx="4" fill="#24180e"/>'
-             f'<rect x="{tx - 86}" y="{ty - 14}" width="16" height="14" rx="3" fill="#20160e"/>'
-             f'<path d="M{fx + 30} {fy + 12} q0 -12 10 -12 q10 0 10 12 Z" fill="#1c1814"/>')
-    # fireflies among the firs
-    for _ in range(16):
-        x, y = rnd.uniform(10, w - 10), rnd.uniform(110, floor_y)
-        body += (f'<circle cx="{x:.1f}" cy="{y:.1f}" r="1.6" fill="#e8d27a" opacity="{rnd.uniform(0.3, 0.7):.2f}" '
-                 f'filter="url(#b)"/><circle cx="{x:.1f}" cy="{y:.1f}" r="0.7" fill="#fff0b0"/>')
-    return render(defs, body, LAND)
+LAND_TOP = 40           # units at the land's top left to the horizon (the mountains below it)
+SEAM = 40               # units over which the sky's foot and the land's top become the horizon colour
 
 
 # ------------------------------------------------------------------ output
-def save(name, art, size, bottom):
+def half(a):
+    """Twice the texture's size down to it."""
+    im = Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8))
+    return im.resize((im.width // 2, im.height // 2), Image.LANCZOS)
+
+
+def alpha_fade(im, top=None, foot=None):
+    """Clear at the top, full from `top` (a fraction of the height) down;
+    clear at the foot over its last `foot` pixels."""
+    w, h = im.size
+    y = np.arange(h, dtype=np.float32)
+    a = np.ones(h, np.float32)
+    if top:
+        t = np.clip(y / (h * top), 0, 1)
+        a = t * t * (3 - 2 * t)
+    if foot:
+        a = np.minimum(a, np.clip((h - y) / foot, 0, 1))
+    rgba = im.convert("RGBA")
+    arr = np.asarray(rgba).copy()
+    arr[..., 3] = (a[:, None] * 255).astype(np.uint8)
+    return Image.fromarray(arr)
+
+
+def save(style, name, art, size, bottom):
     """The art on a texture of its height, at its top or its foot."""
     _, _, w, h, th = size
     tex = Image.new("RGBA", (w, th), (0, 0, 0, 0))
     tex.paste(art, (0, th - h if bottom else 0))
-    parts = os.path.join(ROOT, "assets", "professions")
-    os.makedirs(parts, exist_ok=True)
-    tex.save(os.path.join(parts, f"{name}.png"))
-    media = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "professions")
-    export.to_tga(tex, os.path.join(media, f"{name}.tga"))
+    os.makedirs(os.path.join(ASSETS, style), exist_ok=True)
+    tex.save(os.path.join(ASSETS, style, f"{name}.png"))
+    os.makedirs(os.path.join(MEDIA, style), exist_ok=True)
+    export.to_tga(tex, os.path.join(MEDIA, style, f"{name}.tga"))
 
 
-def sheet(pillars, sky_art, land_art):
-    """render/overview.png: the nine scenes, then the night's two heights."""
+def split_night(img, sky_px):
+    """The night cut into the sky and the land, both meeting the horizon's
+    colour (the mean of the cut's rows) over SEAM units, so the code's fill
+    between them, on a tall screen, joins them unseen."""
+    seam = int(SEAM * S)
+    land_top = int(LAND_TOP * S)
+    # (the median: an engraving's lines would lift a mean off its ink)
+    hz = np.median(img[sky_px - seam // 2:sky_px + seam // 2].reshape(-1, 3), 0)
+    sky = img[:sky_px].copy()
+    land = img[sky_px:].copy()
+    t = np.clip((np.arange(seam, dtype=np.float32) / seam), 0, 1) ** 1.5
+    sky[-seam:] = sky[-seam:] * (1 - t)[:, None, None] + hz * t[:, None, None]
+    t2 = np.clip(np.arange(land_top, dtype=np.float32) / land_top, 0, 1) ** 1.5
+    land[:land_top] = hz * (1 - t2)[:, None, None] + land[:land_top] * t2[:, None, None]
+    return sky, land, hz
+
+
+def land_alpha(im):
+    """The land's top clear, over its first LAND_TOP units (there the
+    horizon's colour), so on a short screen it laps over the sky softly."""
+    arr = np.asarray(im.convert("RGBA")).copy()
+    n = int(LAND_TOP * S / 2)
+    t = np.clip(np.arange(n, dtype=np.float32) / n, 0, 1)
+    arr[:n, :, 3] = (t * t * (3 - 2 * t) * 255).astype(np.uint8)[:, None]
+    return Image.fromarray(arr)
+
+
+def sheet(style, pillars, sky_im, land_im, hz):
+    """render/overview-<style>.png: the nine scenes, then the night tall and short."""
     pad, cols = 16, 5
     pw, ph = PILLAR[2], PILLAR[3]
     rows = (len(pillars) + cols - 1) // cols
-    tw, tall, short = SKY[2], 620, 440
+    tw, tall, short = SKY[2], 900, 620
     W = max(cols * (pw + pad) + pad, 2 * (tw + pad) + pad)
     H = rows * (ph + pad + 20) + pad + tall + 40
-    img = Image.new("RGBA", (W, H), (25, 23, 18, 255))
+    img = Image.new("RGBA", (W, H), (21, 18, 13, 255))
     d = ImageDraw.Draw(img)
     for i, (label, art) in enumerate(pillars):
         x = pad + (i % cols) * (pw + pad)
@@ -628,37 +861,56 @@ def sheet(pillars, sky_art, land_art):
         img.alpha_composite(art, (x, y))
         d.text((x, y + ph + 4), label, fill=(240, 212, 136))
     y0 = pad + rows * (ph + pad + 20)
-    hz = tuple(int(HORIZON[i:i + 2], 16) for i in (1, 3, 5)) + (255,)
+    fill = tuple(int(c * 255) for c in hz) + (255,)
     for k, tot in enumerate((tall, short)):
         x = pad + k * (tw + pad)
         if tot > SKY[3] + LAND[3]:
-            d.rectangle([x, y0 + SKY[3], x + tw - 1, y0 + tot - LAND[3]], fill=hz)
-        img.alpha_composite(sky_art, (x, y0))
-        img.alpha_composite(land_art, (x, y0 + tot - LAND[3]))
+            d.rectangle([x, y0 + SKY[3], x + tw - 1, y0 + tot - LAND[3]], fill=fill)
+        img.alpha_composite(sky_im, (x, y0))
+        img.alpha_composite(land_im, (x, y0 + tot - LAND[3]))
         d.text((x, y0 + tot + 4), f"the night, {tot}px tall", fill=(240, 212, 136))
-    out = os.path.join(HERE, "render")
-    os.makedirs(out, exist_ok=True)
-    path = os.path.join(out, "overview.png")
+    os.makedirs(os.path.join(HERE, "render"), exist_ok=True)
+    path = os.path.join(HERE, "render", f"overview-{style}.png")
     img.convert("RGB").save(path)
     print(path)
 
 
-def main():
-    pillars = []
+def main(styles):
+    horizons = {}
+    pillars = {s: [] for s in styles}
     for skill, (label, fn) in PRIMARIES.items():
-        rnd = random.Random(skill)
-        defs, body = fn(rnd, PILLAR[0], PILLAR[1])
-        art = fade(render(defs, body, PILLAR), top=0.5, foot=24)
-        save(str(skill), art, PILLAR, True)
-        pillars.append((f"{label} ({skill})", art))
-    s, l_ = sky(), land()
-    save("sky", s, SKY, False)
-    save("land", l_, LAND, True)
-    old = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "professions", "camp.tga")
+        sc = fn(random.Random(skill))
+        lit = paint(sc, skill)
+        for style in styles:
+            art = lit if style == "painted" else RENDER[style](sc, skill, lit)
+            im = alpha_fade(half(art), top=0.5, foot=24)
+            save(style, str(skill), im, PILLAR, True)
+            pillars[style].append((f"{label} ({skill})", im))
+        print(label, flush=True)
+    sc, sky_px = night(random.Random(11))
+    lit = paint(sc, 11)
+    for style in styles:
+        art = lit if style == "painted" else RENDER[style](sc, 11, lit)
+        sky, land, hz = split_night(art, sky_px)
+        sky_im = alpha_fade(half(sky), top=0.08)
+        land_im = land_alpha(half(land))
+        save(style, "sky", sky_im, SKY, False)
+        save(style, "land", land_im, LAND, True)
+        horizons[style] = hz
+        sheet(style, pillars[style], sky_im, land_im, hz)
+    # the flat art these replaced
+    for f in os.listdir(MEDIA):
+        if f.endswith(".tga"):
+            os.remove(os.path.join(MEDIA, f))
+    for f in os.listdir(ASSETS):
+        if f.endswith(".png"):
+            os.remove(os.path.join(ASSETS, f))
+    old = os.path.join(HERE, "render", "overview.png")
     if os.path.exists(old):
         os.remove(old)
-    sheet(pillars, s, l_)
+    for style, hz in horizons.items():
+        print(f"HORIZON {style} = {{ {hz[0]:.3f}, {hz[1]:.3f}, {hz[2]:.3f} }}")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:] or STYLES)

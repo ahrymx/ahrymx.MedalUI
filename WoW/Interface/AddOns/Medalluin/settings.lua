@@ -153,6 +153,7 @@ local DEFAULTS = {
     cdmWindow = true,       -- the game's Cooldown Manager dressed, on the chat box (cooldowns/window.lua)
     cdmDisplay = true,      -- its cooldown and buff icons as medallions over the console (cooldowns/display.lua)
     ccWindow = true,        -- the game's Click Casting window dressed, on the chat box (spells/clickcast.lua)
+    professionsArt = "engraved", -- the professions Overview's art: "engraved", "painted" or "poster"
     medalluinFace = "marcellus", -- Medalluin's font on Latin clients: "marcellus" or "forum" (core.lua)
     gameMenu = "docked",    -- the game menu (Escape): "docked", "medallion" or the game's, "game" (window/gamemenu.lua)
     gameMenuFriends = "online", -- its friends shown: "online", "all" or "bnet"
