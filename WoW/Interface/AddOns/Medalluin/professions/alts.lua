@@ -109,10 +109,10 @@ local TOOLBAR, SKILLS_TOP, COLUMN_GAP = 28, 8, 18 -- a page's strip; over the sk
 local function Ago(t)
     local d = (time and time() or 0) - (t or 0)
     if not t or t <= 0 then return nil end
-    if d < 120 then return "just now" end
-    if d < 7200 then return format("%d minutes ago", d / 60) end
-    if d < 172800 then return format("%d hours ago", d / 3600) end
-    return format("%d days ago", d / 86400)
+    if d < 120 then return Tr["just now"] end
+    if d < 7200 then return format(Tr["%d minutes ago"], d / 60) end
+    if d < 172800 then return format(Tr["%d hours ago"], d / 3600) end
+    return format(Tr["%d days ago"], d / 86400)
 end
 
 local function Data()
@@ -134,7 +134,7 @@ local function Item(id)
     if not name and C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(id) end
     local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
     local quality = C_Item and C_Item.GetItemQualityByID and C_Item.GetItemQualityByID(id)
-    return name or ("Item " .. id), icon, quality
+    return name or format(Tr["Item %d"], id), icon, quality
 end
 
 -- A page's band: the character on the left, the page's line on the right.
@@ -153,9 +153,9 @@ local function Who(page)
     local e = shown and shown.e or {}
     page.who:SetText(shown and shown.name or "")
     page.who:SetTextColor(unpack(Color(e.class)))
-    local when = shown and shown.me and "playing now" or Ago(e.seen)
-    page.what:SetText(format("Level %d %s", e.level or 0, e.className or "")
-        .. (when and ("  \194\183  " .. (shown.me and when or ("last played " .. when))) or ""))
+    local when = shown and shown.me and Tr["playing now"] or Ago(e.seen)
+    page.what:SetText(format(Tr["Level %d %s"], e.level or 0, e.className or "")
+        .. (when and ("  \194\183  " .. (shown.me and when or format(Tr["last played %s"], when))) or ""))
 end
 
 -- A search box at a page's top.
@@ -256,7 +256,7 @@ local function Fit(page, y)
 end
 
 -- ------------------------------------------------------ professions page
-local prof = { key = "professions", label = "Professions", glyph = "profession", order = 1, flex = true,
+local prof = { key = "professions", label = Tr["Professions"], glyph = "profession", order = 1, flex = true,
     bandUsed = true, height = 120, used = {}, parts = {} }
 
 -- A skill, half the block's width: its icon, its name (gold, a primary)
@@ -341,9 +341,9 @@ end
 
 -- the recipes' orders: the list is kept by name
 local SORTS = {
-    { key = "name", label = "Name", tip = "By name." },
-    { key = "quality", label = "Quality", tip = "What they make, the best first." },
-    { key = "newest", label = "Newest", tip = "The latest the game added, first." },
+    { key = "name", label = Tr["Name"], tip = Tr["By name."] },
+    { key = "quality", label = Tr["Quality"], tip = Tr["What they make, the best first."] },
+    { key = "newest", label = Tr["Newest"], tip = Tr["The latest the game added, first."] },
 }
 
 local function Sorted(list, how)
@@ -382,13 +382,13 @@ local function Skills(page, skills, recipes)
         r.fill:SetWidth(math.max(0.01, math.max(1, half - 28) * math.min(1, (s.rank or 0) / max)))
         r.value:SetText(format("%d / %d", s.rank or 0, s.max or 0))
         local known = recipes[s.name]
-        r.count:SetText(known and format(#known == 1 and "%d recipe" or "%d recipes", #known) or "")
+        r.count:SetText(known and ns.Plural(#known, format(Tr["%d |4recipe:recipes;"], #known)) or "")
     end
     local none = Pool(page, "none", function()
         local t = ns.Text(page.skills, 11)
         t:SetPoint("TOPLEFT", 2, -SKILLS_TOP)
         t:SetTextColor(unpack(ns.colors.dim))
-        t:SetText("No professions recorded.")
+        t:SetText(Tr["No professions recorded."])
         return t
     end)
     none:SetShown(#skills == 0)
@@ -428,7 +428,7 @@ function prof.Draw()
             h.sign:SetText(shut and "+" or "-")
             h.name:SetText(name)
             h.count:SetText(words == "" and format("(%d)", #found)
-                or format("(%d of %d)", #found, #recipes[name]))
+                or format(Tr["(%d of %d)"], #found, #recipes[name]))
             y = y + FOLD + 2
             if not shut then
                 for _, rec in ipairs(Sorted(found, how)) do
@@ -459,24 +459,25 @@ function prof.Draw()
         end)
         t:ClearAllPoints()
         t:SetPoint("TOPLEFT", 8, -y)
-        t:SetText(#names == 0 and format("Open the professions on %s to record its recipes.", shown.name)
-            or "No recipe has those words.")
+        t:SetText(#names == 0 and format(Tr["Open the professions on %s to record its recipes."], shown.name)
+            or Tr["No recipe has those words."])
         y = y + 20
     end
     Spare(page)
     Fit(page, y + 4)
     local last
     for _, t in pairs(type(d.recipesSeen) == "table" and d.recipesSeen or {}) do last = math.max(last or 0, t) end
-    page.note:SetText(last and ("Recipes recorded " .. Ago(last)) or "")
+    page.note:SetText(last and format(Tr["Recipes recorded %s"], Ago(last)) or "")
 end
 
 -- ----------------------------------------------------------- items page
-local items = { key = "items", label = "Items", glyph = "view-groups", order = 2, flex = true,
+local items = { key = "items", label = Tr["Items"], glyph = "view-groups", order = 2, flex = true,
     bandUsed = true, height = 120, used = {}, parts = {} }
 local FILTERS = {
-    { key = "all", label = "All" }, { key = "equipment", label = "Equipment" },
-    { key = "consumable", label = "Consumables" }, { key = "trade", label = "Trade goods" },
-    { key = "quest", label = "Quest" }, { key = "other", label = "Other" }, { key = "junk", label = "Junk" },
+    { key = "all", label = Tr["All"] }, { key = "equipment", label = Tr["Equipment"] },
+    { key = "consumable", label = Tr["Consumables"] }, { key = "trade", label = Tr["Trade goods"] },
+    { key = "quest", label = Tr["Quest"] }, { key = "other", label = Tr["Other"] }, { key = "junk",
+        label = Tr["Junk"] },
 }
 
 -- the items kept, with their counts in the bank and the bags, that the
@@ -510,7 +511,7 @@ local function ItemTip(self)
     if not it then return end
     ns.window.Outside(self)
     GameTooltip:SetItemByID(it.id)
-    GameTooltip:AddLine(format("Bank %d  \194\183  Bags %d", it.bank, it.bags), unpack(GOLD))
+    GameTooltip:AddLine(format(Tr["Bank %d  \194\183  Bags %d"], it.bank, it.bags), unpack(GOLD))
     GameTooltip:Show()
 end
 
@@ -568,7 +569,7 @@ function items.Draw()
     local grid = ns.db.altItemsView == "grid"
     if grid then
         local across = math.max(1, math.floor((width - 8 + 4) / (SLOT + 4)))
-        for _, where in ipairs({ { "bank", "Bank" }, { "bags", "Bags" } }) do
+        for _, where in ipairs({ { "bank", Tr["Bank"] }, { "bags", Tr["Bags"] } }) do
             local here = {}
             for _, it in ipairs(list) do if it[where[1]] > 0 then table.insert(here, it) end end
             y = Heading(page, where[2], format("(%d)", #here), y, width)
@@ -591,7 +592,7 @@ function items.Draw()
             local f = CreateFrame("Frame", nil, page.child)
             f:SetHeight(18)
             f.cols = {}
-            for i, x in ipairs({ { -110, "Bank" }, { -58, "Bags" }, { -4, "All" } }) do
+            for i, x in ipairs({ { -110, Tr["Bank"] }, { -58, Tr["Bags"] }, { -4, Tr["All"] } }) do
                 local t = ns.Text(f, 10)
                 t:SetPoint("RIGHT", x[1], 0)
                 t:SetText(x[2])
@@ -630,14 +631,16 @@ function items.Draw()
         end)
         t:ClearAllPoints()
         t:SetPoint("TOPLEFT", 8, -y)
-        t:SetText((d.bags or d.bank) and "Nothing here." or format("Log in on %s to record its items.", shown.name))
+        t:SetText((d.bags or d.bank) and Tr["Nothing here."] or format(Tr["Log in on %s to record its items."],
+            shown.name))
         y = y + 20
     end
     Spare(page)
     Fit(page, y + 4)
     local bank = Ago(d.bankSeen)
     local money = d.money and GetCoinTextureString and GetCoinTextureString(d.money) or nil
-    page.note:SetText((bank and ("Bank seen " .. bank) or format("Visit the bank on %s to record it", shown.name))
+    page.note:SetText((bank and format(Tr["Bank seen %s"], bank) or format(Tr["Visit the bank on %s to record it"],
+        shown.name))
         .. (money and ("   " .. money) or ""))
     page.filters:Fill(page.FilterItems())
     page.view:Set("list", { selected = not grid })
@@ -658,7 +661,7 @@ function items.FilterItems()
 end
 
 -- ----------------------------------------------------------- notes page
-local notes = { key = "notes", label = "Notes", glyph = "edit", order = 3, flex = true,
+local notes = { key = "notes", label = Tr["Notes"], glyph = "edit", order = 3, flex = true,
     bandUsed = true, height = 120, used = {}, parts = {} }
 
 local function NotesFit()
@@ -677,11 +680,11 @@ function notes.Draw()
     -- (while it is being typed in, what is shown is what is saved)
     if not notes.box:HasFocus() then notes.box:SetText(d.notes or "") end
     NotesFit()
-    notes.note:SetText("Saved as you type")
+    notes.note:SetText(Tr["Saved as you type"])
 end
 
 -- the Characters page (drawn below)
-local roster = { key = "roster", label = "Characters", glyph = "social", order = 0, flex = true,
+local roster = { key = "roster", label = Tr["Characters"], glyph = "social", order = 0, flex = true,
     bandUsed = true, height = 120, used = {}, parts = {} }
 
 local function Build(page)
@@ -759,11 +762,11 @@ local function Build(page)
             local title = ns.Text(strip, 13)
             title:SetPoint("LEFT", 12, 0)
             title:SetTextColor(unpack(GOLD))
-            title:SetText("Characters")
+            title:SetText(Tr["Characters"])
             page.realm = ns.Text(strip, 10)
             page.realm:SetPoint("RIGHT", -12, 0)
             page.realm:SetTextColor(unpack(ns.colors.dim))
-            page.realm:SetText("Realm: " .. Realm())
+            page.realm:SetText(format(Tr["Realm: %s"], Realm()))
         elseif page == items then
             -- the filters across the first strip; the search and the view
             -- in the second
@@ -773,19 +776,19 @@ local function Build(page)
             page.filters:SetPoint("LEFT", 4, 0)
             strip = ns.window.Strip(body, TOOLBAR, TOOLBAR - 1)
             page.view = ns.window.Segments(strip, { height = TOOLBAR - 2, fit = true, soft = "open", items = {
-                { key = "list", label = "List", icon = "view-groups", group = "v",
-                    tip = function() return "A line an item." end, click = function()
+                { key = "list", label = Tr["List"], icon = "view-groups", group = "v",
+                    tip = function() return Tr["A line an item."] end, click = function()
                         ns.db.altItemsView = "list"
                         page.Refresh()
                     end },
-                { key = "grid", label = "Grid", icon = "view-grid", group = "v",
-                    tip = function() return "Slots, bank and bags." end, click = function()
+                { key = "grid", label = Tr["Grid"], icon = "view-grid", group = "v",
+                    tip = function() return Tr["Slots, bank and bags."] end, click = function()
                         ns.db.altItemsView = "grid"
                         page.Refresh()
                     end },
             } })
             page.view:SetPoint("RIGHT", 0, 0)
-            local s = Search(page, strip, "MedalluinAltItemsSearch", "Search its items")
+            local s = Search(page, strip, "MedalluinAltItemsSearch", Tr["Search its items"])
             s:SetPoint("LEFT", 12, 0)
             s:SetPoint("RIGHT", page.view, "LEFT", -10, 0)
         else
@@ -800,7 +803,7 @@ local function Build(page)
             local title = ns.Text(strip, 13)
             title:SetPoint("LEFT", 12, 0)
             title:SetTextColor(unpack(GOLD))
-            title:SetText("Recipes")
+            title:SetText(Tr["Recipes"])
             local bar = strip:CreateTexture(nil, "BORDER")
             bar:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
             bar:SetSize(1, TOOLBAR - 12)
@@ -817,7 +820,7 @@ local function Build(page)
             page.sort = ns.window.Segments(strip, { height = TOOLBAR - 2, fit = true, size = 11, soft = "open",
                 items = sorts })
             page.sort:SetPoint("RIGHT", 0, 0)
-            local s = Search(page, strip, "MedalluinAltRecipesSearch", "Search its recipes")
+            local s = Search(page, strip, "MedalluinAltRecipesSearch", Tr["Search its recipes"])
             s:SetPoint("LEFT", bar, "RIGHT", 10, 0)
             s:SetPoint("RIGHT", page.sort, "LEFT", -10, 0)
         end
@@ -884,7 +887,7 @@ local function CharRow(page)
                 local left, ready = ns.alts.Left(c.ready)
                 GameTooltip:AddDoubleLine(c.name or "?", left, 1, 1, 1, unpack(ready and { 0.25, 0.85, 0.35 } or GOLD))
             end
-            GameTooltip:AddLine("Click: its professions, items and notes.", unpack(ns.colors.dim))
+            GameTooltip:AddLine(Tr["Click: its professions, items and notes."], unpack(ns.colors.dim))
             GameTooltip:Show()
         end)
         r:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -924,12 +927,12 @@ function roster.Draw()
         ClassIcon(r.class, alt.e.class)
         r.name:SetText(alt.name)
         r.name:SetTextColor(unpack(Color(alt.e.class)))
-        r.what:SetText(format("Level %d %s", alt.e.level or 0, alt.e.className or ""))
+        r.what:SetText(format(Tr["Level %d %s"], alt.e.level or 0, alt.e.className or ""))
         local names = {}
         for _, p in ipairs(alt.e.primaries or {}) do table.insert(names, p.name or "?") end
-        r.profs:SetText(#names > 0 and table.concat(names, "  ") or "No professions")
+        r.profs:SetText(#names > 0 and table.concat(names, "  ") or Tr["No professions"])
         r.profs:SetTextColor(unpack(#names > 0 and ns.colors.text or ns.colors.dim))
-        r.seen:SetText(alt.me and "playing now" or Ago(alt.e.seen) or "")
+        r.seen:SetText(alt.me and Tr["playing now"] or Ago(alt.e.seen) or "")
         local c = r.cooldowns and r.cooldowns[1]
         r.cd:SetText(c and ((c.name or "?") .. "  " .. ns.alts.Left(c.ready)) or "")
         local on = shown and shown.name == alt.name
@@ -939,7 +942,7 @@ function roster.Draw()
     end
     Spare(page)
     Fit(page, y + 4)
-    page.note:SetText(format(#list == 1 and "%d character" or "%d characters", #list))
+    page.note:SetText(ns.Plural(#list, format(Tr["%d |4character:characters;"], #list)))
 end
 
 for _, page in ipairs({ roster, prof, items, notes }) do
@@ -957,7 +960,7 @@ local function Window()
     if AW then return AW end
     AW = ns.Window{
         name = "MedalluinAlt", named = Tr["Alt"], side = 1, place = "altPlace", detachedOnly = true,
-        closeTip = "Close.",
+        closeTip = Tr["Close."],
         Close = function() AW.SetShown(false) end,
         Lifted = function() return {} end,
     }
@@ -1063,7 +1066,7 @@ function W.Banner(body)
     b:SetScript("OnEnter", function(self)
         W.Beside(self)
         GameTooltip:SetText(UnitName("player") or "", unpack(Color(select(2, UnitClass("player")))))
-        GameTooltip:AddLine("Click: your window (professions, items, notes).", unpack(ns.colors.dim))
+        GameTooltip:AddLine(Tr["Click: your window (professions, items, notes)."], unpack(ns.colors.dim))
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1072,7 +1075,7 @@ function W.Banner(body)
         local className, class = UnitClass("player")
         b.name:SetText(UnitName("player") or "")
         b.name:SetTextColor(unpack(Color(class)))
-        b.levelText:SetText(format("Level %d", UnitLevel("player") or 0))
+        b.levelText:SetText(format(Tr["Level %d"], UnitLevel("player") or 0))
         local race = UnitRace and UnitRace("player")
         local guild = GetGuildInfo and GetGuildInfo("player")
         local what = (race and (race .. " ") or "") .. (className or "")
@@ -1095,8 +1098,8 @@ function W.AltsButton(band)
     f.button = ns.window.Button(f, 92, function() W.OpenRoster() end, function()
         local names = {}
         for _, a in ipairs(W.Alts()) do table.insert(names, a.name) end
-        return "Your alts: " .. table.concat(names, ", ") .. ".\nClick: every character, its professions, "
-            .. "items and notes."
+        return format(Tr["Your alts: %s."], table.concat(names, ", ")) .. "\n"
+            .. Tr["Click: every character, its professions, items and notes."]
     end)
     local a = f.button
     a:SetHeight(22)
@@ -1113,7 +1116,7 @@ function W.AltsButton(band)
     function f.Refresh()
         local n = #W.Alts()
         a:SetShown(n > 0)
-        a.label:SetText(format("Alts  %d", n))
+        a.label:SetText(format(Tr["Alts  %d"], n))
     end
     return f
 end

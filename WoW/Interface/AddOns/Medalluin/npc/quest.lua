@@ -18,6 +18,7 @@
 -- The words, items and rewards are the game's (GetQuestText and the rest);
 -- the buttons answer it (AcceptQuest, CompleteQuest, GetQuestReward).
 local _, ns = ...
+local Tr = ns.L
 
 local MARK = 16
 
@@ -58,18 +59,18 @@ local function Rewards(out, pick)
     local money = GetRewardMoney and GetRewardMoney() or 0
     local xp = GetRewardXP and GetRewardXP() or 0
     if choices + items == 0 and money == 0 and xp == 0 then return end
-    table.insert(out, { "heading", "Rewards" })
+    table.insert(out, { "heading", Tr["Rewards"] })
     if choices > 1 then
-        table.insert(out, { "text", pick and "Choose one:" or "You will choose one of:", ns.colors.dim })
+        table.insert(out, { "text", pick and Tr["Choose one:"] or Tr["You will choose one of:"], ns.colors.dim })
     end
     if choices > 0 then table.insert(out, Items("choice", choices, pick and choices > 1)) end
     if items > 0 then
-        if choices > 0 then table.insert(out, { "text", "You will also receive:", ns.colors.dim }) end
+        if choices > 0 then table.insert(out, { "text", Tr["You will also receive:"], ns.colors.dim }) end
         table.insert(out, Items("reward", items))
     end
     local given = {}
     if money > 0 then table.insert(given, Money(money)) end
-    if xp > 0 then table.insert(given, format("%d experience", xp)) end
+    if xp > 0 then table.insert(given, format(Tr["%d experience"], xp)) end
     if #given > 0 then table.insert(out, { "text", table.concat(given, "    ") }) end
 end
 
@@ -93,7 +94,7 @@ local function Greeting(out)
             click = function() SelectAvailableQuest(i) end })
     end
     if #quests > 0 then
-        table.insert(out, { "heading", "Quests" })
+        table.insert(out, { "heading", Tr["Quests"] })
         for _, r in ipairs(quests) do table.insert(out, r) end
     end
 end
@@ -107,7 +108,7 @@ local function Blocks()
         table.insert(out, { "text", GetQuestText() or "" })
         local objectives = GetObjectiveText and GetObjectiveText() or ""
         if objectives ~= "" then
-            table.insert(out, { "heading", "Objectives" })
+            table.insert(out, { "heading", Tr["Objectives"] })
             table.insert(out, { "text", objectives })
         end
         Rewards(out)
@@ -116,7 +117,7 @@ local function Blocks()
         local n = GetNumQuestItems and GetNumQuestItems() or 0
         local money = GetQuestMoneyToGet and GetQuestMoneyToGet() or 0
         if n > 0 or money > 0 then
-            table.insert(out, { "heading", "Required" })
+            table.insert(out, { "heading", Tr["Required"] })
             if n > 0 then table.insert(out, Items("required", n)) end
             if money > 0 then table.insert(out, { "text", Money(money) }) end
         end
@@ -139,28 +140,28 @@ local function Foot()
         -- a quest the game took already (shared, or a zone's) is only acknowledged
         local auto = QuestGetAutoAccept and QuestGetAutoAccept()
         return {
-            { label = auto and "Okay" or "Accept", primary = true, click = function()
+            { label = auto and Tr["Okay"] or Tr["Accept"], primary = true, click = function()
                 if auto then AcknowledgeAutoAcceptQuest() else AcceptQuest() end
             end },
-            not auto and { label = "Decline", click = DeclineQuest } or nil,
+            not auto and { label = Tr["Decline"], click = DeclineQuest } or nil,
         }
     elseif page == "progress" then
         local ready = IsQuestCompletable()
         return {
-            { label = "Continue", primary = true, click = CompleteQuest, enabled = ready and true or false,
-                tip = not ready and "You do not have everything it asks for yet." or nil },
-            { label = "Cancel", click = Close },
+            { label = Tr["Continue"], primary = true, click = CompleteQuest, enabled = ready and true or false,
+                tip = not ready and Tr["You do not have everything it asks for yet."] or nil },
+            { label = Tr["Cancel"], click = Close },
         }
     elseif page == "reward" then
         local choices = GetNumQuestChoices() or 0
         local need = choices > 1 and not choice
         return {
-            { label = "Complete Quest", primary = true, enabled = not need,
-                tip = need and "Choose a reward first." or nil,
+            { label = Tr["Complete Quest"], primary = true, enabled = not need,
+                tip = need and Tr["Choose a reward first."] or nil,
                 click = function() GetQuestReward(choices > 1 and choice or choices) end },
         }
     end
-    return { { label = "Goodbye", click = Close } }
+    return { { label = Tr["Goodbye"], click = Close } }
 end
 
 -- Blizzard's QuestFrame answers QUEST_ITEM_UPDATE (a reward's item data

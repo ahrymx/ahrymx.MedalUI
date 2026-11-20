@@ -30,6 +30,7 @@
 --   ns.alts.Left(ready)         "Ready" (and true), or what is left ("1d 6h",
 --                               "3h 20m", "42m")
 local _, ns = ...
+local Tr = ns.L
 
 local Container = C_Container
 local A = {}
@@ -190,12 +191,12 @@ end
 
 function A.Left(ready)
     local left = (ready or 0) - Now()
-    if left <= 0 then return "Ready", true end
+    if left <= 0 then return Tr["Ready"], true end
     local d, h, m = math.floor(left / 86400), math.floor(left % 86400 / 3600), math.ceil(left % 3600 / 60)
     if m == 60 then h, m = h + 1, 0 end
-    if d > 0 then return format("%dd %dh", d, h) end
-    if h > 0 then return format("%dh %dm", h, m) end
-    return format("%dm", math.max(1, m))
+    if d > 0 then return format(Tr["%dd %dh##left"], d, h) end
+    if h > 0 then return format(Tr["%dh %dm##left"], h, m) end
+    return format(Tr["%dm##minutes"], math.max(1, m))
 end
 
 -- every character's on the realm, with its class (the roster's), the

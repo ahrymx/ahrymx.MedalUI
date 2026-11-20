@@ -23,6 +23,7 @@
 -- the frame's own Show and Hide. Only TaxiFrame: retail's other flight map
 -- (FlightMapFrame, a map canvas) stays Blizzard's.
 local _, ns = ...
+local Tr = ns.L
 
 local L = ns.stripLayout
 local WIDTH = L.chatLeft + L.chatWidth
@@ -59,7 +60,7 @@ end
 -- a row's price and colour (red: more than you have)
 local function Price(r)
     local d = r.data
-    r.value:SetText(d.here and (TAXINODEYOUAREHERE or "You are here.") or ns.npc.Money(d.cost))
+    r.value:SetText(d.here and (TAXINODEYOUAREHERE or Tr["You are here."]) or ns.npc.Money(d.cost))
     local c = d.here and ns.colors.dim or GetMoney() < d.cost and RED or ns.colors.text
     r.label:SetTextColor(c[1], c[2], c[3])
     r.value:SetTextColor(c[1], c[2], c[3])
@@ -152,7 +153,7 @@ local function Enter(i, owner)
             end
         end
     elseif kind == "CURRENT" then
-        GameTooltip:AddLine(TAXINODEYOUAREHERE or "You are here.", 1, 1, 1, true)
+        GameTooltip:AddLine(TAXINODEYOUAREHERE or Tr["You are here."], 1, 1, 1, true)
     end
     GameTooltip:Show()
     local n = nodes[i]
@@ -288,7 +289,7 @@ end
 -- the game's own words.
 local function Draw()
     if not frame then return end
-    title:SetText(UnitName("npc") or FLIGHT_MAP or "Flight map")
+    title:SetText(UnitName("npc") or FLIGHT_MAP or Tr["Flight map"])
     art:SetTexCoord(0, 1, 0, 1)
     SetTaxiMap(art)
     Place()
@@ -343,7 +344,7 @@ local function Build()
     title:SetWordWrap(false)
     Colour(title, GOLD)
     local close = ns.window.Button(strip, CONTROL + 8, function() CloseTaxiMap() end,
-        function() return "Close." end)
+        function() return Tr["Close."] end)
     close.icon = close:CreateTexture(nil, "ARTWORK")
     close.icon:SetSize(CONTROL, CONTROL)
     close.icon:SetPoint("CENTER")

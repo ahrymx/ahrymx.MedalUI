@@ -33,6 +33,7 @@
 --
 -- Taint: as every page, nothing of MailFrame is written or called.
 local _, ns = ...
+local Tr = ns.L
 
 local RED = { 1, 0.3, 0.25 }
 local RED_CODE = "|cffff4d40"
@@ -116,7 +117,7 @@ end
 -- -------------------------------------------------------------- a letter
 local function Header(i)
     local _, stationery, sender, subject, money, cod, days, items, read, returned, _, reply, gm = GetInboxHeaderInfo(i)
-    return { sender = sender or UNKNOWN or "Unknown", subject = subject or "", money = money or 0, cod = cod or 0,
+    return { sender = sender or UNKNOWN or Tr["Unknown"], subject = subject or "", money = money or 0, cod = cod or 0,
         days = days or 0, items = items, read = read, returned = returned, reply = reply, gm = gm,
         icon = stationery }
 end
@@ -125,12 +126,12 @@ end
 -- %s"), shortened to what happened and to what: "Sold: Linen Cloth", from
 -- "AH". The game's own words, so any language reads.
 local AUCTION = {
-    { "AUCTION_SOLD_MAIL_SUBJECT", "Auction successful: %s", "Sold" },
-    { "AUCTION_WON_MAIL_SUBJECT", "Auction won: %s", "Won" },
-    { "AUCTION_OUTBID_MAIL_SUBJECT", "Outbid on %s", "Outbid" },
-    { "AUCTION_EXPIRED_MAIL_SUBJECT", "Auction expired: %s", "Expired" },
-    { "AUCTION_REMOVED_MAIL_SUBJECT", "Auction cancelled: %s", "Cancelled" },
-    { "AUCTION_INVOICE_MAIL_SUBJECT", "Sale Pending: %s", "Pending" },
+    { "AUCTION_SOLD_MAIL_SUBJECT", "Auction successful: %s", Tr["Sold"] },
+    { "AUCTION_WON_MAIL_SUBJECT", "Auction won: %s", Tr["Won"] },
+    { "AUCTION_OUTBID_MAIL_SUBJECT", "Outbid on %s", Tr["Outbid"] },
+    { "AUCTION_EXPIRED_MAIL_SUBJECT", "Auction expired: %s", Tr["Expired"] },
+    { "AUCTION_REMOVED_MAIL_SUBJECT", "Auction cancelled: %s", Tr["Cancelled"] },
+    { "AUCTION_INVOICE_MAIL_SUBJECT", "Sale Pending: %s", Tr["Pending"] },
 }
 local function Short(h)
     for _, a in ipairs(AUCTION) do
@@ -138,7 +139,7 @@ local function Short(h)
         -- every character a pattern reads escaped, then the escaped %s the item
         local pattern = "^" .. words:gsub("[%^%$%(%)%.%[%]%*%+%-%?%%]", "%%%0"):gsub("%%%%s", "(.+)") .. "$"
         local what = h.subject:match(pattern)
-        if what then return "AH — " .. a[3] .. ": " .. what end
+        if what then return format(Tr["AH — %s: %s"], a[3], what) end
     end
     return h.sender .. " — " .. h.subject
 end
@@ -146,9 +147,9 @@ end
 local function Days(days)
     local text
     if days >= 1 then
-        text = format("%dd", math.floor(days))
+        text = format(Tr["%dd##days"], math.floor(days))
     else
-        text = format("%dh", math.max(1, math.floor(days * 24)))
+        text = format(Tr["%dh##hours"], math.max(1, math.floor(days * 24)))
     end
     return days < SOON and RED_CODE .. text .. "|r" or text
 end
@@ -156,16 +157,16 @@ end
 -- the same, in words: "in 2 days"
 local function When(days)
     local d = math.floor(days)
-    local when = days < 1 and "today" or d == 1 and "in 1 day" or format("in %d days", d)
+    local when = days < 1 and Tr["today"] or ns.Plural(d, format(Tr["in %d |4day:days;"], d))
     return days < SOON and RED_CODE .. when .. "|r" or when
 end
 
-local function Count(n) return n == 1 and "1 item" or format("%d items", n) end
+local function Count(n) return ns.Plural(n, format(Tr["%d |4item:items;"], n)) end
 
 -- what a letter holds, as its row's value
 local function Holds(h)
     local parts = {}
-    if h.cod > 0 then table.insert(parts, RED_CODE .. "COD " .. Money(h.cod) .. "|r") end
+    if h.cod > 0 then table.insert(parts, RED_CODE .. format(Tr["COD %s"], Money(h.cod)) .. "|r") end
     if h.money > 0 then table.insert(parts, Money(h.money)) end
     if h.items and h.items > 0 then table.insert(parts, Count(h.items)) end
     table.insert(parts, Days(h.days))
@@ -197,11 +198,11 @@ local function Stop(why)
     if not opening then return end
     if opening.ticker then opening.ticker:Cancel() end
     if C_Mail and C_Mail.SetOpeningAll then C_Mail.SetOpeningAll(false) end
-    local taken = opening.taken > 0 and " · " .. Money(opening.taken) .. " taken" or ""
+    local taken = opening.taken > 0 and " · " .. format(Tr["%s taken"], Money(opening.taken)) or ""
     local kept = 0
     for _ in pairs(opening.skip) do kept = kept + 1 end
-    said = (why or kept > 0 and format("Opened all but %d item%s the mailbox kept", kept, kept == 1 and "" or "s")
-        or "Opened all") .. taken
+    said = (why or kept > 0 and ns.Plural(kept, format(Tr["Opened all but %d |4item:items; the mailbox kept"], kept))
+        or Tr["Opened all"]) .. taken
     opening = nil
     Update()
 end
@@ -247,7 +248,7 @@ function Step()
     if h.money > 0 then
         TakeInboxMoney(i)
     else
-        if Free() == 0 then return Stop("Stopped: the bags are full") end
+        if Free() == 0 then return Stop(Tr["Stopped: the bags are full"]) end
         TakeInboxItem(i, (Next(i)))
     end
     opening.at = opening.total - #left + 1
@@ -277,9 +278,9 @@ local function Totals(n, total)
         money = money + h.money
         soonest = math.min(soonest or h.days, h.days)
     end
-    local parts = { total == 1 and "1 letter" or format("%d letters", total) }
-    if money > 0 then table.insert(parts, Money(money) .. " waiting") end
-    if soonest then table.insert(parts, "the first goes " .. When(soonest)) end
+    local parts = { ns.Plural(total, format(Tr["%d |4letter:letters;"], total)) }
+    if money > 0 then table.insert(parts, format(Tr["%s waiting"], Money(money))) end
+    if soonest then table.insert(parts, format(Tr["the first goes %s"], When(soonest))) end
     return table.concat(parts, " · ")
 end
 
@@ -297,7 +298,7 @@ local function Inbox(out)
     local n, total = GetInboxNumItems()
     n, total = n or 0, total or n or 0
     if n == 0 then
-        table.insert(out, { "text", "No mail.", ns.colors.dim })
+        table.insert(out, { "text", Tr["No mail."], ns.colors.dim })
         return
     end
     table.insert(out, { "text", Totals(n, total), pin = true })
@@ -314,13 +315,13 @@ local function Inbox(out)
                 GameTooltip:SetText(h.subject ~= "" and h.subject or h.sender)
                 GameTooltip:AddLine(h.sender, 1, 1, 1)
                 local takes = h.cod == 0 and (h.money > 0 or (h.items or 0) > 0)
-                ns.TipKeys({ { "key", "left", nil, "Read" },
-                    takes and { "key", "left", "Shift", "Take all" } or { "key" } })
+                ns.TipKeys({ { "key", "left", nil, Tr["Read"] },
+                    takes and { "key", "left", "Shift", Tr["Take all"] } or { "key" } })
                 GameTooltip:Show()
             end })
     end
     if total > n then
-        table.insert(out, { "text", format("%d more wait on the server: take some to make room for them.",
+        table.insert(out, { "text", format(Tr["%d more wait on the server: take some to make room for them."],
             total - n), ns.colors.dim })
     end
 end
@@ -336,17 +337,17 @@ end
 
 local function Letter(out, i)
     local h = Header(i)
-    table.insert(out, { "row", label = "‹ Inbox", dim = true, click = function() Read(nil) end })
-    table.insert(out, { "heading", h.subject ~= "" and h.subject or "(no subject)" })
-    table.insert(out, { "text", "From " .. h.sender .. " · "
-        .. (InboxItemCanDelete(i) and "deleted " or "goes back ") .. When(h.days), ns.colors.dim })
+    table.insert(out, { "row", label = Tr["‹ Inbox"], dim = true, click = function() Read(nil) end })
+    table.insert(out, { "heading", h.subject ~= "" and h.subject or Tr["(no subject)"] })
+    table.insert(out, { "text", format(InboxItemCanDelete(i) and Tr["From %s · deleted %s"]
+        or Tr["From %s · goes back %s"], h.sender, When(h.days)), ns.colors.dim })
     local body = GetInboxText(i)
     if body and body ~= "" then table.insert(out, { "text", body }) end
     if h.cod > 0 then
-        table.insert(out, { "text", "Cash on delivery: taking an item pays " .. Money(h.cod) .. ".", RED })
+        table.insert(out, { "text", format(Tr["Cash on delivery: taking an item pays %s."], Money(h.cod)), RED })
     end
     if h.money > 0 then
-        table.insert(out, { "row", label = "Take " .. Money(h.money), crop = true,
+        table.insert(out, { "row", label = format(Tr["Take %s"], Money(h.money)), crop = true,
             icon = "Interface\\Icons\\INV_Misc_Coin_01",
             click = function(button) if button ~= "RightButton" then TakeInboxMoney(i) end end })
     end
@@ -398,16 +399,16 @@ end
 local function Send(out)
     local items = Attached()
     if not Any(items) then form.cod = false end
-    table.insert(out, { "input", key = "to", label = "To", text = form.to, complete = Complete,
+    table.insert(out, { "input", key = "to", label = Tr["To"], text = form.to, complete = Complete,
         changed = Changed("to") })
-    table.insert(out, { "input", key = "subject", label = "Subject", text = form.subject,
+    table.insert(out, { "input", key = "subject", label = Tr["Subject"], text = form.subject,
         changed = Changed("subject") })
-    table.insert(out, { "input", key = "body", label = "Letter", text = form.body, lines = 5,
+    table.insert(out, { "input", key = "body", label = Tr["Letter"], text = form.body, lines = 5,
         changed = Changed("body") })
-    table.insert(out, { "money", key = "money", label = form.cod and "COD" or "Money", copper = form.copper,
+    table.insert(out, { "money", key = "money", label = form.cod and Tr["COD"] or Tr["Money"], copper = form.copper,
         changed = Changed("copper") })
     if Any(items) then
-        table.insert(out, { "row", label = "Cash on delivery: they pay the money to take the items",
+        table.insert(out, { "row", label = Tr["Cash on delivery: they pay the money to take the items"],
             selected = form.cod, dim = not form.cod, click = function()
                 form.cod = not form.cod
                 Update()
@@ -426,7 +427,7 @@ local function Send(out)
                 GameTooltip:Show()
             end })
     end
-    table.insert(out, { "heading", "Items" })
+    table.insert(out, { "heading", Tr["Items"] })
     table.insert(out, wells)
 end
 
@@ -464,8 +465,8 @@ local function Tab(key)
 end
 
 local function Blocks()
-    local out = { { "tabs", { label = "Inbox", selected = tab == "inbox", click = Tab("inbox") },
-        { label = "Send", selected = tab == "send", click = Tab("send") } } }
+    local out = { { "tabs", { label = Tr["Inbox"], selected = tab == "inbox", click = Tab("inbox") },
+        { label = Tr["Send"], selected = tab == "send", click = Tab("send") } } }
     if tab == "send" then
         Send(out)
     elseif reading then
@@ -484,25 +485,25 @@ local function Foot()
         local first = Any(Attached())
         -- cash on delivery sends no money: they pay it
         local cost = postage + (form.cod and 0 or form.copper)
-        local why = form.to == "" and "Write who it goes to."
-            or form.subject == "" and not first and "Give it a subject."
-            or cost > (GetMoney and GetMoney() or 0) and "Not enough money."
-            or sending and "On its way."
-        return { left = "Postage " .. Money(postage),
-            { label = "Send", primary = true, enabled = not why, click = Post,
-                tip = why or format("Sends it to %s, for %s.", form.to, Money(cost)) },
-            { label = "Clear", click = Clear } }
+        local why = form.to == "" and Tr["Write who it goes to."]
+            or form.subject == "" and not first and Tr["Give it a subject."]
+            or cost > (GetMoney and GetMoney() or 0) and Tr["Not enough money."]
+            or sending and Tr["On its way."]
+        return { left = format(Tr["Postage %s"], Money(postage)),
+            { label = Tr["Send"], primary = true, enabled = not why, click = Post,
+                tip = why or format(Tr["Sends it to %s, for %s."], form.to, Money(cost)) },
+            { label = Tr["Clear"], click = Clear } }
     end
     if pending then
         local p = pending
-        return { left = format("Pay %s to take %s?", Money(p.cod), p.name),
-            { label = "Pay", primary = true, enabled = (GetMoney and GetMoney() or 0) >= p.cod,
-                tip = "Not enough money.", click = function()
+        return { left = format(Tr["Pay %s to take %s?"], Money(p.cod), p.name),
+            { label = Tr["Pay"], primary = true, enabled = (GetMoney and GetMoney() or 0) >= p.cod,
+                tip = Tr["Not enough money."], click = function()
                     pending = nil
                     TakeInboxItem(p.index, p.attachment)
                     Update()
                 end },
-            { label = "Cancel", click = function()
+            { label = Tr["Cancel"], click = function()
                 pending = nil
                 Update()
             end } }
@@ -513,10 +514,10 @@ local function Foot()
         local holds = h.money > 0 or (h.items or 0) > 0
         local canDelete = InboxItemCanDelete(i)
         local foot = { left = money,
-            { label = "Take all", enabled = holds and h.cod == 0,
-                tip = h.cod > 0 and "Sent cash on delivery: take each item, and pay." or nil,
+            { label = Tr["Take all"], enabled = holds and h.cod == 0,
+                tip = h.cod > 0 and Tr["Sent cash on delivery: take each item, and pay."] or nil,
                 click = function() AutoLootMailItem(i) end },
-            { label = "Reply", enabled = h.reply and h.sender ~= UnitName("player") or false, click = function()
+            { label = Tr["Reply"], enabled = h.reply and h.sender ~= UnitName("player") or false, click = function()
                 tab, reading = "send", nil
                 form.to = h.sender
                 local prefix = (MAIL_REPLY_PREFIX or "RE:") .. " "
@@ -525,15 +526,15 @@ local function Foot()
                 Update()
             end } }
         if canDelete then
-            table.insert(foot, { label = "Delete", enabled = not holds,
-                tip = holds and "Take what it holds first." or nil, click = function()
+            table.insert(foot, { label = Tr["Delete"], enabled = not holds,
+                tip = holds and Tr["Take what it holds first."] or nil, click = function()
                     reading = nil
                     DeleteInboxItem(i)
                     Update()
                 end })
         else
-            table.insert(foot, { label = "Return", enabled = not h.returned,
-                tip = h.returned and "It came back to you: it cannot go again." or nil, click = function()
+            table.insert(foot, { label = Tr["Return"], enabled = not h.returned,
+                tip = h.returned and Tr["It came back to you: it cannot go again."] or nil, click = function()
                     reading = nil
                     ReturnInboxItem(i)
                     Update()
@@ -542,26 +543,26 @@ local function Foot()
         return foot
     end
     if opening then
-        return { left = format("Opening %d of %d", opening.at, opening.total)
-            .. (opening.taken > 0 and " · " .. Money(opening.taken) .. " taken" or ""),
-            { label = "Stop", primary = true, click = function() Stop("Stopped") end } }
+        return { left = format(Tr["Opening %d of %d"], opening.at, opening.total)
+            .. (opening.taken > 0 and " · " .. format(Tr["%s taken"], Money(opening.taken)) or ""),
+            { label = Tr["Stop"], primary = true, click = function() Stop(Tr["Stopped"]) end } }
     end
     local left = #Left()
     return { left = said or money,
-        { label = "Open all", primary = left > 0, enabled = left > 0,
-            tip = left > 0 and format("Takes the money and items of %d letter%s; not one sent cash on delivery.",
-                left, left == 1 and "" or "s") or "Nothing to take.", click = Start } }
+        { label = Tr["Open all"], primary = left > 0, enabled = left > 0,
+            tip = left > 0 and ns.Plural(left, format(Tr["Takes the money and items of %d |4letter:letters;; not one "
+                .. "sent cash on delivery."], left)) or Tr["Nothing to take."], click = Start } }
 end
 
 ns.npc.Page{
     -- a mailbox has no face: Medalluin's round envelope stands in its portrait
     -- (art/strips/gen_strips.py mailbox), the game's letter icon being square
     key = "mail", frame = "MailFrame", icon = ns.media .. "strips\\mailbox",
-    Title = function() return "Mailbox" end,
+    Title = function() return Tr["Mailbox"] end,
     Blocks = Blocks, Foot = Foot, Close = function() CloseMail() end,
     -- as tall as the Send tab, whichever is shown
     Steady = function()
-        local out = { { "tabs", { label = "Inbox" }, { label = "Send" } } }
+        local out = { { "tabs", { label = Tr["Inbox"] }, { label = Tr["Send"] } } }
         Send(out)
         return out
     end,
@@ -573,7 +574,7 @@ ns.npc.Page{
             ns.npc.Show("mail")
         end)
         ns.On("MAIL_CLOSED", function()
-            Stop("Stopped: the mailbox closed")
+            Stop(Tr["Stopped: the mailbox closed"])
             reading, pending, sending = nil, nil, nil
             ns.npc.Sync()
         end)
@@ -608,7 +609,7 @@ ns.npc.Page{
                 else
                     opening.refused = opening.refused + 1
                     opening.next = GetTime() + AGAIN
-                    if opening.refused >= REFUSALS then Stop("Stopped: the mailbox kept refusing") end
+                    if opening.refused >= REFUSALS then Stop(Tr["Stopped: the mailbox kept refusing"]) end
                 end
             end
             Update()

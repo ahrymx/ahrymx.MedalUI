@@ -28,6 +28,7 @@
 -- window or the character window opening closes it; the quest tracker steps
 -- aside while it is open.
 local _, ns = ...
+local Tr = ns.L
 
 local L = ns.stripLayout
 local WIDTH = L.chatLeft + L.chatWidth
@@ -42,7 +43,7 @@ local GOLD_D = { 0.541, 0.439, 0.204 }
 local DIM = { 0.55, 0.52, 0.45 }
 local ROUND = ns.media .. "strips\\round"
 local GLYPHS = ns.media .. "strips\\"
-local TAB_WORDS = { spells = "Cooldowns", auras = "Buffs", groupBuffs = "Group buffs" }
+local TAB_WORDS = { spells = Tr["Cooldowns"], auras = Tr["Buffs"], groupBuffs = Tr["Group buffs"] }
 
 local cdm = {}
 ns.cooldownWindow = cdm
@@ -66,7 +67,7 @@ cdm.Place = Place
 local function Chrome(f)
     -- the game's art gone, ours under it: the title, the hairs under the
     -- tabs, the search row's and the foot row's lines, our close glyph
-    R.Chrome(f, "Cooldown Manager", { { "TOP", TOP }, { "BOTTOM", ROW } }, HEAD + TABS + 4)
+    R.Chrome(f, Tr["Cooldown Manager"], { { "TOP", TOP }, { "BOTTOM", ROW } }, HEAD + TABS + 4)
 end
 
 -- ----------------------------------------------------------------- the tabs
@@ -202,10 +203,10 @@ local function Controls(f)
             if undo.SetMotionScriptsWhileDisabled then undo:SetMotionScriptsWhileDisabled(true) end
             undo:HookScript("OnEnter", function(self)
                 local words = d.words
-                if type(words) ~= "string" or words == "" then words = "Revert changes" end
+                if type(words) ~= "string" or words == "" then words = Tr["Revert changes"] end
                 ns.Tip(self, ns.window.Outside, { title = words, color = GOLD,
-                    { "body", self:IsEnabled() and "Back to this layout as it was last saved."
-                        or "Nothing to revert: no changes since this layout was saved." } })
+                    { "body", self:IsEnabled() and Tr["Back to this layout as it was last saved."]
+                        or Tr["Nothing to revert: no changes since this layout was saved."] } })
             end)
             undo:HookScript("OnLeave", function() GameTooltip:Hide() end)
             Lit(undo)

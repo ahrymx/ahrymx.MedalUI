@@ -45,6 +45,7 @@
 -- listing's note from it alone, and no addon may set its words. It stands
 -- in List me, moved there, for the player to type in.
 local _, ns = ...
+local Tr = ns.L
 
 local L = ns.stripLayout
 local D = ns.lfgData
@@ -64,7 +65,7 @@ local UNPICKED = { 0.8, 0.77, 0.69 }
 local GREEN = { 0.43, 0.78, 0.35 }
 local ROLES = { "TANK", "HEALER", "DAMAGER" }
 local FIELD = { TANK = "tank", HEALER = "healer", DAMAGER = "dps" }
-local ROLE_WORD = { tank = "Tank", healer = "Healer", dps = "Damage" }
+local ROLE_WORD = { tank = Tr["Tank"], healer = Tr["Healer"], dps = Tr["Damage"] }
 local COORDS = ns.ROLE_COORDS or { TANK = { 0, 0.25, 0, 1 }, HEALER = { 0.25, 0.5, 0, 1 },
     DAMAGER = { 0.5, 0.75, 0, 1 } }
 local ART = ns.media .. "role-icons"
@@ -119,9 +120,9 @@ local function Hex(c) return string.format("|cff%02x%02x%02x", c[1] * 255, c[2] 
 
 local function Age(s)
     s = math.max(0, math.floor(s or 0))
-    if s < 60 then return "now" end
-    if s < 3600 then return math.floor(s / 60) .. "m" end
-    return math.floor(s / 3600) .. "h"
+    if s < 60 then return Tr["now"] end
+    if s < 3600 then return format(Tr["%dm##minutes"], math.floor(s / 60)) end
+    return format(Tr["%dh##hours"], math.floor(s / 3600))
 end
 lfg.Age = Age
 
@@ -472,7 +473,7 @@ function browse.Lines()
         if Words(r, words) and Wants(r) then table.insert(r.solo and players or groups, r) end
     end
     local out = {}
-    for _, s in ipairs({ { "groups", "Groups", groups }, { "players", "Players", players } }) do
+    for _, s in ipairs({ { "groups", Tr["Groups"], groups }, { "players", Tr["Players"], players } }) do
         if #s[3] > 0 then
             table.insert(out, { head = s[1], label = s[2], n = #s[3] })
             if not browse.folded[s[1]] then
@@ -553,7 +554,7 @@ local function ResultRow(kind, parent)
     r.new = ns.Text(r, 10)
     r.new:SetPoint("LEFT", r.lvl, "RIGHT", 8, 0)
     r.new:SetTextColor(unpack(GREEN))
-    r.new:SetText("new players welcome")
+    r.new:SetText(Tr["new players welcome"])
     r.act = ns.PlainText(r, 11)
     r.act:SetPoint("TOPLEFT", 10, -22)
     r.act:SetPoint("RIGHT", -(SLOTS * SLOT + 14), 0)
@@ -579,9 +580,9 @@ local function ResultRow(kind, parent)
     r.meta:SetTextColor(unpack(DIM))
     r.people = {}
     r.actions = ns.window.Segments(r, { height = 22, size = 11, fit = true, items = {
-        { key = "message", label = "Send message", group = "m", click = function()
+        { key = "message", label = Tr["Send message"], group = "m", click = function()
             if r.item then D.Message(r.item.result.leader.name) end
-        end, tip = function() return "Whisper the group's leader." end },
+        end, tip = function() return Tr["Whisper the group's leader."] end },
     } })
     r.actions:SetPoint("BOTTOMLEFT", 28, 6)
     r:SetScript("OnClick", function(self, mouse)
@@ -597,14 +598,17 @@ local function ResultRow(kind, parent)
         local res = self.item.result
         local ps = D.PlaystyleName(res.playstyle)
         Tip(self, { title = res.leader.name, color = ClassColour(res.leader.class), wrap = true,
-            { "row", res.solo and "Looking for" or "Doing", res.name, true },
-            { "row", "Levels", Range(res.min, res.max), true },
-            ps and { "row", "Playstyle", ps, true } or false,
-            res.voice and res.voice ~= 0 and D.VoiceName(res.voice) and { "row", "Voice", D.VoiceName(res.voice), true }
+            { "row", res.solo and Tr["Looking for"] or Tr["Doing"], res.name, true },
+            { "row", Tr["Levels"], Range(res.min, res.max), true },
+            ps and { "row", Tr["Playstyle"], ps, true } or false,
+            res.voice and res.voice ~= 0 and D.VoiceName(res.voice) and { "row", Tr["Voice"], D.VoiceName(res.voice),
+                true }
                 or false,
-            res.newPlayers and { "body", "New players welcome.", GREEN } or false,
+            res.newPlayers and { "body", Tr["New players welcome."], GREEN } or false,
             res.comment ~= "" and { "body", "\"" .. res.comment .. "\"" } or false,
-            { "hint", (res.solo and "Click: pick." or "Click: its members.") .. " Right click: whisper." } })
+            { "hint",
+                res.solo and Tr["Click: pick. Right click: whisper."]
+                    or Tr["Click: its members. Right click: whisper."] } })
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return r
@@ -653,7 +657,7 @@ local function FillResult(r, item)
     local res = item.result
     local open = browseSel == res.id
     Picked(r, open)
-    r.name:SetText(res.leader.name .. (res.self and "  (you)" or ""))
+    r.name:SetText(res.leader.name .. (res.self and "  " .. Tr["(you)"] or ""))
     r.name:SetTextColor(unpack(ClassColour(res.leader.class)))
     r.lvl:SetText(res.leader.level and tostring(res.leader.level) or "")
     r.new:SetShown(res.newPlayers)
@@ -688,7 +692,7 @@ local function FillResult(r, item)
             m:SetPoint("TOPLEFT", 28, -(RESULT + (i - 1) * MEMBER))
             m:SetPoint("RIGHT", -8, 0)
             m.icon:Set(who.role or "DAMAGER", "on")
-            m.name:SetText((who.name or "?") .. (who.leader and "  (leader)" or ""))
+            m.name:SetText((who.name or "?") .. (who.leader and "  " .. Tr["(leader)"] or ""))
             m.name:SetTextColor(unpack(ClassColour(who.class)))
             m.what:SetText(((who.level and who.level .. "  ") or "") .. (who.className or ""))
             m:Show()
@@ -702,7 +706,7 @@ function browse.Build(page)
         text = function()
             local cat, cats = Category()
             for _, c in ipairs(cats) do if c.id == cat then return c.name end end
-            return "No categories"
+            return Tr["No categories"]
         end,
         choices = function()
             local out = {}
@@ -716,13 +720,14 @@ function browse.Build(page)
             browse.list.first = 0
             D.Stale()                   -- a dropdown's pick may not search: Search does
         end,
-        tip = function() return "What the groups and players are listed for." end,
+        tip = function() return Tr["What the groups and players are listed for."] end,
     })
     browse.cat:SetPoint("TOPLEFT", 0, 0)
     browse.acts = Picker(page, INNER - 156 - GO - 6, {
         text = function()
             local n = Count(Filtered(Category()))
-            return n == 0 and ("All activities  (" .. #D.Activities(Category()) .. ")") or (n .. " picked")
+            return n == 0 and format(Tr["All activities  (%d)"], #D.Activities(Category())) or format(Tr["%d picked"],
+                n)
         end,
         choices = function()
             local out = {}
@@ -739,7 +744,7 @@ function browse.Build(page)
             browseSel = nil
             D.Stale()
         end,
-        tip = function() return "Only these activities: none picked, every one that suits your level." end,
+        tip = function() return Tr["Only these activities: none picked, every one that suits your level."] end,
     })
     browse.acts:SetPoint("TOPRIGHT", -(GO + 6), 0)
     -- Search, beside what it searches for (2026-11-12, was the band's first
@@ -747,9 +752,9 @@ function browse.Build(page)
     browse.go = ns.window.Button(page, GO, function()
         if not D.searching then Search() end
     end, function()
-        if D.searching then return "Asking for the listings." end
-        return D.stale and "Search for what is picked: the game asks for a click."
-            or "Ask for the listings again."
+        if D.searching then return Tr["Asking for the listings."] end
+        return D.stale and Tr["Search for what is picked: the game asks for a click."]
+            or Tr["Ask for the listings again."]
     end)
     browse.go:SetHeight(PICK)
     browse.go:SetPoint("TOPRIGHT", 0, 0)
@@ -770,16 +775,17 @@ function browse.Build(page)
             lfg.Refresh()
         end)
         b:SetScript("OnEnter", function(self)
-            local word = role == "TANK" and "tank" or role == "HEALER" and "healer" or "damage dealer"
-            Tip(self, { title = "Groups that need a " .. word .. ", players who offer it",
-                { "hint", "None lit: everyone." } })
+            Tip(self, { title = role == "TANK" and Tr["Groups that need a tank, players who offer it"]
+                or role == "HEALER" and Tr["Groups that need a healer, players who offer it"]
+                or Tr["Groups that need a damage dealer, players who offer it"],
+                { "hint", Tr["None lit: everyone."] } })
         end)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
         b.role = role
         browse.discs[i] = b
     end
     local needs = ns.Text(filter, 11)
-    needs:SetText("Need")
+    needs:SetText(Tr["Need"])
     needs:SetTextColor(unpack(DIM))
     needs:SetPoint("RIGHT", browse.discs[1], "LEFT", -8, 0)
     browse.search = CreateFrame("EditBox", "MedalluinLFGSearch", filter, "SearchBoxTemplate")
@@ -807,7 +813,7 @@ end
 function browse.Refresh()
     browse.cat:Update()
     browse.acts:Update()
-    browse.go.label:SetText(D.searching and "Searching\226\128\166" or D.stale and "Search" or "Refresh")
+    browse.go.label:SetText(D.searching and Tr["Searching\226\128\166"] or D.stale and Tr["Search"] or Tr["Refresh"])
     local word = D.searching and DIM or D.stale and GOLD or ns.colors.text
     browse.go.label:SetTextColor(word[1], word[2], word[3])
     for _, b in ipairs(browse.discs) do b.icon:Set(b.role, need[b.role] and "on" or "off") end
@@ -818,38 +824,39 @@ function browse.Refresh()
     local cat, cats = Category()
     local catName = ""
     for _, c in ipairs(cats) do if c.id == cat then catName = c.name end end
-    browse.list.empty:SetText(D.searching and "Searching\226\128\166"
-        or D.stale and ("Press Search for " .. catName .. ".")
-        or #D.results == 0 and D.hidden > 0 and ("The game keeps "
-            .. (D.hidden == 1 and "this listing" or ("these " .. D.hidden .. " listings"))
-            .. " from addons just now (it does in an instance and in combat). Its own group finder still shows "
-            .. (D.hidden == 1 and "it." or "them."))
-        or #D.results == 0 and "Nobody is listed here. Refresh, or list yourself (List me)."
-        or n == 0 and (words and "Nobody listed has those words." or "Nobody listed needs those roles.") or "")
+    browse.list.empty:SetText(D.searching and Tr["Searching\226\128\166"]
+        or D.stale and format(Tr["Press Search for %s."], catName)
+        or #D.results == 0 and D.hidden > 0 and (D.hidden == 1 and Tr["The game keeps this listing from addons "
+            .. "just now (it does in an instance and in combat). Its own group finder still shows it."]
+            or format(Tr["The game keeps these %d listings from addons just now (it does in an instance and in "
+            .. "combat). Its own group finder still shows them."], D.hidden))
+        or #D.results == 0 and Tr["Nobody is listed here. Refresh, or list yourself (List me)."]
+        or n == 0 and (words and Tr["Nobody listed has those words."] or Tr["Nobody listed needs those roles."]) or "")
 end
 
 function browse.Band()
     local sel = Selected()
     local player = sel and sel.solo and not sel.self
     return {
-        { key = "message", label = "Send message", group = "b", enabled = sel ~= nil and not sel.self,
+        { key = "message", label = Tr["Send message"], group = "b", enabled = sel ~= nil and not sel.self,
             click = function()
                 local s = Selected()
                 if s then D.Message(s.leader.name) end
             end,
             tip = function()
-                return sel and ("Whisper " .. sel.leader.name .. ".") or "Pick someone in the list first."
+                return sel and format(Tr["Whisper %s."], sel.leader.name) or Tr["Pick someone in the list first."]
             end },
-        { key = "invite", label = "Invite", group = "b", enabled = player and D.CanInvite() or false, click = function()
+        { key = "invite", label = Tr["Invite"], group = "b", enabled = player and D.CanInvite() or false,
+            click = function()
             local s = Selected()
             if s and s.solo then D.Invite(s.leader.name) end
         end, tip = function()
-            if not player then return "Pick a player (not a group) first." end
-            return D.CanInvite() and ("Invite " .. sel.leader.name .. " to your group.")
-                or "Only your group's leader can invite."
+            if not player then return Tr["Pick a player (not a group) first."] end
+            return D.CanInvite() and format(Tr["Invite %s to your group."], sel.leader.name)
+                or Tr["Only your group's leader can invite."]
         end },
-        { key = "delist", label = "Delist", group = "c", color = RED, shown = D.Entry() ~= nil,
-            click = function() D.Delist() end, tip = function() return "Take your listing down." end },
+        { key = "delist", label = Tr["Delist"], group = "c", color = RED, shown = D.Entry() ~= nil,
+            click = function() D.Delist() end, tip = function() return Tr["Take your listing down."] end },
     }
 end
 
@@ -954,7 +961,7 @@ local function FillActivity(r, item)
     if item.head then
         r.tick:Set(item.state)
         r.word:SetText(item.head)
-        r.count:SetText("\194\183  " .. item.picked .. " of " .. #item.ids)
+        r.count:SetText("\194\183  " .. format(Tr["%d of %d"], item.picked, #item.ids))
         return
     end
     -- the name plain, picked or not; the level range in its difficulty's colour
@@ -1038,9 +1045,11 @@ function listme.Build(page)
             self:Hot(true)
             local word = ROLE_WORD[field]
             local text
-            if not self.can then text = "Your class cannot take this role."
-            elseif D.Roles().group then text = "Your role in your group: click to take it."
-            else text = self.on and "You list as this: click to stop." or "Click to list yourself as this too." end
+            if not self.can then text = Tr["Your class cannot take this role."]
+            elseif D.Roles().group then text = Tr["Your role in your group: click to take it."]
+            else
+                text = self.on and Tr["You list as this: click to stop."] or Tr["Click to list yourself as this too."]
+            end
             Tip(self, { title = word, color = GOLD, wrap = true, { "body", text } })
         end)
         m:SetScript("OnLeave", function(self)
@@ -1054,8 +1063,8 @@ function listme.Build(page)
     listme.as = ns.Text(page, 10)
     listme.as:SetPoint("TOPLEFT", listme.chosen, "BOTTOMLEFT", 0, -3)
     listme.as:SetTextColor(unpack(DIM))
-    listme.new = Toggle(page, "New players welcome",
-        function() return "Groups and players new to the game are welcome to join you." end,
+    listme.new = Toggle(page, Tr["New players welcome"],
+        function() return Tr["Groups and players new to the game are welcome to join you."] end,
         function()
             ns.db.lfgNewPlayers = not ns.db.lfgNewPlayers
             lfg.Refresh()
@@ -1066,12 +1075,12 @@ function listme.Build(page)
     listme.wants = Section(page)
     listme.wants:SetPoint("TOPLEFT", 0, -44)
     listme.wants:SetPoint("TOPRIGHT", 0, -44)
-    listme.wants:Set("Looking for")
+    listme.wants:Set(Tr["Looking for"])
     listme.cat = Picker(page, 170, {
         text = function()
             local cat, cats = ListCategory()
             for _, c in ipairs(cats) do if c.id == cat then return c.name end end
-            return "No categories"
+            return Tr["No categories"]
         end,
         choices = function()
             local out = {}
@@ -1084,14 +1093,14 @@ function listme.Build(page)
             listme.list.first = 0
             listme.error = nil
         end,
-        tip = function() return "A listing is for one category." end,
+        tip = function() return Tr["A listing is for one category."] end,
     })
     listme.cat:SetPoint("TOPLEFT", 0, -66)
     listme.style = Picker(page, INNER - 178, {
         text = function()
             local e = D.Entry()
             local v = e and e.playstyle or ns.db.lfgPlaystyle
-            return D.PlaystyleName(v) or "Playstyle (required)"
+            return D.PlaystyleName(v) or Tr["Playstyle (required)"]
         end,
         choices = function()
             local out = {}
@@ -1106,8 +1115,8 @@ function listme.Build(page)
             listme.error = nil
         end,
         tip = function()
-            return D.Entry() and "A listing keeps its playstyle: delist to change it."
-                or "How you mean to play: the game asks for one."
+            return D.Entry() and Tr["A listing keeps its playstyle: delist to change it."]
+                or Tr["How you mean to play: the game asks for one."]
         end,
     })
     listme.style:SetPoint("TOPRIGHT", 0, -66)
@@ -1119,8 +1128,8 @@ function listme.Build(page)
     listme.acts = Section(page)
     listme.acts:SetPoint("TOPLEFT", 0, -98)
     listme.acts:SetPoint("TOPRIGHT", 0, -98)
-    listme.all = Toggle(page, "All levels",
-        function() return "Every activity, not only those that suit your level." end,
+    listme.all = Toggle(page, Tr["All levels"],
+        function() return Tr["Every activity, not only those that suit your level."] end,
         function()
             D.SetShowAllLevels(not D.ShowAllLevels())
             lfg.Refresh()
@@ -1138,7 +1147,7 @@ function listme.Build(page)
     listme.notes = Section(page)
     listme.notes:SetPoint("BOTTOMLEFT", 0, 126)
     listme.notes:SetPoint("BOTTOMRIGHT", 0, 126)
-    listme.notes:Set("Note")
+    listme.notes:Set(Tr["Note"])
     listme.count = ns.PlainText(page, 10)
     listme.count:SetPoint("RIGHT", listme.notes, "RIGHT", 0, 0)
     listme.count:SetTextColor(unpack(DIM))
@@ -1154,13 +1163,13 @@ function listme.Build(page)
     listme.missing:SetPoint("RIGHT", -8, 0)
     listme.missing:SetJustifyH("LEFT")
     listme.missing:SetTextColor(unpack(DIM))
-    listme.missing:SetText("The game's note box is not loaded: the listing goes up without a note.")
+    listme.missing:SetText(Tr["The game's note box is not loaded: the listing goes up without a note."])
     local voice = ns.Text(page, 12)
-    voice:SetText("Voice")
+    voice:SetText(Tr["Voice"])
     voice:SetTextColor(unpack(GOLD))
     voice:SetPoint("BOTTOMLEFT", 4, 30)
     listme.voice = Picker(page, 170, {
-        text = function() return D.VoiceName(ns.db.lfgVoice or 0) or "None" end,
+        text = function() return D.VoiceName(ns.db.lfgVoice or 0) or Tr["None"] end,
         choices = function()
             local out = {}
             for _, v in ipairs(D.VOICES) do table.insert(out, { value = v.value, name = v.name }) end
@@ -1168,7 +1177,7 @@ function listme.Build(page)
         end,
         get = function() return ns.db.lfgVoice or 0 end,
         set = function(v) ns.db.lfgVoice = v end,
-        tip = function() return "Where your group talks." end,
+        tip = function() return Tr["Where your group talks."] end,
     })
     listme.voice:SetPoint("BOTTOMLEFT", 56, 26)
     listme.status = ns.Text(page, 11)
@@ -1210,9 +1219,9 @@ function listme.Refresh()
         listme.medals[i]:Set(r[field], can[field])
         if r[field] then table.insert(words, ROLE_WORD[field]) end
     end
-    listme.chosen:SetText(#words > 0 and table.concat(words, "  \194\183  ") or "No role yet")
+    listme.chosen:SetText(#words > 0 and table.concat(words, "  \194\183  ") or Tr["No role yet"])
     listme.chosen:SetTextColor(unpack(#words > 0 and GOLD or RED))
-    listme.as:SetText(r.group and "your role in the group" or "you list as")
+    listme.as:SetText(r.group and Tr["your role in the group"] or Tr["you list as"])
     listme.new.tick:Set(ns.db.lfgNewPlayers and true or false)
     local e = D.Entry()
     listme.cat:Update(nil, e ~= nil)
@@ -1223,11 +1232,11 @@ function listme.Refresh()
     listme.styleDot:SetVertexColor(pc[1], pc[2], pc[3], 1)
     listme.voice:Update()
     listme.all.tick:Set(D.ShowAllLevels())
-    listme.acts:Set("Activities", #Listed() .. " of " .. #D.Activities(ListCategory()))
+    listme.acts:Set(Tr["Activities"], format(Tr["%d of %d"], #Listed(), #D.Activities(ListCategory())))
     local lines = listme.Lines()
     listme.list:Set(lines)
     listme.list.empty:SetShown(#lines == 0)
-    listme.list.empty:SetText("Nothing here suits your level: tick All levels to see it all.")
+    listme.list.empty:SetText(Tr["Nothing here suits your level: tick All levels to see it all."])
     listme.missing:SetShown(not HostNote())
     local problem = D.Problem(Asked())
     local text, color
@@ -1237,14 +1246,16 @@ function listme.Refresh()
         text, color = D.expired .. (problem and ("  " .. problem) or ""), RED
     elseif e then
         local ago = e.age and Age(e.age)
-        local bits = { ago == "now" and "Listed just now" or ago and ("Listed " .. ago .. " ago") or "Listed" }
+        local bits = { ago == Tr["now"] and Tr["Listed just now"] or ago and format(Tr["Listed %s ago"], ago)
+            or Tr["Listed"] }
         local ps = D.PlaystyleName(e.playstyle)
         if ps then table.insert(bits, ps) end
-        if e.applicants > 0 then table.insert(bits, e.applicants .. " asked to join you") end
+        if e.applicants > 0 then table.insert(bits, format(Tr["%d asked to join you"], e.applicants)) end
         text, color = table.concat(bits, "  \194\183  "), GREEN
         if problem then text = text .. "  \194\183  " .. problem end
     else
-        text, color = problem and ("Not listed.  " .. problem) or "Ready to list.", problem and DIM or GREEN
+        text, color = problem and (Tr["Not listed."] .. "  " .. problem) or Tr["Ready to list."],
+            problem and DIM or GREEN
     end
     listme.status:SetText(text)
     listme.status:SetTextColor(unpack(color))
@@ -1254,7 +1265,8 @@ function listme.Band()
     local e = D.Entry()
     local problem = D.Problem(Asked())
     return {
-        { key = "post", label = e and "Update" or "List me", group = "a", enabled = problem == nil, click = function()
+        { key = "post", label = e and Tr["Update"] or Tr["List me"], group = "a", enabled = problem == nil,
+            click = function()
             local ok, why = D.Post(Asked())
             listme.error = not ok and why or nil
             -- listed: Browse, picked as the listing is, to see who else is after
@@ -1263,10 +1275,12 @@ function listme.Band()
             if ok and not e then lfg.BrowseFor(ListCategory(), Listed(), true) end
             lfg.Refresh()
         end, tip = function()
-            return problem or (e and "List the new picks." or "List yourself, so groups and players can find you.")
+            return problem
+                or (e and Tr["List the new picks."] or Tr["List yourself, so groups and players can find you."])
         end },
-        { key = "delist", label = "Delist", group = "b", color = e and RED or nil, enabled = e ~= nil and D.CanEdit(),
-            click = function() D.Delist() end, tip = function() return "Take your listing down." end },
+        { key = "delist", label = Tr["Delist"], group = "b", color = e and RED or nil,
+            enabled = e ~= nil and D.CanEdit(),
+            click = function() D.Delist() end, tip = function() return Tr["Take your listing down."] end },
     }
 end
 
@@ -1299,8 +1313,8 @@ local function WhoRow(_, parent)
     r.guild:SetWordWrap(false)
     r.guild:SetTextColor(unpack(DIM))
     r.invite = ns.window.Button(r, 52, function() if r.item then D.Invite(r.item.name) end end,
-        function() return r.item and ("Invite " .. r.item.name .. ".") or "" end)
-    r.invite.label:SetText("Invite")
+        function() return r.item and format(Tr["Invite %s."], r.item.name) or "" end)
+    r.invite.label:SetText(Tr["Invite"])
     r.invite:SetHeight(20)
     r.invite:SetPoint("RIGHT", -4, 0)
     r:SetScript("OnClick", function(self, mouse)
@@ -1319,9 +1333,9 @@ local function WhoRow(_, parent)
     r:SetScript("OnEnter", function(self)
         local p = self.item
         Tip(self, { title = p.name, color = ClassColour(p.classFile),
-            { "body", "Level " .. p.level .. " " .. p.race .. " " .. p.class },
+            { "body", format(Tr["Level %d %s %s"], p.level, p.race, p.class) },
             p.guild ~= "" and { "body", "<" .. p.guild .. ">" } or false, { "body", p.zone },
-            { "hint", "Click: pick. Shift click: whisper. Right click: invite." } })
+            { "hint", Tr["Click: pick. Shift click: whisper. Right click: invite."] } })
     end)
     r:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return r
@@ -1332,7 +1346,8 @@ local function FillWho(r, p)
     local cc = ClassColour(p.classFile)
     r.name:SetText(p.name)
     r.name:SetTextColor(cc[1], cc[2], cc[3])
-    r.what:SetText(Hex(Diff(p.level)) .. "Level " .. p.level .. "|r  " .. Hex(ns.colors.text) .. p.race .. "|r  "
+    r.what:SetText(Hex(Diff(p.level)) .. format(Tr["Level %d"],
+        p.level) .. "|r  " .. Hex(ns.colors.text) .. p.race .. "|r  "
         .. Hex(cc) .. p.class .. "|r")
     r.zone:SetText(p.zone)
     r.guild:SetText(p.guild ~= "" and ("<" .. p.guild .. ">") or "")
@@ -1373,7 +1388,7 @@ local function Filter(key, label, list)
             who.filters[key][v] = not who.filters[key][v] or nil
             Ask(who.query.edit:GetText() or "")
         end,
-        tip = function() return "Only these. None picked: any." end,
+        tip = function() return Tr["Only these. None picked: any."] end,
     })
 end
 
@@ -1385,23 +1400,23 @@ function who.Build(page)
     who.query.edit:SetScript("OnEnterPressed", function(self) Ask(self:GetText() or "") end)
     who.query.hint = ns.Text(who.query, 11)
     who.query.hint:SetPoint("LEFT", 8, 0)
-    who.query.hint:SetText("A name, a guild, a zone, 20-30 ... then Enter")
+    who.query.hint:SetText(Tr["A name, a guild, a zone, 20-30 ... then Enter"])
     who.query.hint:SetTextColor(unpack(DIM))
     who.query.edit:HookScript("OnEditFocusGained", function() who.query.hint:Hide() end)
     who.query.edit:HookScript("OnEditFocusLost", function(self) who.query.hint:SetShown(self:GetText() == "") end)
-    who.class = Filter("classes", "Class", function()
+    who.class = Filter("classes", Tr["Class"], function()
         local out = {}
         for _, c in ipairs(D.Classes()) do table.insert(out, { value = c.value, name = c.name }) end
         return out
     end)
-    who.race = Filter("races", "Race", D.Races)
-    who.zone = Filter("zones", "Zone", D.Zones)
+    who.race = Filter("races", Tr["Race"], D.Races)
+    who.zone = Filter("zones", Tr["Zone"], D.Zones)
     who.sort = Picker(page, math.floor((INNER - 18) / 4), {
         text = function()
             for _, s in ipairs(D.SORTS) do
-                if s.value == (ns.db.lfgWhoSort or "name") then return "By " .. s.name:lower() end
+                if s.value == (ns.db.lfgWhoSort or "name") then return s.by end
             end
-            return "By name"
+            return Tr["By name"]
         end,
         choices = function() return D.SORTS end,
         get = function() return ns.db.lfgWhoSort or "name" end,
@@ -1409,7 +1424,7 @@ function who.Build(page)
             ns.db.lfgWhoSort = v
             D.SortWho(v, true)
         end,
-        tip = function() return "The order the list comes in." end,
+        tip = function() return Tr["The order the list comes in."] end,
     })
     who.class:SetPoint("TOPLEFT", 0, -32)
     who.race:SetPoint("LEFT", who.class, "RIGHT", 6, 0)
@@ -1420,17 +1435,17 @@ function who.Build(page)
             tip = function() return tip end }
     end
     who.quick = ns.window.Segments(page, { height = 22, size = 11, soft = true, items = {
-        Quickly("zone", "My zone", "Everyone in your zone."),
-        Quickly("level", "My level \194\177" .. "3", "Everyone within three levels of yours."),
-        Quickly("guild", "My guild", "Your guild's members online."),
-        { key = "clear", label = "Clear", group = "x", color = RED, click = function()
+        Quickly("zone", Tr["My zone"], Tr["Everyone in your zone."]),
+        Quickly("level", Tr["My level \194\177"] .. "3", Tr["Everyone within three levels of yours."]),
+        Quickly("guild", Tr["My guild"], Tr["Your guild's members online."]),
+        { key = "clear", label = Tr["Clear"], group = "x", color = RED, click = function()
             who.query.edit:SetText("")
             who.query.hint:Show()
             who.filters = { classes = {}, races = {}, zones = {} }
             whoSel = nil
             D.who.list, D.who.total, D.who.query = {}, 0, ""
             lfg.Refresh()
-        end, tip = function() return "Empty the box, the filters and the list." end },
+        end, tip = function() return Tr["Empty the box, the filters and the list."] end },
     } })
     who.quick:SetPoint("TOPLEFT", 0, -62)
     who.quick:SetPoint("TOPRIGHT", 0, -62)
@@ -1439,7 +1454,7 @@ function who.Build(page)
     who.heading:SetPoint("TOPRIGHT", 0, -94)
     local hint = ns.Text(page, 10)
     hint:SetPoint("RIGHT", who.heading, "RIGHT", 0, 0)
-    hint:SetText("shift: whisper  \194\183  right: invite")
+    hint:SetText(Tr["shift: whisper  \194\183  right: invite"])
     hint:SetTextColor(unpack(DIM))
     who.heading:Right(hint)
     who.found = who.heading.word
@@ -1461,40 +1476,43 @@ function who.Refresh()
     local picked = false
     for _, p in ipairs(w.list) do if p.name == whoSel then picked = true end end
     if not picked then whoSel = nil end
-    local text, shown = "Who is online", nil
+    local text, shown = Tr["Who is online"], nil
     if w.pending then
-        text = "Asking\226\128\166"
+        text = Tr["Asking\226\128\166"]
     elseif #w.list > 0 or w.query ~= "" then
-        text = w.total .. " found"
-        if w.total > #w.list then shown = #w.list .. " shown" end
+        text = format(Tr["%d found"], w.total)
+        if w.total > #w.list then shown = format(Tr["%d shown"], #w.list) end
     end
     who.heading:Set(text, shown)
     who.list:Set(w.list)
     who.list.empty:SetShown(#w.list == 0 and not w.pending)
     who.list.empty:SetText(w.query == "" and Count(who.filters.classes) + Count(who.filters.races)
-        + Count(who.filters.zones) == 0 and "Ask who is online: type in the box, or pick one above."
-        or "Nobody online matches.")
+        + Count(who.filters.zones) == 0 and Tr["Ask who is online: type in the box, or pick one above."]
+        or Tr["Nobody online matches."])
 end
 
 function who.Band()
     local on = whoSel ~= nil
     return {
-        { key = "whisper", label = "Whisper", group = "a", enabled = on, click = function() D.Message(whoSel) end,
-            tip = function() return on and "Whisper " .. whoSel .. "." or "Pick someone in the list first." end },
-        { key = "invite", label = "Invite", group = "a", enabled = on and not Me(whoSel), click = function()
+        { key = "whisper", label = Tr["Whisper"], group = "a", enabled = on, click = function() D.Message(whoSel) end,
+            tip = function() return on and format(Tr["Whisper %s."],
+                whoSel) or Tr["Pick someone in the list first."] end },
+        { key = "invite", label = Tr["Invite"], group = "a", enabled = on and not Me(whoSel), click = function()
             D.Invite(whoSel)
-        end, tip = function() return on and "Invite " .. whoSel .. " to your group." or "Pick someone first." end },
-        { key = "friend", label = "Add friend", group = "a", enabled = on and not Me(whoSel), click = function()
+        end, tip = function() return on and format(Tr["Invite %s to your group."],
+            whoSel) or Tr["Pick someone first."] end },
+        { key = "friend", label = Tr["Add friend"], group = "a", enabled = on and not Me(whoSel), click = function()
             D.Friend(whoSel)
-        end, tip = function() return on and "Add " .. whoSel .. " to your friends." or "Pick someone first." end },
+        end, tip = function() return on and format(Tr["Add %s to your friends."],
+            whoSel) or Tr["Pick someone first."] end },
     }
 end
 
 -- =========================================================== the box
 local PAGES = {
-    browse = { label = "Browse", title = "Looking for group", page = browse, lfg = true },
-    list = { label = "List me", title = "Looking for group", page = listme, lfg = true },
-    who = { label = "Who", title = "Who", page = who },
+    browse = { label = Tr["Browse"], title = Tr["Looking for group"], page = browse, lfg = true },
+    list = { label = Tr["List me"], title = Tr["Looking for group"], page = listme, lfg = true },
+    who = { label = Tr["Who"], title = Tr["Who"], page = who },
 }
 local ORDER = { "browse", "list", "who" }
 
@@ -1583,7 +1601,7 @@ end
 
 -- the binding's
 function MedalluinToggleLFG() lfg.Toggle() end
-BINDING_NAME_MEDALLUIN_LFG = "Looking for group / Who"
+BINDING_NAME_MEDALLUIN_LFG = Tr["Looking for group / Who"]
 
 local function Build()
     local strip = ns.strips[-1]
@@ -1605,7 +1623,7 @@ local function Build()
     title = ns.Text(box, 16)
     title:SetPoint("TOPLEFT", PAD + 2, -12)
     title:SetTextColor(unpack(GOLD))
-    close = ns.window.Button(box, CONTROL + 10, function() lfg.Close() end, function() return "Close." end)
+    close = ns.window.Button(box, CONTROL + 10, function() lfg.Close() end, function() return Tr["Close."] end)
     Glyph(close, "close")
     close:SetHeight(CONTROL + 10)
     close:SetPoint("TOPRIGHT", -PAD, -6)
@@ -1616,8 +1634,8 @@ local function Build()
             lfg.Refresh()
             if k == "browse" and #D.results == 0 and not D.searching then Search() end
         end, tip = function()
-            return k == "browse" and "The groups and players listed." or k == "list"
-                and "List yourself, for groups and players to find." or "Who is online."
+            return k == "browse" and Tr["The groups and players listed."] or k == "list"
+                and Tr["List yourself, for groups and players to find."] or Tr["Who is online."]
         end })
     end
     tabs = ns.window.Segments(box, { height = TABS, items = items, soft = "open", size = 13 })

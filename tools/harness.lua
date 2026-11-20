@@ -23615,7 +23615,7 @@ if mailPass then
     end
     local function press(tag, label)
         for _, b in ipairs(footOf().all_ or {}) do
-            if b.shown and b.data and b.data.label == label then
+            if b.shown and b.data and b.data.label == ns.L[label] then
                 if b.disabled then print(tag .. " " .. label, "disabled: " .. tostring(b.data.tip)) return end
                 return b.scripts.OnClick(b, "LeftButton")
             end
@@ -23624,24 +23624,24 @@ if mailPass then
     end
     local function tip(label)
         for _, b in ipairs(footOf().all_ or {}) do
-            if b.shown and b.data and b.data.label == label then return tostring(b.data.tip) end
+            if b.shown and b.data and b.data.label == ns.L[label] then return tostring(b.data.tip) end
         end
         return "-"
     end
     local function click(tag, label, button)
         for _, r in ipairs(shown(tag)) do
-            if r.s:sub(1, #label) == label then return r.c.scripts.OnClick(r.c, button or "LeftButton") end
+            if r.s:sub(1, #ns.L[label]) == ns.L[label] then return r.c.scripts.OnClick(r.c, button or "LeftButton") end
         end
         print(tag, "no row " .. label)
     end
     local function tab(label)
         for _, t in ipairs(bar.tabs.all_ or {}) do
-            if t.shown and t.data and t.data.label == label then return t.scripts.OnClick(t) end
+            if t.shown and t.data and t.data.label == ns.L[label] then return t.scripts.OnClick(t) end
         end
     end
     local function field(label)
         for _, c in ipairs(scroll.scrollChild.all_ or {}) do
-            if c.shown and c.data and (c.edit or c.boxes) and c.data.label == label then return c end
+            if c.shown and c.data and (c.edit or c.boxes) and c.data.label == ns.L[label] then return c end
         end
     end
     -- typing: the box takes focus, its text changes as the player's
@@ -23710,7 +23710,7 @@ if mailPass then
         calls("mail shift-click " .. who)
         local read = false
         for _, r in ipairs(shown("mail shift after")) do
-            if r.s:sub(1, #"‹ Inbox") == "‹ Inbox" then read = true end
+            if r.s:sub(1, #ns.L["‹ Inbox"]) == ns.L["‹ Inbox"] then read = true end
         end
         print("mail shift-click " .. who .. " page", read and "read" or "inbox")
         if read then click("mail shift after", "‹ Inbox") end
@@ -23755,11 +23755,11 @@ if mailPass then
 
     -- the auction's money: taken by its row, then the letter can go
     click("mail read cod", "‹ Inbox")
-    click("mail back", "AH — Sold")
+    click("mail back", format(ns.L["AH — %s: %s"], ns.L["Sold"], ""))
     shown("mail read auction")
     foot("mail read auction")
     -- the game deletes an auction letter it emptied: the page goes back
-    click("mail read auction", "Take ")
+    click("mail read auction", format(ns.L["Take %s"], ""))
     calls("mail auction money")
     M.Answer()
     shown("mail auction emptied")
@@ -23779,7 +23779,7 @@ if mailPass then
     M.inbox[#M.inbox + 1] = { sender = "Alliance Auction House", subject = "Outbid on Copper Ore", money = 700,
         days = 30, canDelete = true }
     fire("MAIL_INBOX_UPDATE")
-    click("mail back", "AH — Outbid")
+    click("mail back", format(ns.L["AH — %s: %s"], ns.L["Outbid"], ""))
     foot("mail read outbid")
     print("mail delete tip", tip("Delete"))
     M.inbox[#M.inbox].money = 0
@@ -24011,7 +24011,7 @@ if mailPass then
     fire("MAIL_SEND_INFO_UPDATE")
     calls("mail clicked in")
     -- COD, only with items
-    click("mail attached", "Cash on delivery")
+    click("mail attached", "Cash on delivery: they pay the money to take the items")
     local coins = field("COD")
     coins.boxes[1]:SetText("1")
     coins.boxes[1].scripts.OnTextChanged(coins.boxes[1], true)
@@ -24060,7 +24060,7 @@ if mailPass then
     wells[1].scripts.OnReceiveDrag(wells[1])
     fire("MAIL_SEND_INFO_UPDATE")
     type_("To", "Okun")
-    click("mail cod send", "Cash on delivery")
+    click("mail cod send", "Cash on delivery: they pay the money to take the items")
     coins = field("COD")
     coins.boxes[3]:SetText("50")
     coins.boxes[3].scripts.OnTextChanged(coins.boxes[3], true)

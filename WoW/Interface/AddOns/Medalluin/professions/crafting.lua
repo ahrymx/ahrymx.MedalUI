@@ -46,6 +46,7 @@
 -- so only smelting has them, from the Classic-era record (SMELTING): its
 -- recipes say where they turn yellow, green and grey, in those colours.
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.professions
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -114,8 +115,8 @@ local function Recipe(p, info)
         enter = function(row)
             W.Beside(row)
             GameTooltip:SetSpellByID(info.recipeID)
-            GameTooltip:AddLine(Favourites()[info.recipeID] and "Right-click: take its star off."
-                or "Right-click: star it, to list it first.", unpack(ns.colors.dim))
+            GameTooltip:AddLine(Favourites()[info.recipeID] and Tr["Right-click: take its star off."]
+                or Tr["Right-click: star it, to list it first."], unpack(ns.colors.dim))
             GameTooltip:Show()
         end }
 end
@@ -172,7 +173,7 @@ local function Rows(p)
                 local cat = info.categoryID or 0
                 if not heads[cat] then
                     local c = C_TradeSkillUI.GetCategoryInfo(cat)
-                    heads[cat] = { name = c and c.name or "Other", recipes = {} }
+                    heads[cat] = { name = c and c.name or Tr["Other"], recipes = {} }
                     table.insert(order, cat)
                 end
                 table.insert(heads[cat].recipes, info)
@@ -185,7 +186,7 @@ local function Rows(p)
         if info and info.learned then learned[info.name] = id end
     end
     W.CampLearned(p.skillLine, learned)            -- the camp objects it knows (camping.lua)
-    if #favs > 0 and Heading(p, rows, "favourites", "Favourites") then
+    if #favs > 0 and Heading(p, rows, "favourites", Tr["Favourites"]) then
         for _, info in ipairs(favs) do table.insert(rows, Recipe(p, info)) end
     end
     for _, cat in ipairs(order) do
@@ -195,9 +196,9 @@ local function Rows(p)
     end
     local makeable = C_TradeSkillUI.GetOnlyShowMakeableRecipes()
     local nodes = not makeable and Nodes(p) or {}
-    if #nodes > 0 and Heading(p, rows, "nodes", format("Nodes (%d)", #nodes)) then
+    if #nodes > 0 and Heading(p, rows, "nodes", format(Tr["Nodes (%d)"], #nodes)) then
         for _, n in ipairs(nodes) do
-            table.insert(rows, { label = n[1], icon = p.prof.icon, depth = 1, value = format("Skill %d", n[2]),
+            table.insert(rows, { label = n[1], icon = p.prof.icon, depth = 1, value = format(Tr["Skill %d"], n[2]),
                 color = (ns.GatheringChance(p.prof.rank or 0, n[2])), selected = n[1] == p.node,
                 click = function(button)
                     if button == "RightButton" then return end
@@ -209,11 +210,11 @@ local function Rows(p)
     p.nodes = nodes
     local unknown = not (MedalluinCharDB and MedalluinCharDB.recipesUnknownHidden)
     local untrained = not makeable and unknown and Untrained(p, learned) or {}
-    if #untrained > 0 and Heading(p, rows, "trainer", format("At the trainer (%d)", #untrained)) then
+    if #untrained > 0 and Heading(p, rows, "trainer", format(Tr["At the trainer (%d)"], #untrained)) then
         for _, u in ipairs(untrained) do
             local e = u.entry
             table.insert(rows, { label = Label(e), icon = e.icon, depth = 1,
-                value = (e.skill or 0) > 0 and format("Skill %d", e.skill) or nil,
+                value = (e.skill or 0) > 0 and format(Tr["Skill %d"], e.skill) or nil,
                 color = u.now and ns.colors.text or ns.colors.dim,
                 selected = u.key == p.trained,
                 click = function(button)
@@ -229,7 +230,7 @@ end
 
 -- ------------------------------------------------------------- details
 local function ItemName(id)
-    return C_Item.GetItemNameByID(id) or format("Item %d", id)
+    return C_Item.GetItemNameByID(id) or format(Tr["Item %d"], id)
 end
 
 -- a name and its two counts, green when the first covers the second
@@ -299,36 +300,43 @@ local function Grow(t, reagents, product)
     t:Show()
 end
 
--- Smelting's yellow and green, by recipe name: the skill each turns at
+-- Smelting's yellow and green, by recipe name (in English; by its id in
+-- any language): the skill each turns at
 local SMELTING = {
     ["Smelt Copper"] = { 25, 47 }, ["Smelt Tin"] = { 65, 70 }, ["Smelt Bronze"] = { 65, 90 },
     ["Smelt Silver"] = { 115, 122 }, ["Smelt Iron"] = { 130, 145 }, ["Smelt Gold"] = { 170, 177 },
     ["Smelt Steel"] = { 165, 165 }, ["Smelt Mithril"] = { 175, 202 }, ["Smelt Truesilver"] = { 235, 242 },
     ["Smelt Dark Iron"] = { 300, 305 }, ["Smelt Thorium"] = { 250, 270 },
 }
+for id, name in pairs({ [2657] = "Smelt Copper", [3304] = "Smelt Tin", [2659] = "Smelt Bronze", [2658] = "Smelt Silver",
+    [3307] = "Smelt Iron", [3308] = "Smelt Gold", [3569] = "Smelt Steel", [10097] = "Smelt Mithril",
+    [10098] = "Smelt Truesilver", [14891] = "Smelt Dark Iron", [16153] = "Smelt Thorium" }) do
+    SMELTING[id] = SMELTING[name]
+end
 
 -- what a craft is worth: where it greys (or turns yellow, green and grey),
 -- its points
 local function Worth(info)
-    if info.canSkillUp == false or info.relativeDifficulty == 3 then return "No more points" end
+    if info.canSkillUp == false or info.relativeDifficulty == 3 then return Tr["No more points"] end
     if not info.maxTrivialLevel or info.maxTrivialLevel <= 0 then return nil end
-    local marks = SMELTING[info.name]
+    local marks = SMELTING[info.name] or SMELTING[info.recipeID]
     local at = marks and format("|cffffff00%d|r/|cff40c040%d|r/|cff808080%d|r", marks[1], marks[2],
-        info.maxTrivialLevel) or format("Grey at %d", info.maxTrivialLevel)
+        info.maxTrivialLevel) or format(Tr["Grey at %d"], info.maxTrivialLevel)
     local n = info.numSkillUps or 0
-    return n > 0 and format("%s  ·  %d |4point:points; a craft", at, n) or at
+    return n > 0 and format(Tr["%s  ·  %d |4point:points; a craft"], at, n) or at
 end
 
 -- a service at the trainer: what it asks, and its price
 local function Untaught(p)
     for _, u in ipairs(p.untrained or {}) do
         if u.key == p.trained then
-            local e, sub = u.entry, { "At the trainer" }
-            if (e.skill or 0) > 0 then table.insert(sub, format("Skill %d", e.skill)) end
-            if (e.level or 0) > 1 then table.insert(sub, format("Level %d", e.level)) end
+            local e, sub = u.entry, { Tr["At the trainer"] }
+            if (e.skill or 0) > 0 then table.insert(sub, format(Tr["Skill %d"], e.skill)) end
+            if (e.level or 0) > 1 then table.insert(sub, format(Tr["Level %d"], e.level)) end
             if (e.cost or 0) > 0 then table.insert(sub, Money(e.cost)) end
             p.details:Set({ title = Label(e), sub = table.concat(sub, "  ·  "),
-                text = u.now and "You can learn it now, at its trainer." or "Not yet: it needs more skill or level." })
+                text = u.now and Tr["You can learn it now, at its trainer."]
+                    or Tr["Not yet: it needs more skill or level."] })
             return true
         end
     end
@@ -340,8 +348,8 @@ local function Gathered(p)
     for _, n in ipairs(p.nodes or {}) do
         if n[1] == p.node then
             local _, say = ns.GatheringChance(p.prof.rank or 0, n[2])
-            p.details:Set({ title = n[1], sub = format("Needs %s %d", p.prof.name, n[2]),
-                text = say .. "\nFound in: " .. n[3] })
+            p.details:Set({ title = n[1], sub = format(Tr["Needs %s %d"], p.prof.name, n[2]),
+                text = say .. "\n" .. format(Tr["Found in: %s"], n[3]) })
             return true
         end
     end
@@ -358,7 +366,7 @@ local function Details(p)
     local n = Count(p.chosen)
     local sub = {}
     local cooldown = C_TradeSkillUI.GetRecipeCooldown(p.chosen)
-    if cooldown and cooldown > 0 then table.insert(sub, "Ready in " .. SecondsToTime(cooldown)) end
+    if cooldown and cooldown > 0 then table.insert(sub, format(Tr["Ready in %s"], SecondsToTime(cooldown))) end
     local worth = Worth(info)
     if worth then table.insert(sub, worth) end
     p.details:Set({ title = info.name, sub = table.concat(sub, "  ·  ") })
@@ -378,15 +386,15 @@ end
 -- The craft buttons along the foot's bottom, under the details; the band
 -- holds Have materials.
 local function Band(p, foot, band)
-    p.have = ns.character.Tick(band, { label = "Have materials",
-        tip = "Only the recipes the bags hold the reagents for.", at = W.Beside,
+    p.have = ns.character.Tick(band, { label = Tr["Have materials"],
+        tip = Tr["Only the recipes the bags hold the reagents for."], at = W.Beside,
         click = function(on)
             C_TradeSkillUI.SetOnlyShowMakeableRecipes(on)
             p.Refresh()
         end })
     p.have:SetPoint("LEFT", 4, 0)
-    p.unknown = ns.character.Tick(band, { label = "Show unknown",
-        tip = "The recipes its trainer teaches that you have not learned, at the list's end.", at = W.Beside,
+    p.unknown = ns.character.Tick(band, { label = Tr["Show unknown"],
+        tip = Tr["The recipes its trainer teaches that you have not learned, at the list's end."], at = W.Beside,
         click = function(on)
             MedalluinCharDB = MedalluinCharDB or {}
             MedalluinCharDB.recipesUnknownHidden = not on or nil
@@ -403,26 +411,26 @@ local function Band(p, foot, band)
         b.tipAt = W.Beside
         return b
     end
-    local less = Step(-1, "-", "One fewer.")
+    local less = Step(-1, "-", Tr["One fewer."])
     less:SetPoint("BOTTOMLEFT", 4, 2)
     p.counter = ns.Text(foot, 13)
     p.counter:SetWidth(40)
     p.counter:SetPoint("LEFT", less, "RIGHT", 2, 0)
     p.counter:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    local more = Step(1, "+", "One more.")
+    local more = Step(1, "+", Tr["One more."])
     p.more = more
     more:SetPoint("LEFT", p.counter, "RIGHT", 2, 0)
     p.create = ns.window.Button(foot, 72, function() Craft(p, false) end,
-        function() return InCombatLockdown() and "Not in combat." or "Make as many as the count says." end)
+        function() return InCombatLockdown() and Tr["Not in combat."] or Tr["Make as many as the count says."] end)
     p.create:SetHeight(24)
     p.create.tipAt = W.Beside
-    p.create.label:SetText("Create")
+    p.create.label:SetText(Tr["Create"])
     p.create:SetPoint("LEFT", more, "RIGHT", 10, 0)
     p.createAll = ns.window.Button(foot, 88, function() Craft(p, true) end,
-        function() return InCombatLockdown() and "Not in combat." or "Make as many as the bags can." end)
+        function() return InCombatLockdown() and Tr["Not in combat."] or Tr["Make as many as the bags can."] end)
     p.createAll:SetHeight(24)
     p.createAll.tipAt = W.Beside
-    p.createAll.label:SetText("Create all")
+    p.createAll.label:SetText(Tr["Create all"])
     p.createAll:SetPoint("LEFT", p.create, "RIGHT", 4, 0)
 end
 
@@ -451,14 +459,14 @@ local function Refresh(p)
     if not Ready(p) then
         -- chosen while another profession was opening: open it now
         if W.window:IsShown() and W.Current() == p then p.Open() end
-        p.list.empty:SetText(InCombatLockdown() and "Opens out of combat." or "Opening…")
+        p.list.empty:SetText(InCombatLockdown() and Tr["Opens out of combat."] or Tr["Opening…"])
         p.list:Set({})
         p.details:Set(nil)
         p.create:SetAlpha(0.4)
         p.createAll:SetAlpha(0.4)
         return
     end
-    p.list.empty:SetText("No recipes.")
+    p.list.empty:SetText(Tr["No recipes."])
     p.list:Set(Rows(p))
     Details(p)
     local makeable = C_TradeSkillUI.GetOnlyShowMakeableRecipes()
@@ -555,9 +563,9 @@ for i = 1, SLOTS do
         holder:SetPoint("TOPLEFT", 0, -HEAD)
         holder:SetPoint("TOPRIGHT", 0, -HEAD)
         p.holder = holder
-        p.list = ns.character.List(holder, "No recipes.")
+        p.list = ns.character.List(holder, Tr["No recipes."])
         p.list.ornate = true
-        p.details = ns.character.Details(foot, nil, "Choose a recipe to read it.", 4)
+        p.details = ns.character.Details(foot, nil, Tr["Choose a recipe to read it."], 4)
         p.tree = Tree(foot)
         -- the details, the tree's rows, and the craft buttons' row
         p.footHeight = math.max(p.details.height, TREE_TOP + TREE_ROWS * TREE_ROW) + 6 + 24 + 2

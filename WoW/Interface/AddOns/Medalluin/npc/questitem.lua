@@ -15,6 +15,7 @@
 -- The box shows a page while its frame is shown: the holder stands in for
 -- the Blizzard frame the other pages have, shown while an item waits.
 local _, ns = ...
+local Tr = ns.L
 
 local Container = C_Container
 if not ns.npc then return end
@@ -76,7 +77,7 @@ end
 local function Name(item)
     local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(item.id)
     if not name and GetItemInfo then name = GetItemInfo(item.id) end
-    return name or "Quest item"
+    return name or Tr["Quest item"]
 end
 
 local function Icon(item)
@@ -182,7 +183,7 @@ ns.npc.Page{
         local item = queue[1]
         if not item then return {} end
         local out = {
-            { "text", "This item begins a quest. Read it to accept it or not.", pin = true },
+            { "text", Tr["This item begins a quest. Read it to accept it or not."], pin = true },
             { "tiles", { icon = Icon(item), crop = true, label = Name(item), enter = function(tile)
                 ns.window.Outside(tile)
                 GameTooltip:SetBagItem(item.bag, item.slot)
@@ -190,18 +191,18 @@ ns.npc.Page{
             end } },
         }
         if #queue > 1 then
-            table.insert(out, { "text", #queue == 2 and "One more quest item after this one."
-                or (#queue - 1) .. " more quest items after this one." })
+            table.insert(out, { "text", #queue == 2 and Tr["One more quest item after this one."]
+                or ns.Plural(#queue - 1, format(Tr["%d more quest |4item:items; after this one."], #queue - 1)) })
         end
         return out
     end,
     Foot = function()
         local fight = InCombatLockdown()
-        return { left = fight and "After combat" or nil,
-            { label = "Read the quest", primary = true, enabled = not fight,
-                tip = "Uses the item: the quest's page opens, to accept it or not." },
-            { label = "Later", click = Next,
-                tip = "Puts it away. It does not ask again until you log in again." } }
+        return { left = fight and Tr["After combat"] or nil,
+            { label = Tr["Read the quest"], primary = true, enabled = not fight,
+                tip = Tr["Uses the item: the quest's page opens, to accept it or not."] },
+            { label = Tr["Later"], click = Next,
+                tip = Tr["Puts it away. It does not ask again until you log in again."] } }
     end,
     Close = Next,
     Start = function()

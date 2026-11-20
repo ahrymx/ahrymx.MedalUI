@@ -22,6 +22,7 @@
 -- A locked item (inventory/locks.lua) is on neither Sell nor Sell junk, and
 -- its right click in the bags is guarded (inventory/slots.lua).
 local _, ns = ...
+local Tr = ns.L
 
 local HIGH = MERCHANT_HIGH_PRICE_COST or 1500000      -- the game's own: 150 gold
 local RED = { 1, 0.3, 0.25 }
@@ -34,7 +35,7 @@ local Money = ns.npc.Money
 -- An item the vendor sells, the same from either API. One the client has
 -- not cached yet comes without its name (and link): the game's "retrieving"
 -- words stand in until GET_ITEM_INFO_RECEIVED draws it again.
-local WAIT = RETRIEVING_ITEM_INFO or "Retrieving item information"
+local WAIT = RETRIEVING_ITEM_INFO or Tr["Retrieving item information"]
 local function Item(i)
     if C_MerchantFrame and C_MerchantFrame.GetItemInfo then
         local t = C_MerchantFrame.GetItemInfo(i)
@@ -121,7 +122,7 @@ local function Merchant(out)
                 end })
         end
     end
-    if n == 0 then table.insert(out, { "text", "Nothing for sale.", ns.colors.dim }) end
+    if n == 0 then table.insert(out, { "text", Tr["Nothing for sale."], ns.colors.dim }) end
 end
 
 local function Buyback(out)
@@ -147,7 +148,7 @@ local function Buyback(out)
                 end })
         end
     end
-    if n == 0 then table.insert(out, { "text", "Nothing sold here yet.", ns.colors.dim }) end
+    if n == 0 then table.insert(out, { "text", Tr["Nothing sold here yet."], ns.colors.dim }) end
 end
 
 -- ------------------------------------------------------------ to sell
@@ -207,7 +208,7 @@ local function SellList(out)
                 GameTooltip:Show()
             end })
     end
-    if #list == 0 then table.insert(out, { "text", "Nothing in your bags to sell.", ns.colors.dim }) end
+    if #list == 0 then table.insert(out, { "text", Tr["Nothing in your bags to sell."], ns.colors.dim }) end
 end
 
 local function Blocks()
@@ -219,9 +220,9 @@ local function Blocks()
         end
     end
     local out = { { "tabs",
-        { label = "Merchant", selected = tab == "merchant", click = To("merchant") },
-        { label = "Sell", selected = tab == "sell", click = To("sell") },
-        { label = "Buyback", selected = tab == "buyback", click = To("buyback") } } }
+        { label = Tr["Merchant"], selected = tab == "merchant", click = To("merchant") },
+        { label = Tr["Sell"], selected = tab == "sell", click = To("sell") },
+        { label = Tr["Buyback"], selected = tab == "buyback", click = To("buyback") } } }
     if tab == "buyback" then Buyback(out) elseif tab == "sell" then SellList(out) else Merchant(out) end
     return out
 end
@@ -254,12 +255,13 @@ end
 
 -- ------------------------------------------------------------ the foot
 local function Foot()
-    local close = { label = "Goodbye", click = function() CloseMerchant() end }
+    local close = { label = Tr["Goodbye"], click = function() CloseMerchant() end }
     if pending then
         local p = pending
         local cost = p.price > 0 and Money(math.ceil(p.price * p.count / p.stack)) or ""
-        local ask = format("Buy %d %s%s?", p.count, p.name, cost ~= "" and " for " .. cost or "")
-        if p.extended then ask = format("Buy %d %s (it costs more than money)?", p.count, p.name) end
+        local ask = cost ~= "" and format(Tr["Buy %d %s for %s?"], p.count, p.name, cost)
+            or format(Tr["Buy %d %s?"], p.count, p.name)
+        if p.extended then ask = format(Tr["Buy %d %s (it costs more than money)?"], p.count, p.name) end
         local function By(d)
             return function()
                 p.count = math.max(1, math.min(p.most, p.count + d))
@@ -269,8 +271,8 @@ local function Foot()
         return { left = ask,
             { label = "-", click = By(-1), enabled = p.count > 1 },
             { label = "+", click = By(1), enabled = p.count < p.most },
-            { label = "Buy", primary = true, click = function() Buy(p.index, p.count) end },
-            { label = "Cancel", click = function()
+            { label = Tr["Buy"], primary = true, click = function() Buy(p.index, p.count) end },
+            { label = Tr["Cancel"], click = function()
                 pending = nil
                 ns.npc.Update("merchant")
             end } }
@@ -280,18 +282,19 @@ local function Foot()
         local cost, can = GetRepairAllCost()
         local broken = can and cost and cost > 0
         if CanGuildBankRepair and CanGuildBankRepair() then
-            table.insert(foot, { label = "Guild", click = function() RepairAllItems(true) end, enabled = broken,
-                tip = broken and "Repair everything from the guild bank: " .. Money(cost) .. "."
-                    or "Nothing to repair." })
+            table.insert(foot, { label = Tr["Guild"], click = function() RepairAllItems(true) end, enabled = broken,
+                tip = broken and format(Tr["Repair everything from the guild bank: %s."], Money(cost))
+                    or Tr["Nothing to repair."] })
         end
-        table.insert(foot, 1, { label = "Repair", click = function() RepairAllItems() end,
+        table.insert(foot, 1, { label = Tr["Repair"], click = function() RepairAllItems() end,
             enabled = broken and (GetMoney() >= cost),
-            tip = broken and "Repair everything: " .. Money(cost) .. "." or "Nothing to repair." })
+            tip = broken and format(Tr["Repair everything: %s."], Money(cost)) or Tr["Nothing to repair."] })
     end
     local count, value = Junk()
-    table.insert(foot, { label = "Sell junk", click = SellJunk, enabled = count > 0,
-        tip = count > 0 and format("Sells your %d grey item%s for %s.", count, count == 1 and "" or "s", Money(value))
-            or "No grey items to sell." })
+    table.insert(foot, { label = Tr["Sell junk"], click = SellJunk, enabled = count > 0,
+        tip = count > 0 and ns.Plural(count, format(Tr["Sells your %d grey |4item:items; for %s."], count,
+            Money(value)))
+            or Tr["No grey items to sell."] })
     table.insert(foot, close)
     return foot
 end
@@ -299,7 +302,7 @@ end
 local function Update() ns.npc.Update("merchant") end
 
 ns.npc.Page{
-    key = "merchant", frame = "MerchantFrame", price = "Price", column = "Item",
+    key = "merchant", frame = "MerchantFrame", price = Tr["Price"], column = Tr["Item"],
     Blocks = Blocks, Foot = Foot, Close = function() CloseMerchant() end,
     Start = function()
         ns.On("MERCHANT_SHOW", function()

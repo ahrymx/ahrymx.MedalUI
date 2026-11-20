@@ -35,6 +35,7 @@
 -- ours. Every call is asked for before it is made. /mdlui lfgdump prints
 -- what this client has, and one result as it comes.
 local ADDON, ns = ...
+local Tr = ns.L
 
 local D = { results = {}, searching = false, hidden = 0,
     who = { list = {}, total = 0, pending = false, query = "" } }
@@ -69,10 +70,10 @@ end
 -- --------------------------------------------------------- playstyles, voice
 local PS = Enum and Enum.LFGEntryGeneralPlaystyle or {}
 D.PLAYSTYLES = {
-    { value = PS.Learning or 1, name = "Learning", color = { 0.47, 0.75, 1 } },
-    { value = PS.FunRelaxed or 2, name = "Relaxed", color = { 0.43, 0.78, 0.35 } },
-    { value = PS.FunSerious or 3, name = "Competitive", color = { 1, 0.67, 0.24 } },
-    { value = PS.Expert or 4, name = "Carry offered", color = { 0.78, 0.55, 1 } },
+    { value = PS.Learning or 1, name = Tr["Learning"], color = { 0.47, 0.75, 1 } },
+    { value = PS.FunRelaxed or 2, name = Tr["Relaxed"], color = { 0.43, 0.78, 0.35 } },
+    { value = PS.FunSerious or 3, name = Tr["Competitive"], color = { 1, 0.67, 0.24 } },
+    { value = PS.Expert or 4, name = Tr["Carry offered"], color = { 0.78, 0.55, 1 } },
 }
 local function Playstyle(v)
     for _, p in ipairs(D.PLAYSTYLES) do if p.value == v then return p end end
@@ -91,10 +92,10 @@ end
 
 local VM = Enum and Enum.LFGEntryVoiceMode or {}
 D.VOICES = {
-    { value = VM.None or 0, name = VOICE_CHAT_MODE_NONE or "None" },
-    { value = VM.Legacy or 1, name = VOICE_CHAT_MODE_LEGACY or "In-game voice" },
+    { value = VM.None or 0, name = VOICE_CHAT_MODE_NONE or Tr["None"] },
+    { value = VM.Legacy or 1, name = VOICE_CHAT_MODE_LEGACY or Tr["In-game voice"] },
     { value = VM.Discord or 2, name = VOICE_CHAT_MODE_DISCORD or "Discord" },
-    { value = VM.Custom or 3, name = VOICE_CHAT_MODE_CUSTOM or "Other" },
+    { value = VM.Custom or 3, name = VOICE_CHAT_MODE_CUSTOM or Tr["Other"] },
 }
 function D.VoiceName(v)
     for _, x in ipairs(D.VOICES) do if x.value == v then return x.name end end
@@ -113,7 +114,7 @@ function D.Categories()
     if not D.Has() then return {} end
     local out = {}
     for _, id in ipairs(L().GetAvailableCategories() or {}) do
-        table.insert(out, { id = id, name = CategoryName(id) or ("Category " .. id) })
+        table.insert(out, { id = id, name = CategoryName(id) or format(Tr["Category %d"], id) })
     end
     return out
 end
@@ -130,7 +131,7 @@ local activities = {}           -- by id, read once
 function D.Activity(id)
     if activities[id] then return activities[id] end
     local t = L().GetActivityInfoTable and L().GetActivityInfoTable(id)
-    local a = { id = id, name = "Activity " .. id, min = 0, max = 0, size = 5, order = 0 }
+    local a = { id = id, name = format(Tr["Activity %d"], id), min = 0, max = 0, size = 5, order = 0 }
     if type(t) == "table" then
         a.name = t.fullName or t.shortName or a.name
         a.min = t.minLevelSuggestion or t.minLevel or 0
@@ -411,16 +412,16 @@ end
 
 -- Why a listing cannot go up as asked, or nil: { ids, playstyle, voice, newPlayers }
 function D.Problem(p)
-    if not D.Has() then return "The game's group finder is not here." end
-    if not D.CanEdit() then return "Only your group's leader can list it." end
-    if #p.ids == 0 then return "Tick what you are after." end
-    if not D.Entry() and not p.playstyle then return "Pick a playstyle." end
+    if not D.Has() then return Tr["The game's group finder is not here."] end
+    if not D.CanEdit() then return Tr["Only your group's leader can list it."] end
+    if #p.ids == 0 then return Tr["Tick what you are after."] end
+    if not D.Entry() and not p.playstyle then return Tr["Pick a playstyle."] end
     local r = D.Roles()
-    if not r.group and not (r.tank or r.healer or r.dps) then return "Pick a role or more." end
+    if not r.group and not (r.tank or r.healer or r.dps) then return Tr["Pick a role or more."] end
     local members = GetNumGroupMembers and GetNumGroupMembers() or 0
     for _, id in ipairs(p.ids) do
         local a = D.Activity(id)
-        if members > a.size then return "Your group is too big for " .. a.name .. "." end
+        if members > a.size then return format(Tr["Your group is too big for %s."], a.name) end
     end
     return nil
 end
@@ -441,7 +442,7 @@ function D.Post(p)
     if not Grouped() then Send() end
     D.expired = nil
     Changed()
-    if not ok then return false, "The game refused the listing." end
+    if not ok then return false, Tr["The game refused the listing."] end
     return true
 end
 
@@ -454,7 +455,9 @@ end
 -- ----------------------------------------------------------------- who
 D.WHO_MAX = MAX_WHOS_FROM_SERVER or 50
 D.SORTS = {
-    { value = "name", name = "Name" }, { value = "level", name = "Level" }, { value = "class", name = "Class" },
+    { value = "name", name = Tr["Name"], by = Tr["By name"] }, { value = "level", name = Tr["Level"],
+        by = Tr["By level"] },
+    { value = "class", name = Tr["Class"], by = Tr["By class"] },
 }
 
 -- the menus' lists: classes, races, the zones of your continent
@@ -478,7 +481,7 @@ function D.Races()
     local list = C_FriendList and C_FriendList.GetWhoRaceFilters and C_FriendList.GetWhoRaceFilters() or {}
     for _, r in ipairs(list) do
         local id = r.raceID or r.id
-        if id then table.insert(out, { value = id, name = r.name or ("Race " .. id) }) end
+        if id then table.insert(out, { value = id, name = r.name or format(Tr["Race %d"], id) }) end
     end
     table.sort(out, function(a, b) return a.name < b.name end)
     return out
@@ -590,11 +593,11 @@ ns.On("LFG_LIST_SEARCH_FAILED", function()
 end)
 D.expired = nil
 ns.On("LFG_LIST_ENTRY_EXPIRED_TIMEOUT", function()
-    D.expired = "Your listing ran out of time."
+    D.expired = Tr["Your listing ran out of time."]
     Changed()
 end)
 ns.On("LFG_LIST_ENTRY_EXPIRED_TOO_MANY_PLAYERS", function()
-    D.expired = "Your group grew too big for its listing."
+    D.expired = Tr["Your group grew too big for its listing."]
     Changed()
 end)
 for _, e in ipairs({ "LFG_LIST_ACTIVE_ENTRY_UPDATE", "LFG_LIST_APPLICANT_LIST_UPDATED", "LFG_LIST_AVAILABILITY_UPDATE",

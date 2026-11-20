@@ -28,7 +28,8 @@ def joined(lit):
     return "".join(re.findall(r'"((?:[^"\\]|\\.)*)"', lit))
 
 
-FMT = re.compile(r'%(?:(\d+)\$)?[-+ #0]*\d*(?:\.\d+)?([sdifgxXqc])')
+# (no space flag: "2% critical" is text, not a %c)
+FMT = re.compile(r'%(?:(\d+)\$)?[-+#0]*\d*(?:\.\d+)?([sdifgxXqc])')
 
 
 def formats(s):

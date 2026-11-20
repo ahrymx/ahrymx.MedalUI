@@ -88,7 +88,7 @@ local NONE = "Interface\\Icons\\INV_Scroll_04"
 
 local W = ns.Window{
     name = "MedalluinProfessions", named = Tr["Professions"], side = 1,
-    closeTip = "Close the professions.",
+    closeTip = Tr["Close the professions."],
     Close = function() HideUIPanel(ProfessionsFrame) end,
     Open = function(page) if page.Open then page.Open() end end,
     Lifted = function() return { MainMenuBarBackpackButton } end,
@@ -130,10 +130,11 @@ function W.Skill()
     return info and info.professionID or 0
 end
 
--- The ranks: name, cap, the level and skill to learn it
+-- The ranks: name (as the game's trainers name it: it is read in their
+-- services), cap, the level and skill to learn it
 local RANKS = {
-    { "Apprentice", 75, 1, 1 }, { "Journeyman", 150, 10, 50 }, { "Expert", 225, 20, 125 },
-    { "Artisan", 300, 35, 200 }, { "Master", 375, 50, 275 }, { "Grand Master", 450, 65, 350 },
+    { Tr["Apprentice"], 75, 1, 1 }, { Tr["Journeyman"], 150, 10, 50 }, { Tr["Expert"], 225, 20, 125 },
+    { Tr["Artisan"], 300, 35, 200 }, { Tr["Master##rank"], 375, 50, 275 }, { Tr["Grand Master"], 450, 65, 350 },
 }
 
 -- each rank's cap: a bar's notches
@@ -155,7 +156,7 @@ function W.NextRank(prof)
             local out = { name = r[1], level = r[3], skill = r[4] }
             local list = ns.trainers and ns.trainers.Trade(prof.name) or {}
             for _, e in pairs(list) do
-                if e.name:find(r[1], 1, true) or (e.rank and e.rank:find(r[1], 1, true)) then
+                if e.name:find(out.name, 1, true) or (e.rank and e.rank:find(out.name, 1, true)) then
                     out.level = e.level and e.level > 0 and e.level or out.level
                     out.skill = e.skill and e.skill > 0 and e.skill or out.skill
                     break
@@ -171,9 +172,9 @@ function W.RankLine(prof)
     local r = W.NextRank(prof)
     if not r then return nil end
     if prof.rank >= r.skill and UnitLevel("player") >= r.level then
-        return format("Train %s now", r.name), prof.rank >= prof.max - 5 and RED or GOLD
+        return format(Tr["Train %s now"], r.name), prof.rank >= prof.max - 5 and RED or GOLD
     end
-    return format("%s at skill %d, level %d", r.name, r.skill, r.level), ns.colors.dim
+    return format(Tr["%s at skill %d, level %d"], r.name, r.skill, r.level), ns.colors.dim
 end
 
 -- ----------------------------------------------------------------- cards
@@ -224,7 +225,7 @@ local function Cross(card)
     x:SetScript("OnEnter", function(self)
         self.icon:SetAlpha(1)
         local p = self:GetParent().prof
-        ns.Tip(self, W.Beside, { title = format("Unlearn %s: forget it, and every recipe of it.",
+        ns.Tip(self, W.Beside, { title = format(Tr["Unlearn %s: forget it, and every recipe of it."],
             p and p.name or ""), color = ns.colors.white, wrap = true })
     end)
     x:SetScript("OnLeave", function(self)
@@ -321,11 +322,11 @@ local function Fill(c, prof)
     end
     c.icon:SetTexture(learned and prof.icon or NONE)
     c.icon:SetDesaturated(not learned)
-    c.name:SetText(learned and prof.name or "Primary profession")
+    c.name:SetText(learned and prof.name or Tr["Primary profession"])
     c.name:SetTextColor(unpack(learned and GOLD or ns.colors.dim))
     if c.bar then c.bar:SetShown(learned) end
     c.none:SetShown(not learned)
-    c.none:SetText(learned and "" or "Not learned. A trainer teaches one.")
+    c.none:SetText(learned and "" or Tr["Not learned. A trainer teaches one."])
     c.unlearn:SetShown(learned)
     if learned then
         local text = prof.modifier > 0 and format("%d (+%d) / %d", prof.rank, prof.modifier, prof.max)
@@ -489,7 +490,7 @@ local function Cooldowns(body)
         end
     end
     f.none:SetTextColor(unpack(ns.colors.dim))
-    f.none:SetText("Open a profession with a cooldown (Transmute, Mooncloth...) to track it here.")
+    f.none:SetText(Tr["Open a profession with a cooldown (Transmute, Mooncloth...) to track it here."])
     -- the height it needs (Lay sets the height, with whatever room to spare)
     function f.Refresh()
         local list = ns.alts and ns.alts.Cooldowns and ns.alts.Cooldowns() or {}
@@ -514,8 +515,8 @@ local function Cooldowns(body)
     -- the heading's tooltip: the rest
     function f.Tip(owner)
         W.Beside(owner)
-        GameTooltip:SetText("Cooldowns", GOLD[1], GOLD[2], GOLD[3])
-        GameTooltip:AddLine("Your characters' cooldown crafts on this realm, as each last saw them.",
+        GameTooltip:SetText(Tr["Cooldowns"], GOLD[1], GOLD[2], GOLD[3])
+        GameTooltip:AddLine(Tr["Your characters' cooldown crafts on this realm, as each last saw them."],
             1, 1, 1, true)
         local list = f.list or {}
         for i = COOLDOWNS + 1, #list do
@@ -530,7 +531,7 @@ local function Cooldowns(body)
 end
 
 -- -------------------------------------------------------------- Overview
-overview = { key = "overview", label = "Overview", glyph = "profession", order = 0, frame = "ProfessionsFrame",
+overview = { key = "overview", label = Tr["Overview"], glyph = "profession", order = 0, frame = "ProfessionsFrame",
     bandUsed = true }
 overview.cards = {}
 overview.events = { "SKILL_LINES_CHANGED", "SPELLS_CHANGED", "TRADE_SKILL_LIST_UPDATE", "PLAYER_REGEN_ENABLED",
@@ -540,10 +541,10 @@ function overview.Build(body, _, band)
     for i = 1, CARDS do overview.cards[i] = Card(body, i <= 2) end
     overview.split = ns.window.Hair(body, true)
     overview.heads = {
-        primary = ns.window.Ribbon(body, "Primary professions"),
-        secondary = ns.window.Ribbon(body, "Secondary professions"),
-        camp = ns.window.Ribbon(body, "Camping"),
-        cooldowns = ns.window.Ribbon(body, "Cooldowns"),
+        primary = ns.window.Ribbon(body, Tr["Primary professions"]),
+        secondary = ns.window.Ribbon(body, Tr["Secondary professions"]),
+        camp = ns.window.Ribbon(body, Tr["Camping"]),
+        cooldowns = ns.window.Ribbon(body, Tr["Cooldowns"]),
     }
     overview.cooldowns = Cooldowns(body)
     local head = overview.heads.cooldowns

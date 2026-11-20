@@ -120,6 +120,7 @@
 --
 -- Built at login, only with the chat box and the NPC windows option on.
 local _, ns = ...
+local Tr = ns.L
 
 local L = ns.stripLayout
 local WIDTH = L.chatLeft + L.chatWidth
@@ -1113,7 +1114,7 @@ local function Build()
     under:SetTextColor(ns.colors.dim[1], ns.colors.dim[2], ns.colors.dim[3])
     close = ns.window.Button(head, CONTROL + 8, function()
         if current and current.Close then current.Close() end
-    end, function() return "Close." end)
+    end, function() return Tr["Close."] end)
     close.icon = close:CreateTexture(nil, "ARTWORK")
     close.icon:SetSize(CONTROL, CONTROL)
     close.icon:SetPoint("CENTER")

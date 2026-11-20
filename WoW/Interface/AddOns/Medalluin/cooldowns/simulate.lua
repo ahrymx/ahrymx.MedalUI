@@ -21,29 +21,30 @@
 -- spells are only read (an icon's texture, its spell's name). Nothing here
 -- is saved but the switch; a reload draws again.
 local _, ns = ...
+local Tr = ns.L
 
 local D = ns.cooldownDisplay
 local KIT = ns.simKit
 
 -- a random draw's spells: { name, icon }, cooldowns and buffs apart
 local SPELLS = {
-    { "Fireball", "Spell_Fire_Fireball02" }, { "Frostbolt", "Spell_Frost_FrostBolt02" },
-    { "Lightning Bolt", "Spell_Nature_Lightning" }, { "Shadow Bolt", "Spell_Shadow_ShadowBolt" },
-    { "Charge", "Ability_Warrior_Charge" }, { "Frost Nova", "Spell_Frost_FrostNova" },
-    { "Blink", "Spell_Arcane_Blink" }, { "Kick", "Ability_Kick" },
-    { "Earth Shock", "Spell_Nature_EarthShock" }, { "Flame Shock", "Spell_Fire_FlameShock" },
-    { "Death Coil", "Spell_Shadow_DeathCoil" }, { "Aimed Shot", "INV_Spear_07" },
-    { "Healing Wave", "Spell_Nature_MagicImmunity" }, { "Holy Light", "Spell_Holy_HolyBolt" },
-    { "Maul", "Ability_Druid_Maul" }, { "Stoneskin Totem", "Spell_Nature_StoneSkinTotem" },
-    { "Shield Wall", "Ability_Warrior_ShieldWall" }, { "Divine Shield", "Spell_Holy_DivineIntervention" },
+    { Tr["Fireball"], "Spell_Fire_Fireball02" }, { Tr["Frostbolt"], "Spell_Frost_FrostBolt02" },
+    { Tr["Lightning Bolt"], "Spell_Nature_Lightning" }, { Tr["Shadow Bolt"], "Spell_Shadow_ShadowBolt" },
+    { Tr["Charge"], "Ability_Warrior_Charge" }, { Tr["Frost Nova"], "Spell_Frost_FrostNova" },
+    { Tr["Blink"], "Spell_Arcane_Blink" }, { Tr["Kick"], "Ability_Kick" },
+    { Tr["Earth Shock"], "Spell_Nature_EarthShock" }, { Tr["Flame Shock"], "Spell_Fire_FlameShock" },
+    { Tr["Death Coil"], "Spell_Shadow_DeathCoil" }, { Tr["Aimed Shot"], "INV_Spear_07" },
+    { Tr["Healing Wave"], "Spell_Nature_MagicImmunity" }, { Tr["Holy Light"], "Spell_Holy_HolyBolt" },
+    { Tr["Maul"], "Ability_Druid_Maul" }, { Tr["Stoneskin Totem"], "Spell_Nature_StoneSkinTotem" },
+    { Tr["Shield Wall"], "Ability_Warrior_ShieldWall" }, { Tr["Divine Shield"], "Spell_Holy_DivineIntervention" },
 }
 local BUFFS = {
-    { "Power Word: Shield", "Spell_Holy_PowerWordShield" }, { "Rejuvenation", "Spell_Nature_Rejuvenation" },
-    { "Renew", "Spell_Holy_Renew" }, { "Bloodlust", "Spell_Nature_BloodLust" },
-    { "Sprint", "Ability_Rogue_Sprint" }, { "Lightning Shield", "Spell_Nature_LightningShield" },
-    { "Battle Shout", "Ability_Warrior_BattleShout" }, { "Blessing of Might", "Spell_Holy_FistOfJustice" },
-    { "Shadowform", "Spell_Shadow_Shadowform" }, { "Stealth", "Ability_Stealth" },
-    { "Mark of the Wild", "Spell_Nature_Regeneration" }, { "Arcane Intellect", "Spell_Holy_MagicalSentry" },
+    { Tr["Power Word: Shield"], "Spell_Holy_PowerWordShield" }, { Tr["Rejuvenation"], "Spell_Nature_Rejuvenation" },
+    { Tr["Renew"], "Spell_Holy_Renew" }, { Tr["Bloodlust"], "Spell_Nature_BloodLust" },
+    { Tr["Sprint"], "Ability_Rogue_Sprint" }, { Tr["Lightning Shield"], "Spell_Nature_LightningShield" },
+    { Tr["Battle Shout"], "Ability_Warrior_BattleShout" }, { Tr["Blessing of Might"], "Spell_Holy_FistOfJustice" },
+    { Tr["Shadowform"], "Spell_Shadow_Shadowform" }, { Tr["Stealth"], "Ability_Stealth" },
+    { Tr["Mark of the Wild"], "Spell_Nature_Regeneration" }, { Tr["Arcane Intellect"], "Spell_Holy_MagicalSentry" },
 }
 local ICONS = "Interface\\Icons\\"
 local BARS = ns.CDM_BARS[2]
@@ -106,7 +107,7 @@ local function Yours(key)
             local id = item.GetSpellID and item:GetSpellID()
             if id and not ns.IsSecret(id) and C_Spell and C_Spell.GetSpellName then name = C_Spell.GetSpellName(id) end
         end)
-        if name == nil or ns.IsSecret(name) then name = "A spell" end
+        if name == nil or ns.IsSecret(name) then name = Tr["A spell"] end
         table.insert(out, { name, tex })
     end
     return out
@@ -164,7 +165,7 @@ local function NewIcon(key, root)
     item:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(self.spellName or "")
-        GameTooltip:AddLine("Simulated", 0.6, 0.6, 0.6)
+        GameTooltip:AddLine(Tr["Simulated"], 0.6, 0.6, 0.6)
         GameTooltip:Show()
     end)
     item:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -193,7 +194,7 @@ local function NewBar(root)
     item:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(self.spellName or "")
-        GameTooltip:AddLine("Simulated", 0.6, 0.6, 0.6)
+        GameTooltip:AddLine(Tr["Simulated"], 0.6, 0.6, 0.6)
         GameTooltip:Show()
     end)
     item:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -372,9 +373,20 @@ local function Redraw()
     end
 end
 
+-- each viewer's count: its label, and its tips (simKit's Count)
+local SPELL_TIPS = { Tr["One spell fewer."], Tr["One spell more."], Tr["How many spells. Click for %d, or %d."] }
+local COUNTS = {
+    essential = { Tr["Essential"], SPELL_TIPS },
+    utility = { Tr["Utility"], SPELL_TIPS },
+    buffs = { Tr["Tracked buffs"], { Tr["One buff fewer."], Tr["One buff more."],
+        Tr["How many buffs. Click for %d, or %d."] } },
+    [BARS] = { Tr["Tracked bars"], { Tr["One bar fewer."], Tr["One bar more."],
+        Tr["How many bars. Click for %d, or %d."] } },
+}
+
 local function Build()
     local K = KIT
-    panel = K.Chrome("MedalluinCdmSimPanel", "Simulated cooldowns", "RIGHT", -16, 120)
+    panel = K.Chrome("MedalluinCdmSimPanel", Tr["Simulated cooldowns"], "RIGHT", -16, 120)
     local page = CreateFrame("Frame", nil, panel)
     local top = K.PAD + 16 + 6
     page:SetPoint("TOPLEFT", K.PAD, -top)
@@ -386,32 +398,31 @@ local function Build()
             click = function() S.source = id end,
             tip = function() return tip end })
     end
-    Source(0, "yours", "Your spells", "The spells your Cooldown Manager tracks, each viewer's own, in its order. "
-        .. "A viewer with none gets random ones.")
-    Source(half + 4, "random", "Random spells", "A full set of random spells, as many as the counts below.")
+    Source(0, "yours", Tr["Your spells"], Tr["The spells your Cooldown Manager tracks, each viewer's own, in its "
+        .. "order. A viewer with none gets random ones."])
+    Source(half + 4, "random", Tr["Random spells"], Tr["A full set of random spells, as many as the counts below."])
     local y = -K.ROW - 4
     local function Random() return S.source == "random" end
     for _, v in ipairs(VIEWERS) do
         local key = v[2]
-        y = K.Count(page, y, "cdm.count." .. key, (v[3]:gsub(" cooldowns$", "")), 1, MAX,
-            function() return S.counts[key] end, function(n) S.counts[key] = n end,
-            key == BARS and "bar" or key == "buffs" and "buff" or "spell", Deal, Random)
+        y = K.Count(page, y, "cdm.count." .. key, COUNTS[key][1], 1, MAX,
+            function() return S.counts[key] end, function(n) S.counts[key] = n end, COUNTS[key][2], Deal, Random)
     end
-    K.Button(page, 0, y, K.IW, { id = "cdm.again", label = "New spells", redraw = Deal, enabled = Random,
-        click = function() end, tip = function() return "Another draw: other spells, other timings." end })
+    K.Button(page, 0, y, K.IW, { id = "cdm.again", label = Tr["New spells"], redraw = Deal, enabled = Random,
+        click = function() end, tip = function() return Tr["Another draw: other spells, other timings."] end })
     y = K.Toggles(page, y - K.ROW - 4, "cdm", function() return S end, {
-        { "cooling", "Cooling", "Each spell cooling down, its sweep winding, again and again." },
-        { "charges", "Charges", "Some spells with charges: one is up, so the icon keeps its colour." },
-        { "stacks", "Stacks", "Some buffs and bars with stacks." },
-        { "away", "Out of range", "Some spells out of range, tinted." },
-        { "comeGo", "Come and go", "Buffs and bars running out and coming back: with Close gaps, the rest close "
-            .. "ranks." },
-        { "combat", "In combat", "The viewers' Visibility as in a fight." },
+        { "cooling", Tr["Cooling"], Tr["Each spell cooling down, its sweep winding, again and again."] },
+        { "charges", Tr["Charges"], Tr["Some spells with charges: one is up, so the icon keeps its colour."] },
+        { "stacks", Tr["Stacks"], Tr["Some buffs and bars with stacks."] },
+        { "away", Tr["Out of range"], Tr["Some spells out of range, tinted."] },
+        { "comeGo", Tr["Come and go"], Tr["Buffs and bars running out and coming back: with Close gaps, the rest "
+            .. "close ranks."] },
+        { "combat", Tr["In combat"], Tr["The viewers' Visibility as in a fight."] },
     }, Redraw)
-    K.Button(panel, K.PAD, -(top - y + 6), K.IW, { id = "cdm.end", label = "End simulation",
+    K.Button(panel, K.PAD, -(top - y + 6), K.IW, { id = "cdm.end", label = Tr["End simulation"],
         redraw = function() end,
         click = function() ns.SetOption("simCdm", false) end,
-        tip = function() return "Turn off Simulate cooldowns." end })
+        tip = function() return Tr["Turn off Simulate cooldowns."] end })
     panel:SetHeight(top - y + 6 + K.ROW + K.PAD - 4)
 end
 

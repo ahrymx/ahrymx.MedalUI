@@ -27,14 +27,15 @@
 -- as it loads (npc/window.lua, Adopt). Under the veil, not the hidden
 -- parent: Blizzard closes the trainer when its frame is not visible.
 local _, ns = ...
+local Tr = ns.L
 
 local RED = { 1, 0.3, 0.25 }
 local Money = ns.npc.Money
-local TYPES = { { "available", "Available" }, { "unavailable", "Unavailable" }, { "used", "Known" } }
+local TYPES = { { "available", Tr["Available"] }, { "unavailable", Tr["Unavailable"] }, { "used", Tr["Known"] } }
 
 local picked                     -- the service picked, by name: indexes move as you learn
 local folded = {}                -- the skill lines folded, by name, for the session
-local OTHER = "Other"
+local OTHER = Tr["Other"]
 
 -- the game's services in its order. Forever's answer is name, type
 -- ("available", "unavailable" or "used"), icon, level, rank: not Classic's
@@ -98,18 +99,20 @@ end
 local function Requirements(out, i)
     local level = GetTrainerServiceLevelReq and GetTrainerServiceLevelReq(i) or 0
     if level and level > 1 then
-        table.insert(out, { "text", format("Requires level %d", level),
+        table.insert(out, { "text", format(Tr["Requires level %d"], level),
             UnitLevel("player") < level and RED or ns.colors.dim })
     end
     if GetTrainerServiceSkillReq then
         local skill, rank, met = GetTrainerServiceSkillReq(i)
         if skill and skill ~= "" then
-            table.insert(out, { "text", format("Requires %s (%d)", skill, rank or 0), met and ns.colors.dim or RED })
+            table.insert(out, { "text", format(Tr["Requires %s (%d)"], skill, rank or 0),
+                met and ns.colors.dim or RED })
         end
     end
     for j = 1, GetTrainerServiceNumAbilityReq and GetTrainerServiceNumAbilityReq(i) or 0 do
         local ability, met = GetTrainerServiceAbilityReq(i, j)
-        if ability then table.insert(out, { "text", "Requires " .. ability, met and ns.colors.dim or RED }) end
+        if ability then table.insert(out, { "text", format(Tr["Requires %s"], ability),
+            met and ns.colors.dim or RED }) end
     end
 end
 
@@ -189,14 +192,14 @@ local function Blocks()
             for _, s in ipairs(g) do Row(s) end
         end
     end
-    if #list == 0 then table.insert(out, { "text", "Nothing to learn here right now.", ns.colors.dim }) end
+    if #list == 0 then table.insert(out, { "text", Tr["Nothing to learn here right now."], ns.colors.dim }) end
     -- the one picked, docked under the list
     if current then
         local details = { { "heading", Label(current) } }
         local text = GetTrainerServiceDescription and GetTrainerServiceDescription(current.index)
         if text and text ~= "" then table.insert(details, { "text", text }) end
         Requirements(details, current.index)
-        if current.cost > 0 then table.insert(details, { "text", "Costs " .. Money(current.cost) }) end
+        if current.cost > 0 then table.insert(details, { "text", format(Tr["Costs %s"], Money(current.cost)) }) end
         for _, b in ipairs(details) do
             b.dock = true
             table.insert(out, b)
@@ -210,22 +213,22 @@ local function Close() CloseTrainer() end
 local function Foot()
     local current = Picked(Services())
     local why
-    if not current then why = "Choose a skill."
-    elseif current.category == "used" then why = "Already known."
-    elseif current.category ~= "available" then why = "Not yet available."
-    elseif GetMoney() < current.cost then why = "Not enough money." end
+    if not current then why = Tr["Choose a skill."]
+    elseif current.category == "used" then why = Tr["Already known."]
+    elseif current.category ~= "available" then why = Tr["Not yet available."]
+    elseif GetMoney() < current.cost then why = Tr["Not enough money."] end
     return { left = Money(GetMoney()),
-        { label = "Train", primary = true, enabled = not why, tip = why,
+        { label = Tr["Train"], primary = true, enabled = not why, tip = why,
             click = function() if current and not why then BuyTrainerService(current.index) end end },
-        { label = "Goodbye", click = Close } }
+        { label = Tr["Goodbye"], click = Close } }
 end
 
 local function Update() ns.npc.Update("trainer") end
 
 ns.npc.Page{
-    key = "trainer", frame = "ClassTrainerFrame", addon = "Blizzard_TrainerUI", veil = true, price = "Price",
+    key = "trainer", frame = "ClassTrainerFrame", addon = "Blizzard_TrainerUI", veil = true, price = Tr["Price"],
     -- a profession's trainer teaches skills, any other spells
-    column = function() return IsTradeskillTrainer and IsTradeskillTrainer() and "Skill" or "Spell" end,
+    column = function() return IsTradeskillTrainer and IsTradeskillTrainer() and Tr["Skill"] or Tr["Spell"] end,
     Blocks = Blocks, Foot = Foot, Close = Close,
     Start = function()
         ns.On("TRAINER_SHOW", function()

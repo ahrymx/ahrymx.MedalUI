@@ -18,6 +18,7 @@
 -- there, and the game answers with the next page (a quest's opens the
 -- quest pages, npc/quest.lua).
 local _, ns = ...
+local Tr = ns.L
 
 local G = C_GossipInfo
 if not G then return end
@@ -40,13 +41,13 @@ local function Blocks()
             click = function() G.SelectAvailableQuest(q.questID) end })
     end
     if #quests > 0 then
-        table.insert(out, { "heading", "Quests" })
+        table.insert(out, { "heading", Tr["Quests"] })
         for _, r in ipairs(quests) do table.insert(out, r) end
     end
     local options = G.GetOptions and G.GetOptions() or {}
     table.sort(options, function(a, b) return (a.orderIndex or 0) < (b.orderIndex or 0) end)
     if #options > 0 then
-        table.insert(out, { "heading", "Options" })
+        table.insert(out, { "heading", Tr["Options"] })
         for _, o in ipairs(options) do
             table.insert(out, { "row", label = o.name, icon = o.icon,
                 click = function() G.SelectOption(o.gossipOptionID or o.orderIndex) end })
@@ -60,7 +61,7 @@ local function Close() G.CloseGossip() end
 ns.npc.Page{
     key = "gossip", frame = "GossipFrame", keys = true,
     Blocks = Blocks,
-    Foot = function() return { { label = "Goodbye", click = Close } } end,
+    Foot = function() return { { label = Tr["Goodbye"], click = Close } } end,
     Close = Close,
     Start = function()
         ns.On("GOSSIP_SHOW", function() ns.npc.Show("gossip") end)

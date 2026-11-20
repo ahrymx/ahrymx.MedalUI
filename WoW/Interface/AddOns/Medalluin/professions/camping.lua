@@ -25,6 +25,7 @@
 -- buffs are told by their names: Camp Benefits is every object's buff in
 -- one, after a minute sat by the fire (Welcoming Campfire meanwhile).
 local _, ns = ...
+local Tr = ns.L
 
 local W = ns.professions
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -35,46 +36,47 @@ local FROM = 3 * BUFF_W + 16            -- the objects' left: past the buffs and
 local ART = 132                         -- the least height: the night's camp (professions/window.lua) under the row
 
 -- by the profession's skill line, in the cards' order: each line's tiers
--- { object, skill, what it adds }, and the buff tier 1 gives
+-- { object, skill, what it adds }, and the buff tier 1 gives. An object's
+-- name stays English: it is read in the recipes' names.
 local LINES = {
-    { skill = 171, buff = "Mana every 5 seconds, to you and those near.", tiers = {
-        { "Mana Well", 20 }, { "Fermenter", 140, "Makes certain reagents at the camp." },
-        { "Alchemy Laboratory", 300, "A workstation some recipes need." } } },
-    { skill = 164, buff = "Strength, to you and those near.", tiers = {
-        { "Sharpening Wheel", 20 }, { "Anvil", 140, "An anvil at the camp." },
-        { "Master Forge", 300, "A workstation some plans need." } } },
-    { skill = 333, buff = "Armor and all stats (resistances from level 30), to you and those near.", tiers = {
-        { "Enchanted Lute", 20 }, { "Arcane Salvager", 140, "Disenchanting at the camp." },
-        { "Arcane Forge", 300, "A workstation some formulas need." } } },
-    { skill = 202, buff = "No buff: sells reagents to you and those near.", tiers = {
-        { "Reagent Bot", 20 }, { "Repair Bot", 140, "Repairs too." },
-        { "Anarchist's Workbench", 300, "A workstation some schematics need." } } },
-    { skill = 182, buff = "Intellect, to you and those near.", tiers = {
-        { "Incense Candle", 20 }, { "Greenhouse", 140, "Grows herbs from seeds planted." },
-        { "Seed Hybridizer", 300, "Multiplies or improves seeds." } } },
-    { skill = 165, buff = "Rested experience, up to 5% of a level, once an hour (Boosted Rest).", tiers = {
-        { "Camp Tent", 20 }, { "Tanning Rack", 140, "Makes certain reagents at the camp." },
-        { "Sewing Machine", 300, "A workstation some patterns need." } } },
-    { skill = 186, buff = "Melee attack power, to you and those near.", tiers = {
-        { "Lodestone", 20 }, { "Rock Garden", 140, "Grows a common ore node in time." },
-        { "Molten Foundry", 300, "A smelting workstation." } } },
-    { skill = 393, buff = "2% critical strike, to you and those near.", tiers = {
-        { "Camp Chair", 20 }, { "Field Guide", 140, "Its reader tracks beasts." },
-        { "Trapper's Workbench", 300, "Holds a trap." } } },
-    { skill = 197, buff = "Spirit, to you and those near.", tiers = {
-        { "Faction Banner", 20 }, { "Spinning Wheel", 140, "Makes certain reagents at the camp." },
-        { "Loom", 300, "A workstation some patterns need." } } },
-    { skill = 129, buff = "Stamina, to you and those near.", tiers = {
-        { "First Aid Kit", 20 }, { "Toxin Study", 140, "Holds healing potions and anti-venom." },
-        { "Plague Doctor's Laboratory", 300, "Holds healing potions and poultices." } } },
-    { skill = 356, buff = "8% all stats, to you and those near.", tiers = {
-        { "Fish Bowl", 20 }, { "Fishing Rack", 140, "Lures, and uncommon fish for an hour." },
-        { "Fishing Hut", 300, "Lures, and rare fish for an hour." } } },
-    { skill = 185, label = "Campfire", buff = "Room for the camp's objects.", tiers = {
-        { "Basic Campfire", 1, "Room for 3 objects." }, { "Journeyman Campfire", 140, "Room for 5 objects." },
-        { "Expert Campfire", 220, "Room for 10 objects." } } },
-    { skill = 185, buff = "Stamina from food, by a cooking fire.", tiers = {
-        { "Cookie's Feast", 140 }, { "Iron Oven", 300, "A workstation some recipes need." } } },
+    { skill = 171, buff = Tr["Mana every 5 seconds, to you and those near."], tiers = {
+        { "Mana Well", 20 }, { "Fermenter", 140, Tr["Makes certain reagents at the camp."] },
+        { "Alchemy Laboratory", 300, Tr["A workstation some recipes need."] } } },
+    { skill = 164, buff = Tr["Strength, to you and those near."], tiers = {
+        { "Sharpening Wheel", 20 }, { "Anvil", 140, Tr["An anvil at the camp."] },
+        { "Master Forge", 300, Tr["A workstation some plans need."] } } },
+    { skill = 333, buff = Tr["Armor and all stats (resistances from level 30), to you and those near."], tiers = {
+        { "Enchanted Lute", 20 }, { "Arcane Salvager", 140, Tr["Disenchanting at the camp."] },
+        { "Arcane Forge", 300, Tr["A workstation some formulas need."] } } },
+    { skill = 202, buff = Tr["No buff: sells reagents to you and those near."], tiers = {
+        { "Reagent Bot", 20 }, { "Repair Bot", 140, Tr["Repairs too."] },
+        { "Anarchist's Workbench", 300, Tr["A workstation some schematics need."] } } },
+    { skill = 182, buff = Tr["Intellect, to you and those near."], tiers = {
+        { "Incense Candle", 20 }, { "Greenhouse", 140, Tr["Grows herbs from seeds planted."] },
+        { "Seed Hybridizer", 300, Tr["Multiplies or improves seeds."] } } },
+    { skill = 165, buff = Tr["Rested experience, up to 5% of a level, once an hour (Boosted Rest)."], tiers = {
+        { "Camp Tent", 20 }, { "Tanning Rack", 140, Tr["Makes certain reagents at the camp."] },
+        { "Sewing Machine", 300, Tr["A workstation some patterns need."] } } },
+    { skill = 186, buff = Tr["Melee attack power, to you and those near."], tiers = {
+        { "Lodestone", 20 }, { "Rock Garden", 140, Tr["Grows a common ore node in time."] },
+        { "Molten Foundry", 300, Tr["A smelting workstation."] } } },
+    { skill = 393, buff = Tr["2% critical strike, to you and those near."], tiers = {
+        { "Camp Chair", 20 }, { "Field Guide", 140, Tr["Its reader tracks beasts."] },
+        { "Trapper's Workbench", 300, Tr["Holds a trap."] } } },
+    { skill = 197, buff = Tr["Spirit, to you and those near."], tiers = {
+        { "Faction Banner", 20 }, { "Spinning Wheel", 140, Tr["Makes certain reagents at the camp."] },
+        { "Loom", 300, Tr["A workstation some patterns need."] } } },
+    { skill = 129, buff = Tr["Stamina, to you and those near."], tiers = {
+        { "First Aid Kit", 20 }, { "Toxin Study", 140, Tr["Holds healing potions and anti-venom."] },
+        { "Plague Doctor's Laboratory", 300, Tr["Holds healing potions and poultices."] } } },
+    { skill = 356, buff = Tr["8% all stats, to you and those near."], tiers = {
+        { "Fish Bowl", 20 }, { "Fishing Rack", 140, Tr["Lures, and uncommon fish for an hour."] },
+        { "Fishing Hut", 300, Tr["Lures, and rare fish for an hour."] } } },
+    { skill = 185, label = "Campfire", buff = Tr["Room for the camp's objects."], tiers = {
+        { "Basic Campfire", 1, Tr["Room for 3 objects."] }, { "Journeyman Campfire", 140, Tr["Room for 5 objects."] },
+        { "Expert Campfire", 220, Tr["Room for 10 objects."] } } },
+    { skill = 185, buff = Tr["Stamina from food, by a cooking fire."], tiers = {
+        { "Cookie's Feast", 140 }, { "Iron Oven", 300, Tr["A workstation some recipes need."] } } },
 }
 W.campLines = LINES
 
@@ -123,9 +125,9 @@ end
 
 -- ------------------------------------------------------------- buffs
 local function Clock(left)
-    if left >= 3600 then return format("%dh %dm", left / 3600, left % 3600 / 60) end
-    if left >= 60 then return format("%d min", math.ceil(left / 60)) end
-    return format("%d sec", left)
+    if left >= 3600 then return format(Tr["%dh %dm##left"], left / 3600, left % 3600 / 60) end
+    if left >= 60 then return format(Tr["%d min"], math.ceil(left / 60)) end
+    return format(Tr["%d sec"], left)
 end
 
 -- the player's buffs by name: name -> aura
@@ -145,19 +147,19 @@ end
 -- one slot: its aura's time left, or what the camp is waiting for
 local function Slot(s, auras)
     local aura = auras[s.spec.name]
-    local text, color = "None", ns.colors.dim
+    local text, color = Tr["None"], ns.colors.dim
     if aura then
         local ends = aura.expirationTime
         if ends and not ns.IsSecret(ends) and ends > 0 then
             text = Clock(math.max(0, ends - GetTime()))
         else
-            text = "Active"
+            text = Tr["Active##aura"]
         end
         color = ns.colors.text
     elseif s.spec.name == CAMP and auras[WELCOME] then
-        text, color = "Settling in by the fire", GOLD
+        text, color = Tr["Settling in by the fire"], GOLD
     elseif s.spec.name == CAMP and auras[NEAR] then
-        text, color = "Sit by the fire a minute", GOLD
+        text, color = Tr["Sit by the fire a minute"], GOLD
     end
     s.aura = aura
     s.icon:SetTexture(aura and aura.icon or s.spec.icon)
@@ -180,12 +182,12 @@ local function State(t, rank, i)
     local k = Known()[t[1]]
     if k then
         local n = Count(k.item)
-        return n > 0 and format("Known  ·  %d in bags", n) or "Known", ns.colors.text, true
+        return n > 0 and format(Tr["Known  ·  %d in bags"], n) or Tr["Known"], ns.colors.text, true
     end
     if rank >= t[2] then
-        return i == 1 and t[2] <= 20 and "Learn it: a trainer, or Camping 101" or "Learn it: a blueprint", GOLD
+        return i == 1 and t[2] <= 20 and Tr["Learn it: a trainer, or Camping 101"] or Tr["Learn it: a blueprint"], GOLD
     end
-    return format("Needs skill %d", t[2]), ns.colors.dim
+    return format(Tr["Needs skill %d"], t[2]), ns.colors.dim
 end
 
 -- a known tier, chosen on its profession's tab
@@ -248,8 +250,8 @@ function W.Camp(body)
                 GameTooltip:SetUnitBuffByAuraInstanceID("player", self.aura.auraInstanceID, "HELPFUL")
             else
                 GameTooltip:SetText(spec.name)
-                GameTooltip:AddLine(spec.name == CAMP and "Sit a minute by a campfire: every object's buff, "
-                    .. "for an hour." or "Not on you.", 1, 1, 1, true)
+                GameTooltip:AddLine(spec.name == CAMP and Tr["Sit a minute by a campfire: every object's buff, "
+                    .. "for an hour."] or Tr["Not on you."], 1, 1, 1, true)
             end
             GameTooltip:Show()
         end)
@@ -338,7 +340,7 @@ function W.Camp(body)
             W.Beside(self)
             GameTooltip:SetText(self.name, unpack(self.known and GOLD or ns.colors.dim))
             GameTooltip:AddLine(self.sub, unpack(self.subColor))
-            GameTooltip:AddLine(c.open == self.line and "Click: close its tiers." or "Click: its tiers.",
+            GameTooltip:AddLine(c.open == self.line and Tr["Click: close its tiers."] or Tr["Click: its tiers."],
                 unpack(ns.colors.dim))
             GameTooltip:Show()
         end)
@@ -381,8 +383,8 @@ function W.Camp(body)
             t.name = tier[1]
             if best then
                 local n = Count(Known()[tier[1]].item)
-                local bags = n > 0 and format("  ·  %d in bags", n) or ""
-                t.sub, t.subColor = format("Tier %d of %d", best, #line.tiers) .. bags, ns.colors.text
+                local bags = n > 0 and "  ·  " .. format(Tr["%d in bags"], n) or ""
+                t.sub, t.subColor = format(Tr["Tier %d of %d"], best, #line.tiers) .. bags, ns.colors.text
                 t.corner:SetText(format("%d/%d", best, #line.tiers))
                 t.corner:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
             else
@@ -416,13 +418,13 @@ function W.Camp(body)
                     r.skill, r.tier = line.skill, known and t or nil
                     r.icon:SetTexture(TierIcon(t, prof))
                     r.icon:SetDesaturated(not known)
-                    r.name:SetText(format("%s  (tier %d)", t[1], i))
+                    r.name:SetText(format(Tr["%s  (tier %d)"], t[1], i))
                     r.name:SetTextColor(unpack(known and GOLD or ns.colors.dim))
                     r.state:SetText(words)
                     r.state:SetTextColor(unpack(color))
                     -- an upgrade keeps tier 1's buff (not a campfire's room)
                     local keeps = t[3] and i > 1 and line.tiers[1][2] > 1
-                    r.what:SetText(keeps and (t[3] .. " Keeps tier 1's buff.") or t[3] or line.buff)
+                    r.what:SetText(keeps and (t[3] .. " " .. Tr["Keeps tier 1's buff."]) or t[3] or line.buff)
                 end
             end
             drawer:SetHeight(#line.tiers * ROW + 2)
