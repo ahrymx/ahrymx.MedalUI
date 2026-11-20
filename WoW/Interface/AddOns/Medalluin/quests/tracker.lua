@@ -748,7 +748,7 @@ local function Build()
     body:SetPoint("TOPLEFT", 0, -TOP)
     body:SetPoint("BOTTOMRIGHT", -PAD, PAD + FOOT)
     list = ns.character.List(body, Tr["No quests tracked."])
-    list.fade = true
+    list.plain, list.fade = true, true
     -- the rows' font, unseen, to measure an objective's lines
     measure = ns.Text(frame, 12)
     measure:SetPoint("TOPLEFT")

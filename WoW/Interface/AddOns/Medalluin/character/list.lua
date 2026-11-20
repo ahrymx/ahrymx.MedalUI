@@ -23,12 +23,36 @@
 --                               the pointer, the row's own glow over that
 --       wash = { r, g, b, a }   its band's colour (the waypoint's quest)
 --     list:Draw()      again, at the same scroll (after the body's height changes)
---     list.fade = true  headings fade out to the right (the quest tracker's,
---                       over the world), where the client has gradients
---     list.ornate = true  headings in a gold metal rim, a margin above and
---                       below each (the professions'): a heading's row is
---                       taller, its band inset, so rows are no longer even
+--     list.plain = true  headings a flat band with a +/- at their right,
+--                       entries bare (the quest tracker's, over the world);
+--                       otherwise a heading is an engraved plate (Plate,
+--                       below), a margin above and below it, so rows are not
+--                       all as tall, and the entries under it are striped
+--                       every other row and tied to it by a thread (Thread)
+--     list.fade = true  a plain list's headings fade out to the right, where
+--                       the client has gradients
 --     list.row          a row's height (22)
+--
+--   ns.character.Plate(frame, title) -> plate   a heading's engraved plate
+--     on frame (the talents' plans have one too): a gold metal rim, a soft
+--     gold wash, a shine under its lit edge, a fold triangle and a diamond
+--     before title (a font string the caller places on the right)
+--     plate:Set{ inset, x, folded, foldable, bright, depth }   inset: the
+--       band's room above and below; x: where the fold starts; folded: the
+--       triangle turned to point at the title; foldable false: no triangle
+--     plate:Hide()
+--   ns.character.Thread(row) -> thread   an entry's stripe and thread
+--     thread:Set(x, striped, last)   the thread at x (nil: none), down the
+--       row and a tick across to its content, or to its middle for the last
+--   ns.character.Card(frame) -> card   a slice of a group's parchment card
+--     (the spellbook's parchment, in a thin metal rim): each row of a plated
+--     list paints its own slice, so a card scrolls by row; the talents'
+--     plans wrap each plan in one whole
+--     card:Set{ top, h, first, last, plate }   top: the slice's y in the
+--       whole list (the grain runs on from slice to slice); h: its height,
+--       the frame's and a foot below it on the last; first/last: the card's
+--       top or bottom edge here; plate: a heading's slice, its plate the rim
+--     card:Hide()
 --
 --   ns.character.Details(foot, ticks, nothing, lines) -> details
 --     details:Set{ title, sub, bar, text, lines }   (nil hides the lot; empty says so)
@@ -43,11 +67,16 @@ local _, ns = ...
 
 local ROW, INDENT, BAR_W, BAR_H, ICON = 22, 12, 150, 16, 18
 local LEAD, STEM, DOT = 12, 1, 4        -- a lead's room, its stem's width, a bullet's size
-local MARGIN = 6                        -- an ornate heading's room above and below its band
+local MARGIN = 6                        -- the gap above a plated heading, between cards
+local FOOT = 6                          -- a card's room under its last entry
+local PAGE = 256                        -- the parchment's tile (as the spellbook's)
 local METAL_LIT = { 0.98, 0.88, 0.58 }  -- the rim's lit edge
 local METAL_DARK = { 0.36, 0.27, 0.10 } -- its shadowed edge
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
+local FOLD, DIAMOND = 12, 5             -- a plate's fold triangle, its diamond
+local TITLE_SIZE = 14                   -- a plated heading's title
+local STRIPE = 0.12                     -- an entry's stripe, every other row (dark, on parchment)
 
 local function Well(f, inset)
     local edge = f:CreateTexture(nil, "BACKGROUND", nil, 1)
@@ -147,6 +176,209 @@ local function Bar(parent, width, height, sleek)
 end
 ns.character.Bar = Bar
 
+-- ---------------------------------------------------------------- plate
+local function Plate(f, title)
+    local plate = { title = title }
+    plate.wash = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+    -- lit along the top, shadowed along the bottom, the sides running from
+    -- one to the other; a shine inside, under the top
+    plate.rim = {}
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+        plate.rim[side] = f:CreateTexture(nil, "BORDER")
+    end
+    plate.shine = f:CreateTexture(nil, "BORDER")
+    plate.fold = f:CreateTexture(nil, "ARTWORK")
+    plate.fold:SetTexture(ns.media .. "character\\fold")
+    plate.fold:SetSize(FOLD, FOLD)
+    plate.fold:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+    plate.diamond = f:CreateTexture(nil, "ARTWORK")
+    plate.diamond:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    plate.diamond:SetSize(DIAMOND, DIAMOND)
+    if plate.diamond.SetRotation then plate.diamond:SetRotation(math.pi / 4) end
+    function plate:Hide()
+        for _, t in ipairs({ self.wash, self.shine, self.fold, self.diamond }) do t:Hide() end
+        for _, t in pairs(self.rim) do t:Hide() end
+    end
+    function plate:Set(o)
+        local inset, x = o.inset or 0, o.x or 6
+        local a = o.bright and 0.55 or (o.depth or 0) == 0 and 0.30 or 0.15
+        local wash = self.wash
+        wash:ClearAllPoints()
+        wash:SetPoint("TOPLEFT", 0, -inset)
+        wash:SetPoint("BOTTOMRIGHT", 0, inset)
+        if wash.SetGradient and CreateColor then
+            wash:SetColorTexture(1, 1, 1, 1)
+            wash:SetGradient("VERTICAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], a * 0.5),
+                CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], a * 1.5))
+        else
+            wash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], a)
+        end
+        local rim = self.rim
+        rim.TOP:ClearAllPoints()
+        rim.TOP:SetPoint("TOPLEFT", 0, -inset)
+        rim.TOP:SetPoint("TOPRIGHT", 0, -inset)
+        rim.TOP:SetHeight(1)
+        rim.TOP:SetColorTexture(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 1)
+        rim.BOTTOM:ClearAllPoints()
+        rim.BOTTOM:SetPoint("BOTTOMLEFT", 0, inset)
+        rim.BOTTOM:SetPoint("BOTTOMRIGHT", 0, inset)
+        rim.BOTTOM:SetHeight(1)
+        rim.BOTTOM:SetColorTexture(METAL_DARK[1], METAL_DARK[2], METAL_DARK[3], 1)
+        for _, side in ipairs({ "LEFT", "RIGHT" }) do
+            local t = rim[side]
+            t:ClearAllPoints()
+            t:SetPoint("TOP" .. side, 0, -inset)
+            t:SetPoint("BOTTOM" .. side, 0, inset)
+            t:SetWidth(1)
+            if t.SetGradient and CreateColor then
+                t:SetColorTexture(1, 1, 1, 1)
+                t:SetGradient("VERTICAL", CreateColor(METAL_DARK[1], METAL_DARK[2], METAL_DARK[3], 1),
+                    CreateColor(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 1))
+            else
+                t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            end
+        end
+        self.shine:ClearAllPoints()
+        self.shine:SetPoint("TOPLEFT", 1, -(inset + 1))
+        self.shine:SetPoint("TOPRIGHT", -1, -(inset + 1))
+        self.shine:SetHeight(1)
+        self.shine:SetColorTexture(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 0.35)
+        -- the fold, pointing down open and at the title folded; the diamond
+        -- after it, then the title
+        local foldable = o.foldable ~= false
+        self.fold:SetShown(foldable)
+        self.fold:ClearAllPoints()
+        self.fold:SetPoint("LEFT", wash, "LEFT", x, 0)
+        if self.fold.SetRotation then self.fold:SetRotation(o.folded and -math.pi / 2 or 0) end
+        local after = foldable and x + FOLD + 4 or x
+        self.diamond:ClearAllPoints()
+        self.diamond:SetPoint("CENTER", wash, "LEFT", after + 3, 0)
+        self.title:ClearAllPoints()
+        self.title:SetPoint("LEFT", wash, "LEFT", after + 3 + DIAMOND + 4, 0)
+        self.title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+        for _, t in ipairs({ wash, self.shine, self.diamond }) do t:Show() end
+        for _, t in pairs(rim) do t:Show() end
+    end
+    plate:Hide()
+    return plate
+end
+ns.character.Plate = Plate
+
+-- --------------------------------------------------------------- thread
+local function Thread(r)
+    local t = {}
+    t.stripe = r:CreateTexture(nil, "BACKGROUND", nil, 0)
+    t.stripe:SetColorTexture(0, 0, 0, STRIPE)
+    t.stem = r:CreateTexture(nil, "ARTWORK")
+    t.stem:SetWidth(1)
+    t.stem:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.9)
+    t.tick = r:CreateTexture(nil, "ARTWORK")
+    t.tick:SetSize(5, 1)
+    t.tick:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.9)
+    function t:Set(x, striped, last)
+        self.striped, self.last, self.x = striped and true or false, last and true or false, x
+        self.stripe:SetShown(striped and true or false)
+        self.stripe:ClearAllPoints()
+        self.stripe:SetPoint("TOPLEFT", x and x + 6 or 0, 0)
+        self.stripe:SetPoint("BOTTOMRIGHT")
+        self.stem:SetShown(x ~= nil)
+        self.tick:SetShown(x ~= nil)
+        if not x then return end
+        self.stem:ClearAllPoints()
+        self.stem:SetPoint("TOPLEFT", x, 0)
+        self.stem:SetPoint("BOTTOMLEFT", x, last and math.floor(r:GetHeight() / 2) or 0)
+        self.tick:ClearAllPoints()
+        self.tick:SetPoint("LEFT", r, "LEFT", x, 0)
+    end
+    t:Set(nil, false, false)
+    return t
+end
+ns.character.Thread = Thread
+
+-- ----------------------------------------------------------------- card
+local function Card(f)
+    local c = {}
+    c.paper = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+    c.paper:SetTexture(ns.media .. "spellbook\\parchment", "REPEAT", "REPEAT")
+    -- black fading in from the left edge, and up from the foot
+    c.shadeL = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+    c.shadeB = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+    for _, e in ipairs({ { c.shadeL, "HORIZONTAL", 0.35 }, { c.shadeB, "VERTICAL", 0.3 } }) do
+        local t, dir, a = e[1], e[2], e[3]
+        if t.SetGradient and CreateColor then
+            t:SetColorTexture(1, 1, 1, 1)
+            t:SetGradient(dir, CreateColor(0, 0, 0, a), CreateColor(0, 0, 0, 0))
+        else
+            t:SetColorTexture(0, 0, 0, a / 2)
+        end
+    end
+    c.shadeL:SetWidth(10)
+    c.shadeB:SetHeight(10)
+    c.rim = {}
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do c.rim[side] = f:CreateTexture(nil, "BORDER") end
+    c.rim.TOP:SetColorTexture(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 1)
+    c.rim.BOTTOM:SetColorTexture(METAL_DARK[1], METAL_DARK[2], METAL_DARK[3], 1)
+    c.rim.LEFT:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    c.rim.RIGHT:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    -- the grain from the slice's place in the whole: across the frame's
+    -- width, down from top
+    local function Coords()
+        if not c.top then return end
+        local w = f:GetWidth() or 0
+        c.paper:SetTexCoord(0, w / PAGE, c.top / PAGE, (c.top + c.h) / PAGE)
+    end
+    f:HookScript("OnSizeChanged", Coords)
+    function c:Hide()
+        self.top = nil
+        for _, t in ipairs({ self.paper, self.shadeL, self.shadeB }) do t:Hide() end
+        for _, t in pairs(self.rim) do t:Hide() end
+    end
+    function c:Set(o)
+        self.top, self.h = o.top or 0, o.h or (f:GetHeight() or 0)
+        self.first, self.last = o.first and true or false, o.last and true or false
+        local below = math.max(0, self.h - (f:GetHeight() or 0))      -- the foot, past the frame
+        local p = self.paper
+        p:ClearAllPoints()
+        p:SetPoint("TOPLEFT")
+        p:SetPoint("BOTTOMRIGHT", 0, -below)
+        p:Show()
+        Coords()
+        -- a heading's plate is the card's rim there; an entry's slice has
+        -- the sides, and the top or bottom edge where the card starts or ends
+        local plate = o.plate and true or false
+        local rim = self.rim
+        for _, side in ipairs({ "LEFT", "RIGHT" }) do
+            local t = rim[side]
+            t:ClearAllPoints()
+            t:SetPoint("TOP" .. side)
+            t:SetPoint("BOTTOM" .. side, 0, -below)
+            t:SetWidth(1)
+            t:SetShown(not plate)
+        end
+        rim.TOP:ClearAllPoints()
+        rim.TOP:SetPoint("TOPLEFT")
+        rim.TOP:SetPoint("TOPRIGHT")
+        rim.TOP:SetHeight(1)
+        rim.TOP:SetShown(self.first and not plate)
+        rim.BOTTOM:ClearAllPoints()
+        rim.BOTTOM:SetPoint("BOTTOMLEFT", 0, -below)
+        rim.BOTTOM:SetPoint("BOTTOMRIGHT", 0, -below)
+        rim.BOTTOM:SetHeight(1)
+        rim.BOTTOM:SetShown(self.last and not plate)
+        self.shadeL:ClearAllPoints()
+        self.shadeL:SetPoint("TOPLEFT", 1, 0)
+        self.shadeL:SetPoint("BOTTOMLEFT", 1, -below)
+        self.shadeL:SetShown(not plate)
+        self.shadeB:ClearAllPoints()
+        self.shadeB:SetPoint("BOTTOMLEFT", 1, -below + 1)
+        self.shadeB:SetPoint("BOTTOMRIGHT", -1, -below + 1)
+        self.shadeB:SetShown(self.last and not plate)
+    end
+    c:Hide()
+    return c
+end
+ns.character.Card = Card
+
 -- ----------------------------------------------------------------- rows
 local function Row(list)
     local r = CreateFrame("Button", nil, list)
@@ -156,6 +388,16 @@ local function Row(list)
     r.mark = r:CreateTexture(nil, "BACKGROUND", nil, 2)
     r.mark:SetAllPoints()
     r.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.35)
+    -- the selected entry's band, a gold hairline along each edge
+    r.markEdges = {}
+    for i, point in ipairs({ "TOP", "BOTTOM" }) do
+        local t = r:CreateTexture(nil, "BACKGROUND", nil, 2)
+        t:SetHeight(1)
+        t:SetPoint(point .. "LEFT", r.mark, point .. "LEFT")
+        t:SetPoint(point .. "RIGHT", r.mark, point .. "RIGHT")
+        t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.4)
+        r.markEdges[i] = t
+    end
     r.glow = r:CreateTexture(nil, "HIGHLIGHT")
     r.glow:SetAllPoints()
     r.glow:SetColorTexture(1, 1, 1, 0.06)
@@ -164,17 +406,6 @@ local function Row(list)
     r.lit:SetAllPoints()
     r.lit:SetColorTexture(1, 1, 1, 0.06)
     r.lit:Hide()
-    -- an ornate heading's rim: lit along the top, shadowed along the
-    -- bottom, its sides running from one to the other; a shine inside
-    r.rim = {}
-    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
-        local t = r:CreateTexture(nil, "BORDER")
-        r.rim[side] = t
-        t:Hide()
-    end
-    r.shine = r:CreateTexture(nil, "BORDER")
-    r.shine:SetHeight(1)
-    r.shine:Hide()
     r.icon = r:CreateTexture(nil, "ARTWORK")
     r.icon:SetSize(ICON, ICON)
     r.badge = r:CreateTexture(nil, "ARTWORK")
@@ -188,6 +419,10 @@ local function Row(list)
     r.label = ns.Text(r, 12)
     r.label:SetJustifyH("LEFT")
     r.label:SetWordWrap(false)
+    -- a heading's plate (its title the label) and an entry's thread
+    r.plate = Plate(r, r.label)
+    r.thread = Thread(r)
+    r.card = Card(r)
     r.value = ns.Text(r, 12)
     r.value:SetPoint("RIGHT", -6, 0)
     r.sign = ns.Text(r, 14)
@@ -255,55 +490,19 @@ local function Lead(r, d, x, w, c)
     r.branch:SetPoint("RIGHT", r, "LEFT", x + w - 2, 0)
 end
 
--- An ornate heading's band, inset by the margin, in its metal rim; any
--- other row's band is the whole row, and no rim.
-local function Rim(r, on)
-    local inset = on and MARGIN or 0
-    for _, t in ipairs({ r.fill, r.mark, r.glow, r.lit }) do
-        t:ClearAllPoints()
-        t:SetPoint("TOPLEFT", 0, -inset)
-        t:SetPoint("BOTTOMRIGHT", 0, inset)
-    end
-    for _, t in pairs(r.rim) do t:SetShown(on) end
-    r.shine:SetShown(on)
-    if not on then return end
-    local rim = r.rim
-    rim.TOP:ClearAllPoints()
-    rim.TOP:SetPoint("TOPLEFT", 0, -inset)
-    rim.TOP:SetPoint("TOPRIGHT", 0, -inset)
-    rim.TOP:SetHeight(1)
-    rim.TOP:SetColorTexture(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 1)
-    rim.BOTTOM:ClearAllPoints()
-    rim.BOTTOM:SetPoint("BOTTOMLEFT", 0, inset)
-    rim.BOTTOM:SetPoint("BOTTOMRIGHT", 0, inset)
-    rim.BOTTOM:SetHeight(1)
-    rim.BOTTOM:SetColorTexture(METAL_DARK[1], METAL_DARK[2], METAL_DARK[3], 1)
-    for _, side in ipairs({ "LEFT", "RIGHT" }) do
-        local t = rim[side]
-        t:ClearAllPoints()
-        t:SetPoint("TOP" .. side, 0, -inset)
-        t:SetPoint("BOTTOM" .. side, 0, inset)
-        t:SetWidth(1)
-        if t.SetGradient and CreateColor then
-            t:SetColorTexture(1, 1, 1, 1)
-            t:SetGradient("VERTICAL", CreateColor(METAL_DARK[1], METAL_DARK[2], METAL_DARK[3], 1),
-                CreateColor(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 1))
-        else
-            t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-        end
-    end
-    r.shine:ClearAllPoints()
-    r.shine:SetPoint("TOPLEFT", 1, -(inset + 1))
-    r.shine:SetPoint("TOPRIGHT", -1, -(inset + 1))
-    r.shine:SetColorTexture(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 0.35)
-end
-
-local function Paint(r, d, list)
+-- meta: the row's place in its group and card (List:Place): { striped,
+-- thread, first, last, top, h }
+local function Paint(r, d, list, meta)
     r.data = d
-    Rim(r, list.ornate and d.header and true or false)
+    local plated = d.header and not list.plain and true or false
+    if meta then
+        r.card:Set({ top = meta.top, h = meta.h, first = meta.first, last = meta.last, plate = d.header })
+    else
+        r.card:Hide()
+    end
     local depth = d.depth or 0
     local x = 6 + depth * INDENT + (d.pad or 0)
-    local font = d.font or { ns.font, 12 }
+    local font = plated and { ns.font, TITLE_SIZE } or d.font or { ns.font, 12 }
     if r.font ~= font[1] .. font[2] then
         r.label:SetFont(font[1], font[2], "")
         r.font = font[1] .. font[2]
@@ -331,13 +530,16 @@ local function Paint(r, d, list)
     r.label:ClearAllPoints()
     r.label:SetPoint("LEFT", x, 0)
     r.label:SetText(d.label or "")
-    if d.header then
+    r.thread:Set(meta and meta.thread, meta and meta.striped, meta and meta.last)
+    if plated then
+        r.fill:SetColorTexture(0, 0, 0, 0)
+        r.plate:Set({ x = x, folded = d.collapsed, foldable = d.click ~= nil, bright = d.bright,
+            depth = depth })
+        r.sign:SetText("")
+    elseif d.header then
+        r.plate:Hide()
         local a = d.bright and 0.55 or depth == 0 and 0.30 or 0.15
-        if list.ornate and r.fill.SetGradient and CreateColor then
-            r.fill:SetColorTexture(1, 1, 1, 1)
-            r.fill:SetGradient("VERTICAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], a * 0.5),
-                CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], a * 1.5))
-        elseif list.fade and r.fill.SetGradient and CreateColor then
+        if list.fade and r.fill.SetGradient and CreateColor then
             r.fill:SetColorTexture(1, 1, 1, 1)
             r.fill:SetGradient("HORIZONTAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], a),
                 CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0))
@@ -347,16 +549,19 @@ local function Paint(r, d, list)
         r.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
         r.sign:SetText(d.collapsed and "+" or "-")
     else
+        r.plate:Hide()
         local w = d.wash
         r.fill:SetColorTexture(w and w[1] or 0, w and w[2] or 0, w and w[3] or 0, w and w[4] or 0)
         r.label:SetTextColor(unpack(d.color or d.dim and ns.colors.dim or ns.colors.text))
         r.sign:SetText("")
     end
     r.mark:SetShown(d.selected and true or false)
-    -- a heading with a bar of its own (a reputation's) shows it left of its sign
+    for _, t in ipairs(r.markEdges) do t:SetShown(d.selected and true or false) end
+    -- a heading with a bar of its own (a reputation's) shows it at its right,
+    -- left of its sign on a plain list
     r.bar:SetShown(d.bar ~= nil)
     r.bar:ClearAllPoints()
-    r.bar:SetPoint("RIGHT", d.header and -20 or -4, 0)
+    r.bar:SetPoint("RIGHT", d.header and not plated and -20 or -4, 0)
     if d.bar then r.bar:Fill(d.bar) end
     r.value:SetShown(d.bar == nil and d.value ~= nil)
     r.value:SetText(d.value or "")
@@ -376,17 +581,21 @@ function List:Light(group)
     end
 end
 
--- a row's height: an ornate heading's takes its margins
-function List:Height(d)
-    return self.ornate and d.header and self.row + 2 * MARGIN or self.row
+-- the room row k takes: a plated heading's the gap above it too, a card's
+-- last entry its foot
+function List:Height(k)
+    if self.plain then return self.row end
+    local d, m = self.data[k], self.meta[k]
+    if d.header then return self.row + MARGIN end
+    return self.row + (m and m.last and FOOT or 0)
 end
 
 -- the furthest the list scrolls: the first row from which the rest fit
 function List:Most()
-    if not self.ornate then return math.max(0, #self.data - self:Shown()) end
+    if self.plain then return math.max(0, #self.data - self:Shown()) end
     local room, y = self.body:GetHeight() or 0, 0
     for k = #self.data, 1, -1 do
-        y = y + self:Height(self.data[k])
+        y = y + self:Height(k)
         if y > room then return k end
     end
     return 0
@@ -398,14 +607,14 @@ function List:Scroll(lines)
     self:Draw()
 end
 
--- An ornate list's rows, each as tall as it is, down to the body's foot
+-- A plated list's rows, each as tall as it is, down to the body's foot
 -- (one at least).
-function List:DrawOrnate()
+function List:DrawPlated()
     self.offset = math.max(0, math.min(self.offset, self:Most()))
     local room, y, n = self.body:GetHeight() or 0, 0, 0
     for k = self.offset + 1, #self.data do
         local d = self.data[k]
-        local h = self:Height(d)
+        local h = self:Height(k)
         if n > 0 and y + h > room then break end
         n = n + 1
         local r = self.rows[n]
@@ -413,12 +622,15 @@ function List:DrawOrnate()
             r = Row(self)
             self.rows[n] = r
         end
-        r:SetHeight(h)
+        -- the row's frame is its line: a heading's below its gap, an
+        -- entry's foot painted past it by its card
+        local gap = d.header and MARGIN or 0
+        r:SetHeight(self.row)
         r:ClearAllPoints()
-        r:SetPoint("TOPLEFT", 0, -y)
-        r:SetPoint("TOPRIGHT", -6, -y)
+        r:SetPoint("TOPLEFT", 0, -(y + gap))
+        r:SetPoint("TOPRIGHT", -6, -(y + gap))
         r:Show()
-        Paint(r, d, self)
+        Paint(r, d, self, self.meta[k])
         y = y + h
     end
     for i = n + 1, #self.rows do self.rows[i]:Hide() end
@@ -435,7 +647,7 @@ function List:DrawOrnate()
 end
 
 function List:Draw()
-    if self.ornate then return self:DrawOrnate() end
+    if not self.plain then return self:DrawPlated() end
     local shown = self:Shown()
     self.offset = math.max(0, math.min(self.offset, #self.data - shown))
     for i = 1, shown do
@@ -465,8 +677,41 @@ function List:Draw()
     end
 end
 
+-- Each row's place in its group, on a plated list: an entry striped every
+-- other row from its heading, its thread under the heading's indent. A card
+-- starts at a heading (or at the first row, before any heading) and ends at
+-- the row before the next heading or the end. Entries before any heading
+-- are striped but have no thread. top and h: the row's slice of its card,
+-- in the whole list (a heading's below its gap, a last entry's with its
+-- foot).
+function List:Place()
+    self.meta = {}
+    if self.plain then return end
+    local n, under, y = 0, false, 0
+    for k, d in ipairs(self.data) do
+        local nextOne = self.data[k + 1]
+        local last = nextOne == nil or nextOne.header == true
+        local m = { last = last }
+        if d.header then
+            n, under = 0, true
+            m.first = true
+        else
+            n = n + 1
+            m.first = k == 1
+            m.striped = n % 2 == 1
+            m.thread = under and 3 + math.max(0, (d.depth or 1) - 1) * INDENT or nil
+        end
+        self.meta[k] = m
+        local h = self:Height(k)
+        local gap = d.header and MARGIN or 0
+        m.top, m.h = y + gap, h - gap
+        y = y + h
+    end
+end
+
 function List:Set(rows)
     self.data = rows
+    self:Place()
     self:Draw()
 end
 
@@ -474,7 +719,7 @@ function ns.character.List(body, empty)
     local list = CreateFrame("Frame", nil, body)
     list:SetAllPoints()
     for k, v in pairs(List) do list[k] = v end
-    list.body, list.rows, list.data, list.offset, list.row = body, {}, {}, 0, ROW
+    list.body, list.rows, list.data, list.offset, list.row, list.meta = body, {}, {}, 0, ROW, {}
     list:EnableMouseWheel(true)
     list:SetScript("OnMouseWheel", function(self, delta) self:Scroll(-delta) end)
     list.track = list:CreateTexture(nil, "ARTWORK")

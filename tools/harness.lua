@@ -800,6 +800,52 @@ end
 -- set them (window/shell.lua, Over): "over" when it covers the region and
 -- is anchored to its layer alone; "anchored" when it rests on anything else
 -- (which would make that, and the window, protected); "off" when misplaced.
+-- A shared list's heading row (character/list.lua) as the prints read it:
+-- its sign, "-" open and "+" folded, from the plate's fold triangle where
+-- it has one (a plain list's +/- otherwise); and its band's gradient, the
+-- plate's wash or the row's own fill.
+function harnessSign(r)
+    if r.sign.text ~= "" then return r.sign.text end
+    local fold = r.plate and r.plate.fold
+    if not (fold and fold.shown) then return "" end
+    return (fold.rotation or 0) ~= 0 and "+" or "-"
+end
+function harnessWash(r)
+    local wash = r.plate and r.plate.wash
+    return wash and wash.shown and wash.gradient or r.fill.gradient
+end
+
+-- A shared list's look, row by row: a plated heading "H" with its fold
+-- (- open, + folded) and "r" when its rim shows, a plain one "h"; an entry
+-- its stripe ("s", or ".") and its thread ("|" down the row, "`" the last,
+-- nothing without one), "*" when selected with its hairlines. Its card:
+-- "[" where one starts, "]" where one ends, "p" with no parchment.
+function harnessLook(list)
+    local out = {}
+    for _, r in ipairs(list.rows) do
+        if r.shown and r.data then
+            local c = r.card
+            local open = c.paper.shown and c.first and "[" or ""
+            local shut = c.paper.shown and c.last and "]" or ""
+            if not c.paper.shown and not list.plain then open = "p" end
+            table.insert(out, open)
+            if r.data.header then
+                local plated = r.plate and r.plate.wash.shown
+                table.insert(out, plated and ("H" .. harnessSign(r) .. (r.plate.rim.TOP.shown and "r" or "")
+                    .. (r.plate.diamond.shown and "d" or "")) or "h")
+            else
+                local t = r.thread
+                table.insert(out, (t.stripe.shown and "s" or ".") .. (not t.stem.shown and "" or t.last and "`" or "|")
+                    .. (r.mark.shown and (r.markEdges[1].shown and "*" or "*?") or ""))
+            end
+            out[#out] = out[#out] .. shut
+            table.remove(out, #out - 1)
+            out[#out] = open .. out[#out]
+        end
+    end
+    return table.concat(out, " ")
+end
+
 function harnessOver(b, region)
     if b.all then return "anchored" end
     for _, p in pairs(b.points) do
@@ -16333,7 +16379,7 @@ if characterPass then
             if r.shown then
                 local d = r.data
                 local bit = string.rep(".", d.depth or 0) .. d.label
-                if d.header then bit = "[" .. bit .. " " .. r.sign.text .. "]" end
+                if d.header then bit = "[" .. bit .. " " .. harnessSign(r) .. "]" end
                 if r.fill.gradient then bit = bit .. " fade" end    -- the quest tracker's alone
                 if d.icon then bit = bit .. "{" .. tostring(d.icon) .. "}" end
                 if r.bar.shown then
@@ -16346,6 +16392,7 @@ if characterPass then
                 table.insert(out, bit)
             end
         end
+        print(tag .. " look", harnessLook(list))
         print(tag, "body=" .. page(key).body.h, "rows=" .. #list.data, "drawn=" .. #out
             .. (list.empty.shown and " empty:" .. list.empty.text or "")
             .. (list.track.shown and string.format(" thumb=%d@%d", list.thumb.h, -list.thumb.points.TOP[4]) or ""),
@@ -19431,6 +19478,33 @@ if talentPass then
             "remove=" .. tostring(p.remove.shown) .. "(" .. p.remove.label.text .. ")",
             "plans=" .. tostring(p.plans.mark.shown), "rows: " .. table.concat(list, "; "))
         print(tag .. " foot", p.hint.text, "foot=" .. p.footHeight .. "/" .. tostring(p.foot.shown))
+        -- the heads' plates and the rows' stripes and threads, top down (as
+        -- harnessLook writes a shared list's)
+        local look = {}
+        for _, h in ipairs(p.heads) do
+            if h.shown then
+                table.insert(look, { -h.points.TOPLEFT[4], "H" .. ((h.fold.rotation or 0) ~= 0 and "+" or "-")
+                    .. (h.plate.rim.TOP.shown and "r" or "") .. (h.plate.diamond.shown and "d" or "") })
+            end
+        end
+        for _, r in ipairs(p.rows) do
+            if r.shown then
+                local t = r.thread
+                table.insert(look, { -r.points.TOPLEFT[4], (t.stripe.shown and "s" or ".")
+                    .. (not t.stem.shown and "" or t.last and "`" or "|")
+                    .. (r.mark.shown and (r.markEdges[1].shown and "*" or "*?") or "") })
+            end
+        end
+        for _, c in ipairs(p.cards) do
+            if c.shown then
+                local top = -c.points.TOPLEFT[4]
+                table.insert(look, { top - 0.5, c.card.paper.shown and "[" or "p" })
+                table.insert(look, { top + c.h - 0.5, "]" })
+            end
+        end
+        table.sort(look, function(x, y) return x[1] < y[1] end)
+        for k, e in ipairs(look) do look[k] = e[2] end
+        print(tag .. " look", table.concat(look, " "))
     end
     plans("talents.plans")
     -- a short window: the list scrolls under the wheel
@@ -19765,12 +19839,13 @@ if profPass then
         local list = {}
         for _, r in ipairs(p.list.rows) do
             if r.shown then
-                table.insert(list, (r.data.header and (r.sign.text .. r.label.text)
+                table.insert(list, (r.data.header and (harnessSign(r) .. r.label.text)
                     or (r.label.text .. "(" .. c3(r.label.textColor) .. ")" .. (r.value.shown and r.value.text or "")
                     .. (r.mark.shown and "*" or ""))))
             end
         end
         print(tag, #list > 0 and table.concat(list, " | ") or ("empty: " .. p.list.empty.text))
+        print(tag .. " look", harnessLook(p.list))
     end
     local function foot(tag)
         local p = W.Current()
@@ -20647,8 +20722,10 @@ if profPass then
         end
         beside("prof.tip recipe", first)
     end
-    -- ornate headings: a rim, a margin above and below; the list scrolls
-    -- to its last row whatever the rows' heights
+    -- plated headings: a gap above each, the card's foot under its last
+    -- entry; the list scrolls to its last row whatever the rows' heights.
+    -- Each row's slice of its card: where it sits in the whole list, and the
+    -- parchment's grain down it (v), running on from row to row
     do
         local list = W.Current().list
         local function geometry(tag)
@@ -20656,9 +20733,10 @@ if profPass then
             for _, r in ipairs(list.rows) do
                 if r.shown then
                     local _, _, _, _, y = r:GetPoint()
-                    local _, _, _, _, fy = r.fill:GetPoint()
-                    table.insert(o, string.format("%s@%d h%d%s", r.label.text, -y, r.h,
-                        r.rim.TOP.shown and string.format(" rim fill%d", -fy) or ""))
+                    local c = r.card
+                    local v = c.paper.coords or { 0, 0, 0, 0 }
+                    table.insert(o, string.format("%s@%d h%d%s card%d+%d v%.3f-%.3f", r.label.text, -y, r.h,
+                        r.plate.rim.TOP.shown and " rim" or "", c.top or -1, c.h or -1, v[3], v[4]))
                 end
             end
             print(tag, "offset=" .. list.offset, "track=" .. tostring(list.track.shown), table.concat(o, " | "))
@@ -20822,8 +20900,8 @@ if questPass and not questLogPass then
         for _, r in ipairs(list.rows) do
             if r.shown then
                 local d = r.data
-                table.insert(out, d.header and (r.sign.text .. plain(r.label.text) .. (d.bright and "(bright)" or "")
-                    .. (r.fill.gradient and string.format(" a=%.2f", r.fill.gradient[2][4]) or ""))
+                table.insert(out, d.header and (harnessSign(r) .. plain(r.label.text) .. (d.bright and "(bright)" or "")
+                    .. (harnessWash(r) and string.format(" a=%.2f", harnessWash(r)[2][4]) or ""))
                     or (string.rep(">", d.depth or 0) .. (r.badge.shown and ("{" .. tostring(r.badge.atlas or tostring(r.badge.texture):match("[^\\]+$")) .. "} ")
                         or "")
                         .. (LEADS[d.lead] or "") .. plain(r.label.text)
@@ -20832,6 +20910,7 @@ if questPass and not questLogPass then
             end
         end
         print(tag, #out > 0 and table.concat(out, " | ") or "none")
+        print(tag .. " look", harnessLook(list))
     end
     -- each shown item button: its item, the row it stands beside, its count
     local function items(tag)

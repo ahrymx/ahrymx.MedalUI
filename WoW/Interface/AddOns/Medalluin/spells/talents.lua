@@ -1399,28 +1399,28 @@ end
 -- and the rank it reaches, its tree; learned ones ticked and dim, the
 -- active plan's next marked. A checkpoint is a run of one talent in it.
 local LINE, GUTTER, HEADER, GAP, LABELS = 24, 10, 28, 6, 20
-local FOLD = 14
 
--- a plan's head: darker than the page, with an edge, as a section's
+-- a plan's card: the parchment behind its head, labels and rows, as a
+-- group's on the character window's lists (ns.character.Card), under them
+local CARD_FOOT = 6
+local function Card(p, i)
+    local f = CreateFrame("Frame", nil, p.list.child)
+    f:SetFrameLevel(p.list.child:GetFrameLevel())
+    f.card = ns.character.Card(f)
+    p.cards[i] = f
+    return f
+end
+
+-- a plan's head: an engraved plate, as the character window's lists' headings
+-- (ns.character.Plate), its name the title
 local function Head(p, i)
     local h = CreateFrame("Button", nil, p.list.child)
     h:SetHeight(HEADER)
-    local edge = h:CreateTexture(nil, "BACKGROUND", nil, 1)
-    edge:SetAllPoints()
-    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
-    local ground = h:CreateTexture(nil, "BACKGROUND", nil, 2)
-    ground:SetPoint("TOPLEFT", 1, -1)
-    ground:SetPoint("BOTTOMRIGHT", -1, 1)
-    ground:SetColorTexture(0, 0, 0, 0.55)
-    h.ground = ground
-    h.fold = h:CreateTexture(nil, "ARTWORK")
-    h.fold:SetSize(FOLD, FOLD)
-    h.fold:SetPoint("LEFT", 8, 0)
-    h.fold:SetTexture(ns.media .. "strips\\chevron-double")
-    h.name = ns.Text(h, 13)
-    h.name:SetPoint("LEFT", h.fold, "RIGHT", 8, 0)
+    h.name = ns.Text(h, 14)
     h.name:SetJustifyH("LEFT")
     h.name:SetWordWrap(false)
+    h.plate = ns.character.Plate(h, h.name)
+    h.fold = h.plate.fold
     h.use = Button(h, 48, function(self)
         Book().active = self:GetParent().plan
         W.Refresh()
@@ -1430,7 +1430,6 @@ local function Head(p, i)
     h.use:SetPoint("RIGHT", -4, 0)
     h.count = ns.Text(h, 11)
     h.count:SetTextColor(unpack(ns.colors.dim))
-    h.name:SetPoint("RIGHT", h.count, "LEFT", -8, 0)
     local glow = h:CreateTexture(nil, "HIGHLIGHT")
     glow:SetPoint("TOPLEFT", 1, -1)
     glow:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -1490,9 +1489,21 @@ end
 local function Row(p, i)
     local r = CreateFrame("Button", nil, p.list.child)
     r:SetHeight(LINE)
-    r.mark = r:CreateTexture(nil, "BACKGROUND")
+    -- the next checkpoint's band, a gold hairline along each edge; under
+    -- it, every other row's stripe and the thread to the plan's head
+    r.mark = r:CreateTexture(nil, "BACKGROUND", nil, 2)
     r.mark:SetAllPoints()
     r.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.35)
+    r.markEdges = {}
+    for k, point in ipairs({ "TOP", "BOTTOM" }) do
+        local t = r:CreateTexture(nil, "BACKGROUND", nil, 2)
+        t:SetHeight(1)
+        t:SetPoint(point .. "LEFT", r.mark, point .. "LEFT")
+        t:SetPoint(point .. "RIGHT", r.mark, point .. "RIGHT")
+        t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.4)
+        r.markEdges[k] = t
+    end
+    r.thread = ns.character.Thread(r)
     Columns(r)
     r.at:SetTextColor(unpack(ns.colors.dim))
     r.icon = r:CreateTexture(nil, "ARTWORK")
@@ -1561,13 +1572,16 @@ local function RefreshPlans(p)
         local steps = Checkpoints(walk.kept)
         nh = nh + 1
         local h = p.heads[nh] or Head(p, nh)
+        local card = p.cards[nh] or Card(p, nh)
+        local top = y
         h.plan = k
         h:ClearAllPoints()
         h:SetPoint("TOPLEFT", 0, -y)
         h:SetWidth(width)
         h:Show()
         y = y + HEADER
-        h.fold:SetRotation(kept.collapsed and math.pi / 2 or 0)
+        h.plate:Set({ x = 8, folded = kept.collapsed, bright = active })
+        h.name:SetPoint("RIGHT", h.count, "LEFT", -8, 0)
         h.name:SetText(kept.name)
         local c = active and GOLD or ns.colors.text
         h.name:SetTextColor(c[1], c[2], c[3])
@@ -1585,7 +1599,7 @@ local function RefreshPlans(p)
             y = y + LABELS
         end
         local learned = 0
-        for _, step in ipairs(steps) do
+        for n, step in ipairs(steps) do
             local t = m[step.id]
             local done = t.node.ranksPurchased >= step.rank
             if done then learned = learned + 1 end
@@ -1615,14 +1629,24 @@ local function RefreshPlans(p)
                 r.spec:SetTexture(icons[t.group])
                 r:SetAlpha(done and 0.45 or 1)
                 r.mark:SetShown(ahead and true or false)
+                for _, e in ipairs(r.markEdges) do e:SetShown(ahead and true or false) end
+                r.thread:Set(3, n % 2 == 1, n == #steps)
             end
         end
+        -- the card from the head down, a foot under an open plan's rows
+        if not kept.collapsed then y = y + CARD_FOOT end
+        card:ClearAllPoints()
+        card:SetPoint("TOPLEFT", 0, -top)
+        card:SetSize(width, y - top)
+        card:Show()
+        card.card:Set({ top = top, h = y - top, first = true, last = true })
         y = y + GAP
         if active then
             summary = { steps = #steps, place = place }
         end
     end
     for k = nh + 1, #p.heads do p.heads[k]:Hide() end
+    for k = nh + 1, #p.cards do p.cards[k]:Hide() end
     for k = nr + 1, #p.rows do p.rows[k]:Hide() end
     for k = nl + 1, #p.labels do p.labels[k]:Hide() end
     p.list.child:SetSize(width, math.max(1, y))
@@ -1643,7 +1667,7 @@ end
 -- hint
 do
     local p = { key = "plans", tabless = true, order = TREES + 1, label = Tr["Plans"], frame = "TalentsFrame" }
-    p.rows, p.heads, p.labels = {}, {}, {}
+    p.rows, p.heads, p.labels, p.cards = {}, {}, {}, {}
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true
     p.events = { "TRAIT_CONFIG_UPDATED", "TRAIT_NODE_CHANGED", "PLAYER_TALENT_UPDATE",
         "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }

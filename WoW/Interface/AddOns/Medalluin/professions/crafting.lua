@@ -564,7 +564,6 @@ for i = 1, SLOTS do
         holder:SetPoint("TOPRIGHT", 0, -HEAD)
         p.holder = holder
         p.list = ns.character.List(holder, Tr["No recipes."])
-        p.list.ornate = true
         p.details = ns.character.Details(foot, nil, Tr["Choose a recipe to read it."], 4)
         p.tree = Tree(foot)
         -- the details, the tree's rows, and the craft buttons' row
