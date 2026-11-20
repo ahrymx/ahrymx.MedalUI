@@ -1318,7 +1318,7 @@ end
 local function Page(spec)
     local p = spec
     p.rows = {}
-    if not p.macros then p.under = SPECS_H end
+    p.under = SPECS_H                   -- the tabs' panel (the macros' sets too)
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true
     p.events = { "SPELLS_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "SPELL_UPDATE_ICON", "PLAYER_LEVEL_UP",
         "UNIT_PET", "PET_BAR_UPDATE", "ACTIONBAR_SLOT_CHANGED", "PLAYER_MONEY" }

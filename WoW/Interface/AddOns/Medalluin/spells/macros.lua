@@ -20,7 +20,7 @@
 --   +-----------------------------------------------------------+
 --   Casts Polymorph                                    32 / 255
 --
--- A switch between the account's macros and the character's, a card for
+-- Tabs (joined under the head) for the account's macros and the character's, a card for
 -- each macro of the set (folded, its name and first line; opened, the
 -- whole text, MedalluinCharDB.macroOpen by name), and the editor under
 -- them. A left click on a card opens or closes it and puts it in the
@@ -40,7 +40,7 @@ local Tr = ns.L
 local R = ns.reskin
 local GOLD, GOLD_D = R.GOLD, R.GOLD_D
 local PLAIN = "Fonts\\ARIALN.TTF"       -- the macros' own words
-local SWITCH = 26                       -- the switch's height
+local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held (the book's)
 local HEAD, LINE = 40, 13               -- a card folded; a line of its text
 local SPACE = 6                         -- between the cards
 local ICON = 30
@@ -387,6 +387,78 @@ local function Follow()
     end
 end
 
+-- ----------------------------------------------------------------- the tabs
+-- The two sets as the book's tabs (2026-11-20): in the panel the shell joins
+-- under the head, each half of it, its name and its count under; the one
+-- shown held, a gold wash and a gold line under its words. The first's
+-- words centred in what the medallion's step leaves.
+local function Tabs(panel)
+    local t = { buttons = {} }
+    local function Cell(i)
+        local c = CreateFrame("Button", nil, panel)
+        c.wash = c:CreateTexture(nil, "BACKGROUND", nil, 3)
+        c.wash:SetAllPoints()
+        c.wash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.3)
+        c.line = c:CreateTexture(nil, "ARTWORK")
+        c.line:SetHeight(2)
+        c.line:SetPoint("BOTTOMLEFT", 10, 1)
+        c.line:SetPoint("BOTTOMRIGHT", -10, 1)
+        c.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        if i > 1 then
+            local split = c:CreateTexture(nil, "BORDER")
+            split:SetWidth(1)
+            split:SetPoint("TOPLEFT", -1, 0)
+            split:SetPoint("BOTTOMLEFT", -1, 0)
+            split:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        end
+        c.label = ns.Text(c, 12)
+        c.label:SetWordWrap(false)
+        c.count = ns.Text(c, 9)
+        local glow = c:CreateTexture(nil, "HIGHLIGHT")
+        glow:SetAllPoints()
+        glow:SetColorTexture(1, 1, 1, 0.06)
+        c:SetScript("OnClick", function(self) if self.enabled and self.data.click then self.data.click() end end)
+        c:SetScript("OnEnter", function(self)
+            if self.data and self.data.tip then
+                ns.Tip(self, ns.window.OutsideTop,
+                    { title = self.data.name, color = GOLD, { "body", self.data.tip() } })
+            end
+        end)
+        c:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        t.buttons[i] = c
+        return c
+    end
+    function t:Fill(items)
+        local width = (panel:GetWidth() or 0) > 0 and panel:GetWidth() or (W.width + 2 * ns.window.pad)
+        local clear = (W.step or 40) + 6
+        for i, d in ipairs(items) do
+            local c = self.buttons[i] or Cell(i)
+            local x0, x1 = math.floor((i - 1) * width / #items), math.floor(i * width / #items)
+            c:ClearAllPoints()
+            c:SetPoint("TOPLEFT", panel, "TOPLEFT", x0, 0)
+            c:SetSize(x1 - x0, panel:GetHeight() > 0 and panel:GetHeight() or 44)
+            c.data, c.selected, c.enabled = d, d.selected, d.enabled
+            local shift = i == 1 and clear / 2 or 0
+            c.label:ClearAllPoints()
+            c.label:SetPoint("CENTER", shift, 7)
+            c.count:ClearAllPoints()
+            c.count:SetPoint("CENTER", shift, -9)
+            c.label:SetText(d.name)
+            c.count:SetText(d.count)
+            c.wash:SetShown(d.selected)
+            c.line:SetShown(d.selected)
+            local nc = not d.enabled and OFF or d.selected and GOLD or ns.colors.dim
+            c.label:SetTextColor(nc[1], nc[2], nc[3])
+            local cc = d.selected and ns.colors.dim or OFF
+            c.count:SetTextColor(cc[1], cc[2], cc[3])
+            c:Show()
+        end
+        self.items = items
+    end
+    panel:HookScript("OnSizeChanged", function() if t.items then t:Fill(t.items) end end)
+    return t
+end
+
 -- ----------------------------------------------------------------- drawing
 local function Switch()
     local tab = Set()
@@ -394,11 +466,13 @@ local function Switch()
     local consts = Constants and Constants.MacroConsts or {}
     local free = not (MacroPopupFrame and MacroPopupFrame:IsShown())
     switch:Fill({
-        { key = 1, label = format(Tr["General   %d / %d"], account or 0, consts.MAX_ACCOUNT_MACROS or 120),
+        { key = 1, name = Tr["General##macros"],
+            count = format("%d / %d", account or 0, consts.MAX_ACCOUNT_MACROS or 120),
             selected = tab == 1, enabled = free or tab == 1,
             click = function() M.Tab(1) end, tip = function() return Tr["The macros every character shares."] end },
-        { key = 2, label = format("%s   %d / %d", UnitName("player") or Tr["Character"], character or 0,
-            consts.MAX_CHARACTER_MACROS or 18), selected = tab == 2, enabled = free or tab == 2,
+        { key = 2, name = UnitName("player") or Tr["Character"],
+            count = format("%d / %d", character or 0, consts.MAX_CHARACTER_MACROS or 18),
+            selected = tab == 2, enabled = free or tab == 2,
             click = function() M.Tab(2) end, tip = function() return Tr["This character's own macros."] end },
     })
 end
@@ -823,14 +897,12 @@ local function Load()
 end
 
 -- ------------------------------------------------------------------ the page
--- The switch at the top, the cards under it, the editor at the foot
+-- The sets' tabs in the joined panel, the cards, the editor at the foot
 function M.Build(p, b)
     page, body = p, b
-    switch = ns.window.Segments(b, { height = SWITCH, items = {} })
-    switch:SetPoint("TOPLEFT")
-    switch:SetPoint("TOPRIGHT")
+    switch = Tabs(p.panel)
     list = CreateFrame("Frame", nil, b)
-    list:SetPoint("TOPLEFT", 0, -(SWITCH + 8))
+    list:SetPoint("TOPLEFT", 0, -4)
     list:SetPoint("BOTTOMRIGHT", 0, EDITOR + 10)
     scroller = ns.window.Scroller(list, GUTTER)
     scroller.Moved = function() Follow() end
@@ -839,6 +911,7 @@ function M.Build(p, b)
     editor = Editor(b)
     layer = W.Layer("MedalluinSpellbookMacros")
     M.switch, M.list, M.scroller, M.editor, M.layer = switch, list, scroller, editor, layer
+    M.page = p
     ns.On("PLAYER_REGEN_ENABLED", Follow)
     -- combat: the game's "text changed" held back, and the name and icon
     -- picker and the delete confirm put away, as neither could save

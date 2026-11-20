@@ -18641,7 +18641,8 @@ if spellPass then
             local out = {}
             for _, b in ipairs(MM.switch.buttons) do
                 if b.shown then
-                    table.insert(out, b.label.text .. (b.selected and "*" or "") .. (b.enabled and "" or "-"))
+                    table.insert(out, b.label.text .. (b.count and (" " .. tostring(b.count.text)) or "")
+                        .. (b.selected and "*" or "") .. (b.enabled and "" or "-"))
                 end
             end
             return table.concat(out, " | ")
@@ -18697,6 +18698,14 @@ if spellPass then
             "layer=" .. tostring(MM.layer.shown) .. "/" .. tostring(MM.layer.stateDrivers
                 and MM.layer.stateDrivers.visibility or "-"))
         print("book.macros switch", switch())
+        -- the tabs in the panel joined under the head, as the book's
+        do
+            local b1 = MM.switch.buttons[1]
+            local pp = b1 and b1.parent
+            print("book.macros tabs joined", "panel=" .. tostring(pp ~= nil and pp == MM.page.panel),
+                "shown=" .. tostring(pp and pp.shown), "h=" .. tostring(b1 and b1.h),
+                "wash=" .. tostring(b1 and b1.wash.shown) .. "/" .. tostring(MM.switch.buttons[2].wash.shown))
+        end
         -- a press in the well off the text: the box focused, its cursor at the end
         do
             local c = MM.editor and MM.editor.catcher
