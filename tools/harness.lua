@@ -8838,9 +8838,28 @@ if stripsPass then
             ChatFrame1Tab:SetAlpha(1)
             ChatFrame1.ScrollBar:SetAlpha(1)
             FCFTab_UpdateAlpha(ChatFrame3)
-            print("chat bare tab write", string.format("tab1=%.2f tab3=%.2f", ChatFrame1Tab:GetAlpha(), ChatFrame3Tab:GetAlpha()))
+            print("chat bare tab write", string.format("tab1=%.2f tab3=%.2f", ChatFrame1Tab:GetAlpha(), ChatFrame3Tab:GetAlpha()),
+                -- the scroll bar held at once, not at the next look
+                string.format("bar at once=%.2f", ChatFrame1.ScrollBar:GetAlpha()))
             step(0.1)
             bare("tab written, a tick on")
+            -- the pointer over the box, Blizzard fading its bar out each
+            -- frame: the bar stays shown, no flicker between looks
+            do
+                mouseOver = true
+                step(0.3)
+                local seen = {}
+                for _, x in ipairs({ 0.9, 0.6, 0.3, 0 }) do
+                    ChatFrame1.ScrollBar:SetAlpha(x)
+                    ChatFrame1.buttonFrame:SetAlpha(x)
+                    table.insert(seen, string.format("%.2f/%.2f", ChatFrame1.ScrollBar:GetAlpha(),
+                        ChatFrame1.buttonFrame:GetAlpha()))
+                end
+                print("chat bare hover, blizzard fading", "box=" .. string.format("%.2f", chat.box:GetAlpha()),
+                    "bar/buttons=" .. table.concat(seen, " "))
+                mouseOver = false
+                step(6)
+            end
             -- a line fading out (Blizzard's chat fade): its band with it
             ChatFrame1.visibleLines[2]:SetAlpha(0.5)
             ChatFrame1.visibleLines[4]:Hide()

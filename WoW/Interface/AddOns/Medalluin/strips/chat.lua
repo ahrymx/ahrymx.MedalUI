@@ -953,14 +953,37 @@ local function AllBands()
     for _, frame in ipairs(Docked()) do Bands(frame) end
 end
 
+-- Blizzard's own chat fade (UIFrameFade, each frame) writes a scroll bar's
+-- alpha between our looks, so the bar flickered under the pointer
+-- (2026-11-20): while bare, each such write is put back to the chrome's
+-- at once
+local held, holding = {}, false
+local function Hold(part)
+    if held[part] or not part.SetAlpha then return end
+    held[part] = true
+    hooksecurefunc(part, "SetAlpha", function(self, a)
+        if holding or not (Immersed() and chrome) or a == chrome.alpha then return end
+        holding = true
+        self:SetAlpha(chrome.alpha)
+        holding = false
+    end)
+end
+
 -- the chrome at an alpha: the box and all on it, the docked windows' scroll
 -- bars and tabs; the bands the other way
 local function Chrome(a)
     if chatBox then chatBox:SetAlpha(a) end
     if ns.chat and ns.chat.WellEdge then ns.chat.WellEdge() end
     for _, frame in ipairs(Docked()) do
-        for _, part in ipairs({ frame.ScrollBar, frame.ScrollToBottomButton, frame.buttonFrame }) do
-            if part and part.SetAlpha then part:SetAlpha(a) end
+        -- (each by name: a client without one, the rest still)
+        for _, key in ipairs({ "ScrollBar", "ScrollToBottomButton", "buttonFrame" }) do
+            local part = frame[key]
+            if part and part.SetAlpha then
+                Hold(part)
+                holding = true
+                part:SetAlpha(a)
+                holding = false
+            end
         end
         local tab = _G[frame:GetName() .. "Tab"]
         if tab then tab:SetAlpha(a) end
