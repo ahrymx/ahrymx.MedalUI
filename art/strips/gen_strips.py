@@ -619,13 +619,15 @@ def shadow():
     clear at its top left and darkest at its bottom right (the box's
     corner): the floating windows (window/shell.lua) cut their shadow's
     four corners from it, flipped, and stretch its inner edge along the
-    sides. The fall is smooth both ways, so the corner is round."""
+    sides. The fall is smooth both ways, so the corner is round; solid
+    black at the window's edge (2026-11-20: at 65% it read as a see-through
+    glow over a bright ground), falling off faster outwards."""
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     for y in range(32):
         for x in range(32):
             fx, fy = x / 31, y / 31
             sx, sy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
-            img.putpixel((x, y), (0, 0, 0, round(255 * 0.65 * sx * sy)))
+            img.putpixel((x, y), (0, 0, 0, round(255 * (sx * sy) ** 1.4)))
     parts = os.path.join(ROOT, "assets", "strips")
     os.makedirs(parts, exist_ok=True)
     path = os.path.join(parts, "shadow.png")

@@ -1298,6 +1298,15 @@ function ns.Window(spec)
         right:SetPoint("TOPLEFT", window, "TOPRIGHT", 0, -DROP)
         right:SetPoint("BOTTOMLEFT", window, "BOTTOMRIGHT", 0, -DROP)
         right:SetWidth(SHADOW)
+        -- the drop's gap under the window, between its foot and the bottom
+        -- strip: as black as the shadow's inner edge (2026-11-20: the ground
+        -- showed through it)
+        local gap = window:CreateTexture(nil, "BACKGROUND", nil, -8)
+        gap:SetColorTexture(0, 0, 0, 1)
+        gap:SetPoint("TOPLEFT", window, "BOTTOMLEFT", 0, 0)
+        gap:SetPoint("TOPRIGHT", window, "BOTTOMRIGHT", 0, 0)
+        gap:SetHeight(DROP)
+        table.insert(parts, gap)
         return parts
     end
 
@@ -1857,12 +1866,13 @@ function ns.Window(spec)
     end
     drop.Arm = Arm
 
-    -- beside the window, towards the screen's middle (as its tooltips
-    -- stand: ns.window.Outside), its top the window's
+    -- beside the window on its medallion's side, wherever the window
+    -- stands (2026-11-20: floating, it went towards the screen's middle,
+    -- away from the medallion), its top the window's; docked, that side is
+    -- the screen's middle anyway
     local function PlaceList()
         local f = drop.list
-        local s = Facing(window)
-        if s ~= 1 and s ~= -1 then s = -side end
+        local s = mirror and -1 or 1
         f:ClearAllPoints()
         f.notch:ClearAllPoints()
         if s == 1 then
@@ -1872,8 +1882,7 @@ function ns.Window(spec)
             f:SetPoint("TOPLEFT", window, "TOPRIGHT", MEDAL / 2 + 6, -(Inset()))
             f.notch:SetPoint("CENTER", f, "TOPLEFT", 0, -TAB / 2)
         end
-        -- the held row's fade and bar from the side towards the screen's
-        -- edge: the window's (the list stands nearer the middle)
+        -- the held row's fade and bar from the side by the window
         local edge = s == 1 and "RIGHT" or "LEFT"
         f.edge = edge
         for _, r in ipairs(drop.rows) do
@@ -2038,11 +2047,11 @@ function ns.Window(spec)
         h:ClearAllPoints()
         h:SetPoint(mirror and "TOPRIGHT" or "TOPLEFT", 0, -top)
         -- the medallion and the step by it, down by the margin too
-        -- (2026-11-19) docked, in from the edge by a quarter of it, the
-        -- step and the count with it
+        -- (2026-11-19) in from the edge by a quarter of it, the step and
+        -- the count with it (floating too, 2026-11-20)
         local near = mirror and "RIGHT" or "LEFT"
         local out = mirror and -1 or 1
-        local shift = floating and 0 or MEDAL / 4
+        local shift = MEDAL / 4
         h.medal:ClearAllPoints()
         h.medal:SetPoint("CENTER", window, "TOP" .. near, shift * out, -(top + MEDAL / 2))
         h.count:ClearAllPoints()

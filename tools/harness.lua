@@ -15575,6 +15575,21 @@ if bankPass then
     print("bank.chrome detached", "edge=" .. W.chrome.edge.alpha, "shadow=" .. tostring(W.chrome.shadow[1].shown),
         "close box=" .. tostring(w.close.edge.shown), "view box=" .. tostring(w.view.edge.shown),
         "band@" .. select(4, w.bandRule:GetPoint(1)))
+    -- floating, the medallion a quarter in from the edge, the count with it
+    do
+        local d = w.dropdown
+        local h = d and d.head
+        if h then
+            local function pt(f)
+                local a1, rel, a2, x, y = f:GetPoint(1)
+                return tostring(a1) .. ">" .. (rel == w and "window" or tostring(rel and rel.GetName and rel:GetName()
+                    or "?")) .. ":" .. tostring(a2) .. " " .. tostring(x) .. "," .. tostring(y)
+            end
+            print("bank.float head", "medal=" .. pt(h.medal), "count=" .. pt(h.count))
+        else
+            print("bank.float head", "no dropdown")
+        end
+    end
     buy("bank.purchase detached")
     print("bank.place", string.format("w=%s h=%s", tostring(ns.db.bankPlace.w), tostring(ns.db.bankPlace.h)),
         "size=" .. w.w .. "x" .. w.h, "saved=" .. tostring(type(MedalluinDB.global.bankPlace)))
