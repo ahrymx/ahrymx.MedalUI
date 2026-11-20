@@ -1842,10 +1842,11 @@ L["Faded out of combat. Faded to 0%, no tooltips."] = "Скрыта вне бо�
 L["Faded until the pointer is over it."] = "Скрыта, пока на неё не наведён указатель."
 L["Faded, it is only see-through: it still tracks everything (on In combat at 0%, without its tooltips). Whole "
     .. "while the Cooldown Manager or Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides "
-    .. "it outright."] =
+    .. "it outright. Shared > Immersion Mode's Minimal OoC Mode, while on, takes over from it."] =
     "Скрытая, она лишь прозрачна: всё отслеживает (при «В бою» на 0% — без подсказок). Видна целиком, пока открыт "
     .. "менеджер восстановлений или режим редактирования. Собственная «Видимость» режима редактирования (настройки "
-    .. "восстановлений) по-прежнему скрывает её полностью."
+    .. "восстановлений) по-прежнему скрывает её полностью. «Минимум вне боя» в «Общее > Режим погружения», пока "
+    .. "включён, заменяет этот выбор."
 L["Faded opacity"] = "Непрозрачность скрытой"
 L["How see-through it is when faded: 0% is gone."] = "Насколько она прозрачна, когда скрыта: 0% — не видна."
 L["Fade time"] = "Время исчезания"
@@ -2105,6 +2106,17 @@ L["Closes this window. Point at an action button and press a key to bind it; Esc
 L["Shared"] = "Общее"
 L["Visibility & fading"] = "Видимость и исчезание"
 L["Console: Minimal OoC Mode"] = "Консоль: минимум вне боя"
+L["Cooldown Manager: Minimal OoC Mode"] = "Менеджер восстановлений: минимум вне боя"
+L["Out of combat, every Cooldown Manager viewer fades away: cooldowns, buffs and bars. Kept per profile."] =
+    "Вне боя все панели менеджера восстановлений исчезают: восстановления, эффекты и полосы. Своё у каждого профиля."
+L["Out of combat, fade every Cooldown Manager viewer away. Combat always brings them back. While it is on, it "
+    .. "takes over from each viewer's own Visibility (Cooldowns); each keeps its fade time."] =
+    "Вне боя скрывать все панели менеджера восстановлений. Бой всегда возвращает их. Пока режим включён, он заменяет "
+    .. "собственную «Видимость» каждой панели (Восстановление); время перехода у каждой своё."
+L["Opacity out of combat"] = "Непрозрачность вне боя"
+L["How much of the viewers shows out of combat. 0%: gone, and without tooltips unless mouseover brings them back."] =
+    "Насколько панели видны вне боя. 0% — их нет, и без подсказок, если их не возвращает наведение."
+L["Whole again while the pointer is over a viewer."] = "Снова целиком, пока указатель над панелью."
 L["Out of combat, the console fades away but for your player and target frames."] =
     "Вне боя консоль исчезает, кроме рамок игрока и цели."
 L["The Reticule's: choose it on Profiles to use it."] = "Только у «Прицела»: выберите его в профилях."

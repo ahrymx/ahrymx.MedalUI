@@ -3,7 +3,7 @@
 ## Notes: Hold a key, sweep, release: radial menus of spells, items, mounts, markers and more (Medalluin companion).
 ## Author: Malkkav, AhryMX
 ## X-License: MIT
-## Version: 0.60.0
+## Version: 0.61.0
 ## X-Upstream-Version: 6.8.2
 ## Category: Medalluin
 ## Category-enUS: Medalluin

@@ -578,14 +578,29 @@ display.faders = faders
 local inCombat = false
 display.simCombat = false       -- the simulation playing a fight, for Visibility
 
+-- Minimal OoC Mode (Shared > Immersion Mode): every viewer faded out of
+-- combat, back for what is ticked. While on, it takes over from each
+-- viewer's own Visibility and faded opacity; each keeps its fade time.
+local function Minimal() return ns.db.cdmMinimal and true or false end
+
 local function Wanted(key)
     local V, vis = ns.VISIBILITY, Num(key, "Vis")
-    if vis == V.ALWAYS or vis == 0 then return true end
+    local minimal = Minimal()
+    if not minimal and (vis == V.ALWAYS or vis == 0) then return true end
     local s = _G.CooldownViewerSettings
     local e = _G.EditModeManagerFrame
     if (s and s:IsShown()) or (e and e:IsShown()) then return true end
     local over = holders[key]:IsMouseOver()
     local fighting = inCombat or (sims[key] ~= nil and display.simCombat)
+    if minimal then
+        local db = ns.db
+        return fighting
+            or (db.cdmMinimalTarget and UnitExists("target"))
+            or (db.cdmMinimalHurt and ns.PlayerHurt and ns.PlayerHurt())
+            or (db.cdmMinimalGroup and IsInGroup())
+            or (db.cdmMinimalMouse and over)
+            or false
+    end
     if vis == V.COMBAT then return fighting end
     if vis == V.MOUSEOVER then return over end
     return fighting or over
@@ -601,7 +616,11 @@ end
 -- pointer cannot wake it; back the moment it is wanted, before it fades in
 local function Touch(key, f)
     touches[f] = touches[f] or ns.Untouchable(f, function()
-        return Num(key, "Vis") == ns.VISIBILITY.COMBAT and goals[f] == 0 and Fader(f).alpha == 0
+        -- (nothing that wakes it for the pointer: In combat, or Minimal
+        -- OoC Mode without mouseover)
+        local blind = Minimal() and not ns.db.cdmMinimalMouse
+            or not Minimal() and Num(key, "Vis") == ns.VISIBILITY.COMBAT
+        return blind and goals[f] == 0 and Fader(f).alpha == 0
     end)
     touches[f].name = touches[f].name or ("cdm " .. tostring(key))
     return touches[f]
@@ -615,7 +634,8 @@ local function Fade(key, now)
         goals[v] = 0
         Touch(key, v):Update()
     end
-    local goal = Wanted(key) and 1 or math.max(0, math.min(1, Num(key, "Faded")))
+    local faded = Minimal() and (tonumber(ns.db.cdmMinimalAlpha) or 0) or Num(key, "Faded")
+    local goal = Wanted(key) and 1 or math.max(0, math.min(1, faded))
     if goals[f] == goal and not now then return end
     goals[f] = goal
     local touch = Touch(key, f)
@@ -642,13 +662,29 @@ local function Watch()
     local V, any = ns.VISIBILITY, false
     for key in pairs(holders) do
         local vis = Num(key, "Vis")
-        any = any or ((viewers[key] or sims[key]) and (vis == V.MOUSEOVER or vis == V.COMBAT_OR_MOUSEOVER))
+        local mouse = Minimal() and ns.db.cdmMinimalMouse
+            or not Minimal() and (vis == V.MOUSEOVER or vis == V.COMBAT_OR_MOUSEOVER)
+        any = any or ((viewers[key] or sims[key]) and mouse and true or false)
     end
     watch:SetShown(any)
 end
 
 ns.On("PLAYER_REGEN_DISABLED", function() inCombat = true; FadeAll() end)
 ns.On("PLAYER_REGEN_ENABLED", function() inCombat = false; FadeAll() end)
+-- what brings the Minimal OoC Mode's viewers back
+local function Minimally() if Minimal() then FadeAll() end end
+ns.On("PLAYER_TARGET_CHANGED", Minimally)
+ns.On("GROUP_ROSTER_UPDATE", Minimally)
+local health = CreateFrame("Frame")
+health:RegisterUnitEvent("UNIT_HEALTH", "player")
+health:SetScript("OnEvent", Minimally)
+for _, key in ipairs({ "cdmMinimal", "cdmMinimalAlpha", "cdmMinimalTarget", "cdmMinimalHurt", "cdmMinimalGroup",
+    "cdmMinimalMouse" }) do
+    ns.OnSetting(key, function()
+        Watch()
+        FadeAll(true)
+    end)
+end
 
 -- ------------------------------------------------------------- the options
 -- A viewer's option changed: its icons dressed again and laid out again;

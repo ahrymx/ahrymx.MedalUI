@@ -316,7 +316,8 @@ local function CdmVisibility(K)
             { V.COMBAT_OR_MOUSEOVER, Tr["In combat or on mouseover"] },
         }, Tr["Faded, it is only see-through: it still tracks everything (on In combat at 0%, without "
             .. "its tooltips). Whole while the Cooldown Manager or "
-            .. "Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides it outright."]),
+            .. "Edit Mode is open. Edit Mode's own Visibility (Cooldown Settings) still hides it outright. "
+            .. "Shared > Immersion Mode's Minimal OoC Mode, while on, takes over from it."]),
         Opacity(K("Faded"), Tr["Faded opacity"], Tr["How see-through it is when faded: 0% is gone."]),
         Seconds(K("FadeTime"), Tr["Fade time"], Tr["How long a fade in or out takes."])))
 end
@@ -649,6 +650,28 @@ local AURA_ROWS = {
         keys = { "sharedBoss", "auraBoss", "partyWidgetBoss", "raidBoss", false, false, false, false } },
 }
 
+-- Minimal OoC Mode for the whole Cooldown Manager (cooldowns/display.lua):
+-- its switch heading its choices, as the console's
+local function CdmMinimal()
+    return Tip(Tr["Out of combat, every Cooldown Manager viewer fades away: cooldowns, buffs and bars. Kept per "
+            .. "profile."],
+        Switched(Check("cdmMinimal", Tr["Minimal OoC Mode"],
+                Tr["Out of combat, fade every Cooldown Manager viewer away. Combat always brings them back. While "
+                .. "it is on, it takes over from each viewer's own Visibility (Cooldowns); each keeps its fade "
+                .. "time."]), Tr["Cooldown Manager: Minimal OoC Mode"],
+            Opacity("cdmMinimalAlpha", Tr["Opacity out of combat"],
+                Tr["How much of the viewers shows out of combat. 0%: gone, and without tooltips unless mouseover "
+                .. "brings them back."]),
+            { kind = "check", key = "cdmMinimalTarget", label = Tr["Back with a target"],
+                tip = Tr["Whole again while you have a target."] },
+            { kind = "check", key = "cdmMinimalHurt", label = Tr["Back when health is not full"],
+                tip = Tr["Whole again while your health is below its most."] },
+            { kind = "check", key = "cdmMinimalGroup", label = Tr["Back in a group"],
+                tip = Tr["Whole again while you are in a party or a raid."] },
+            { kind = "check", key = "cdmMinimalMouse", label = Tr["Back on mouseover"],
+                tip = Tr["Whole again while the pointer is over a viewer."] }))
+end
+
 local SHARED_NOTE = Tr["A frame's own choice, on its page, wins over a shared one there, and is marked Own."]
 
 local function Shared(list)
@@ -702,6 +725,7 @@ local function Shared(list)
                         "sideImmersion", "sideFadedAlpha", "sideShowCombat", "sideShowTarget", "sideShowMouse" },
                         Tr["The chat bare when idle, its box back on use; the side panel's background faded when "
                             .. "idle."])),
+                    On("immersion", CdmMinimal()),
                 }, AllOn("advanced", {
                     Group(Tr["Every frame"],
                         Check("moverHover", Tr["Movers only on mouseover"],
@@ -716,6 +740,7 @@ local function Shared(list)
                     Mirror(Tr["Overhead"], { "overheadAlpha", "overheadFadeIn", "overheadFadeOut", "overheadRowVis",
                         "overheadRowFaded", "overheadRowFadeTime" }),
                     Mirror(Tr["Action bars"], { "visibility", "extraVisibility" }),
+                    CdmMinimal(),
                     Mirror(Tr["Quest tracker, full view"], { "questsFullMouseover", "questsFullCombat" }),
                     Mirror(Tr["Quest tracker, minimal view"], { "questsMinimalMouseover", "questsMinimalCombat" }),
                     Mirror(Tr["Edge Draw"], { "trayDelay" }),

@@ -26295,6 +26295,49 @@ if cdmPass then (function()
         ns.SetOption("cdmEFaded", 0.2)
     end)()
     ns.SetOption("cdmEVis", V.ALWAYS)
+    -- Minimal OoC Mode (Shared > Immersion Mode): every viewer at its
+    -- opacity out of combat, over each one's own Visibility (essential's
+    -- Always here); back in combat, for a target, on mouseover, as ticked;
+    -- at 0% without mouseover, out of the pointer's way
+    ;(function()
+        local u = W.viewers.UtilityCooldownViewer
+        for _, l in ipairs({ "E", "U", "B", "T" }) do ns.SetOption("cdm" .. l .. "FadeTime", 0) end
+        local function m(tag)
+            print("cdm minimal " .. tag, "essential=" .. n1(e:GetAlpha()), "utility=" .. n1(u:GetAlpha()),
+                "icon=" .. tostring(it:IsMouseEnabled()))
+        end
+        local had = hasTarget
+        hasTarget = true
+        ns.SetOption("cdmMinimalAlpha", 0.1)
+        ns.SetOption("cdmMinimal", true)
+        m("idle, a target unticked")
+        inCombat = true
+        for _, fr in ipairs(events.PLAYER_REGEN_DISABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_DISABLED") end
+        m("in combat")
+        inCombat = false
+        for _, fr in ipairs(events.PLAYER_REGEN_ENABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_ENABLED") end
+        m("combat over")
+        ns.SetOption("cdmMinimalTarget", true)
+        m("back with a target")
+        hasTarget = false
+        for _, fr in ipairs(events.PLAYER_TARGET_CHANGED or {}) do fr.scripts.OnEvent(fr, "PLAYER_TARGET_CHANGED") end
+        m("target gone")
+        mouseOver = D.holders.essential
+        D.Fade("essential")
+        m("pointer over essential")
+        mouseOver = false
+        D.Fade("essential")
+        ns.SetOption("cdmMinimalAlpha", 0)
+        m("at 0%, mouseover ticked")
+        ns.SetOption("cdmMinimalMouse", false)
+        m("at 0%, mouseover unticked")
+        ns.SetOption("cdmMinimal", false)
+        m("off")
+        ns.SetOption("cdmMinimalMouse", true)
+        ns.SetOption("cdmMinimalTarget", false)
+        ns.SetOption("cdmMinimalAlpha", 0)
+        hasTarget = had
+    end)()
     -- its movers: placed, not scaled; the page's sliders
     local mv = {}
     for _, c2 in ipairs(ns.CONSOLE_MOVERS) do

@@ -290,6 +290,12 @@ for _, v in ipairs(ns.CDM_VIEWERS) do
     DEFAULTS["cdm" .. v[1] .. "Size"] = v[4]
 end
 DEFAULTS.cdmBGaps = true
+-- Minimal OoC Mode for the whole Cooldown Manager (Shared > Immersion Mode):
+-- out of combat every viewer at cdmMinimalAlpha, back for what is ticked;
+-- while on, it takes over from each viewer's Visibility (cooldowns/display.lua)
+DEFAULTS.cdmMinimal, DEFAULTS.cdmMinimalAlpha = false, 0
+DEFAULTS.cdmMinimalTarget, DEFAULTS.cdmMinimalHurt = false, false
+DEFAULTS.cdmMinimalGroup, DEFAULTS.cdmMinimalMouse = false, true
 -- The fourth viewer, the tracked bars (BuffBarCooldownViewer): a bar each,
 -- so options of their own, keyed cdmT<field>. Size is a bar's height.
 ns.CDM_BARS = { "T", "bars", Tr["Tracked bars"], 24 }
@@ -393,6 +399,7 @@ for _, key in ipairs({
     "auraDebuffs",
     "editUnit", "editParty",
     "xpCast", "repCast",
+    "cdmMinimal", "cdmMinimalAlpha", "cdmMinimalTarget", "cdmMinimalHurt", "cdmMinimalGroup", "cdmMinimalMouse",
 }) do PER_PROFILE[key] = true end
 -- the Cooldown Manager's viewers: placed and dressed per profile, as the console is
 for key in pairs(DEFAULTS) do
