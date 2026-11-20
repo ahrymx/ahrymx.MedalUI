@@ -2373,6 +2373,27 @@ StaticPopupDialogs = {}
 SlashCmdList = {}
 function ReloadUI() end
 function StaticPopup_Show() end
+-- the game's menus: what addons add to a tagged one (Menu.ModifyMenu), kept
+-- by tag to be played on a pretend menu (harnessMenu)
+HARNESS_MENUS = {}
+Menu = { ModifyMenu = function(tag, fn)
+    HARNESS_MENUS[tag] = HARNESS_MENUS[tag] or {}
+    table.insert(HARNESS_MENUS[tag], fn)
+end }
+-- The entries addons add to the menu tagged tag, each "kind:text" (a
+-- checkbox's "[x]" when ticked); and each checkbox's click, by its text.
+function harnessMenu(tag)
+    local out, clicks = {}, {}
+    local root = {}
+    function root:CreateDivider() table.insert(out, "divider") end
+    function root:CreateTitle(text) table.insert(out, "title:" .. text) end
+    function root:CreateCheckbox(text, ticked, click)
+        table.insert(out, "check:" .. text .. (ticked() and "[x]" or "[ ]"))
+        clicks[text] = click
+    end
+    for _, fn in ipairs(HARNESS_MENUS[tag] or {}) do fn(nil, root) end
+    return table.concat(out, " | "), clicks
+end
 -- Arena is set aside (settings.lua) but the passes still play it as it
 -- stands; the profiles pass closes it to see it set aside
 Medalluin_ArenaOpen = true
@@ -26769,6 +26790,23 @@ if cdmPass then (function()
             (W.viewers.BuffBarCooldownViewer.items[2].points.CENTER or {})[1] == D.holders.bars))
     for i, item in ipairs(e.items) do item.layoutIndex = i end
     holders("cdm holders after sim")
+    -- the window's gear menu: the simulation's switch under the game's
+    -- entries, while both parts are on
+    ;(function()
+        local had = ns.db.simCdm
+        local text, clicks = harnessMenu("COOLDOWN_VIEWER_SETTINGS_MENU")
+        print("cdm gear menu", text ~= "" and text or "none")
+        clicks[ns.L["Simulate cooldowns"]]()
+        text, clicks = harnessMenu("COOLDOWN_VIEWER_SETTINGS_MENU")
+        print("cdm gear menu ticked", text, "simCdm=" .. tostring(ns.db.simCdm),
+            "panel=" .. tostring(_G.MedalluinCdmSimPanel and _G.MedalluinCdmSimPanel:IsShown()))
+        clicks[ns.L["Simulate cooldowns"]]()
+        ns.SetOption("cdmDisplay", false)
+        text = harnessMenu("COOLDOWN_VIEWER_SETTINGS_MENU")
+        print("cdm gear menu, medallions off", text ~= "" and text or "none")
+        ns.SetOption("cdmDisplay", true)
+        ns.SetOption("simCdm", had)
+    end)()
 end)() end
 
 -- --------------------------------------------------------- click casting

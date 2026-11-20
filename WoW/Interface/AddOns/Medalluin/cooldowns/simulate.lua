@@ -443,6 +443,20 @@ end
 
 ns.On("PLAYER_LOGIN", Shown)
 for _, key in ipairs({ "simCdm", "cdmWindow", "cdmDisplay" }) do ns.OnSetting(key, Shown) end
+
+-- The switch in the Cooldown Manager window's gear menu too, under the
+-- game's own entries, while it can run (both parts on). Added through
+-- Menu.ModifyMenu, the game's way for an addon to add to a menu it tags:
+-- the menu's own entries and code stay the game's.
+if Menu and Menu.ModifyMenu then
+    Menu.ModifyMenu("COOLDOWN_VIEWER_SETTINGS_MENU", function(_, root)
+        if not (ns.db and ns.db.cdmWindow and ns.db.cdmDisplay) then return end
+        root:CreateDivider()
+        root:CreateTitle("Medalluin")
+        root:CreateCheckbox(Tr["Simulate cooldowns"], function() return ns.db.simCdm and true or false end,
+            function() ns.SetOption("simCdm", not ns.db.simCdm) end)
+    end)
+end
 -- a viewer's option changed: its look restyled (display.lua), then ours
 -- drawn again over it, as the game's next refresh would
 ns.OnAnySetting(function(setting)
