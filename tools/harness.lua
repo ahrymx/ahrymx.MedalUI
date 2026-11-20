@@ -20235,11 +20235,12 @@ if profPass then
         for _, c in ipairs(ov.cards) do
             if c.shown then table.insert(cards, c.name.text .. "@" .. y(c)) end
         end
-        -- the header's portrait on its rule; the hair down between the pillars
-        local portrait = ov.banner.portrait.points.CENTER
+        -- the banner in the panel joined under the head; the hair down
+        -- between the pillars
         print(tag, "need=" .. ov.height, "window=" .. w.h, "primary@" .. y(ov.heads.primary), "secondary@" .. y(ov.heads.secondary),
             "camp@" .. y(ov.heads.camp) .. "/" .. y(ov.camp), table.concat(cards, " "),
-            "portrait@" .. -portrait[4] .. "/" .. ov.banner.h, "split@" .. y(ov.split) .. "h" .. ov.split.h)
+            "banner in panel=" .. tostring(ov.banner.parent == ov.panel) .. " h" .. tostring(ov.panel and ov.panel.h),
+            "split@" .. y(ov.split) .. "h" .. ov.split.h)
         -- what Fit shared out: the pillars' height, the cooldowns' room and
         -- its hourglass, Camping's foot against the body's; the notches
         local c1, bar = ov.cards[1], ov.cards[1].bar
@@ -20328,8 +20329,8 @@ if profPass then
     -- the banner, and this character as its alts will read it
     do
         local b = ov.banner
-        print("prof.banner me", b.name.text, string.format("(%.2f,%.2f,%.2f)", unpack(b.name.textColor or { -1, -1, -1 })),
-            b.levelText.text, b.what.text, "portrait=" .. tostring(b.portrait.portrait))
+        print("prof.banner me", b.what.text, b.guild.shown and b.guild.text or "-",
+            "what@" .. b.what.points.TOP[4], "in panel=" .. tostring(b.parent == ov.panel))
         local realm = GetRealmName and GetRealmName() or "?"
         local me = MedalluinDB.roster[realm][UnitName("player")]
         local profs = {}
@@ -20755,17 +20756,33 @@ if profPass then
     -- the banner: the profession, its next rank, its skill across
     do
         local b = W.Current().banner
-        local _, _, _, hx, hy = W.Current().hair:GetPoint()
-        -- the rank under the name; a diamond at each end of the bar
-        local under = b.rank.points.TOPLEFT and b.rank.points.TOPLEFT[1] == b.name
-        local caps = {}
-        for _, cap in ipairs(b.caps) do
-            local _, rel, rp, cx = cap:GetPoint()
-            table.insert(caps, (rel == b.bar and rp or "?") .. cx)
+        -- the title, the bar centred under it and the next rank under the
+        -- bar; the icon on the rule; the search under the icon
+        local function banner(tag)
+            local _, _, _, _, sy = W.Current().search:GetPoint(1)
+            -- (the harness measures no anchors: the window's width given)
+            b.scripts.OnSizeChanged(b, 600)
+            print(tag, b.rank.text, string.format("(%.2f,%.2f,%.2f)", unpack(b.rank.textColor)),
+                b.bar.text.text, "bar=" .. tostring(b.bar.bar.value) .. "/" .. tostring(b.bar.bar.max)
+                .. " w" .. b.bar:GetWidth() .. "@" .. b.bar.points.TOP[4],
+                "in panel=" .. tostring(b.parent == W.Current().panel) .. " h" .. W.Current().panel.h,
+                "search@" .. -sy)
         end
-        print("prof.banner", b.name.text, b.rank.shown and b.rank.text or "-", b.bar.text.text,
-            "bar=" .. tostring(b.bar.bar.value) .. "/" .. tostring(b.bar.bar.max),
-            "hair@" .. hx .. "," .. hy, "rank=" .. (under and "under" or "loose"), "caps=" .. table.concat(caps, ","))
+        banner("prof.banner")
+        -- at its rank's top: the highest this expansion
+        local prof = W.Current().prof
+        local was = { prof.rank, prof.max }
+        prof.rank, prof.max = 290, 300
+        W.Current().Refresh()
+        banner("prof.banner artisan")
+        -- its rank learned to the cap: train the next now
+        prof.rank, prof.max = 75, 75
+        W.Current().Refresh()
+        banner("prof.banner train")
+        prof.rank, prof.max = was[1], was[2]
+        W.Current().Refresh()
+        b.scripts.OnSizeChanged(b, 240)
+        print("prof.banner narrow", "bar w" .. b.bar:GetWidth())
         beside("prof.tip tick", W.Current().have)
         beside("prof.tip create", W.Current().create)
         local first

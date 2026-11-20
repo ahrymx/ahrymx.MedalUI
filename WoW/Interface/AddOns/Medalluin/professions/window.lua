@@ -94,6 +94,10 @@ local W = ns.Window{
     Lifted = function() return { MainMenuBarBackpackButton } end,
 }
 ns.professions = W
+-- the panel the shell joins under the head on every tab, for its banner
+-- (the Overview's, alts.lua; a profession's skill, crafting.lua): the
+-- character window's height
+W.UNDER = 44
 
 local layer                             -- the cards' spells, secure, on the strip
 local open                              -- the window open on Overview
@@ -532,7 +536,7 @@ end
 
 -- -------------------------------------------------------------- Overview
 overview = { key = "overview", label = Tr["Overview"], glyph = "profession", order = 0, frame = "ProfessionsFrame",
-    bandUsed = true }
+    bandUsed = true, under = W.UNDER }
 overview.cards = {}
 overview.events = { "SKILL_LINES_CHANGED", "SPELLS_CHANGED", "TRADE_SKILL_LIST_UPDATE", "PLAYER_REGEN_ENABLED",
     "PLAYER_LEVEL_UP", "TRAINER_UPDATE", "BAG_UPDATE_DELAYED" }
@@ -553,7 +557,7 @@ function overview.Build(body, _, band)
     head:SetScript("OnLeave", function() GameTooltip:Hide() end)
     overview.camp = W.Camp(body)
     overview.camp.Changed = function() overview.Refresh() end
-    overview.banner = W.Banner(body)
+    overview.banner = W.Banner(overview.panel)
     overview.alts = W.AltsButton(band)
     -- the night behind the secondaries, the cooldowns and Camping (Night)
     local function Tex(sub)
@@ -620,7 +624,6 @@ local function Lay(gap, grow, rest)
         heads = heads + 1
         Put(f, ns.window.RIBBON + 4)
     end
-    Put(overview.banner, W.BANNER_H)
     Head(overview.heads.primary)
     local cards = overview.cards
     local tall, lift = PILLAR + grow, math.floor(grow / 3)

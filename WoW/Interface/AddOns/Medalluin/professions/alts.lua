@@ -2,9 +2,11 @@
 -- character's banner, its Alts button at its left (the realm's other
 -- characters, counted; none: no button).
 --
---   [@ Alts 3]                  Ahrymx                       Level 60
---                       Human Warrior  ·  <Guild>
---   ============================(portrait)===========================
+--   (the head)
+--                      Level 60 Human Warrior
+--                             <Guild>
+--   (in the panel joined under the head, as the character window's name;
+--   a profession's tab has its skill there: professions/crafting.lua)
 --
 -- The alts are what each character recorded of itself when it last
 -- played (MedalluinDB.roster[realm][name]: class, level, primaries), so a
@@ -32,11 +34,7 @@ local Tr = ns.L
 local W = ns.professions
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
-local STRIP, PORTRAIT = 64, 40
--- the header: its strip, and the portrait hanging half below its rule
-local BANNER = STRIP + PORTRAIT / 2 + 2
 local CIRCLES = "Interface\\TargetingFrame\\UI-Classes-Circles"
-W.BANNER_H = BANNER
 
 local function Realm() return GetRealmName and GetRealmName() or "?" end
 
@@ -1022,44 +1020,16 @@ function W.OpenMine()
 end
 
 -- ---------------------------------------------------------- the banner
--- A strip darkening to warm at its foot, a gold rule under it, the name
--- and the rest centred, and the portrait in its ring on the rule.
-function W.Banner(body)
-    local b = CreateFrame("Frame", nil, body)
-    b:SetHeight(BANNER)
-    b.ground = b:CreateTexture(nil, "BACKGROUND")
-    b.ground:SetPoint("TOPLEFT")
-    b.ground:SetPoint("TOPRIGHT")
-    b.ground:SetHeight(STRIP)
-    local ink = ns.colors.ink
-    if b.ground.SetGradient and CreateColor then
-        b.ground:SetColorTexture(1, 1, 1, 1)
-        -- VERTICAL runs bottom to top: warm gold at its foot, ink above
-        b.ground:SetGradient("VERTICAL", CreateColor(0.27, 0.21, 0.1, 1), CreateColor(ink[1], ink[2], ink[3], 1))
-    else
-        b.ground:SetColorTexture(ink[1], ink[2], ink[3], 1)
-    end
-    b.rule = b:CreateTexture(nil, "BORDER")
-    b.rule:SetPoint("TOPLEFT", 0, -STRIP)
-    b.rule:SetPoint("TOPRIGHT", 0, -STRIP)
-    b.rule:SetHeight(2)
-    b.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    b.shine = b:CreateTexture(nil, "BORDER", nil, 1)
-    b.shine:SetPoint("TOPLEFT", b.rule)
-    b.shine:SetPoint("TOPRIGHT", b.rule)
-    b.shine:SetHeight(1)
-    b.shine:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.8)
-    b.portrait = ns.window.Ring(b, PORTRAIT, true)
-    b.portrait:SetTexCoord(0, 1, 0, 1)
-    b.portrait:SetPoint("CENTER", b, "TOP", 0, -(STRIP + 1))
-    b.name = ns.Text(b, 16)
-    b.name:SetPoint("TOP", 0, -8)
-    b.levelText = ns.Text(b, 13)
-    b.levelText:SetPoint("TOPRIGHT", -8, -10)
-    b.levelText:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    b.what = ns.Text(b, 12)
-    b.what:SetPoint("TOP", b.name, "BOTTOM", 0, -6)
-    b.what:SetTextColor(unpack(ns.colors.dim))
+-- In the panel joined under the head (the shell's, W.UNDER tall), as the
+-- character window's name: the level, race and class (in its colour) and
+-- under them the guild, centred; one line without a guild.
+function W.Banner(panel)
+    local b = CreateFrame("Frame", nil, panel)
+    b:SetAllPoints()
+    b.what = ns.Text(b, 15)
+    b.guild = ns.Text(b, 12)
+    b.guild:SetPoint("TOP", b.what, "BOTTOM", 0, -4)
+    b.guild:SetTextColor(unpack(ns.colors.dim))
     -- a click opens the playing character's own window (its notes, items)
     b:EnableMouse(true)
     b:SetScript("OnMouseUp", function(_, mouse) if mouse == "LeftButton" then W.OpenMine() end end)
@@ -1071,19 +1041,18 @@ function W.Banner(body)
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     function b.Refresh()
-        SetPortraitTexture(b.portrait, "player")
         local className, class = UnitClass("player")
-        b.name:SetText(UnitName("player") or "")
-        b.name:SetTextColor(unpack(Color(class)))
-        b.levelText:SetText(format(Tr["Level %d"], UnitLevel("player") or 0))
         local race = UnitRace and UnitRace("player")
         local guild = GetGuildInfo and GetGuildInfo("player")
-        local what = (race and (race .. " ") or "") .. (className or "")
-        b.what:SetText(guild and guild ~= "" and format("%s  ·  <%s>", what, guild) or what)
-        -- the portrait's rim and its halo in the class's colour
         local c = Color(class)
-        b.portrait.rim:SetColorTexture(c[1], c[2], c[3], 1)
-        for _, g in ipairs(b.portrait.glows) do g:SetColorTexture(c[1], c[2], c[3], g.alpha) end
+        local who = format("|cff%02x%02x%02x%s|r", c[1] * 255, c[2] * 255, c[3] * 255,
+            (race and (race .. " ") or "") .. (className or ""))
+        b.what:SetText(format(Tr["Level %d %s"], UnitLevel("player") or 0, who))
+        local has = guild and guild ~= ""
+        b.guild:SetShown(has and true or false)
+        b.guild:SetText(has and format("<%s>", guild) or "")
+        b.what:ClearAllPoints()
+        b.what:SetPoint("TOP", 0, has and -6 or -14)
     end
     return b
 end

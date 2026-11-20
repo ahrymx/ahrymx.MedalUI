@@ -34,10 +34,14 @@
 -- character: MedalluinCharDB.recipesUnknownHidden), and the search filters
 -- it as the recipes.
 --
--- Over it all, the profession's banner: its icon in a gold ring, its name
--- and under it its next rank as the Overview's pillar says it, then its
--- skill as a bar across, a gold diamond at each end; under it, the
--- window's ornament.
+-- Over it all, in the panel joined under the head (as the Overview's
+-- banner and the character window's name): the profession's skill as a
+-- bar, centred, and under it its next rank as the Overview's pillar says
+-- it ("Highest rank this expansion" at the top).
+--
+--   (the head: the profession's medallion and name)
+--                   [======== 179 / 225 ====     ]
+--                 Artisan at skill 200, level 35
 -- Mining's and Herbalism's pages list the nodes they gather (character/
 -- nodes.lua), coloured by the chance one gives a skill point; one is read
 -- in the details: the skill it needs and where it grows.
@@ -54,9 +58,8 @@ local GOLD_D = { 0.541, 0.439, 0.204 }
 local Money = function(c) return ns.npc and ns.npc.Money(c) or tostring(c) end
 local SLOTS = 5                         -- with Overview, six tabs at most
 local SEARCH = 24
-local BANNER, BANNER_ICON, HAIR = 66, 36, 14    -- the banner, its icon, the ornament's room under it
-local CAP = 6                                   -- the bar's diamond ends
-local HEAD = BANNER + HAIR + SEARCH             -- the list's top
+local BANNER_BAR, BAR_MARGIN = 300, 20          -- the banner's bar: its width at most, its room either side
+local HEAD = SEARCH + 2                         -- the list's top
 -- the game's colours, by Enum.TradeskillRelativeDifficulty
 local DIFFICULTY = {
     [0] = { 1, 0.5, 0.25 },             -- optimal
@@ -439,17 +442,12 @@ end
 local function Banner(p)
     local b, prof = p.banner, p.prof
     if not prof then return end
-    b.icon:SetTexture(prof.icon)
-    b.name:SetText(prof.name)
     local text = prof.modifier and prof.modifier > 0
         and format("%d (+%d) / %d", prof.rank, prof.modifier, prof.max) or format("%d / %d", prof.rank, prof.max)
     b.bar:Fill({ min = 0, max = prof.max, cur = prof.rank, text = text })
     local line, color = W.RankLine(prof)
-    b.rank:SetShown(line and true or false)
-    if line then
-        b.rank:SetText(line)
-        b.rank:SetTextColor(unpack(color))
-    end
+    b.rank:SetText(line or Tr["Highest rank this expansion"])
+    b.rank:SetTextColor(unpack(line and color or ns.colors.dim))
 end
 
 local function Refresh(p)
@@ -481,7 +479,7 @@ end
 for i = 1, SLOTS do
     local p = { key = "craft" .. i, order = i, label = "", frame = "ProfessionsFrame" }
     p.folded, p.count = {}, 1
-    p.flex, p.height, p.bandUsed = true, 0, true
+    p.flex, p.height, p.bandUsed, p.under = true, 0, true, W.UNDER
     p.events = { "TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_DATA_SOURCE_CHANGED", "TRADE_SKILL_SHOW",
         "BAG_UPDATE_DELAYED", "SKILL_LINES_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
         "TRAINER_UPDATE", "PLAYER_LEVEL_UP" }
@@ -518,38 +516,21 @@ for i = 1, SLOTS do
         C_TradeSkillUI.OpenTradeSkill(p.skillLine)
     end
     function p.Build(body, foot, band)
-        local banner = CreateFrame("Frame", nil, body)
-        banner:SetHeight(BANNER)
-        banner:SetPoint("TOPLEFT")
-        banner:SetPoint("TOPRIGHT")
-        banner.icon = ns.window.Ring(banner, BANNER_ICON)
-        banner.icon:SetPoint("TOPLEFT", 4, -4)
-        banner.name = ns.Text(banner, 15)
-        banner.name:SetPoint("TOPLEFT", banner.icon, "TOPRIGHT", 10, 0)
-        banner.name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+        local banner = CreateFrame("Frame", nil, p.panel)
+        banner:SetAllPoints()
+        banner.bar = ns.character.Bar(banner, BANNER_BAR, 16, true)
+        banner.bar:SetPoint("TOP", 0, -7)
         banner.rank = ns.Text(banner, 12)
-        banner.rank:SetPoint("TOPLEFT", banner.name, "BOTTOMLEFT", 0, -4)
-        banner.bar = ns.character.Bar(banner, 100)
-        banner.bar:SetPoint("BOTTOMLEFT", 2 * CAP, 4)
-        banner.bar:SetPoint("RIGHT", -2 * CAP, 0)
-        banner.caps = {}
-        for k, side in ipairs({ "LEFT", "RIGHT" }) do
-            local cap = banner:CreateTexture(nil, "ARTWORK")
-            cap:SetSize(CAP, CAP)
-            cap:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-            cap:SetRotation(math.pi / 4)
-            cap:SetPoint("CENTER", banner.bar, side, (k == 1 and -1 or 1) * CAP, 0)
-            banner.caps[k] = cap
-        end
+        banner.rank:SetPoint("TOP", banner.bar, "BOTTOM", 0, -5)
+        -- the bar at its width, narrower in a narrow window
+        banner:SetScript("OnSizeChanged", function(_, w)
+            banner.bar:SetWidth(math.max(80, math.min(BANNER_BAR, (w or 0) - 2 * BAR_MARGIN)))
+        end)
         p.banner = banner
-        local hair = ns.window.Ornament(body)
-        hair:SetPoint("TOPLEFT", 0, -(BANNER + 1))
-        hair:SetPoint("TOPRIGHT", 0, -(BANNER + 1))
-        p.hair = hair
         local search = CreateFrame("EditBox", "MedalluinProfessionsSearch" .. i, body, "SearchBoxTemplate")
         search:SetHeight(20)
-        search:SetPoint("TOPLEFT", 6, -(BANNER + HAIR + 2))
-        search:SetPoint("TOPRIGHT", -2, -(BANNER + HAIR + 2))
+        search:SetPoint("TOPLEFT", 6, 0)
+        search:SetPoint("TOPRIGHT", -2, 0)
         search:SetAutoFocus(false)
         search:HookScript("OnTextChanged", function(self)
             local text = self:GetText()
