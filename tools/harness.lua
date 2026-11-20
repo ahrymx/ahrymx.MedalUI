@@ -20201,7 +20201,9 @@ if profPass then
                         if b.shown and b.row == r then over = b end
                     end
                     table.insert(list, r.label.text .. (r.mark.shown and "*" or "")
-                        .. (over and ("[" .. tostring(over.attrs.type) .. ":" .. tostring(over.attrs.spell) .. "]") or ""))
+                        .. (over and ("[" .. tostring(over.attrs.type) .. ":" .. tostring(over.attrs.spell)
+                            -- over its row by numbers, anchored to the holder, never to the row
+                            .. "@" .. (select(2, over:GetPoint(1)) == d.holder and "holder" or "row") .. "]") or ""))
                 end
             end
             print(tag, "open=" .. tostring(d.IsOpen()), table.concat(list, " "),

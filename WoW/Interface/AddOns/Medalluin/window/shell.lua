@@ -1807,6 +1807,7 @@ function ns.Window(spec)
     local function Holder()
         if holder then return holder end
         holder = CreateFrame("Frame", nil, UIParent)
+        holder:SetAllPoints(UIParent)
         holder:SetFrameStrata("FULLSCREEN_DIALOG")
         holder:SetFrameLevel(drop.list:GetFrameLevel() + 20)
         holder.buttons = {}
@@ -1842,6 +1843,7 @@ function ns.Window(spec)
         for _, b in ipairs(holder.buttons) do
             b.page, b.row = nil, nil
             b:SetAttribute("spell", nil)
+            b:ClearAllPoints()
             b:Hide()
         end
     end
@@ -1855,9 +1857,11 @@ function ns.Window(spec)
                 local b = Cast(n)
                 b.page, b.row = p, r
                 b:SetAttribute("spell", p.cast)
-                b:ClearAllPoints()
-                b:SetAllPoints(r)
-                b:Show()
+                -- over the row by numbers, never anchored to it: a secure
+                -- button's anchor would protect the row, the list and the
+                -- catcher in combat (2026-11-20: Retab's ClearAllPoints and
+                -- Escape's Hide of the list blocked)
+                if ns.window.Over(b, r) then b:Show() else b:Hide() end
             end
         end
         if holder then
