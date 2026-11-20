@@ -176,6 +176,7 @@ local DEFAULTS = {
     gameMenuFilterTint = "black", -- its tint (window/gamemenu.lua TINTS)
     gameMenuFilterShape = "vignette", -- a vignette, or "even" (the old flat shade)
     npcWindows = true,      -- gossip, the quest pages and the vendor in a box on the chat box (npc/window.lua)
+    merchantAutoRepair = false, -- a repair vendor opened repairs everything (Alt-click its Repair, npc/merchant.lua)
     npcSpace = true,        -- Space presses a quest page's Accept, Continue or Complete Quest
     npcQuestItems = true,   -- an item that begins a quest, got, opens the box on it (npc/questitem.lua)
     trainerFilter = false,  -- the trainer's type shown: "available", "unavailable" or "used"; Available if unset

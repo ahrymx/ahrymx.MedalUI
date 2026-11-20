@@ -106,7 +106,7 @@
 --   Item                                          |   Price
 --   [icon] Fishing Pole                           |     23c   <- shaded
 --   [icon] Shiny Bauble                           |     50c
--- Its foot: { left = text, { label, click, enabled, tip, primary } ... },
+-- Its foot: { left = text, { label, click, enabled, tip, primary, alt, active } ... },
 -- the buttons left to right: sharing the width when there is no text, else
 -- at the right; the primary one wears the deed's red.
 --
@@ -137,6 +137,7 @@ local TENTH = 0.1                                -- the far edge of a fade, as t
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local DEED = { 0.42, 0.13, 0.09 }                -- the primary button's fill
+local AUTO = { 0.16, 0.36, 0.70 }                -- a button's fill while its Alt-click mode is on
 -- the head's and foot's own ink over the box's: 5/9 more, the box's fade
 -- from solid to a tenth becomes solid to 60% (1 - 0.9 * 4/9 = 0.6)
 local BAND_INK = 5 / 9
@@ -816,14 +817,23 @@ local function Foot(spec)
         local d = spec[i]
         local b = buttons[i]
         if d and not b then
-            b = ns.window.Button(foot, 60, function(self) if self.data.click then self.data.click() end end,
-                function() return "" end)
+            -- Alt-click: the button's alt, if it has one (it stays clickable
+            -- for it, its words dim, while its click is not to be had)
+            b = ns.window.Button(foot, 60, function(self)
+                local data = self.data
+                if data.alt and IsAltKeyDown() then data.alt()
+                elseif data.enabled ~= false and data.click then data.click() end
+            end, function() return "" end)
             b:SetHeight(BUTTON)
             b.label:SetFont(ns.font, 14, "")
             b.deed = b:CreateTexture(nil, "BACKGROUND", nil, 3)
             b.deed:SetPoint("TOPLEFT", 1, -1)
             b.deed:SetPoint("BOTTOMRIGHT", -1, 1)
             b.deed:SetColorTexture(DEED[1], DEED[2], DEED[3], 0.9)
+            b.auto = b:CreateTexture(nil, "BACKGROUND", nil, 4)
+            b.auto:SetPoint("TOPLEFT", 1, -1)
+            b.auto:SetPoint("BOTTOMRIGHT", -1, 1)
+            b.auto:SetColorTexture(AUTO[1], AUTO[2], AUTO[3], 0.85)
             b:SetScript("OnEnter", function(self)
                 if self.data.tip then
                     ns.Tip(self, ns.window.OutsideTop,
@@ -838,8 +848,9 @@ local function Foot(spec)
                 b.data = d
                 b.label:SetText(d.label)
                 b:SetWidth(share or math.max(#d.label > 1 and 76 or BUTTON, b.label:GetStringWidth() + 24))
-                b:SetEnabled(d.enabled ~= false)
+                b:SetEnabled(d.enabled ~= false or d.alt ~= nil)
                 b.deed:SetShown(d.primary and d.enabled ~= false or false)
+                b.auto:SetShown(d.active and true or false)
                 Colour(b.label, d.enabled ~= false and ns.colors.text or ns.colors.dim)
             end
         end

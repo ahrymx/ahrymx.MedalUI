@@ -253,6 +253,16 @@ local function SellJunk()
     for _, s in ipairs(slots) do C_Container.UseContainerItem(s[1], s[2]) end
 end
 
+local function Update() ns.npc.Update("merchant") end
+
+-- Auto repair (Alt-click Repair): everything mended as a repair vendor
+-- opens, when you can pay for it
+local function AutoRepair()
+    if not (ns.db.merchantAutoRepair and CanMerchantRepair and CanMerchantRepair()) then return end
+    local cost, can = GetRepairAllCost()
+    if can and cost and cost > 0 and GetMoney() >= cost then RepairAllItems() end
+end
+
 -- ------------------------------------------------------------ the foot
 local function Foot()
     local close = { label = Tr["Goodbye"], click = function() CloseMerchant() end }
@@ -286,9 +296,19 @@ local function Foot()
                 tip = broken and format(Tr["Repair everything from the guild bank: %s."], Money(cost))
                     or Tr["Nothing to repair."] })
         end
+        -- Alt-click: repair on opening every repair vendor from now on, or
+        -- no longer; blue while it is on
+        local auto = ns.db.merchantAutoRepair and true or false
         table.insert(foot, 1, { label = Tr["Repair"], click = function() RepairAllItems() end,
-            enabled = broken and (GetMoney() >= cost),
-            tip = broken and format(Tr["Repair everything: %s."], Money(cost)) or Tr["Nothing to repair."] })
+            enabled = broken and (GetMoney() >= cost), active = auto,
+            alt = function()
+                ns.SetOption("merchantAutoRepair", not ns.db.merchantAutoRepair)
+                AutoRepair()        -- (on: this vendor's repair too)
+                Update()
+            end,
+            tip = (broken and format(Tr["Repair everything: %s."], Money(cost)) or Tr["Nothing to repair."]) .. "\n"
+                .. (auto and Tr["Repairing on its own at every repair vendor. Alt-click: stop."]
+                    or Tr["Alt-click: repair on its own at every repair vendor."]) })
     end
     local count, value = Junk()
     table.insert(foot, { label = Tr["Sell junk"], click = SellJunk, enabled = count > 0,
@@ -299,13 +319,12 @@ local function Foot()
     return foot
 end
 
-local function Update() ns.npc.Update("merchant") end
-
 ns.npc.Page{
     key = "merchant", frame = "MerchantFrame", price = Tr["Price"], column = Tr["Item"],
     Blocks = Blocks, Foot = Foot, Close = function() CloseMerchant() end,
     Start = function()
         ns.On("MERCHANT_SHOW", function()
+            AutoRepair()
             tab, pending = "merchant", nil
             ns.npc.Show("merchant")
         end)

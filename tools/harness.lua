@@ -22943,7 +22943,9 @@ if npcPass then
             if b.shown and b.data then
                 -- where it stands and how wide; * the primary's red
                 table.insert(out, b.data.label .. (b.disabled and "(off)" or "") .. "@" .. tostring(b.points.LEFT
-                    and b.points.LEFT[3]) .. "/" .. tostring(math.floor(b.w + 0.5)) .. (b.deed.shown and "*" or ""))
+                    and b.points.LEFT[3]) .. "/" .. tostring(math.floor(b.w + 0.5)) .. (b.deed.shown and "*" or "")
+                    -- ~ the blue of an Alt-click mode on
+                    .. (b.auto and b.auto.shown and "~" or ""))
             end
         end
         local left
@@ -23244,6 +23246,34 @@ if npcPass then
     fire("UPDATE_INVENTORY_DURABILITY")
     foot("npc merchant repaired")
     print("npc merchant repaired tip", tipOf("Repair"))
+    -- Alt-click Repair: repair on opening every repair vendor (blue while
+    -- on), clickable for it with nothing to repair; a plain click still none
+    press("npc merchant auto plain", "Repair")
+    calls("npc merchant auto plain")
+    modsDown.ALT = true
+    press("npc merchant auto on", "Repair")
+    modsDown.ALT = nil
+    foot("npc merchant auto on")
+    print("npc merchant auto tip", "auto=" .. tostring(ns.db.merchantAutoRepair), (tipOf("Repair"):gsub("\n", " / ")))
+    W.repair = 104
+    fire("MERCHANT_SHOW")
+    calls("npc merchant auto opened")
+    W.money = 50
+    fire("MERCHANT_SHOW")
+    calls("npc merchant auto poor")
+    W.money = 23655
+    modsDown.ALT = true
+    press("npc merchant auto off", "Repair")
+    -- (and on again, gear to mend: this vendor repairs at once)
+    press("npc merchant auto again", "Repair")
+    calls("npc merchant auto again")
+    press("npc merchant auto off", "Repair")
+    modsDown.ALT = nil
+    fire("MERCHANT_SHOW")
+    calls("npc merchant auto off")
+    foot("npc merchant auto off")
+    W.repair = 0
+    fire("UPDATE_INVENTORY_DURABILITY")
     -- sell junk: the game's own where it has it, else each, out of combat
     press("npc merchant junk", "Sell junk")
     calls("npc merchant junk each")

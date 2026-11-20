@@ -1051,6 +1051,9 @@ L["Buy %d %s (it costs more than money)?"] = "Купить %d × %s (стоит 
 L["Buy"] = "Купить"
 L["Repair everything from the guild bank: %s."] = "Починить всё за счёт гильдии: %s."
 L["Nothing to repair."] = "Нечего чинить."
+L["Repairing on its own at every repair vendor. Alt-click: stop."] =
+    "Ремонт сам собой у каждого ремонтника. Alt-щелчок: выключить."
+L["Alt-click: repair on its own at every repair vendor."] = "Alt-щелчок: чинить само собой у каждого ремонтника."
 L["Repair"] = "Починить"
 L["Repair everything: %s."] = "Починить всё: %s."
 L["Sell junk"] = "Продать хлам"
