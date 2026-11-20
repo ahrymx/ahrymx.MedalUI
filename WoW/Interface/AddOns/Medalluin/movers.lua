@@ -8,6 +8,9 @@
 --               Without a client Edit Mode (Classic Era), /mdlui move.
 --   the window  the same values as sliders, and Reset: Console > General
 --               (the console), Overhead and Minimap (its corner).
+--   /cdm        while the Cooldown Manager's window is open, its viewers
+--               wear the same movers (the consoles' stay put), out of
+--               combat: their holders are placed only then.
 --
 -- The movers are Medalluin's own frames, shown on Edit Mode's EventRegistry
 -- events. They are never registered with Edit Mode: an addon's frame in its
@@ -146,7 +149,9 @@ local BLUE, BLUE_EDGE = { 0.20, 0.55, 1.00, 0.30 }, { 0.40, 0.72, 1.00, 0.90 }
 local GOLD_FILL, GOLD_EDGE = { 0.88, 0.72, 0.29, 0.25 }, { 0.88, 0.72, 0.29, 1 }
 
 local movers, popup, selected = {}, nil, nil
-local showing = false
+-- what has them out: Edit Mode (or /mdlui move), every mover; the Cooldown
+-- Manager's window, its viewers' alone, out of combat
+local editMode, cdmWindow, fighting = false, false, false
 
 -- The pointer, in design units from the screen's bottom left.
 local function Cursor()
@@ -258,6 +263,7 @@ local function Mover(c)
 
     -- a drag places it (Dragger); a press that is not one selects it
     local drag = Dragger(c)
+    m.drag = drag
     m:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then drag.Start() end end)
     m:SetScript("OnUpdate", drag.Update)
     m:SetScript("OnMouseUp", function(_, button)
@@ -330,29 +336,82 @@ function Popup(c)
     RefreshPopup()
 end
 
-local function ShowMovers(on)
-    showing = on and true or false
+-- whether c's mover is out: every one in Edit Mode, a viewer's while the
+-- window is open
+local function Out(c)
+    return editMode or (cdmWindow and not fighting and c.look ~= nil)
+end
+
+local function Refresh()
     for _, c in ipairs(CONSOLES) do
         local frame = c.frame()
         if frame then
             movers[c.id] = movers[c.id] or Mover(c)
-            movers[c.id]:SetShown(showing and (not c.shown or c.shown()) and true or false)
+            local m = movers[c.id]
+            local on = Out(c) and (not c.shown or c.shown()) and true or false
+            -- one taken away mid-drag ends it where it got to
+            if not on and m:IsShown() then m.drag.Stop() end
+            m:SetShown(on)
         end
     end
-    if not showing then
+    -- the popup and the selection go with the selected one's mover
+    if selected and not Out(selected) then
         if popup then popup:Hide() end
         selected = nil
-        for _, m in pairs(movers) do m.from = nil; Paint(m) end
+        for _, m in pairs(movers) do Paint(m) end
     end
 end
+
+local function ShowMovers(on)
+    editMode = on and true or false
+    Refresh()
+end
 ns.ShowConsoleMovers = ShowMovers
-function ns.ConsoleMoversShown() return showing end
+-- (the consoles' movers: Edit Mode's or /mdlui move's)
+function ns.ConsoleMoversShown() return editMode end
 ns.consoleMovers = movers
 
 ns.OnAnySetting(function(key)
     RefreshPopup()
     -- the overhead turned off or on while its mover is out
-    if (key == "overhead" or key == "cdmDisplay") and showing then ShowMovers(true) end
+    if (key == "overhead" or key == "cdmDisplay") and (editMode or cdmWindow) then Refresh() end
+end)
+
+-- The Cooldown Manager's window (Blizzard_CooldownViewer, loaded when first
+-- asked for): its viewers' movers while it is open. Hooked, its own code
+-- untouched (cooldowns/window.lua dresses it the same way).
+local hooked = false
+local function HookWindow()
+    local s = _G.CooldownViewerSettings
+    if hooked or not (s and s.HookScript) then return end
+    hooked = true
+    s:HookScript("OnShow", function()
+        cdmWindow = true
+        Refresh()
+    end)
+    s:HookScript("OnHide", function()
+        cdmWindow = false
+        Refresh()
+    end)
+    if s:IsShown() then
+        cdmWindow = true
+        Refresh()
+    end
+end
+HookWindow()
+ns.On("ADDON_LOADED", function(_, name)
+    if name == "Blizzard_CooldownViewer" then HookWindow() end
+end)
+ns.On("PLAYER_LOGIN", HookWindow)
+-- in combat the viewers stay where they are (their holders wait for it to
+-- end), so their movers step away meanwhile
+ns.On("PLAYER_REGEN_DISABLED", function()
+    fighting = true
+    if cdmWindow then Refresh() end
+end)
+ns.On("PLAYER_REGEN_ENABLED", function()
+    fighting = false
+    if cdmWindow then Refresh() end
 end)
 
 -- Edit Mode's own frame or events; a client without them has /mdlui move.

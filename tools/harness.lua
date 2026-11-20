@@ -26412,6 +26412,58 @@ if cdmPass then (function()
     tm.scripts.OnMouseUp(tm, "LeftButton")
     popupShown("cdm popup bars")
     ns.ShowConsoleMovers(false)
+    -- the Cooldown Manager's window open: the viewers' movers alone, no
+    -- Edit Mode; dragged, clicked for their popup; with Edit Mode too,
+    -- every one; out of the way in combat
+    ;(function()
+        local function out(tag)
+            local on = {}
+            for _, c2 in ipairs(ns.CONSOLE_MOVERS) do
+                local m = ns.consoleMovers[c2.id]
+                if m and m:IsShown() then table.insert(on, c2.id) end
+            end
+            print("cdm window movers " .. tag, #on > 0 and table.concat(on, ",") or "none",
+                "popup=" .. tostring(P:IsShown() and P.console and P.console.id or false),
+                "console whole=" .. tostring(ns.ConsoleMoversShown()))
+        end
+        f:Show()
+        out("open")
+        local realCursor = GetCursorPosition
+        local cx, cy = 500, 400
+        GetCursorPosition = function() return cx, cy end
+        local h = D.holders.essential
+        local _, _, _, hx0, hy0 = h:GetPoint(1)
+        em.scripts.OnMouseDown(em, "LeftButton")
+        cx, cy = 530, 380
+        em.scripts.OnUpdate(em, 0.02)
+        em.scripts.OnMouseUp(em, "LeftButton")
+        local _, _, _, hx1, hy1 = h:GetPoint(1)
+        print("cdm window drag", "saved=" .. tostring(ns.db.cdmEX) .. "," .. tostring(ns.db.cdmEY),
+            string.format("holder moved=%s", tostring(hx1 ~= hx0 or hy1 ~= hy0)))
+        GetCursorPosition = realCursor
+        out("dragged and clicked")
+        ns.ResetConsolePlace("cdmE")
+        ns.ShowConsoleMovers(true)
+        out("Edit Mode too")
+        om.scripts.OnMouseDown(om, "LeftButton")
+        om.scripts.OnMouseUp(om, "LeftButton")
+        ns.ShowConsoleMovers(false)
+        out("Edit Mode closed with the console's popup")
+        ns.ShowConsoleMovers(true)
+        f:Hide()
+        out("window closed, Edit Mode open")
+        ns.ShowConsoleMovers(false)
+        out("both closed")
+        f:Show()
+        inCombat = true
+        for _, fr in ipairs(events.PLAYER_REGEN_DISABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_DISABLED") end
+        out("in combat")
+        inCombat = false
+        for _, fr in ipairs(events.PLAYER_REGEN_ENABLED or {}) do fr.scripts.OnEvent(fr, "PLAYER_REGEN_ENABLED") end
+        out("combat over")
+        f:Hide()
+        out("closed")
+    end)()
 
     -- the tracked bars (BuffBarCooldownViewer): dressed, a column on their
     -- own holder, each bar at their Width and Size
