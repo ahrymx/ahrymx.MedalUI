@@ -867,6 +867,17 @@ function ns.OptionPages()
                             .. "being built, so it cannot be chosen yet."], wip = true },
                         { "game", Tr["The game's"], Tr["The game's own menu, as it stands."] },
                     }, Tr["How the menu Escape opens looks. Its buttons stay the game's own."], true)),
+                -- (Latin clients only: Cyrillic has Forum alone, Korean and
+                -- Chinese the game's own)
+                ns.faceChoosable and Group(Tr["Font"],
+                    Choice("medalluinFace", Tr["Medalluin's font"], {
+                        { "marcellus", "Marcellus SC", Tr["Carved capitals throughout, the small letters as "
+                            .. "smaller capitals."], ns.FACES.marcellus },
+                        { "forum", "Forum", Tr["Carved capitals with lower-case letters: easier to read at "
+                            .. "length."], ns.FACES.forum },
+                    }, Tr["The face of every text Medalluin draws: windows, frames, bars and the quest "
+                        .. "tracker, and the Tooltips and Radial menu companions where they use Medalluin's. "
+                        .. "A text given a font of its own keeps it."], true)) or nil,
             },
         },
         {

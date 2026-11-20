@@ -6,14 +6,45 @@ ns.media = "Interface\\AddOns\\Medalluin\\media\\"
 -- SC has no Cyrillic, so a Russian client drew squares): Forum, a serif
 -- of the same carved capitals with Cyrillic, on ruRU; the game's own on
 -- Korean and Chinese, which no bundled face covers; else Marcellus SC.
--- The companions choose the same (mdlui_Tooltips, mdlui_RadialMenu).
-local FACE = { ruRU = "fonts\\Forum-Regular.ttf" }
+-- On Latin clients the player may choose Forum instead (General > Font,
+-- after a reload). The companions follow (mdlui_Tooltips,
+-- mdlui_RadialMenu), through MedalluinFontFace.
+local FACES = {
+    marcellus = ns.media .. "fonts\\MarcellusSC-Regular.ttf",
+    forum = ns.media .. "fonts\\Forum-Regular.ttf",
+}
+ns.FACES = FACES
+local FACE = { ruRU = "forum" }
 local GAME_FACE = { koKR = true, zhCN = true, zhTW = true }
 local locale = GetLocale and GetLocale() or "enUS"
+-- whether the face is the player's to choose: Latin letters, which both have
+ns.faceChoosable = not GAME_FACE[locale] and not FACE[locale]
 if GAME_FACE[locale] then
     ns.font = STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 else
-    ns.font = ns.media .. (FACE[locale] or "fonts\\MarcellusSC-Regular.ttf")
+    ns.font = FACES[FACE[locale] or "marcellus"]
+end
+local FACE_NAMES = { [FACES.marcellus] = "Marcellus SC", [FACES.forum] = "Forum" }
+
+-- The texts made before the settings load (the files' own, as they run):
+-- the face is not known yet, so they take the default and are put right
+-- once it is (ns.SettleFace, from settings.lua's ADDON_LOADED). Every text
+-- made then comes through ns.Text.
+local early = {}
+function ns.SettleFace(key)
+    local path = ns.faceChoosable and FACES[key]
+    if path and path ~= ns.font then
+        local old = ns.font
+        ns.font = path
+        for fs in pairs(early or {}) do
+            local face, size, flags = fs:GetFont()
+            if face == old then fs:SetFont(path, size, flags) end
+        end
+    end
+    early = nil
+    -- for the companions, which load after us: the bundled face, or nil
+    -- for the game's
+    MedalluinFontFace = FACE_NAMES[ns.font] and ns.font or nil
 end
 ns.bar = ns.media .. "bar"
 
@@ -439,7 +470,7 @@ end
 -- other addons register with LibSharedMedia, asked each time (they load
 -- after us). Each { key, name, path }; a key is kept in the settings.
 local FONTS = {
-    { "marcellus", "Marcellus SC", ns.font },
+    { "marcellus", "Marcellus SC", ns.font },       -- Medalluin's face, whichever it is (ns.Fonts)
     { "friz", "Friz Quadrata", "Fonts\\FRIZQT__.TTF" },
     { "arialn", "Arial Narrow", "Fonts\\ARIALN.TTF" },
     { "morpheus", "Morpheus", "Fonts\\MORPHEUS.TTF" },
@@ -452,6 +483,7 @@ end
 function ns.Fonts()
     local out = {}
     for _, f in ipairs(FONTS) do table.insert(out, f) end
+    out[1] = { "marcellus", FACE_NAMES[ns.font] or out[1][2], ns.font }
     local lsm = Shared()
     if lsm then
         local mine = {}
@@ -470,6 +502,7 @@ end
 -- A font key's file: Medalluin's own for a key no longer there (a shared
 -- font whose addon is gone).
 function ns.FontPath(key)
+    if key == "marcellus" then return ns.font end
     for _, f in ipairs(FONTS) do
         if f[1] == key then return f[3] end
     end
@@ -512,6 +545,7 @@ function ns.Cross(color, size) return Mark("cross", color, size) end
 function ns.Text(parent, size)
     local fs = parent:CreateFontString(nil, "OVERLAY")
     fs:SetFont(ns.font, size, "")
+    if early then early[fs] = true end
     fs:SetShadowOffset(1, -1)
     fs:SetShadowColor(0, 0, 0, 1)
     fs:SetTextColor(unpack(ns.colors.text))

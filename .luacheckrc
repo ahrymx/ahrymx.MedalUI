@@ -188,7 +188,7 @@ read_globals = {
 -- the saved variables, the slash command, the reset popup's key and the
 -- tooltip spec, the locked line and the beside test mdlui_Tooltips reads (core.lua,
 -- inventory/locks.lua, window/shell.lua)
-globals = { "_G", "Medalluin_TooltipSpec", "Medalluin_LockedLine", "Medalluin_TooltipBeside", "Medalluin_ArenaOpen", "MedalluinDB", "MedalluinCharDB", "SLASH_MEDALLUIN1", "SLASH_MEDALLUIN2", "SLASH_MDLUI1", "SlashCmdList",
+globals = { "_G", "Medalluin_TooltipSpec", "Medalluin_LockedLine", "Medalluin_TooltipBeside", "Medalluin_ArenaOpen", "MedalluinDB", "MedalluinCharDB", "MedalluinFontFace", "SLASH_MEDALLUIN1", "SLASH_MEDALLUIN2", "SLASH_MDLUI1", "SlashCmdList",
     "StaticPopupDialogs",
     -- the quest log key's binding (Bindings.xml, quests/log.lua)
     "MedalluinToggleQuestLog", "BINDING_NAME_MEDALLUIN_QUESTLOG",
@@ -210,7 +210,7 @@ files["WoW/Interface/AddOns/mdlui_Tooltips/**/*.lua"] = {
     read_globals = {
         "GetInboxItem", "PlaySound", "SOUNDKIT", "GameFontNormal", "GetInboxItemLink", "ATTACHMENTS_MAX_RECEIVE",
         "date", "tinsert", "issecretvalue", "canaccesstable", "debugprofilestop", "hooksecurefunc", "geterrorhandler", "debugstack",
-        "CreateFrame", "CreateColor", "UIParent", "GameTooltip", "GameTooltipStatusBar", "ItemRefTooltip", "GameTooltipText",
+        "CreateFrame", "CreateFont", "CreateColor", "UIParent", "GameTooltip", "GameTooltipStatusBar", "ItemRefTooltip", "GameTooltipText",
         "GameTooltipHeaderText", "QuestScrollFrame", "GameFontHighlightSmall", "UISpecialFrames", "ShowUIPanel", "HideUIPanel",
         "SetPortraitTexture", "ChatEdit_InsertLink", "GetCursorPosition", "GetMouseFoci", "GetMouseFocus", "NUM_CHAT_WINDOWS",
         "Settings", "SettingsPanel", "InterfaceOptions_AddCategory", "InterfaceOptionsFrame_OpenToCategory",

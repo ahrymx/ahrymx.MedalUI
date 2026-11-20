@@ -135,6 +135,8 @@ end
 -- Medalluin's face for this client's letters: Marcellus for Latin, Forum
 -- for Cyrillic; none for Korean and Chinese (the game's font then)
 local function MedalluinFace()
+    -- the face Medalluin settled on (its General > Font), set as it loads
+    if type(MedalluinFontFace) == "string" then return MedalluinFontFace end
     local locale = GetLocale and GetLocale() or "enUS"
     if locale == "ruRU" then return FORUM end
     if locale == "koKR" or locale == "zhCN" or locale == "zhTW" then return nil end

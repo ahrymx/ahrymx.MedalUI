@@ -765,6 +765,21 @@ end
 -- items() lists { value, text, font }; current() is the chosen value, nil for the default;
 -- pick(value) saves a choice. Each font is shown in its own face.
 local MENU_ROWS = 16
+-- A font object for each face the menus show: the game's menus forbid
+-- SetFont on their own texts ("Use of function 'SetFont' is disallowed",
+-- Blizzard_Menu's Compositor), but take a font object.
+local menuFonts, menuFontCount = {}, 0
+local function MenuFont(path)
+    if menuFonts[path] == nil then
+        menuFonts[path] = false
+        if CreateFont then
+            menuFontCount = menuFontCount + 1
+            local font = CreateFont("mdlui_TooltipsMenuFont" .. menuFontCount)
+            if font and font:SetFont(path, 13, "") ~= false then menuFonts[path] = font end
+        end
+    end
+    return menuFonts[path] or nil
+end
 local function ChoiceRow(card, n, spec, width, items, current, pick)
     local row = NewRow(card, n, spec)
     local drop = Panel.Choice(row, width, function(_, root)
@@ -777,8 +792,8 @@ local function ChoiceRow(card, n, spec, width, items, current, pick)
             end)
             if item.font and entry and entry.AddInitializer then
                 entry:AddInitializer(function(button)
-                    local fs = button.fontString
-                    if fs and fs.SetFont then fs:SetFont(item.font, 13, "") end
+                    local fs, font = button.fontString, MenuFont(item.font)
+                    if fs and font and fs.SetFontObject then fs:SetFontObject(font) end
                 end)
             end
         end
@@ -1273,7 +1288,8 @@ do
                 .. "part has none of its own.", setting = optionSetting("titleFont") }, 150, function()
                 local locale = GetLocale()
                 return fontItems(locale ~= "koKR" and locale ~= "zhCN" and locale ~= "zhTW"
-                    and (ns.Game.addonInstalled("Medalluin") and "Marcellus SC (Medalluin)"
+                    and (ns.Game.addonInstalled("Medalluin")
+                        and (tostring(MedalluinFontFace):find("Forum") and "Forum (Medalluin)" or "Marcellus SC (Medalluin)")
                         or ns.Game.addonInstalled("EllesmereUI") and "Expressway Bold (EllesmereUI)")
                     or "Game default")
             end, function() return ns.option("titleFont") end, function(name) ns.setOption("titleFont", name) end)

@@ -23,6 +23,16 @@ L["Detached: a box of its own, to move and size."] = "Откреплено: от
 -- ------------------------------------------------------------ the game menu
 -- (window/gamemenu.lua)
 L["Game menu"] = "Игровое меню"
+L["Font"] = "Шрифт"
+L["Medalluin's font"] = "Шрифт Medalluin"
+L["Carved capitals throughout, the small letters as smaller capitals."] =
+    "Резные заглавные буквы везде, строчные — как заглавные поменьше."
+L["Carved capitals with lower-case letters: easier to read at length."] =
+    "Резные заглавные со строчными буквами: длинный текст читать легче."
+L["The face of every text Medalluin draws: windows, frames, bars and the quest tracker, and the Tooltips "
+    .. "and Radial menu companions where they use Medalluin's. A text given a font of its own keeps it."] =
+    "Шрифт всех надписей Medalluin: окон, рамок, панелей и списка заданий, а также дополнений Tooltips "
+    .. "и Radial menu там, где они берут шрифт Medalluin. Надпись со своим шрифтом сохраняет его."
 L["Game menu options"] = "Настройки игрового меню"
 L["Sections, friends, guild, clock."] = "Разделы, друзья, гильдия, часы."
 L["Shortcuts"] = "Ярлыки"

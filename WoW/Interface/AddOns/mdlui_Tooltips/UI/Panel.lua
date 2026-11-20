@@ -13,9 +13,11 @@ local _, ns = ...
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local ART = "Interface\\AddOns\\mdlui_Tooltips\\art\\ui\\"
--- Medalluin's serif for this client's letters: Marcellus SC for Latin,
--- Forum for Cyrillic (Medalluin's core.lua chooses the same)
-local SERIF = (GetLocale and GetLocale() == "ruRU")
+-- Medalluin's serif for this client's letters: the face it settled on (its
+-- General > Font; it loads first), else Marcellus SC for Latin, Forum for
+-- Cyrillic (Medalluin's core.lua chooses the same)
+local SERIF = type(MedalluinFontFace) == "string" and MedalluinFontFace
+    or (GetLocale and GetLocale() == "ruRU")
     and "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf"
     or "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
 

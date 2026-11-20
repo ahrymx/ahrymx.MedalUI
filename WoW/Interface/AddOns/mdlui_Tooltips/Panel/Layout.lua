@@ -208,7 +208,11 @@ local function titleFont()
     -- Expressway and Marcellus SC have no Hangul or Chinese; use the client's header font there.
     local locale = GetLocale()
     if locale == "koKR" or locale == "zhCN" or locale == "zhTW" then return fontOf(GameTooltipHeaderText) end
-    if medalluinInstalled() then return locale == "ruRU" and MEDALLUIN_CYRILLIC or MEDALLUIN_FONT end
+    if medalluinInstalled() then
+        -- the face Medalluin settled on (its General > Font)
+        if type(MedalluinFontFace) == "string" then return MedalluinFontFace end
+        return locale == "ruRU" and MEDALLUIN_CYRILLIC or MEDALLUIN_FONT
+    end
     -- (Expressway has no Cyrillic either)
     if locale == "ruRU" then return fontOf(GameTooltipHeaderText) end
     return ellesmereInstalled() and ELLESMERE_BOLD or fontOf(GameTooltipHeaderText)

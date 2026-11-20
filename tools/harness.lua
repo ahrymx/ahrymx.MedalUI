@@ -2376,7 +2376,10 @@ function StaticPopup_Show() end
 -- Arena is set aside (settings.lua) but the passes still play it as it
 -- stands; the profiles pass closes it to see it set aside
 Medalluin_ArenaOpen = true
-MedalluinDB = profilesPass and args[3] == "saved" and { consoleProfile = "light",
+-- "face": Forum chosen as Medalluin's font (General > Font), saved: every
+-- text takes it, those made before the settings load too
+MedalluinDB = args[2] == "face" and { global = { medalluinFace = "forum" } }
+    or profilesPass and args[3] == "saved" and { consoleProfile = "light",
         -- the overhead's options, per profile until 2026-11-15: the profile in
         -- use (light, now reticule) gives the shared ones; arena's are dropped
         profiles = { default = { drawer = 2, topBoss = true, overheadAlpha = 0.3, topFocus = false },
@@ -17077,6 +17080,34 @@ if dispelPass then
     C_UnitAuras.GetAuraDataByIndex, C_Spell.GetSpellName, classOf.player = wasAuras, wasName, wasClass
     C_UnitAuras, IsPlayerSpell = hadAuras, nil
     fire("SPELLS_CHANGED")
+end
+
+-- `face [modern]` (and every other pass, for Marcellus): the face each
+-- text was drawn in, counted; the option on General; the companions' word
+do
+    local counts = {}
+    for _, r in ipairs(all) do
+        local face = r.font and tostring(r.font[1])
+        local name = face and (face:find("MarcellusSC") and "marcellus" or face:find("Forum") and "forum")
+        if name then counts[name] = (counts[name] or 0) + 1 end
+    end
+    local spec
+    for _, page in ipairs(ns.OptionPages()) do
+        if page.id == "general" then
+            for _, g in ipairs(page.groups or {}) do
+                for _, item in ipairs(g.items or {}) do
+                    if item.key == "medalluinFace" then spec = item end
+                end
+            end
+        end
+    end
+    local fonts = ns.Fonts()
+    print("face", "marcellus=" .. (counts.marcellus or 0) .. " forum=" .. (counts.forum or 0) .. " any="
+        .. tostring((counts.marcellus or 0) + (counts.forum or 0) > 100),
+        "companions=" .. tostring(MedalluinFontFace and MedalluinFontFace:match("[^\\]+$")),
+        "reading=" .. fonts[1][2] .. ":" .. tostring(ns.FontPath("marcellus"):match("[^\\]+$")),
+        "option=" .. (spec and (spec.label .. " " .. #spec.choices .. " reload=" .. tostring(spec.reload)
+            .. " now=" .. tostring(ns.db.medalluinFace)) or "none"))
 end
 
 -- `look [bare] [modern]`: the Action Bar page's Text and Cooldowns options
