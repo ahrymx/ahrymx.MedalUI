@@ -19508,6 +19508,71 @@ if talentPass then
     press(ord.remove)
     press(ord.remove)
     plans("talents.plans none")
+    -- Import: a Wowhead build pasted (its link, WHML or embed), opened in
+    -- the plan's mode; the stub's trees by row then column are Convection,
+    -- Concussion, Call of Flame, Elemental Mastery | Ancestral Knowledge,
+    -- Shield Specialization, Shamanistic Focus | Improved Healing Wave
+    local function import(tag, text)
+        press(ord.import)
+        print(tag .. " box", "shown=" .. tostring(ord.paste.shown), "hint=" .. tostring(ord.hint.shown),
+            "focus=" .. tostring(ord.paste:HasFocus()))
+        ord.paste:SetText(text)
+        ord.paste.scripts.OnEnterPressed(ord.paste)
+        frame()
+        local p = W.Current()
+        if p.key == "plans" then
+            print(tag, "refused", "box=" .. tostring(ord.paste.shown), "hint=" .. tostring(p.hint.text))
+        else
+            strip(tag)
+            save("Wowhead")
+            plan(tag .. " kept")
+            toggle()
+            press(W.Current().plans)
+            press(ord.heads[1].use)
+            press(ord.remove)
+            press(ord.remove)
+        end
+    end
+    print("talents.import tip", tostring(ord.import.label.text))
+    -- the decoder on a real Forever build (Wowhead's three shares of it): the
+    -- trees' ranks, then the order, tree:talent x ranks
+    local REAL = "shaman/vkndmh053303102-05303031002121221-053_t0/1BEcchGcnPmmSRqt2BC0BFCgdddJ"
+    for k, text in ipairs({ "https://www.wowhead.com/forever/talent-calc/" .. REAL, "[talent=" .. REAL .. "]",
+        "https://www.wowhead.com/forever/talent-calc/embed/" .. REAL, "[talent=shaman/vk05/1B3]",
+        "[talent=shaman/vk05/1Bb]", "[talent=shaman/vk05/B]" }) do
+        local kind = ({ "link", "whml", "embed", "unknown letter", "counts off", "no tree first" })[k]
+        local build = ns.WowheadBuild(text)
+        local o, trees, n = {}, {}, 0
+        for k, list in ipairs(build and build.trees or {}) do trees[k] = table.concat(list) end
+        for _, e in ipairs(build and build.order or {}) do
+            table.insert(o, (e[1] - 1) .. ":" .. e[2] .. "x" .. e[3])
+            n = n + e[3]
+        end
+        print("talents.import read " .. kind, build and (build.class .. " "
+            .. table.concat(trees, "-") .. " points=" .. n .. " | " .. table.concat(o, " ")) or "nil")
+    end
+    -- the foot's buttons, edge to edge: Import at the right, clear of Remove
+    -- (shown while a plan is active)
+    local function edges(tag)
+        local at = ord.foot:GetLeft() or 0
+        local function x(b) local l = b:GetLeft() return l and string.format("%d-%d", l - at, l - at + b:GetWidth()) or "?" end
+        print(tag, "create=" .. x(ord.create), "edit=" .. x(ord.edit), "remove=" .. x(ord.remove),
+            "import=" .. x(ord.import))
+    end
+    edges("talents.import buttons")
+    -- the build's own class only
+    import("talents.import other class", "https://www.wowhead.com/forever/talent-calc/shaman/vk531-2/0Abbb1aa0c")
+    classOf.player = "SHAMAN"
+    import("talents.import link", "https://www.wowhead.com/forever/talent-calc/shaman/vk531-2_t0/0Abbb1aa0c")
+    import("talents.import whml", "[talent=shaman/vk531-2_t0/0Abbb1aa0c]")
+    -- without an order: tree by tree, each top down
+    import("talents.import no order", "https://www.wowhead.com/forever/talent-calc/embed/shaman/vk531-2")
+    -- Call of Flame before Convection is full: left out, and said
+    import("talents.import out of order", "[talent=shaman/vk531-2/0cAbbb1aa]")
+    import("talents.import misfit", "[talent=shaman/vk531-2003]")
+    import("talents.import nothing", "a Wowhead page, but no build")
+    import("talents.import warrior", "[talent=warrior/vk53]")
+    classOf.player = nil
     -- the one plan of before becomes "Plan", active
     MedalluinCharDB.talentPlans = nil
     local id = {}

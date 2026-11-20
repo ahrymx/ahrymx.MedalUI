@@ -178,7 +178,7 @@ local MODULES = {
     character = { "character", Tr["Gear, stats, reputation and currency."] },
     inspect = { "character", Tr["A player's gear, item level, talents and guild, beside your own."] },
     spellbook = { "spellbook", Tr["Spells in role cards, macros and the trainer."] },
-    talents = { "talents", Tr["A tab for each tree, with Apply and your plans."] },
+    talents = { "talents", Tr["A tab for each tree, with Apply and your plans, or Wowhead's."] },
     professions = { "profession", Tr["An overview, and a tab for each profession that crafts."] },
     questlog = { "questlog", Tr["Every quest in your log, by zone, on the right strip."] },
     lfg = { "lfg", Tr["The group finder and Who."] },
@@ -1431,8 +1431,8 @@ function ns.OptionPages()
                     Check("talents", Tr["Talents window"],
                         Tr["Your talents, a tab for each tree, in one window standing on the side panel. Spend points, "
                         .. "then Apply; switch between your Primary and Secondary talents in its margin. Plans, there, "
-                        .. "draws and keeps the orders to learn them in. In combat it reads. Untick it to keep the "
-                        .. "game's talents."], true),
+                        .. "draws and keeps the orders to learn them in, or brings one from Wowhead's talent "
+                        .. "calculator. In combat it reads. Untick it to keep the game's talents."], true),
                     nil),
                 Part("professions", Tr["Professions"], true,
                     Check("professions", Tr["Professions window"],

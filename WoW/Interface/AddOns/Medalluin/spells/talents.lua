@@ -70,7 +70,10 @@
 -- under a head that folds it (Use makes one active), with its checkpoints
 -- (the levels each comes at, the learned ticked, the active one's next
 -- marked; a click opens its talent); its foot has Create Plan, Edit (the
--- active plan drawn again, from its last checkpoint) and Remove.
+-- active plan drawn again, from its last checkpoint), Remove and Import: a
+-- build from Wowhead's talent calculator, its link or WHML pasted
+-- (spells/wowhead.lua), opened in the plan's mode as a plan to look over
+-- and save, the points the rules refuse left out and counted.
 --
 -- The talents glow, softly: one with points allocated and not yet applied
 -- (staged; in the plan's mode, the draft's) pulses, green, or blue when
@@ -345,7 +348,7 @@ local function Add(id)
     local m = Model(Config())
     if Why(m, Walk(m, Drawn()), id) then return end
     sim.draft = { id = id, n = (sim.draft and sim.draft.n or 0) + 1 }
-    sim.saved = false
+    sim.saved, sim.note = false, nil
     return true
 end
 
@@ -373,7 +376,7 @@ local function Remove(id)
     end
     sim.steps = steps
     sim.draft = kept > 0 and { id = d.id, n = kept } or nil
-    sim.saved = false
+    sim.saved, sim.note = false, nil
     return true
 end
 
@@ -382,7 +385,7 @@ local function Checkpoint()
     local d = sim.draft
     if not d then return end
     for _ = 1, d.n do table.insert(sim.steps, d.id) end
-    sim.draft = nil
+    sim.draft, sim.note = nil, nil
 end
 
 -- the plan drawn kept under a name, replacing one of that name, and made
@@ -400,16 +403,19 @@ local function Save(name)
         at = #b.list
     end
     b.active = at
-    sim.name, sim.saved = name, true
+    sim.name, sim.saved, sim.note = name, true, nil
 end
 
 -- the mode on, drawing a plan from nothing or from one kept; off, the
 -- plan drawn is forgotten (nothing reads it out of the mode, and the next
 -- Begin replaces it). A plan kept is opened at its last checkpoint: that
--- talent's run is the draft again, so going on takes a Checkpoint first
-local function Begin(steps, name)
+-- talent's run is the draft again, so going on takes a Checkpoint first;
+-- whole (an import), every run is a checkpoint already, to save as it is.
+-- note: said in the console's status until the plan drawn changes
+local function Begin(steps, name, note, whole)
     planning = true
-    sim = { steps = Copy(steps or {}), name = name, saved = name ~= nil }
+    sim = { steps = Copy(steps or {}), name = name, saved = name ~= nil, note = note }
+    if whole then return end
     local list, id, n = sim.steps, sim.steps[#sim.steps], 0
     while id and list[#list] == id do
         table.remove(list)
@@ -419,6 +425,61 @@ local function Begin(steps, name)
 end
 local function End()
     planning = nil
+end
+
+-- ------------------------------------------------------- Wowhead's builds
+-- A build from Wowhead's talent calculator (spells/wowhead.lua) as a plan's
+-- ranks, for the talents in view: each tree's talents by row then column,
+-- as Wowhead counts them (the Talented perk, a node of its own, is none of
+-- them). Its order where it has one, else tree by tree, each top down.
+-- Returns the ranks and how many of them the rules left out, or nil and
+-- why it cannot be read onto these trees.
+local TALENTED = 110298                 -- Forever's Talented perk
+local function Imported(build)
+    local config = Config()
+    local _, token = UnitClass("player")
+    if build.class ~= token then
+        local names = LOCALIZED_CLASS_NAMES_MALE or {}
+        return nil, format(Tr["That build is for a %s, not these talents."],
+            names[build.class] or build.class:sub(1, 1) .. build.class:sub(2):lower())
+    end
+    local m = Model(config)
+    local trees = {}
+    for k, g in ipairs(Groups(config)) do
+        local list = {}
+        for id, t in pairs(m) do
+            if t.group == g.groupID and id ~= TALENTED then table.insert(list, id) end
+        end
+        table.sort(list, function(a, b)
+            local ta, tb = m[a], m[b]
+            if ta.tier ~= tb.tier then return ta.tier < tb.tier end
+            if ta.node.posX ~= tb.node.posX then return ta.node.posX < tb.node.posX end
+            return a < b
+        end)
+        trees[k] = list
+    end
+    local misfit = Tr["That build does not fit these trees: Wowhead's may be newer or older."]
+    local order = build.order
+    if not order then
+        order = {}
+        for t, ranks in ipairs(build.trees) do
+            for i, n in ipairs(ranks) do
+                if n > 0 then table.insert(order, { t, i, n }) end
+            end
+        end
+    end
+    for t, ranks in ipairs(build.trees) do
+        for i, n in ipairs(ranks) do
+            local id = n > 0 and (trees[t] or {})[i]
+            if n > 0 and not (id and n <= m[id].node.maxRanks) then return nil, misfit end
+        end
+    end
+    local steps = {}
+    for _, o in ipairs(order) do
+        for _ = 1, o[3] do table.insert(steps, trees[o[1]][o[2]]) end
+    end
+    local kept = Walk(m, steps).kept
+    return kept, #steps - #kept
 end
 
 -- Follow: the plan's next entries staged while points are left, stopping
@@ -830,7 +891,8 @@ local function Refresh(p)
         c.number:SetText(#plan.kept)
         c.caption:SetText(format(Tr["planned\nof %d"], Cap()))
         c.line:SetText(format(Tr["%d planned in this tree"], plan.spent[group.groupID] or 0))
-        State(sim.name or Tr["New plan"], d and format(Tr["Draft: %s +%d"], Entry(config, m[d.id].node).name, d.n)
+        State(sim.name or Tr["New plan"], sim.note
+            or d and format(Tr["Draft: %s +%d"], Entry(config, m[d.id].node).name, d.n)
             or sim.saved and Tr["Saved"] or Tr["Not saved"], true)
     else
         local left = Left(config)
@@ -1567,7 +1629,7 @@ local function RefreshPlans(p)
     p.list.To(p.list.target)
     p.edit:SetShown(summary and true or false)
     p.remove:SetShown(summary and true or false)
-    p.hint:SetText(#b.list == 0
+    p.hint:SetText(p.notice or #b.list == 0
         and Tr["No plan yet: Create Plan, click talents, Checkpoint each, then Save plan."]
         or not summary and Tr["Press Use on a plan to make it the active one."]
         or summary.place and format(Tr["Next: level %d. Click a checkpoint to open its talent."], summary.place + 9)
@@ -1593,6 +1655,7 @@ do
         top:SetHeight(STRIP)
         -- Create Plan draws one from nothing, in the plan's mode over a tree
         p.create = Button(top, 92, function()
+            p.notice = nil
             Begin()
             Back()
         end, function() return Tr["Draw a plan from nothing: the order to learn talents in."] end)
@@ -1603,6 +1666,7 @@ do
         p.edit = Button(top, 52, function()
             local chosen = Chosen()
             if not chosen then return end
+            p.notice = nil
             Begin(chosen.steps, chosen.name)
             Back()
         end, function()
@@ -1631,6 +1695,62 @@ do
         p.remove:HookScript("OnLeave", function(self)
             self.armed = nil
             self.label:SetText(Tr["Remove"])
+        end)
+        -- Import: a Wowhead build pasted into a box over the hint, opened in
+        -- the plan's mode to look over and save; why not, in the hint
+        p.import = Button(top, 64, function()
+            p.notice = nil
+            p.paste:SetText("")
+            p.paste:Show()
+            p.hint:Hide()
+            p.paste:SetFocus()
+        end, function()
+            return Tr["Paste a Wowhead talent calculator link or its WHML: the build opens as a plan to look over "
+                .. "and save."]
+        end)
+        p.import.label:SetText(Tr["Import"])
+        p.import:SetHeight(STRIP - 2)
+        p.import:SetPoint("RIGHT", -4, 0)
+        p.paste = CreateFrame("EditBox", nil, foot)
+        p.paste:SetAutoFocus(false)
+        p.paste:SetFont(ns.font, 12, "")
+        p.paste:SetTextColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3])
+        p.paste:SetTextInsets(8, 8, 0, 0)
+        p.paste:SetMaxLetters(600)
+        p.paste:SetHeight(24)
+        p.paste:SetPoint("TOPLEFT", 8, -(6 + STRIP + 6))
+        p.paste:SetPoint("TOPRIGHT", -8, -(6 + STRIP + 6))
+        local well = p.paste:CreateTexture(nil, "BACKGROUND")
+        well:SetAllPoints()
+        well:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        local inside = p.paste:CreateTexture(nil, "BACKGROUND", nil, 1)
+        inside:SetPoint("TOPLEFT", 1, -1)
+        inside:SetPoint("BOTTOMRIGHT", -1, 1)
+        inside:SetColorTexture(0.047, 0.043, 0.035, 1)
+        p.paste:Hide()
+        p.paste:SetScript("OnEnterPressed", function(self)
+            local text = self:GetText()
+            self:ClearFocus()
+            local build = ns.WowheadBuild(text)
+            local steps, left
+            if build then
+                steps, left = Imported(build)
+            else
+                left = Tr["No Wowhead talent build in that: paste the calculator's link, or its WHML."]
+            end
+            if not steps then
+                p.notice = left
+                W.Refresh()
+                return
+            end
+            Begin(steps, nil, left > 0 and ns.Plural(left,
+                format(Tr["Left out by the rules: %d |4point:points;."], left)) or nil, true)
+            Back()
+        end)
+        p.paste:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+        p.paste:SetScript("OnEditFocusLost", function(self)
+            self:Hide()
+            p.hint:Show()
         end)
         local area = CreateFrame("Frame", nil, body)
         area:SetPoint("TOPLEFT", 0, -4)

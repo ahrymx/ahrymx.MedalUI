@@ -1770,7 +1770,8 @@ L["Gear, stats, reputation and currency."] = "Снаряжение, характ
 L["A player's gear, item level, talents and guild, beside your own."] =
     "Снаряжение, уровень предметов, таланты и гильдия игрока рядом с вашими."
 L["Spells in role cards, macros and the trainer."] = "Заклинания в карточках ролей, макросы и наставник."
-L["A tab for each tree, with Apply and your plans."] = "Вкладка для каждой ветви, с «Применить» и вашими планами."
+L["A tab for each tree, with Apply and your plans, or Wowhead's."] =
+    "Вкладка для каждой ветви, с «Применить» и вашими планами или планами с Wowhead."
 L["An overview, and a tab for each profession that crafts."] = "Обзор и вкладка для каждой ремесленной профессии."
 L["Every quest in your log, by zone, on the right strip."] = "Все задания журнала, по зонам, на правой полосе."
 L["The group finder and Who."] = "Поиск группы и «Кто»."
@@ -2629,10 +2630,12 @@ L["A spell bound in Click Casting (/cc) wears a small mouse on its icon, and its
 L["Talents window"] = "Окно талантов"
 L["Your talents, a tab for each tree, in one window standing on the side panel. Spend points, then Apply; switch "
     .. "between your Primary and Secondary talents in its margin. Plans, there, draws and keeps the orders to learn "
-    .. "them in. In combat it reads. Untick it to keep the game's talents."] =
+    .. "them in, or brings one from Wowhead's talent calculator. In combat it reads. Untick it to keep the game's "
+    .. "talents."] =
     "Ваши таланты, по вкладке на ветвь, в одном окне на боковой панели. Распределите очки, затем «Применить»; "
     .. "переключайтесь между основными и дополнительными талантами на поле окна. «Планы» там рисуют и хранят "
-    .. "порядок изучения. В бою только чтение. Снимите отметку, чтобы оставить таланты игры."
+    .. "порядок изучения или берут его из калькулятора талантов Wowhead. В бою только чтение. Снимите отметку, "
+    .. "чтобы оставить таланты игры."
 L["Professions window"] = "Окно профессий"
 L["Your professions in one window standing on the side panel: an overview, and a tab for each profession that "
     .. "crafts, with its recipes and Create. Crafting and the overview's spells work out of combat. Untick it to keep "
@@ -2896,3 +2899,16 @@ L["your saved Edit Mode layout still pins game frames (the Cooldown Manager) to 
     "сохранённая раскладка режима редактирования всё ещё крепит рамки игры (менеджер восстановлений) к рамкам "
     .. "Medalluin — след старой версии. Из-за этого полосы восстановлений игры сообщают об ошибках \"tainted by "
     .. "Medalluin\"."
+
+-- ------------------------------------------------------ Wowhead's builds
+-- (spells/talents.lua: a plan imported from Wowhead's talent calculator)
+L["Import"] = "Импорт"
+L["Paste a Wowhead talent calculator link or its WHML: the build opens as a plan to look over and save."] =
+    "Вставьте ссылку из калькулятора талантов Wowhead или её WHML: сборка откроется как план, чтобы просмотреть и "
+    .. "сохранить."
+L["That build is for a %s, not these talents."] = "Эта сборка для класса «%s», а не для этих талантов."
+L["That build does not fit these trees: Wowhead's may be newer or older."] =
+    "Эта сборка не подходит к этим ветвям: у Wowhead они могут быть новее или старее."
+L["No Wowhead talent build in that: paste the calculator's link, or its WHML."] =
+    "Здесь нет сборки талантов Wowhead: вставьте ссылку из калькулятора или её WHML."
+L["Left out by the rules: %d |4point:points;."] = "Пропущено по правилам: %d |4очко:очка:очков;."
