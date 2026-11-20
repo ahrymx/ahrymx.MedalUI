@@ -656,9 +656,18 @@ end
 -- On the radial it shows its glyph and fires nothing; a left-click or the wheel opens its ring in
 -- place (ResolveButtons resolves the ring, as "<radial>c<slot>"). No category goes in a category.
 -- Deeper, through a sub-radial, it acts as one: the wheel steps through its buttons.
+-- One may stand for a spell (spell = id, the Totem Bars' Calls): named and pictured as that spell
+-- (unless renamed, or given a glyph), and gone while the spell isn't known.
 ACTIONS.category = function(entry, depth, seen)
+    local stands
+    if entry.spell then
+        local name, icon = ACTIONS.spell({ id = entry.spell, rankChecked = true })
+        if not name then return nil end
+        stands = { name = name, icon = icon }
+    end
     if depth == 0 then
-        return entry.name or L["Category"], RM.GlyphIcon(entry.glyph), {}, { category = true }
+        local icon = (stands and not entry.glyph) and stands.icon or RM.GlyphIcon(entry.glyph)
+        return entry.name or (stands and stands.name) or L["Category"], icon, {}, { category = true }
     end
     local children = {}
     for _, button in ipairs(entry.buttons or {}) do
@@ -761,6 +770,25 @@ function RM.CampKits()
     end)
     return found
 end
+-- Totem: one slot of the shaman's totem bar (Forever's, Wrath's MultiCastActionBarFrame), read live:
+-- { kind = "totem", page = 1-3 (the Calls of the Elements, Ancestors, Spirits), slot = 1-4 (earth,
+-- fire, water, air, as the bar lays them) }. It casts the totem the bar holds there now, as a spell,
+-- so a totem changed on the bar is changed here; an empty slot leaves no button.
+RM.TOTEM_ACTION_BASE = 132          -- the bar's first action, less one (the Wrath client's numbering)
+function RM.TotemAction(page, slot)
+    local index = ((page or 1) - 1) * (NUM_MULTI_CAST_BUTTONS_PER_PAGE or 4) + (slot or 1)
+    local button = _G["MultiCastActionButton" .. index]
+    local action = button and (button.action or (button.GetAttribute and button:GetAttribute("action")))
+    return tonumber(action) or (RM.TOTEM_ACTION_BASE + index)
+end
+ACTIONS.totem = function(entry)
+    if not (entry.page and entry.slot and GetActionInfo) then return nil end
+    local kind, id = GetActionInfo(RM.TotemAction(entry.page, entry.slot))
+    if kind ~= "spell" or not id or id == 0 then return nil end
+    -- the rank the bar holds, as the bar casts it
+    return ACTIONS.spell({ id = id, rankChecked = true, pinned = true })
+end
+
 ACTIONS.campkits = function()
     local spread = {}
     for _, id in ipairs(RM.CampKits()) do
@@ -2893,8 +2921,21 @@ function RM:AddPreset(key)
     local data = self:GetRadial(id)
     data.buttons = CopyTable(preset.buttons)
     data.preset = key
+    -- a class's preset: its copy for every character of that class
+    if preset.class then data.scope = "class:" .. preset.class end
     self:RadialChanged(id)
     return id
+end
+
+-- the presets this character is shown: all but another class's, in the list's order
+function RM.ShownPresets()
+    local _, class = UnitClass("player")
+    local out = {}
+    for _, key in ipairs(ns.PRESET_ORDER) do
+        local preset = ns.PRESETS[key]
+        if preset and (not preset.class or preset.class == class) then out[#out + 1] = key end
+    end
+    return out
 end
 
 -- the radials copied from a preset, in the list's order
@@ -3612,7 +3653,9 @@ local dirtyEvents = CreateFrame("Frame")
 for _, event in ipairs({ "SPELLS_CHANGED", "UPDATE_MACROS", "BAG_UPDATE_DELAYED", "PLAYER_EQUIPMENT_CHANGED",
                          "NEW_MOUNT_ADDED", "COMPANION_LEARNED", "COMPANION_UNLEARNED", "PLAYER_GUILD_UPDATE",
                          "LEARNED_SPELL_IN_SKILL_LINE", "PLAYER_TALENT_UPDATE", "UPDATE_SHAPESHIFT_FORMS", "UNIT_PET",
-                         "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_WATCH_LIST_CHANGED", "GROUP_ROSTER_UPDATE" }) do
+                         "QUEST_ACCEPTED", "QUEST_REMOVED", "QUEST_WATCH_LIST_CHANGED", "GROUP_ROSTER_UPDATE",
+                         -- a totem changed on the totem bar (the Totem button)
+                         "ACTIONBAR_SLOT_CHANGED", "UPDATE_MULTI_CAST_ACTIONBAR" }) do
     pcall(dirtyEvents.RegisterEvent, dirtyEvents, event)
 end
 dirtyEvents:SetScript("OnEvent", RM.MarkDirty)

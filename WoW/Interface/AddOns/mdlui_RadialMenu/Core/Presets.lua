@@ -8,6 +8,10 @@ local L = ns.L
 -- radial.preset. The emote presets are rings of categories, grouped by feeling; each category opens
 -- a ring of its emotes (ACTIONS.category in Radial/Radial.lua). Camping: a slice for each camp kit
 -- you carry (ACTIONS.campkits), and Sit (by the fire a minute: the camp's full buff).
+-- A preset with a class (class = "SHAMAN") is shown to that class only, and its copy is for every
+-- character of it. Totem Bars: a category for each of the shaman's Calls, standing for its spell
+-- (gone until it is learned), its ring the Call and the four totems on its page of the totem bar,
+-- read live (ACTIONS.totem).
 --------------------------------------------------
 
 local function Emotes(...)
@@ -19,6 +23,16 @@ end
 local function Category(name, glyph, buttons)
     return { kind = "category", name = name, glyph = glyph, buttons = buttons }
 end
+
+-- a page of the totem bar: its Call (all four at once), then its earth, fire, water and air totems
+local function TotemBar(page, call)
+    local t = { { kind = "spell", id = call } }
+    for slot = 1, 4 do t[#t + 1] = { kind = "totem", page = page, slot = slot } end
+    return { kind = "category", spell = call, buttons = t }
+end
+-- Call of the Elements' own icon (the preset's), a stone totem's where the client can't say
+local CALLS_ICON = (C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(66842))
+    or "Interface\\Icons\\Spell_Nature_StoneSkinTotem"
 
 local function Markers()
     local t = {}
@@ -50,6 +64,10 @@ ns.PRESETS = {
         { kind = "campkits" },
         { kind = "emote", emote = "SIT" },
     } },
+    -- the shaman's: Call of the Elements, of the Ancestors, of the Spirits
+    totems = { name = L["Totem Bars"], class = "SHAMAN", icon = { texture = CALLS_ICON }, buttons = {
+        TotemBar(1, 66842), TotemBar(2, 66843), TotemBar(3, 66844),
+    } },
 }
 -- the sidebar's order
-ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping" }
+ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping", "totems" }

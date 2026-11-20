@@ -203,6 +203,17 @@ local function EntryDisplay(entry)
         return L["Quest Items"] .. " |cff9d8462(" .. count .. ")|r", { texture = RM().QUEST_ITEMS_ICON }
     end
     local info = entry and RM():ResolveEntry(entry)
+    -- a category standing for a spell this character doesn't know (a Call not learned yet): greyed
+    if not info and entry and entry.kind == "category" and entry.spell then
+        local name = entry.name or C_Spell.GetSpellName(entry.spell) or L["Category"]
+        return "|cff808080" .. name .. " (" .. L["unavailable"] .. ")|r",
+            { texture = C_Spell.GetSpellTexture(entry.spell) or FALLBACK_ICON }
+    end
+    -- a totem bar slot empty now: which slot it is, greyed
+    if not info and entry and entry.kind == "totem" then
+        return "|cff808080" .. L["Totem bar %d, slot %d"]:format(entry.page or 1, entry.slot or 1)
+            .. " (" .. L["empty"] .. ")|r", { texture = FALLBACK_ICON }
+    end
     -- a sub-radial shows the radial's name, even when it resolves to nothing
     if entry and entry.kind == "subradial" then
         local data = RM():GetRadial(entry.radial)
@@ -1008,7 +1019,7 @@ local KINDS = {
     spell = L["Spell"], item = L["Item"], mount = L["Mount"], macro = L["Macro"], emote = L["Emote"],
     targetmarker = L["Target marker"], worldmarker = L["World marker"], subradial = L["Radial"],
     micromenu = L["Panel"], partycast = L["Party spell"], questitems = L["Quest Items"], category = L["Category"],
-    campkits = L["Camp Kits"],
+    campkits = L["Camp Kits"], totem = L["Totem"],
 }
 
 -- a tooltip from the copy document: label, description, tip
@@ -1929,7 +1940,7 @@ local function NavItems(perRadial)
             local data = rm:GetRadial(id)
             if data and (data.name or ""):lower():find(filter, 1, true) then out[#out + 1] = Item(id) end
         end
-        for _, key in ipairs(ns.PRESET_ORDER) do
+        for _, key in ipairs(rm.ShownPresets()) do
             if ns.PRESETS[key].name:lower():find(filter, 1, true) then out[#out + 1] = { preset = key } end
         end
         if L["Every radial"]:lower():find(filter, 1, true) then out[#out + 1] = { options = true } end
@@ -1965,7 +1976,8 @@ local function NavItems(perRadial)
         if otherOpen then for _, item in ipairs(other) do out[#out + 1] = item end end
     end
     out[#out + 1] = { head = L["Presets"], open = true }
-    for _, key in ipairs(ns.PRESET_ORDER) do out[#out + 1] = { preset = key } end
+    -- (another class's presets are not shown)
+    for _, key in ipairs(rm.ShownPresets()) do out[#out + 1] = { preset = key } end
     out[#out + 1] = { head = L["Options"], open = true }
     out[#out + 1] = { options = true }
     return out
@@ -2053,7 +2065,8 @@ local function RefreshSlot(radial)
     editor.slotPlace.minus:SetEnabled(selectedButton > 1 and not viewPreset)
     editor.slotPlace.plus:SetEnabled(selectedButton < n and not viewPreset)
     for _, b in ipairs(editor.glyphButtons) do
-        local on = category and b.glyph == (entry.glyph or "atease")
+        -- (a category standing for a spell wears its icon until a glyph is picked)
+        local on = category and b.glyph == (entry.glyph or (not entry.spell and "atease"))
         b.Icon:SetAlpha(on and 1 or 0.4)
         b:SetEnabled(not viewPreset)
     end

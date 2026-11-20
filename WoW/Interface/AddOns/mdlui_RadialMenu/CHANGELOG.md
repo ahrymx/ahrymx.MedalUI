@@ -2,6 +2,9 @@
 
 - **Camping preset:** a slice for each camp kit you carry, campfires first (the best first), then the camp objects by profession and tier, and **Sit**: a minute sat by the fire gives the camp's full buff.
 - **Camp Kits:** the button behind it, also in the Catalog's Items after Quest Items. It finds the kits in your bags by the camp objects' names, and the kits Medalluin has read from your recipes; it is gone while you carry none.
+- **Class presets:** a preset for one class, shown only to that class; its copy is for all that class's characters. The first is the shaman's **Totem Bars**: a slice for each of Call of the Elements, of the Ancestors and of the Spirits (each once learned), named and pictured as the Call. Click it or turn the wheel on it and its ring opens: the Call, to drop all four at once, and the four totems on its page of the totem bar, each cast on its own.
+- **Totem:** the button behind them, one slot of the totem bar read live: change a totem on Blizzard's bar and the radial follows. An empty slot leaves no button.
+- A category can stand for a spell: its name and icon (until you rename it or pick a glyph), and gone while the spell isn't known.
 
 # mdlui_RadialMenu 0.49.0
 

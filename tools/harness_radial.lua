@@ -1173,6 +1173,82 @@ do
         was[1], was[2], was[3], was[4], was[5]
     C_Item.GetItemIconByID = was[6]
 end
+-- Totem Bars (a shaman's): a category per Call, gone until it is learned, named and pictured as it;
+-- its ring the Call and the four totems on its page of the totem bar, read live (an empty slot none)
+do
+    local SPELLS = { [66842] = "Call of the Elements", [66843] = "Call of the Ancestors",
+        [66844] = "Call of the Spirits", [8071] = "Stoneskin Totem", [3599] = "Searing Totem",
+        [5394] = "Healing Stream Totem", [8512] = "Windfury Totem", [8190] = "Magma Totem",
+        [2484] = "Earthbind Totem" }
+    local learned = { [66842] = true, [66843] = true, [8071] = true, [3599] = true, [5394] = true,
+        [8512] = true, [8190] = true, [2484] = true }
+    -- the bar: page 1 full, page 2 its water slot empty
+    local bar = { [133] = 8071, [134] = 3599, [135] = 5394, [136] = 8512, [137] = 2484, [138] = 8190, [140] = 8512 }
+    local was = { C_Spell.GetSpellInfo, C_Spell.GetSpellName, C_Spell.GetSpellSubtext, C_SpellBook.IsSpellKnown,
+        GetActionInfo, UnitClass, MultiCastActionButton1 }
+    C_Spell.GetSpellInfo = function(id) return SPELLS[id] and { name = SPELLS[id], iconID = 7000 + (id % 1000) } end
+    C_Spell.GetSpellName = function(id) return SPELLS[id] end
+    C_Spell.GetSpellSubtext = function() return nil end
+    C_SpellBook.IsSpellKnown = function(id) return learned[id] or false end
+    GetActionInfo = function(slot) if bar[slot] then return "spell", bar[slot] end end
+    -- the live button's own action, where it says (the first one only, the rest by number)
+    MultiCastActionButton1 = { action = 133 }
+    RM.ForgetRanks()
+    local function shown()
+        local out = {}
+        for _, key in ipairs(RM.ShownPresets()) do out[#out + 1] = key end
+        return table.concat(out, ",")
+    end
+    UnitClass = function() return "Mage", "MAGE" end
+    print("radial totems shown, mage", shown())
+    UnitClass = function() return "Shaman", "SHAMAN" end
+    print("radial totems shown, shaman", shown())
+    local id = RM:AddPreset("totems")
+    runTimers()
+    local data = RM:GetRadial(id)
+    print("radial totems copy", "name=" .. data.name, "scope=" .. tostring(data.scope),
+        "available=" .. tostring(RM:IsRadialAvailable(id)))
+    local function wheel(tag)
+        local out = {}
+        for _, b in ipairs(data.buttons) do
+            local info = RM:ResolveEntry(b)
+            if info then
+                out[#out + 1] = info.name .. "[" .. tostring(info.icon and info.icon.texture) .. "]"
+                    .. (info.category and "(ring)" or "")
+            end
+        end
+        print(tag, table.concat(out, " "))
+    end
+    local function ring(tag, n)
+        local out = {}
+        for _, b in ipairs(data.buttons[n].buttons) do
+            local info = RM:ResolveEntry(b)
+            if info then out[#out + 1] = info.name .. "=" .. tostring(info.attributes.type) .. ":"
+                .. tostring(info.attributes.spell) end
+        end
+        print(tag, table.concat(out, " "))
+    end
+    wheel("radial totems wheel")
+    ring("radial totems elements", 1)
+    ring("radial totems ancestors", 2)
+    -- a totem changed on the bar: the slice follows
+    bar[134] = 8190
+    print("radial totems bar changed", "dirty event=" .. tostring(pcall(function()
+        for _, h in ipairs(H.events and H.events.ACTIONBAR_SLOT_CHANGED or {}) do
+            h.scripts.OnEvent(h, "ACTIONBAR_SLOT_CHANGED")
+        end
+    end)))
+    ring("radial totems elements changed", 1)
+    -- Spirits learned: its slice comes; a glyph picked: the glyph, not the spell's icon
+    learned[66844] = true
+    data.buttons[1].glyph = "battle"
+    wheel("radial totems spirits, glyph")
+    data.buttons[1].glyph = nil
+    RM:DeleteRadial(id)
+    C_Spell.GetSpellInfo, C_Spell.GetSpellName, C_Spell.GetSpellSubtext, C_SpellBook.IsSpellKnown,
+        GetActionInfo, UnitClass, MultiCastActionButton1 = was[1], was[2], was[3], was[4], was[5], was[6], was[7]
+    RM.ForgetRanks()
+end
 local before = #RM:GetRadialOrder()
 local emo, voice = RM:AddPreset("emotes"), RM:AddPreset("voice")
 runTimers()
