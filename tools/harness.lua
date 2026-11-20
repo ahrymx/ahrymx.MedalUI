@@ -24562,6 +24562,17 @@ if lfgPass then (function()
     rect("lfg box", box)
     calls("lfg open calls")
     print("lfg pickers", picker(G.browse.cat), picker(G.browse.acts))
+    -- no categories yet (the game's finder not loaded): the pickers and the
+    -- page drawn, no error (11-20: "table index is nil")
+    do
+        local cats = W.cats
+        W.cats = {}
+        local ok, err = pcall(function() G.Refresh() end)
+        print("lfg no categories", "ok=" .. tostring(ok) .. (ok and "" or (" " .. tostring(err))),
+            picker(G.browse.cat), picker(G.browse.acts))
+        W.cats = cats
+        G.Refresh()
+    end
     G.browse.list.frame.h = 600
     fire("LFG_LIST_SEARCH_RESULTS_RECEIVED")
     results("lfg results")

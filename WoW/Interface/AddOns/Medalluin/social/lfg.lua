@@ -430,6 +430,9 @@ end
 lfg.Category = Category
 
 local function Filtered(cat)
+    -- no category yet (the game lists none until its finder has loaded
+    -- them): nothing picked, and nothing kept
+    if cat == nil then return {} end
     browse.activities[cat] = browse.activities[cat] or {}
     return browse.activities[cat]
 end
