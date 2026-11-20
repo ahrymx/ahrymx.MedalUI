@@ -133,8 +133,9 @@ end
 -- A box: name, the option keeping where it was dragged, and where it is
 -- until then ({ point, relativePoint, x, y } on UIParent); hover, the option
 -- (or a function giving it) that shows its tabs only on mouseover.
-function ns.WidgetBox(name, key, default, hover)
+function ns.WidgetBox(name, key, default, hover, minimal)
     local box = CreateFrame("Frame", name, UIParent)
+    box.minimal = minimal       -- faded by the group frames' Minimal OoC Mode
     box:SetFrameStrata("LOW")
     box:SetMovable(true)
     box:SetClampedToScreen(true)
@@ -369,6 +370,100 @@ for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "INSTAN
     ns.On(event, function() ns.UpdateWidgets() end)
 end
 ns.OnSetting("simParty", function() ns.UpdateWidgets() end)
+
+-- ------------------------------------------------ Minimal OoC Mode
+-- (Shared > Immersion Mode, 2026-11-20): out of combat the party and raid
+-- boxes fade to groupMinimalAlpha, whole again in combat, while anyone in
+-- the group is hurt (ns.UnitHurt: not the dead or offline), or while the
+-- pointer is on the box, as ticked. Moved or previewed, always whole. The
+-- box's alpha is all of it: the skin, its tabs and the cells hang from it,
+-- and an alpha may change in combat. At nothing with no mouseover, out of
+-- the pointer's way (ns.Untouchable), so its secure cells are not clicked
+-- unseen; combat always brings it back first.
+local minimal = { faders = {}, goals = {}, touches = {} }
+ns.groupMinimal = minimal
+local GROUP_IN, GROUP_OUT = 0.2, 0.6
+local inCombat = false
+local function GroupMinimal() return ns.db and ns.db.groupMinimal and true or false end
+local function GroupUnits()
+    if IsInRaid() then
+        local out = {}
+        for i = 1, (GetNumGroupMembers and GetNumGroupMembers() or 40) do out[#out + 1] = "raid" .. i end
+        return out
+    end
+    return { "player", "party1", "party2", "party3", "party4" }
+end
+local function GroupHurt()
+    for _, unit in ipairs(GroupUnits()) do
+        if ns.UnitHurt and ns.UnitHurt(unit) then return true end
+    end
+    return false
+end
+minimal.Hurt = GroupHurt
+local function Wanted(box)
+    local db = ns.db
+    if not GroupMinimal() or inCombat or box.moving or db.simParty then return true end
+    if db.groupMinimalMouse and Hovered(box) then return true end
+    return db.groupMinimalHurt and GroupHurt() or false
+end
+local function Touch(box)
+    local t = minimal.touches[box]
+    if not t then
+        t = ns.Untouchable(box, function()
+            return GroupMinimal() and not ns.db.groupMinimalMouse and minimal.goals[box] == 0
+                and minimal.faders[box].alpha == 0
+        end)
+        t.name = "group " .. tostring(box:GetName())
+        minimal.touches[box] = t
+    end
+    return t
+end
+local function GroupFade(box, now)
+    local f = minimal.faders[box]
+    if not f then
+        f = ns.Fader(box)
+        minimal.faders[box] = f
+    end
+    local alpha = math.max(0, math.min(1, tonumber(ns.db.groupMinimalAlpha) or 0))
+    local goal = Wanted(box) and 1 or alpha
+    if minimal.goals[box] == goal and not now then return end
+    minimal.goals[box] = goal
+    local touch = Touch(box)
+    f:Go(goal, not now and (goal == 1 and GROUP_IN or GROUP_OUT) or 0, function() touch:Update() end)
+    touch:Update()
+end
+function minimal.FadeAll(now)
+    if not ns.db then return end
+    for _, box in ipairs(widgets) do
+        if box.minimal then GroupFade(box, now) end
+    end
+end
+-- the pointer, and secret health's guess (a time, not an event): a look
+-- each tenth while the mode is on
+local minimalWatch = CreateFrame("Frame")
+minimalWatch:Hide()
+local minimalSince = 0
+minimalWatch:SetScript("OnUpdate", function(_, dt)
+    minimalSince = minimalSince + dt
+    if minimalSince < 0.1 then return end
+    minimalSince = 0
+    minimal.FadeAll()
+end)
+minimal.watch = minimalWatch
+local function GroupSettings()
+    minimalWatch:SetShown(GroupMinimal())
+    minimal.FadeAll(true)
+end
+ns.On("PLAYER_REGEN_DISABLED", function() inCombat = true; minimal.FadeAll() end)
+ns.On("PLAYER_REGEN_ENABLED", function() inCombat = false; minimal.FadeAll() end)
+ns.On("GROUP_ROSTER_UPDATE", function() minimal.FadeAll() end)
+ns.On("PLAYER_LOGIN", function()
+    inCombat = UnitAffectingCombat("player") and true or false
+    GroupSettings()
+end)
+for _, key in ipairs({ "groupMinimal", "groupMinimalAlpha", "groupMinimalHurt", "groupMinimalMouse", "simParty" }) do
+    ns.OnSetting(key, GroupSettings)
+end
 
 -- Raid cells fade out of range as the party's do (units.lua), by the Raid
 -- tab's Fade out of range, or the Battleground tab's in a battleground.

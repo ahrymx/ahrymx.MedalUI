@@ -298,6 +298,10 @@ DEFAULTS.cdmBGaps = true
 DEFAULTS.cdmMinimal, DEFAULTS.cdmMinimalAlpha = false, 0
 DEFAULTS.cdmMinimalTarget, DEFAULTS.cdmMinimalHurt = false, false
 DEFAULTS.cdmMinimalGroup, DEFAULTS.cdmMinimalMouse = false, true
+-- Minimal OoC Mode for the party and raid boxes (Shared > Immersion Mode,
+-- widgets/box.lua): out of combat at groupMinimalAlpha, back for what is ticked
+DEFAULTS.groupMinimal, DEFAULTS.groupMinimalAlpha = false, 0
+DEFAULTS.groupMinimalHurt, DEFAULTS.groupMinimalMouse = true, true
 -- The fourth viewer, the tracked bars (BuffBarCooldownViewer): a bar each,
 -- so options of their own, keyed cdmT<field>. Size is a bar's height.
 ns.CDM_BARS = { "T", "bars", Tr["Tracked bars"], 24 }
@@ -402,6 +406,7 @@ for _, key in ipairs({
     "editUnit", "editParty",
     "xpCast", "repCast",
     "cdmMinimal", "cdmMinimalAlpha", "cdmMinimalTarget", "cdmMinimalHurt", "cdmMinimalGroup", "cdmMinimalMouse",
+    "groupMinimal", "groupMinimalAlpha", "groupMinimalHurt", "groupMinimalMouse",
 }) do PER_PROFILE[key] = true end
 -- the Cooldown Manager's viewers: placed and dressed per profile, as the console is
 for key in pairs(DEFAULTS) do

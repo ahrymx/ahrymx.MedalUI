@@ -9897,6 +9897,87 @@ if args[2] == "widgets" or args[3] == "widgets" then
     ns.SetOption("editPartyWidget", { cell = { w = 160, h = 50 } })
     widget("party taller cell", ns.partyWidget)
     ns.SetOption("editPartyWidget", wasCell)
+    -- the group frames' Minimal OoC Mode (Shared > Immersion Mode): out of
+    -- combat the party box fades, back in combat, while someone is hurt
+    -- (not the dead), on mouseover; at nothing without mouseover, out of
+    -- the pointer's way. Health secret (modern always): hurt while it
+    -- changed in the last 3s. Each step 4s after the last, so none is recent
+    do
+        local GM, box = ns.groupMinimal, ns.partyWidget
+        local was = { UnitHealth, UnitIsDeadOrGhost, issecretvalue, box.skin.IsMouseOver, now }
+        local hp = {}
+        if not modern then UnitHealth = function(u) return hp[u] or 100 end end
+        -- someone's health changed: a number, or (modern) only its event
+        local function hurt(unit, value)
+            hp[unit] = value
+            fire("UNIT_HEALTH", unit)
+        end
+        local function settle()
+            GM.watch.scripts.OnUpdate(GM.watch, 0.1)
+            for _, f in pairs(GM.faders) do
+                for _ = 1, 20 do if f.driver.shown then f.driver.scripts.OnUpdate(f.driver, 0.1) end end
+            end
+        end
+        local function show(tag)
+            settle()
+            local t = GM.touches[box]
+            print("group minimal " .. tag, string.format("party=%.2f raid=%.2f", box:GetAlpha(), ns.raidWidget:GetAlpha()),
+                "untouchable=" .. tostring(t and t.want), "watch=" .. tostring(GM.watch.shown))
+            now = now + 4
+        end
+        show("off")
+        ns.SetOption("groupMinimal", true)
+        show("on, all whole")
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        watchTick()
+        stateTick()
+        show("combat")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        watchTick()
+        stateTick()
+        hurt("party1", 50)
+        show("party1 hurt")
+        UnitIsDeadOrGhost = function(u) return u == "party1" end
+        hurt("party1", 0)
+        show("party1 dead")
+        UnitIsDeadOrGhost = was[2]
+        hp.party1 = nil
+        show("party1 whole")
+        hurt("player", 60)
+        ns.SetOption("groupMinimalHurt", false)
+        show("you hurt, hurt off")
+        ns.SetOption("groupMinimalHurt", true)
+        hurt("player", 60)
+        show("you hurt")
+        hp.player = nil
+        box.skin.IsMouseOver = function() return true end
+        show("mouseover")
+        box.skin.IsMouseOver = was[4]
+        show("mouse gone")
+        ns.SetOption("groupMinimalMouse", false)
+        show("no mouseover, at nothing")
+        ns.SetOption("groupMinimalAlpha", 0.3)
+        show("no mouseover, at 30%")
+        ns.SetOption("groupMinimalAlpha", 0)
+        ns.SetOption("groupMinimalMouse", true)
+        -- (classic) health made secret: guessed by its change, as modern's
+        if not modern then
+            issecretvalue = function(v) return v == 77777 end
+            UnitHealth = function() return 77777 end
+            hurt("party2", 77777)
+            print("group minimal secret, party2 just changed", "hurt=" .. tostring(GM.Hurt()))
+            now = now + 4
+            print("group minimal secret, party2 quiet 4s", "hurt=" .. tostring(GM.Hurt()))
+            issecretvalue, UnitHealth = was[3], function(u) return hp[u] or 100 end
+        end
+        ns.SetOption("groupMinimal", false)
+        show("off again")
+        -- (the clock back, and every cell drawn again from the real health)
+        UnitHealth, now = was[1], was[5]
+        for _, u in ipairs({ "player", "target", "party1", "party2" }) do fire("UNIT_HEALTH", u) end
+    end
     S.partyWidgetPlayer:Set(false)
     widget("party without player", ns.partyWidget)
     party("without player")

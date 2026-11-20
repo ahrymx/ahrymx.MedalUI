@@ -96,6 +96,26 @@ local function Hurt()
 end
 ns.PlayerHurt = Hurt
 
+-- Any unit hurt, by the same rule (the group frames' Minimal OoC Mode,
+-- widgets/box.lua): there, not dead and connected, health below its most;
+-- where health is secret, hurt while its health changed in the last
+-- REGEN_QUIET seconds. The dead and offline are never hurt.
+local changedAt = {}
+local anyHealth = CreateFrame("Frame")
+anyHealth:RegisterEvent("UNIT_HEALTH")
+anyHealth:SetScript("OnEvent", function(_, _, unit) if unit then changedAt[unit] = GetTime() end end)
+function ns.UnitHurt(unit)
+    if not UnitExists(unit) then return false end
+    local dead, online = UnitIsDeadOrGhost(unit), UnitIsConnected(unit)
+    if ns.IsSecret(dead) or ns.IsSecret(online) or dead or not online then return false end
+    if unit == "player" then return Hurt() end
+    local h, most = UnitHealth(unit), UnitHealthMax(unit)
+    if ns.IsSecret(h) or ns.IsSecret(most) then return GetTime() - (changedAt[unit] or -math.huge) < REGEN_QUIET end
+    if not h or not most or most <= 0 then return false end
+    return h < most
+end
+ns.HEALTH_QUIET = REGEN_QUIET
+
 -- Regenerating: hurt, or a power that refills (mana, energy, focus) below
 -- its most. Rage and the like drain instead, so never count. Where power is
 -- secret it is guessed as health is: it changed in the last REGEN_QUIET.

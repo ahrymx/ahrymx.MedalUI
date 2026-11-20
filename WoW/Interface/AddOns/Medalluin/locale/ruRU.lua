@@ -2120,6 +2120,22 @@ L["Shared"] = "Общее"
 L["Visibility & fading"] = "Видимость и исчезание"
 L["Console: Minimal OoC Mode"] = "Консоль: минимум вне боя"
 L["Cooldown Manager: Minimal OoC Mode"] = "Менеджер восстановлений: минимум вне боя"
+L["Group frames: Minimal OoC Mode"] = "Рамки группы: минимум вне боя"
+L["Out of combat, the party and raid boxes fade away. Kept per profile."] =
+    "Вне боя окна группы и рейда исчезают. Хранится в профиле."
+L["Out of combat, fade the Party widget and the Raid widget (a battleground's too) away. Combat "
+    .. "always brings them back. The console's party frames follow the console instead."] =
+    "Вне боя скрывать виджет группы и виджет рейда (и на поле боя). Бой всегда возвращает их. "
+    .. "Рамки группы на консоли следуют консоли."
+L["How much of the boxes shows out of combat. 0%: gone, and out of the pointer's way unless "
+    .. "mouseover brings them back."] =
+    "Насколько окна видны вне боя. 0%: их нет, и они не мешают курсору, если их не возвращает наведение."
+L["Back when someone is hurt"] = "Возвращать, когда кто-то ранен"
+L["Whole again while anyone in your group, you too, is below full health. The dead and "
+    .. "offline don't count."] =
+    "Видны полностью, пока у кого-то в группе, и у вас, неполное здоровье. Мёртвые и вышедшие из игры не в счёт."
+L["Whole again while the pointer is over a box or its tab."] =
+    "Видны полностью, пока курсор над окном или его вкладкой."
 L["Out of combat, every Cooldown Manager viewer fades away: cooldowns, buffs and bars. Kept per profile."] =
     "Вне боя все панели менеджера восстановлений исчезают: восстановления, эффекты и полосы. Своё у каждого профиля."
 L["Out of combat, fade every Cooldown Manager viewer away. Combat always brings them back. While it is on, it "

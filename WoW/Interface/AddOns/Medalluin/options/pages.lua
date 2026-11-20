@@ -672,6 +672,23 @@ local function CdmMinimal()
                 tip = Tr["Whole again while the pointer is over a viewer."] }))
 end
 
+-- the party and raid boxes' Minimal OoC Mode (widgets/box.lua)
+local function GroupMinimal()
+    return Tip(Tr["Out of combat, the party and raid boxes fade away. Kept per profile."],
+        Switched(Check("groupMinimal", Tr["Minimal OoC Mode"],
+                Tr["Out of combat, fade the Party widget and the Raid widget (a battleground's too) away. Combat "
+                .. "always brings them back. The console's party frames follow the console instead."]),
+            Tr["Group frames: Minimal OoC Mode"],
+            Opacity("groupMinimalAlpha", Tr["Opacity out of combat"],
+                Tr["How much of the boxes shows out of combat. 0%: gone, and out of the pointer's way unless "
+                .. "mouseover brings them back."]),
+            { kind = "check", key = "groupMinimalHurt", label = Tr["Back when someone is hurt"],
+                tip = Tr["Whole again while anyone in your group, you too, is below full health. The dead and "
+                .. "offline don't count."] },
+            { kind = "check", key = "groupMinimalMouse", label = Tr["Back on mouseover"],
+                tip = Tr["Whole again while the pointer is over a box or its tab."] }))
+end
+
 local SHARED_NOTE = Tr["A frame's own choice, on its page, wins over a shared one there, and is marked Own."]
 
 local function Shared(list)
@@ -725,6 +742,7 @@ local function Shared(list)
                         "sideImmersion", "sideFadedAlpha", "sideShowCombat", "sideShowTarget", "sideShowMouse" },
                         Tr["The chat bare when idle, its box back on use; the side panel's background faded when "
                             .. "idle."])),
+                    On("immersion", GroupMinimal()),
                     On("immersion", CdmMinimal()),
                 }, AllOn("advanced", {
                     Group(Tr["Every frame"],
@@ -741,6 +759,7 @@ local function Shared(list)
                         "overheadRowFaded", "overheadRowFadeTime" }),
                     Mirror(Tr["Action bars"], { "visibility", "extraVisibility" }),
                     CdmMinimal(),
+                    GroupMinimal(),
                     Mirror(Tr["Quest tracker, full view"], { "questsFullMouseover", "questsFullCombat" }),
                     Mirror(Tr["Quest tracker, minimal view"], { "questsMinimalMouseover", "questsMinimalCombat" }),
                     Mirror(Tr["Edge Draw"], { "trayDelay" }),
@@ -1212,6 +1231,7 @@ function ns.OptionPages()
                             Range("partyRange", "party")))),
                         On("visibility", Variant("widget", Tr["Shared"], Group(Tr["Range"],
                             Range("partyWidgetRange", "party")))),
+                        On("visibility", Variant("widget", Tr["Per profile"], GroupMinimal())),
                         On("elements", Variant("console", Tr["Per profile"], Group(Tr["Frames"], Pets("partyPets")))),
                         On("elements", Variant("widget", Tr["Shared"], Group(Tr["Frames"],
                             Check("partyWidgetPlayer", Tr["Include yourself"],
@@ -1233,6 +1253,7 @@ function ns.OptionPages()
                         .. "Battleground tab's options take over."],
                     groups = {
                         Group(Tr["Raid"], Range("raidRange", "raid"), Movers("raidMoverHover", "Raid")),
+                        GroupMinimal(),
                         Group(Tr["Auras"], Glow("raidGlow"), Threat("raidThreat"), CC("raidCC", "a member's"),
                             BossDebuffs("raidBoss"),
                             Debuffs("raidDebuffs", true)),

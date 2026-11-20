@@ -20,7 +20,7 @@ local function Height(rows)
 end
 
 local box = ns.WidgetBox("MedalluinRaidWidget", "raidWidgetPoint", { "TOPLEFT", "TOPLEFT", 40, -240 },
-    function() return ns.InBattleground() and "bgMoverHover" or "raidMoverHover" end)
+    function() return ns.InBattleground() and "bgMoverHover" or "raidMoverHover" end, true)
 ns.raidWidget = box
 
 -- A header's new button, styled from its initial configuration (the
