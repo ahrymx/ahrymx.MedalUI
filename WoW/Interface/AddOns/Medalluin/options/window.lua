@@ -15,6 +15,7 @@
 -- Built the first time it opens (/mdlui, the minimap button, the button on
 -- Options > AddOns > Medalluin); pages.lua says what is on it.
 local _, ns = ...
+local Tr = ns.L
 
 local UI = ns.OptionsUI
 local C = UI.colors
@@ -270,7 +271,7 @@ local function Header(f, content, path, page, tab)
         head.more = q
     end
     if content.master then
-        local m = Control(head, content.master, nil, "switch", "Enabled")
+        local m = Control(head, content.master, nil, "switch", Tr["Enabled"])
         m:SetPoint("TOPRIGHT", 0, -6)
         f.master = m
         table.insert(f.controls, m)
@@ -310,8 +311,8 @@ local function Header(f, content, path, page, tab)
         -- console's or the widget's), or the page's aside (Simulate)
         local aside
         if content.variants then
-            local spec = { kind = "choice", label = "Editing", choices = content.variants, line = false,
-                tip = "Which party frames the options below set.",
+            local spec = { kind = "choice", label = Tr["Editing"], choices = content.variants, line = false,
+                tip = Tr["Which party frames the options below set."],
                 get = function() return f.variant end,
                 set = function(v) SetVariant(f, v) end }
             aside = UI.Segment(head, spec, UI.TextWidth(spec.label) + 12 + UI.SegmentTotal(spec))
@@ -319,7 +320,7 @@ local function Header(f, content, path, page, tab)
             f.variantSeg = aside
             table.insert(f.controls, aside)
         elseif content.aside then
-            aside = Control(head, content.aside, nil, "switch", "Simulate")
+            aside = Control(head, content.aside, nil, "switch", Tr["Simulate"])
             table.insert(f.controls, aside)
             table.insert(index, { label = content.aside.label, path = path, control = aside, where = Where(path) })
         end
@@ -339,9 +340,9 @@ end
 -- on the shared value, which it then follows.
 local function Own(row, spec)
     local shared = ns.SharedOf(spec.key)
-    local b = UI.Button(row, "Own", 38, 16, function()
+    local b = UI.Button(row, Tr["Own"], 38, 16, function()
         ns.SetOption(spec.key, ns.db[shared])
-    end, "This one's own choice, over Shared's. Click to follow Shared again.")
+    end, Tr["This one's own choice, over Shared's. Click to follow Shared again."])
     b.text:SetFont(b.text:GetFont(), 10)
     -- left of the control: a dropdown's box, a segment's answers, a pill
     local box = not row.stacked and (row.button or row.box or row.track)
@@ -385,7 +386,7 @@ local function Section(f, group, width, path, sheet)
     s.title:SetPoint("LEFT", s, "TOPLEFT", inset, -BAND_H / 2)
     s.title:SetText(group.title)
     if group.chip then
-        local shared = group.chip == "Shared"
+        local shared = group.chip == Tr["Shared"]
         local chip = CreateFrame("Frame", nil, s)
         chip:SetHeight(14)
         chip:SetPoint("LEFT", s.title, "RIGHT", 8, 0)
@@ -651,7 +652,7 @@ local function Card(parent, content, path, width, names)
         tag:SetWidth(math.ceil(tag.text:GetStringWidth()) + 10)
         tag:SetShown(text ~= nil)
     end
-    Tag(content.forever and "Forever" or b.needs and ("Needs " .. (names[b.needs] or b.needs)) or nil)
+    Tag(content.forever and Tr["Forever"] or b.needs and format(Tr["Needs %s"], names[b.needs] or b.needs) or nil)
     b.blurb = UI.Plain(b, 11, C.dim)
     b.blurb:SetPoint("BOTTOMLEFT", 50, 7)
     b.blurb:SetPoint("RIGHT", b, "RIGHT", -(UI.SWITCH_W + 18), 0)
@@ -667,7 +668,7 @@ local function Card(parent, content, path, width, names)
     end)
     b:SetScript("OnEnter", function(self)
         self.lift:Show()
-        local why = self.off and ("Turn on " .. (names[self.needs] or self.needs) .. " first.")
+        local why = self.off and format(Tr["Turn on %s first."], names[self.needs] or self.needs)
         UI.Tip(self, self.name:GetText(), why or (m and m.tip) or content.intro)
     end)
     b:SetScript("OnLeave", function(self)
@@ -681,7 +682,7 @@ local function Card(parent, content, path, width, names)
             on = enabled and UI.Get(m) and true or false
         else
             on = content.enabled and content.enabled() and true or false
-            Tag(on and "Loaded" or "Addon off")
+            Tag(on and Tr["Loaded"] or Tr["Addon off"])
         end
         self.off = m and not enabled
         local n = enabled and (on and C.text or C.dim) or C.faint
@@ -1115,7 +1116,7 @@ local function Found()
     local width = finds:GetWidth()
     local y = -4
     for _, e in ipairs(named) do
-        Line(e, "Open " .. e.label .. "   (" .. e.where .. ")", 0, y, width)
+        Line(e, format(Tr["Open %s   (%s)"], e.label, e.where), 0, y, width)
         y = y - LINK_H
     end
     if #named > 0 then y = y - 10 end
@@ -1141,15 +1142,26 @@ local function Found()
         if s.wide then tops[2] = tops[1] end
     end
     finds.none:SetShown(#results == 0)
-    finds.head.crumb:SetText(#results == 0 and ("Nothing matches \"" .. query .. "\".")
-        or (#sections .. (#sections == 1 and " section" or " sections") .. " and "
-            .. #named .. (#named == 1 and " page" or " pages") .. " match \"" .. query .. "\""))
+    finds.head.crumb:SetText(#results == 0 and format(Tr["Nothing matches \"%s\"."], query)
+        or format(Tr["%s and %s match \"%s\""], ns.Plural(#sections, format(Tr["%d |4section:sections;"], #sections)),
+            ns.Plural(#named, format(Tr["%d |4page:pages;"], #named)), query))
     finds:SetHeight(-math.min(tops[1], tops[2]) + 4)
 end
 
+-- lower case for matching: string.lower is ASCII only, so Cyrillic capitals
+-- (U+0410-042F, and U+0401) are folded by their UTF-8 bytes
+local function Fold(s)
+    s = s:lower():gsub("\208([\144-\175])", function(c)
+        local b = c:byte() + 32
+        return b < 192 and ("\208" .. string.char(b)) or ("\209" .. string.char(b - 64))
+    end)
+    return (s:gsub("\208\129", "\209\145"))
+end
+
 local function Search(text)
-    text = tostring(text or ""):lower():match("^%s*(.-)%s*$")
-    if #text < 2 then
+    text = Fold(tostring(text or "")):match("^%s*(.-)%s*$")
+    -- letters, not bytes: a Cyrillic letter is two
+    if select(2, text:gsub("[^\128-\191]", "")) < 2 then
         -- back to the page it was on
         if finds.on then
             EndSearch()
@@ -1160,7 +1172,7 @@ local function Search(text)
     query = text
     results = {}
     for _, e in ipairs(index) do
-        if e.label:lower():find(query, 1, true) then table.insert(results, e) end
+        if Fold(e.label):find(query, 1, true) then table.insert(results, e) end
     end
     if not finds.on then
         finds.on = true
@@ -1197,7 +1209,7 @@ local function SearchBox()
     box.edge = UI.Outline(box, "BORDER", C.lineStrong, 0)
     box.hint = UI.Plain(box, 12, C.faint)
     box.hint:SetPoint("LEFT", 8, 0)
-    box.hint:SetText("Search options")
+    box.hint:SetText(Tr["Search options"])
     box:SetScript("OnTextChanged", function(self)
         self.hint:SetShown((self:GetText() or "") == "")
         Search(self:GetText())
@@ -1407,10 +1419,10 @@ local function Footer()
     who:SetVertexColor(C.faint[1], C.faint[2], C.faint[3], 1)
     footProfile = UI.Plain(footChip, 11, C.dim)
     footProfile:SetPoint("LEFT", who, "RIGHT", 6, 0)
-    local close = UI.Button(bar, "Close", 64, 26, function() window:Hide() end, nil, "quiet")
+    local close = UI.Button(bar, Tr["Close"], 64, 26, function() window:Hide() end, nil, "quiet")
     close:SetPoint("RIGHT", -8, 0)
-    footButton = UI.Button(bar, "Reload UI", 96, 26, ReloadUI,
-        "Reload the interface so a changed option takes effect.")
+    footButton = UI.Button(bar, Tr["Reload UI"], 96, 26, ReloadUI,
+        Tr["Reload the interface so a changed option takes effect."])
     footButton:SetPoint("RIGHT", close, "LEFT", -6, 0)
     -- the pill: "Reload to apply", a dot before it, until the reload
     local pill = CreateFrame("Frame", nil, bar)
@@ -1425,7 +1437,7 @@ local function Footer()
     footDot:SetVertexColor(C.goldBright[1], C.goldBright[2], C.goldBright[3], 1)
     footReload = UI.Plain(pill, 11, C.goldBright)
     footReload:SetPoint("LEFT", footDot, "RIGHT", 7, 0)
-    footReload:SetText("Reload to apply")
+    footReload:SetText(Tr["Reload to apply"])
     pill:SetWidth(10 + 7 + 7 + math.ceil(footReload:GetStringWidth()) + 10)
     footReload.pill = pill
     pill:Hide()
@@ -1477,7 +1489,7 @@ local function WindowHead()
     local version = get and get("Medalluin", "Version")
     local sub = UI.Plain(bar, 11, C.faint)
     sub:SetPoint("LEFT", text, "RIGHT", 10, -1)
-    sub:SetText("Settings" .. (version and ("  \194\183  " .. version) or ""))
+    sub:SetText(Tr["Settings"] .. (version and ("  \194\183  " .. version) or ""))
     Grip(bar)
     window.title, window.titleBox, window.version = text, bar, sub
 
@@ -1586,7 +1598,7 @@ local function Window()
     finds.head:SetHeight(HEAD_H)
     finds.head.title = UI.Serif(finds.head, 20, C.text)
     finds.head.title:SetPoint("TOPLEFT", 0, -2)
-    finds.head.title:SetText("Search")
+    finds.head.title:SetText(Tr["Search"])
     finds.head.crumb = UI.Plain(finds.head, 12, C.faint)
     finds.head.crumb:SetPoint("TOPLEFT", 0, -28)
     local rule = UI.Fill(finds.head, "ARTWORK", C.line)
@@ -1595,7 +1607,7 @@ local function Window()
     rule:SetPoint("BOTTOMRIGHT", 0, 0)
     finds.none = UI.Plain(finds, 12, C.dim)
     finds.none:SetPoint("TOPLEFT", 0, -4)
-    finds.none:SetText("No option, section or page has those letters in its name.")
+    finds.none:SetText(Tr["No option, section or page has those letters in its name."])
     finds:Hide()
     finds.head:Hide()
     window.finds = finds

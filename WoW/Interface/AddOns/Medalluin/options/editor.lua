@@ -18,6 +18,7 @@
 --
 -- Opened by /mdlui edit, and by the button on each Unit Frames tab.
 local _, ns = ...
+local Tr = ns.L
 
 local UI = ns.OptionsUI
 local C = UI.colors
@@ -105,7 +106,7 @@ local function Pixels(v) return tostring(math.floor(v * 100 + 0.5) / 100) end
 
 local function Specs()
     return {
-        shown = { kind = "check", label = "Shown",
+        shown = { kind = "check", label = Tr["Shown"],
             get = function() return E.Shown(frame, piece) end,
             set = function(v)
                 local key = frame.shows and frame.shows[piece]
@@ -113,131 +114,131 @@ local function Specs()
             end,
             tip = function()
                 local key = frame.shows and frame.shows[piece]
-                if key then return "The same option as on the Unit Frames page." end
-                return "Off, the piece is not drawn, but keeps its place."
+                if key then return Tr["The same option as on the Unit Frames page."] end
+                return Tr["Off, the piece is not drawn, but keeps its place."]
             end },
-        on = { kind = "choice", label = "On",
+        on = { kind = "choice", label = Tr["On"],
             choices = E.ON,
             get = function() return PlaceField("on") or "health" end,
             set = function(v) SetPlace({ on = v }) end,
-            tip = "What the piece is placed on. Its anchor (a corner, an edge or the middle of it) is "
-                .. "where it is dropped on the canvas." },
-        x = { kind = "slider", label = "Inward", min = -150, max = 150,
+            tip = Tr["What the piece is placed on. Its anchor (a corner, an edge or the middle of it) is "
+                .. "where it is dropped on the canvas."] },
+        x = { kind = "slider", label = Tr["Inward"], min = -150, max = 150,
             get = function() return PlaceField("x") or 0 end,
             set = function(v) SetPlace({ x = v }) end, text = Pixels,
-            tip = "Pixels from the anchor, toward the frame's inner end (on the console) or right (a widget)." },
-        ox = { kind = "slider", label = "Outward", min = -300, max = 150,
+            tip = Tr["Pixels from the anchor, toward the frame's inner end (on the console) or right (a widget)."] },
+        ox = { kind = "slider", label = Tr["Outward"], min = -300, max = 150,
             get = function() return Edits().ox or 0 end,
             set = function(v) SetOut(v, Edits().oy or 0) end, text = Pixels,
-            tip = "Pixels from its place just past the frame's end, away from the frame." },
-        oy = { kind = "slider", label = "Up", min = -60, max = 60,
+            tip = Tr["Pixels from its place just past the frame's end, away from the frame."] },
+        oy = { kind = "slider", label = Tr["Up"], min = -60, max = 60,
             get = function() return Edits().oy or 0 end,
             set = function(v) SetOut(Edits().ox or 0, v) end, text = Pixels,
-            tip = "Pixels from its place level with the frame's top, up." },
-        y = { kind = "slider", label = "Up", min = -60, max = 60,
+            tip = Tr["Pixels from its place level with the frame's top, up."] },
+        y = { kind = "slider", label = Tr["Up"], min = -60, max = 60,
             get = function() return PlaceField("y") or 0 end,
             set = function(v) SetPlace({ y = v }) end, text = Pixels,
-            tip = "Pixels from the anchor, up." },
-        size = { kind = "slider", label = "Size", min = 6, max = 48,
+            tip = Tr["Pixels from the anchor, up."] },
+        size = { kind = "slider", label = Tr["Size"], min = 6, max = 48,
             get = function()
                 -- (the debuffs matched to the buffs: theirs)
                 local own = piece == "mine" and E.Matched(frame) and E.BuffSize(frame) or Edits().size
                 return own or math.floor((E.SizeOf(frame, piece) or 12) + 0.5)
             end,
             set = function(v) SetField("size", v) end,
-            tip = "A text's font size, an icon's width and height." },
+            tip = Tr["A text's font size, an icon's width and height."] },
         -- the debuffs', while both rows are outside
-        match = { kind = "check", label = "Match buffs size",
+        match = { kind = "check", label = Tr["Match buffs size"],
             get = function() return Edits().match == true end,
             set = function(v) SetField("match", v or E.NIL) end,
-            tip = "The debuffs as large as the buffs, and following them as the buffs' Size changes. Only "
-                .. "while both rows are outside the frame; each keeps its own side." },
-        outline = { kind = "choice", label = "Outline", choices = E.OUTLINES,
+            tip = Tr["The debuffs as large as the buffs, and following them as the buffs' Size changes. Only "
+                .. "while both rows are outside the frame; each keeps its own side."] },
+        outline = { kind = "choice", label = Tr["Outline"], choices = E.OUTLINES,
             get = Outline, set = function(v) SetField("outline", v) end,
-            tip = "A dark edge round the letters." },
-        format = { kind = "choice", label = "Format", choices = {},
+            tip = Tr["A dark edge round the letters."] },
+        format = { kind = "choice", label = Tr["Format"], choices = {},
             get = function()
                 local formats = E.FORMATS[piece]
                 return Edits().format or (formats and formats[1][1])
             end,
             set = function(v) SetField("format", v) end,
-            tip = "What the text says." },
-        len = { kind = "slider", label = "Longest name", min = 0, max = 30,
+            tip = Tr["What the text says."] },
+        len = { kind = "slider", label = Tr["Longest name"], min = 0, max = 30,
             get = function() return Edits().len or 0 end,
             set = function(v) SetField("len", v > 0 and v or E.NIL) end,
-            text = function(v) return v > 0 and (v .. " letters") or "No limit" end,
-            tip = "Letters before a name is cut. A name the game keeps secret is shown whole." },
-        grow = { kind = "choice", label = "Grow", choices = {},
+            text = function(v) return v > 0 and format(Tr["%d letters"], v) or Tr["No limit"] end,
+            tip = Tr["Letters before a name is cut. A name the game keeps secret is shown whole."] },
+        grow = { kind = "choice", label = Tr["Grow"], choices = {},
             get = function() return Edits().grow or (E.RowOwn(frame, piece)) end,
             set = function(v) SetField("grow", v) end,
-            tip = "Which way the icons run from the first." },
-        cols = { kind = "slider", label = "Columns", min = 1, max = 10,
+            tip = Tr["Which way the icons run from the first."] },
+        cols = { kind = "slider", label = Tr["Columns"], min = 1, max = 10,
             get = function() return Edits().cols or 10 end,
             set = function(v) SetField("cols", v < 10 and v or E.NIL) end,
-            text = function(v) return v < 10 and tostring(v) or "One line" end,
-            tip = "Icons in a line before the next starts, away from the edge the first hangs on. Growing up "
-                .. "or down, icons in a column." },
-        out = { kind = "check", label = "Outside",
+            text = function(v) return v < 10 and tostring(v) or Tr["One line"] end,
+            tip = Tr["Icons in a line before the next starts, away from the edge the first hangs on. Growing up "
+                .. "or down, icons in a column."] },
+        out = { kind = "check", label = Tr["Outside"],
             get = function() return Edits().out == true end,
             set = function(v) SetField("out", v or E.NIL) end,
-            tip = "Beyond the frame's outer end, running toward the screen's edge. With buffs and debuffs both "
+            tip = Tr["Beyond the frame's outer end, running toward the screen's edge. With buffs and debuffs both "
                 .. "outside, the debuffs' Next to buffs says where they go. A drag or the arrow keys move "
-                .. "it from there, outside still." },
+                .. "it from there, outside still."] },
         -- a widget's: which side, or toward the nearer edge of the screen
-        side = { kind = "choice", label = "Place", choices = {
-                { "in", "Inside the frame" }, { "edge", "Toward screen edge" },
-                { "left", "Outside, left" }, { "right", "Outside, right" } },
+        side = { kind = "choice", label = Tr["Place"], choices = {
+                { "in", Tr["Inside the frame"] }, { "edge", Tr["Toward screen edge"] },
+                { "left", Tr["Outside, left"] }, { "right", Tr["Outside, right"] } },
             get = function()
                 local out = Edits().out
                 return out == true and "edge" or out or "in"
             end,
             set = function(v) SetField("out", v == "edge" or (v ~= "in" and v) or E.NIL) end,
-            tip = "Inside the frame, or beyond one of its ends, running away from it: toward the nearer edge of "
+            tip = Tr["Inside the frame, or beyond one of its ends, running away from it: toward the nearer edge of "
                 .. "the screen, or left or right. Buffs and debuffs out on the same side: the debuffs' Next to "
-                .. "buffs says where they go. A drag or the arrow keys move it from there, outside still." },
+                .. "buffs says where they go. A drag or the arrow keys move it from there, outside still."] },
         -- the debuffs', while both rows are out on one side
-        by = { kind = "choice", label = "Next to buffs", choices = {},
+        by = { kind = "choice", label = Tr["Next to buffs"], choices = {},
             get = function() return Edits().by or "below" end,
             set = function(v) SetField("by", v ~= "below" and v or E.NIL) end,
-            tip = "Where the debuffs go while the buffs are outside on the same side: under them, over them, "
-                .. "or beside them." },
-        from = { kind = "choice", label = "From", choices = E.FROM,
+            tip = Tr["Where the debuffs go while the buffs are outside on the same side: under them, over them, "
+                .. "or beside them."] },
+        from = { kind = "choice", label = Tr["From"], choices = E.FROM,
             get = function()
                 local b = frame.buttons()[1]
                 local row = b and E.PIECES[piece].get(b)
                 return Edits().from or row and row.from or "mine"
             end,
             set = function(v) SetField("from", v) end,
-            tip = "Whose auras the row shows: only the ones you cast, or all of them."
-                .. (piece == "buffs" and " An enemy's buffs all show either way." or "") },
-        max = { kind = "slider", label = "Most icons", min = 1, max = 10,
+            tip = Tr["Whose auras the row shows: only the ones you cast, or all of them."]
+                .. (piece == "buffs" and " " .. Tr["An enemy's buffs all show either way."] or "") },
+        max = { kind = "slider", label = Tr["Most icons"], min = 1, max = 10,
             get = function() return Edits().max or select(2, E.RowOwn(frame, piece)) end,
             set = function(v) SetField("max", v) end,
-            tip = "The most auras the row shows at once." },
-        ph = { kind = "slider", label = "Height", min = 0, max = 20,
+            tip = Tr["The most auras the row shows at once."] },
+        ph = { kind = "slider", label = Tr["Height"], min = 0, max = 20,
             get = function()
                 local b = frame.buttons()[1]
                 return ns.PowerHeight(frame.id, b and b.powerDefault or 4)
             end,
             set = function(v) SetField("ph", v) end,
-            text = function(v) return v > 0 and tostring(v) or "None" end,
-            tip = "The power bar's height; the health bar takes the rest. None: no power bar, the health the "
-                .. "whole frame." },
-        w = { kind = "slider", label = "Width", min = 60, max = 300,
+            text = function(v) return v > 0 and tostring(v) or Tr["None"] end,
+            tip = Tr["The power bar's height; the health bar takes the rest. None: no power bar, the health the "
+                .. "whole frame."] },
+        w = { kind = "slider", label = Tr["Width"], min = 60, max = 300,
             get = function() return (ns.CellSize(frame.id)) end,
             set = function(v) SetField("w", v) end,
-            tip = "The cell's width. Takes effect out of combat." },
-        h = { kind = "slider", label = "Height", min = 18, max = 80,
+            tip = Tr["The cell's width. Takes effect out of combat."] },
+        h = { kind = "slider", label = Tr["Height"], min = 18, max = 80,
             get = function() return select(2, ns.CellSize(frame.id)) end,
             set = function(v) SetField("h", v) end,
-            tip = "The cell's height, the power bar included. Takes effect out of combat." },
+            tip = Tr["The cell's height, the power bar included. Takes effect out of combat."] },
     }
 end
 
 -- The piece's tabs, in order: where it goes, how it looks, which auras (a
 -- row's). Shown is over them all, never in one. A cell and a bar have one
 -- tab each, and no strip.
-local TAB_NAMES = { place = "Place", look = "Look", auras = "Auras" }
+local TAB_NAMES = { place = Tr["Place"], look = Tr["Look"], auras = Tr["Auras"] }
 local function Tabs()
     local kind = E.PIECES[piece].type
     if kind == "cell" then return { { id = "place", fields = { "w", "h" } } } end
@@ -354,15 +355,16 @@ local function Choose(id, which)
     local ok = false
     for _, p in ipairs(frame.pieces) do if p == which then ok = true end end
     piece = ok and which or frame.pieces[1]
-    controls.x.spec.label = Mirrored() and "Inward" or "Right"
+    controls.x.spec.label = Mirrored() and Tr["Inward"] or Tr["Right"]
     controls.x.label:SetText(controls.x.spec.label)
     controls.format.spec.choices = E.FORMATS[piece] or {}
     controls.grow.spec.choices = Mirrored()
-        and { { "inner", "Inward" }, { "outer", "Outward" }, { "up", "Up" }, { "down", "Down" } }
-        or { { "inner", "Right" }, { "outer", "Left" }, { "up", "Up" }, { "down", "Down" } }
+        and { { "inner", Tr["Inward"] }, { "outer", Tr["Outward"] }, { "up", Tr["Up"] }, { "down", Tr["Down"] } }
+        or { { "inner", Tr["Right"] }, { "outer", Tr["Left"] }, { "up", Tr["Up"] }, { "down", Tr["Down"] } }
     controls.by.spec.choices = Mirrored()
-        and { { "below", "Below" }, { "above", "Above" }, { "outer", "Outward" }, { "inner", "Inward" } }
-        or { { "below", "Below" }, { "above", "Above" }, { "left", "Left" }, { "right", "Right" } }
+        and { { "below", Tr["Below"] }, { "above", Tr["Above"] }, { "outer", Tr["Outward"] }, { "inner",
+            Tr["Inward"] } }
+        or { { "below", Tr["Below"] }, { "above", Tr["Above"] }, { "left", Tr["Left"] }, { "right", Tr["Right"] } }
     Lay()
     Refresh()
     if E.onChoose then E.onChoose() end
@@ -370,18 +372,18 @@ end
 
 -- What the frame is, whose it is, and where it can be seen.
 local NOTES = {
-    unit = "The player and the target: one layout, mirrored.",
-    party = "The console's party; the left and right wings mirrored.",
-    partyWidget = "The party, while Console > Layout > Party layout is Widget.",
-    raid = "The Raid widget, and in a battleground too.",
-    boss = "The Boss widget, while Console > Layout > Boss frames shows it.",
-    arena = "The Arena widget's enemy frames.",
+    unit = Tr["The player and the target: one layout, mirrored."],
+    party = Tr["The console's party; the left and right wings mirrored."],
+    partyWidget = Tr["The party, while Console > Layout > Party layout is Widget."],
+    raid = Tr["The Raid widget, and in a battleground too."],
+    boss = Tr["The Boss widget, while Console > Layout > Boss frames shows it."],
+    arena = Tr["The Arena widget's enemy frames."],
 }
 -- Whose the frame's places are: the console profile's, or every profile's.
 local function Whose()
     local profile = ns.db.consoleProfile
     for _, p in ipairs(ns.PROFILE_NAMES) do if p[1] == profile then profile = p[2] end end
-    return ns.PER_PROFILE[frame.key] and ("Per profile: " .. profile) or "Shared by every profile"
+    return ns.PER_PROFILE[frame.key] and format(Tr["Per profile: %s"], profile) or Tr["Shared by every profile"]
 end
 -- The header's (?): what the frame is, and whose.
 local function About() return NOTES[frame.id] .. " " .. Whose() .. "." end
@@ -391,18 +393,18 @@ local function Scope()
     -- the party is one or the other: the preview cannot show the one its
     -- layout does not use
     local widget = ns.PartyWidgetLayout and ns.PartyWidgetLayout()
-    if frame.id == "partyWidget" and not widget then return "Not on screen now: the party layout is Console." end
-    if frame.id == "party" and widget then return "Not on screen now: the party layout is Widget." end
-    return "Not on screen now: Preview, below, shows it."
+    if frame.id == "partyWidget" and not widget then return Tr["Not on screen now: the party layout is Console."] end
+    if frame.id == "party" and widget then return Tr["Not on screen now: the party layout is Widget."] end
+    return Tr["Not on screen now: Preview, below, shows it."]
 end
 
 -- ------------------------------------------------------------ the list
 -- The pieces in groups, each under its heading, in the frame's order.
 local GROUPS = {
     { name = "Frame", types = { cell = true, bar = true } },
-    { name = "Texts", types = { text = true } },
-    { name = "Icons", types = { icon = true } },
-    { name = "Auras", types = { row = true } },
+    { name = Tr["Texts"], types = { text = true } },
+    { name = Tr["Icons"], types = { icon = true } },
+    { name = Tr["Auras"], types = { row = true } },
 }
 
 -- The sidebar's i-th line, made the first time it is wanted: a group's
@@ -439,8 +441,8 @@ local function List(i)
         if not self.piece or self.piece == piece then return end
         self.lift:Show()
         self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
-        UI.Tip(self, E.PIECES[self.piece].label, E.Edits(frame, self.piece) and "Changed: Reset piece puts it back."
-            or "As its frame draws it.")
+        UI.Tip(self, E.PIECES[self.piece].label, E.Edits(frame, self.piece) and Tr["Changed: Reset piece puts it back."]
+            or Tr["As its frame draws it."])
     end)
     row:SetScript("OnLeave", function(self)
         self.lift:Hide()
@@ -522,7 +524,7 @@ function Refresh()
     for k = i + 1, #list.rows do list.rows[k]:Hide() end
     -- the header: the frame, the console's or the widgets' and whose
     window.pageTitle:SetText(frame.name)
-    window.crumb:SetText((ns.PER_PROFILE[frame.key] and "Console" or "Widgets") .. "   \194\183   " .. Whose())
+    window.crumb:SetText((ns.PER_PROFILE[frame.key] and Tr["Console"] or Tr["Widgets"]) .. "   \194\183   " .. Whose())
     window.more.tip = About()
     -- the canvas's card: the frame; the piece's: its name, Changed
     window.canvasCard.title:SetText(frame.name)
@@ -594,12 +596,12 @@ for _, p in ipairs(E.PREVIEWS) do if p.dispel then DISPEL[p[1]] = true end end
 
 local function ChipTip(p)
     if p.dispel then
-        return "A " .. p[2] .. " debuff's glow on the canvas, in its colour (Unit Frames > General > Glows). "
-            .. "One type at a time."
+        return format(Tr["A %s debuff's glow on the canvas, in its colour (Unit Frames > General > Glows). "
+            .. "One type at a time."], p[2])
     end
-    if p[1] == "threat" then return "The aggro glow on the canvas, and the console's tint red." end
-    if p[1] == "combat" then return "The console's combat tint, on screen." end
-    return "Shown on the canvas, as in play."
+    if p[1] == "threat" then return Tr["The aggro glow on the canvas, and the console's tint red."] end
+    if p[1] == "combat" then return Tr["The console's combat tint, on screen."] end
+    return Tr["Shown on the canvas, as in play."]
 end
 
 local function Chips(parent, name, dispel)
@@ -714,7 +716,7 @@ local function Head()
     Grip(bar)
     local text = UI.Serif(bar, 15, C.goldBright)
     text:SetPoint("LEFT", 14, 0)
-    text:SetText("Unit Frame Editor")
+    text:SetText(Tr["Unit Frame Editor"])
     local get = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
     local version = get and get("Medalluin", "Version")
     local sub = UI.Plain(bar, 11, C.faint)
@@ -826,8 +828,8 @@ local function Header()
                 self.lift:Show()
                 self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
             end
-            UI.Tip(self, self.frame.name, NOTES[self.frame.id] .. (self.console and " Per profile."
-                or " Shared by every profile."))
+            UI.Tip(self, self.frame.name, NOTES[self.frame.id] .. (self.console and Tr[" Per profile."]
+                or Tr[" Shared by every profile."]))
         end)
         b:SetScript("OnLeave", function(self)
             self.lift:Hide()
@@ -840,7 +842,7 @@ local function Header()
     -- what the gap between them means, at their right
     window.groups = UI.Plain(head, 11, C.faint)
     window.groups:SetPoint("BOTTOMRIGHT", 0, 7)
-    window.groups:SetText("Console: per profile  \194\183  Widgets: shared")
+    window.groups:SetText(Tr["Console: per profile  \194\183  Widgets: shared"])
 end
 
 -- A card: a step lighter than the page, its title in a band across its
@@ -887,18 +889,18 @@ local function CanvasCard()
     stage:SetPoint("TOPLEFT", card, "TOPLEFT", CARD_PAD, -(BAND_H + 10))
     stage:SetSize(CANVAS_W - 2 * CARD_PAD, height - BAND_H - 10 - 2 * (UI.SEG_H + 10) - 10)
     stage.zoom = Chip(card, "100%")
-    local reset = UI.Button(card, "Reset frame", 86, 22, function() E.ResetFrame(frame) end,
-        "Every piece of this frame back to how it draws it.", "quiet")
+    local reset = UI.Button(card, Tr["Reset frame"], 86, 22, function() E.ResetFrame(frame) end,
+        Tr["Every piece of this frame back to how it draws it."], "quiet")
     reset:SetPoint("RIGHT", card, "TOPRIGHT", -8, -BAND_H / 2)
     window.reset = reset
-    local fit = UI.Button(card, "Fit", 40, 22, function() if stage.Fit then stage.Fit() end end,
-        "The whole frame in view again, at the size that fits (or double-click the canvas).", "quiet")
+    local fit = UI.Button(card, Tr["Fit"], 40, 22, function() if stage.Fit then stage.Fit() end end,
+        Tr["The whole frame in view again, at the size that fits (or double-click the canvas)."], "quiet")
     fit:SetPoint("RIGHT", reset, "LEFT", -2, 0)
     window.fit = fit
     chips = {}
-    local glow = Chips(card, "Glow", true)
+    local glow = Chips(card, Tr["Glow"], true)
     glow:SetPoint("TOPLEFT", stage, "BOTTOMLEFT", 0, -10)
-    local show = Chips(card, "Show", false)
+    local show = Chips(card, Tr["Show"], false)
     show:SetPoint("TOPLEFT", glow, "BOTTOMLEFT", 0, -10)
     window.glowChips, window.showChips = glow, show
 end
@@ -907,7 +909,7 @@ end
 -- rows (Lay); Reset piece at its foot.
 local function PieceCard()
     body = Card(X + CANVAS_W + COL_GAP, BODY_W)
-    body.changed = Chip(body, "Changed")
+    body.changed = Chip(body, Tr["Changed"])
     local strip = CreateFrame("Frame", nil, body)
     strip:SetHeight(PIECE_TAB_H)
     UI.Fill(strip, "BACKGROUND", C.well, 1):SetAllPoints()
@@ -959,7 +961,7 @@ local function PieceCard()
     rule:SetPoint("BOTTOMRIGHT", -1, BODY_FOOT)
     body.applied = UI.Plain(body, 11, C.faint)
     body.applied:SetPoint("BOTTOMLEFT", CARD_PAD, 16)
-    body.applied:SetText("Applied as you change it")
+    body.applied:SetText(Tr["Applied as you change it"])
 end
 
 -- The footer: the preview (a party, a raid, bosses and an arena to edit
@@ -967,19 +969,19 @@ end
 local function Footer()
     local bar = Bar(false)
     window.foot = bar
-    local spec = { kind = "check", key = "simParty", label = "Preview",
-        tip = "Simulated party, raid, bosses and arena enemies to edit out of a group; their panel sets what "
-            .. "they show." }
+    local spec = { kind = "check", key = "simParty", label = Tr["Preview"],
+        tip = Tr["Simulated party, raid, bosses and arena enemies to edit out of a group; their panel sets what "
+            .. "they show."] }
     local preview = UI.Switch(bar, spec)
     preview:SetPoint("LEFT", 14, 0)
     preview.text = UI.Plain(bar, 12, C.text)
     preview.text:SetPoint("LEFT", preview, "RIGHT", 10, 0)
-    preview.text:SetText("Preview")
+    preview.text:SetText(Tr["Preview"])
     preview.line = UI.Plain(bar, 11, C.faint)
     preview.line:SetPoint("LEFT", preview.text, "RIGHT", 10, 0)
-    preview.line:SetText("A party, a raid, bosses and an arena to edit out of a group")
+    preview.line:SetText(Tr["A party, a raid, bosses and an arena to edit out of a group"])
     window.preview = preview
-    local close = UI.Button(bar, "Close", 64, 26, function() window:Hide() end, nil, "quiet")
+    local close = UI.Button(bar, Tr["Close"], 64, 26, function() window:Hide() end, nil, "quiet")
     close:SetPoint("RIGHT", -8, 0)
     window.close = close
 end
@@ -1034,7 +1036,7 @@ local function Window()
         end
         local c
         if field == "shown" then
-            c = UI.Switch(body, spec, "Shown")
+            c = UI.Switch(body, spec, Tr["Shown"])
             c:SetPoint("RIGHT", body, "TOPRIGHT", -CARD_PAD, -BAND_H / 2)
         elseif spec.kind == "check" then
             c = UI.Check(body, spec, ROWS_W, true)
@@ -1050,8 +1052,8 @@ local function Window()
         end
         controls[field] = c
     end
-    controls.reset = UI.Button(body, "Reset piece", 96, 24, function() E.ResetPiece(frame, piece) end,
-        "This piece back to how its frame draws it.")
+    controls.reset = UI.Button(body, Tr["Reset piece"], 96, 24, function() E.ResetPiece(frame, piece) end,
+        Tr["This piece back to how its frame draws it."])
     controls.reset:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT", -CARD_PAD, 10)
 
     -- its parts, by name (the harness reads them)
@@ -1064,7 +1066,7 @@ end
 local function TipShown()
     local c = controls.shown
     if not c then return end
-    c:SetScript("OnEnter", function(self) UI.Tip(self, "Shown", c.spec.tipFn()) end)
+    c:SetScript("OnEnter", function(self) UI.Tip(self, Tr["Shown"], c.spec.tipFn()) end)
 end
 
 -- ------------------------------------------------------------ open

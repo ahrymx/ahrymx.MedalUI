@@ -15,6 +15,7 @@
 -- shows a left copy over a right one. A frame with no button laid out now
 -- (the party in the layout it is not using) says so instead.
 local _, ns = ...
+local Tr = ns.L
 
 local UI = ns.OptionsUI
 local C = UI.colors
@@ -40,8 +41,8 @@ local Draw
 
 -- What a copy says where its button's words are secret or not yet set.
 local SAMPLE = {
-    unit = { "Player", "Target" }, party = { "Party member" }, partyWidget = { "Party member" },
-    raid = { "Raider" }, boss = { "Boss" }, arena = { "Enemy" },
+    unit = { Tr["Player"], Tr["Target"] }, party = { Tr["Party member"] }, partyWidget = { Tr["Party member"] },
+    raid = { Tr["Raider"] }, boss = { Tr["Boss"] }, arena = { Tr["Enemy"] },
 }
 -- The values' samples follow the piece's format (editor.lua's E.FORMATS),
 -- as console/units.lua writes them; [1] the format with none chosen. Missing
@@ -799,11 +800,11 @@ local function Box(i)
     end)
     o:SetScript("OnEnter", function(self)
         local bar = E.PIECES[self.piece].type == "bar"
-        UI.Tip(self, E.PIECES[self.piece].label, bar and "Its height is the editor's, on the right."
-            or E.ui.Out() and "Drag to move it from its place outside the frame; it stays outside. The arrow "
-            .. "keys nudge it."
-            or "Drag to move it: it hangs from the nearest corner, edge or middle, and snaps to the dots "
-            .. "and to other pieces (Shift: no snapping). The arrow keys nudge it.")
+        UI.Tip(self, E.PIECES[self.piece].label, bar and Tr["Its height is the editor's, on the right."]
+            or E.ui.Out() and Tr["Drag to move it from its place outside the frame; it stays outside. The arrow "
+            .. "keys nudge it."]
+            or Tr["Drag to move it: it hangs from the nearest corner, edge or middle, and snaps to the dots "
+            .. "and to other pieces (Shift: no snapping). The arrow keys nudge it."])
     end)
     o:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     boxes[i] = o
@@ -823,11 +824,11 @@ end
 local function Absent(frame)
     local widget = ns.PartyWidgetLayout and ns.PartyWidgetLayout()
     if frame.id == "partyWidget" and not widget then
-        return "The party layout is Console: the party widget is not laid out now."
+        return Tr["The party layout is Console: the party widget is not laid out now."]
     elseif frame.id == "party" and widget then
-        return "The party layout is Widget: the console's party is not laid out now."
+        return Tr["The party layout is Widget: the console's party is not laid out now."]
     end
-    return "Nothing to draw yet: Preview in the editor makes the frames."
+    return Tr["Nothing to draw yet: Preview in the editor makes the frames."]
 end
 
 -- How far copy p's shown pieces reach past it, from its top left: left
@@ -1047,7 +1048,8 @@ function ns.EditorStage(parent)
     stage.preview:SetPoint("BOTTOMLEFT", 10, 24)
     stage.hint = UI.Plain(stage, 10, C.faint)
     stage.hint:SetPoint("BOTTOMLEFT", 10, 8)
-    stage.hint:SetText("Drag the box  ·  arrows nudge  ·  wheel zooms  ·  drag the canvas to pan  ·  double-click fits")
+    stage.hint:SetText(Tr["Drag the box  ·  arrows nudge  ·  wheel zooms  ·  drag the canvas to pan  ·  "
+        .. "double-click fits"])
     stage.note = UI.Plain(stage, 12, C.dim)
     stage.note:SetPoint("CENTER", 0, 0)
     stage.note:SetPoint("LEFT", 20, 0)

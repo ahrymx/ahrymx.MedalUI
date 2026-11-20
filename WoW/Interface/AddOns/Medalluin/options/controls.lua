@@ -15,6 +15,7 @@
 -- window's frames are Medalluin's own, so they can taint nothing the game's
 -- secure code reads.
 local _, ns = ...
+local Tr = ns.L
 
 local C = {
     gold = { 0.769, 0.647, 0.341 },
@@ -380,9 +381,9 @@ function UI.Key(parent, spec, width)
     f.box = box
 
     local function Shown()
-        if box.listening then return "Press a key" end
+        if box.listening then return Tr["Press a key"] end
         local keys = ns.BindingKeys and ns.BindingKeys(spec.command) or {}
-        if #keys == 0 then return "Not bound" end
+        if #keys == 0 then return Tr["Not bound"] end
         return ns.KeyText and ns.KeyText(keys[1]) or keys[1]
     end
     local function Listen(on)
@@ -411,7 +412,7 @@ function UI.Key(parent, spec, width)
     box:SetScript("OnHide", function() if box.listening then Listen(false) end end)
     box:SetScript("OnEnter", function(self)
         UI.Tip(self, spec.label, (spec.tip and spec.tip .. "\n\n" or "")
-            .. "Click, then press a key. Right-click unbinds it.")
+            .. Tr["Click, then press a key. Right-click unbinds it."])
     end)
     box:SetScript("OnLeave", Untip)
     function f:Refresh(enabled)

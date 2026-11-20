@@ -10,6 +10,7 @@
 -- Chat and Side panels. The rest are drawing only (art colour, visibility, drawer,
 -- the beam's cast bars) and apply at once: modules hear about a change through ns.OnSetting.
 local addonName, ns = ...
+local Tr = ns.L
 
 local DEFAULTS = {
     actionBar = true,       -- the bar on the console, holding action bar 1
@@ -260,9 +261,9 @@ ns.VISIBILITY = { ALWAYS = 1, COMBAT = 2, MOUSEOVER = 3, COMBAT_OR_MOUSEOVER = 4
 -- each one's letter in its options' keys (cdmE..., cdmU..., cdmB...), its
 -- display's key, and the size its icons are drawn at.
 ns.CDM_VIEWERS = {
-    { "E", "essential", "Essential cooldowns", 44 },
-    { "U", "utility", "Utility cooldowns", 32 },
-    { "B", "buffs", "Tracked buffs", 30 },
+    { "E", "essential", Tr["Essential cooldowns"], 44 },
+    { "U", "utility", Tr["Utility cooldowns"], 32 },
+    { "B", "buffs", Tr["Tracked buffs"], 30 },
 }
 -- each one's options, the same set: their names after cdm<letter>, and what
 -- they are untouched
@@ -290,7 +291,7 @@ end
 DEFAULTS.cdmBGaps = true
 -- The fourth viewer, the tracked bars (BuffBarCooldownViewer): a bar each,
 -- so options of their own, keyed cdmT<field>. Size is a bar's height.
-ns.CDM_BARS = { "T", "bars", "Tracked bars", 24 }
+ns.CDM_BARS = { "T", "bars", Tr["Tracked bars"], 24 }
 local CDM_BAR_FIELDS = {
     Grow = "up",            -- the next bar above the first ("up") or below ("down")
     Gaps = true,            -- close ranks over a bar not up
@@ -315,16 +316,17 @@ ns.LOOT_WHO = { GROUP = 1, MINE = 2 }
 -- What a meter list can show: the key saved, the name on the page. The
 -- client's types for each are in meter.lua.
 ns.METER_METRICS = {
-    { "damage", "Damage" },
-    { "healing", "Healing" },
-    { "absorbs", "Absorbs" },
-    { "interrupts", "Interrupts" },
-    { "dispels", "Dispels" },
-    { "taken", "Damage taken" },
-    { "avoidable", "Avoidable damage taken" },
+    { "damage", Tr["Damage"] },
+    { "healing", Tr["Healing"] },
+    { "absorbs", Tr["Absorbs"] },
+    { "interrupts", Tr["Interrupts"] },
+    { "dispels", Tr["Dispels"] },
+    { "taken", Tr["Damage taken"] },
+    { "avoidable", Tr["Avoidable damage taken"] },
 }
 -- Item qualities, as the loot log's least-quality option offers them.
-ns.LOOT_QUALITIES = { { 0, "Poor" }, { 1, "Common" }, { 2, "Uncommon" }, { 3, "Rare" }, { 4, "Epic" } }
+ns.LOOT_QUALITIES = { { 0, Tr["Poor"] }, { 1, Tr["Common"] }, { 2, Tr["Uncommon"] }, { 3, Tr["Rare"] }, { 4,
+    Tr["Epic"] } }
 
 -- The built-in profiles. Each is a look the console starts from: what it
 -- changes from DEFAULTS. The art the Reticule draws is
@@ -343,11 +345,11 @@ local WIP = { arena = true }
 local function Open(profile) return not WIP[profile] or Medalluin_ArenaOpen == true end
 ns.ProfileOpen = Open
 ns.PROFILE_NAMES = {
-    { "reticule", "Reticule (default)", "Flush-top player/target wings, dynamic square minimap / 2x5 Bar 7 bay, "
-        .. "split Action Bars 2 & 3, and party frames in a row under the console." },
+    { "reticule", Tr["Reticule (default)"], Tr["Flush-top player/target wings, dynamic square minimap / 2x5 Bar 7 bay, "
+        .. "split Action Bars 2 & 3, and party frames in a row under the console."] },
     -- set aside till its redesign after 1.0: shown, dimmed, not chosen (WIP)
-    { "arena", "Arena (WIP)", "The classic round medallion console with integrated party wings, and a large "
-        .. "player and target. Out of date, and to be redesigned after 1.0, so it cannot be chosen.",
+    { "arena", Tr["Arena (WIP)"], Tr["The classic round medallion console with integrated party wings, and a large "
+        .. "player and target. Out of date, and to be redesigned after 1.0, so it cannot be chosen."],
         wip = not Open("arena") or nil },
 }
 -- the ids the profiles had, and what they are now
@@ -746,20 +748,20 @@ end
 
 -- Only a key is added: assigning StaticPopupDialogs itself would taint it.
 StaticPopupDialogs.MEDALLUIN_PROFILE_RELOAD = {
-    text = "Reload to finish switching console profile?\n\n"
-        .. "Its skills and keys are on the bars; its console is built as the interface loads.",
-    button1 = "Reload",
-    button2 = "Later",
+    text = Tr["Reload to finish switching console profile?\n\n"
+        .. "Its skills and keys are on the bars; its console is built as the interface loads."],
+    button1 = Tr["Reload"],
+    button2 = Tr["Later"],
     OnAccept = function() ReloadUI() end,
     timeout = 0,
     whileDead = true,
     hideOnEscape = true,
 }
 StaticPopupDialogs.MEDALLUIN_RESET_PROFILE = {
-    text = "Put this console profile's options back to its own?\n\n"
-        .. "Options that take effect after a reload need one.",
-    button1 = OKAY or "Okay",
-    button2 = CANCEL or "Cancel",
+    text = Tr["Put this console profile's options back to its own?\n\n"
+        .. "Options that take effect after a reload need one."],
+    button1 = OKAY or Tr["Okay"],
+    button2 = CANCEL or Tr["Cancel"],
     OnAccept = function() ns.ResetProfile() end,
     timeout = 0,
     whileDead = true,
@@ -778,9 +780,9 @@ local function SavePaging(dialog, bar)
     ns.SetOption(bar.key, text ~= "" and "custom" or "default")
 end
 StaticPopupDialogs.MEDALLUIN_PAGING = {
-    text = "%s: the page, by macro conditional",
-    button1 = SAVE or "Save",
-    button2 = CANCEL or "Cancel",
+    text = Tr["%s: the page, by macro conditional"],
+    button1 = SAVE or Tr["Save"],
+    button2 = CANCEL or Tr["Cancel"],
     hasEditBox = true,
     editBoxWidth = 420,
     OnShow = function(self, bar)

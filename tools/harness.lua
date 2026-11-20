@@ -5856,7 +5856,7 @@ if barPass then
             local r = resolve(c)
             print("  grid", string.format("at=%d,%d %dx%d", r[1] - top[1], r[2] - top[2], c.w, c.h),
                 "cols=" .. #c.spec.cols, table.concat(rows, " "))
-          elseif not (c.spec.label == "Own" and not c.shown) and not (c.track and c:GetParent().switch == c) then
+          elseif not (c.spec.label == ns.L["Own"] and not c.shown) and not (c.track and c:GetParent().switch == c) then
             local r = resolve(c)
             local choices = {}
             for _, ch in ipairs(c.spec.choices or {}) do table.insert(choices, tostring(ch[1]) .. "=" .. ch[2]) end
@@ -6034,7 +6034,7 @@ if barPass then
         local function own(path, key)
             ns.OpenOptions(path)
             for _, c in ipairs(ns.optionPages[page.opened].controls) do
-                if c.spec.label == "Own" and c:GetParent().spec.key == key then return c end
+                if c.spec.label == ns.L["Own"] and c:GetParent().spec.key == key then return c end
             end
         end
         local mark = own("units/raid", "raidDebuffs")
@@ -6053,7 +6053,7 @@ if barPass then
         end
         local function row(label)
             for i, r in ipairs(grid.spec.rows) do
-                if r.label == label then
+                if r.label == ns.L[label] then
                     local cells = {}
                     for j in ipairs(grid.spec.cols) do
                         local cell = grid.cells[i][j]
@@ -6151,7 +6151,7 @@ if barPass then
                 .. ":" .. tostring(rail and rail.w))
         end
         local function head(name)
-            for _, h in ipairs(win.tree.heads) do if h.cat.name == name then return h end end
+            for _, h in ipairs(win.tree.heads) do if h.cat.name == ns.L[name] then return h end end
         end
         -- a folded heading opens on its first item, then on the one last shown
         head("Unit frames").scripts.OnClick(head("Unit frames"))
@@ -6200,10 +6200,10 @@ if barPass then
         local tabs = {}
         for _, b in ipairs(mods.tabs or {}) do table.insert(tabs, b.name .. (b.foot.shown and "*" or "")) end
         local before = shownSecs()
-        for _, b in ipairs(mods.tabs or {}) do if b.name == "Interface" then b.scripts.OnClick(b) end end
+        for _, b in ipairs(mods.tabs or {}) do if b.name == ns.L["Interface"] then b.scripts.OnClick(b) end end
         print("options.modules tabs", table.concat(tabs, " "), "shown=" .. before, "after Interface=" .. shownSecs(),
             "crumb=" .. mods.head.crumb.text)
-        for _, b in ipairs(mods.tabs or {}) do if b.name == "Console" then b.scripts.OnClick(b) end end
+        for _, b in ipairs(mods.tabs or {}) do if b.name == ns.L["Console"] then b.scripts.OnClick(b) end end
         cards("all on")
         page.settings.side:Set(false)
         cards("side off")
@@ -6258,7 +6258,12 @@ if barPass then
                 "sections=" .. table.concat(lent, "; "), "shown=" .. tostring(win.finds.shown),
                 "page=" .. tostring(ns.optionPages.windows.shown), "lit=" .. tostring(win.tree.rows[1].lit.shown))
         end
-        ns.SearchOptions("sweep")
+        -- the queries in the language under test (ruRU: also its case folding)
+        local RU = { sweep = "затемнение", ["edit conditional"] = "Изменить Условие", bags = "сумк",
+            ["move automatically"] = "перемещать автоматически", s = "з", fade = "исчезан" }
+        local search = ns.SearchOptions
+        local function Search(q, ...) return search(argLocale == "ruRU" and RU[q] or q, ...) end
+        Search("sweep")
         found("sweep")
         local sweep = ns.optionControls.cooldownSwipe
         local was = ns.db.cooldownSwipe
@@ -6266,24 +6271,24 @@ if barPass then
         print("options.search toggled there", "cooldownSwipe " .. tostring(was) .. "->" .. tostring(ns.db.cooldownSwipe),
             "tick=" .. tostring(sweep.tick.shown))
         sweep.scripts.OnClick(sweep)
-        ns.SearchOptions("edit conditional")
+        Search("edit conditional")
         found("edit conditional")
-        ns.SearchOptions("bags")
+        Search("bags")
         found("bags")
-        ns.SearchOptions("zzzq")
+        Search("zzzq")
         found("none")
         -- a section's switch is found by its own name
-        ns.SearchOptions("move automatically")
+        Search("move automatically")
         found("switch")
-        ns.SearchOptions("s")
+        Search("s")
         print("options.search one letter", "shown=" .. tostring(win.finds.shown), ns.OptionsShown())
-        ns.SearchOptions("sweep", 1)
+        Search("sweep", 1)
         local f = ns.optionPages[ns.OptionsShown()]
         print("options.search chosen", ns.OptionsShown(), "scroll=" .. win.scroll:GetVerticalScroll(),
             "flash=" .. tostring(win.flash.shown) .. " on " .. tostring(win.flash.control and win.flash.control.spec.label),
             "box=" .. tostring(win.search:GetText()), "finds=" .. tostring(win.finds.shown),
             "home=" .. tostring(sweep:GetParent() and sweep:GetParent():GetParent() == f))
-        ns.SearchOptions("fade")
+        Search("fade")
         found("fade")
         win.search.scripts.OnEscapePressed(win.search)
         print("options.search cleared", ns.OptionsShown(), "finds=" .. tostring(win.finds.shown),
@@ -6294,7 +6299,7 @@ if barPass then
         print("options./mdlui bar", ns.OptionsShown())
         -- sheets: the one shown, by path; each page remembers its own
         local function sheet(p) return tostring((ns.optionPages[p] or {}).sheet) end
-        ns.SearchOptions("sweep", 1)
+        Search("sweep", 1)
         print("options.sheet search chosen", ns.OptionsShown(), "sheet=" .. sheet("console/bar"))
         ns.OpenOptions("console/bar#visibility")
         local direct = sheet("console/bar")
@@ -6317,15 +6322,17 @@ if barPass then
         -- a segmented choice: its button writes the option, and lights
         local cd = ns.optionControls.cooldownText
         local was = ns.db.cooldownText
-        for _, b in ipairs(cd.buttons) do
+        -- (wider labels, as in Russian, make it a dropdown instead)
+        if not cd.buttons then print("options.segment", "cooldownText a dropdown: its choices too wide") end
+        for _, b in ipairs(cd.buttons or {}) do
             if b.value == "hide" then b.scripts.OnClick(b) end
         end
         local lit = {}
-        for _, b in ipairs(cd.buttons) do
+        for _, b in ipairs(cd.buttons or {}) do
             if b.chosen then table.insert(lit, b.value) end
         end
         print("options.segment", "cooldownText " .. tostring(was) .. "->" .. tostring(ns.db.cooldownText),
-            "lit=" .. table.concat(lit, ","), "shows=" .. tostring(cd:Shown()))
+            "lit=" .. table.concat(lit, ","), "shows=" .. tostring(cd.Shown and cd:Shown()))
         ns.SetOption("cooldownText", was)
         -- a row its layout does not use: off the card, the rows under it moved up
         ns.OpenOptions("cooldowns/essential#position")
@@ -6334,7 +6341,7 @@ if barPass then
             local o = {}
             for _, c in ipairs(ess.controls) do
                 local k = c.spec and c.spec.key
-                if k and k:match("^cdmE") and c:GetParent() and c:GetParent().title and c:GetParent().title.text == "Layout" then
+                if k and k:match("^cdmE") and c:GetParent() and c:GetParent().title and c:GetParent().title.text == ns.L["Layout"] then
                     table.insert(o, k:gsub("^cdmE", "") .. (c.shown == false and "-" or ("@" .. c.points.TOPLEFT[4])))
                 end
             end
@@ -10339,7 +10346,7 @@ local function KeybindPass()
     -- the window's button closes the window and starts it
     ns.OpenOptions("general")
     for _, c in ipairs(ns.optionPages["general"].controls) do
-        if c.spec.label == "Bind keys" then c.scripts.OnClick(c) end
+        if c.spec.label == ns.L["Bind keys"] then c.scripts.OnClick(c) end
     end
     state("from the page")
     say("kb page closed", tostring(page.opened == nil))
@@ -11489,7 +11496,7 @@ local function EditorPass()
     local labels = {}
     for _, c in ipairs(ns.optionPages["units/general"].controls or {}) do
         if c.spec and c.spec.kind == "button" then table.insert(labels, c.spec.label) end
-        if c.spec and c.spec.label == "Edit unit frames" then c.scripts.OnClick(c) end
+        if c.spec and c.spec.label == ns.L["Edit unit frames"] then c.scripts.OnClick(c) end
     end
     local chosen = E.ui.Chosen()
     print("  units general shortcut", table.concat(labels, ","), "frame=" .. tostring(chosen and chosen.id))
@@ -16764,7 +16771,7 @@ if dispelPass then
     local glows
     local function find(t)
         if type(t) ~= "table" or glows then return end
-        if t.title == "Glows" and t.items then glows = t; return end
+        if t.title == ns.L["Glows"] and t.items then glows = t; return end
         for _, v in pairs(t) do find(v) end
     end
     find(ns.OptionPages())
