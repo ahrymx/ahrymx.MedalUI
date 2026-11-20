@@ -6,7 +6,8 @@ local L = ns.L
 -- Ready-made radials, read-only. A player adds a copy (RM:AddPreset), changes it however they like,
 -- and can put it back as it comes (RM:ResetToPreset): the copy keeps the preset's key in
 -- radial.preset. The emote presets are rings of categories, grouped by feeling; each category opens
--- a ring of its emotes (ACTIONS.category in Radial/Radial.lua).
+-- a ring of its emotes (ACTIONS.category in Radial/Radial.lua). Camping: a slice for each camp kit
+-- you carry (ACTIONS.campkits), and Sit (by the fire a minute: the camp's full buff).
 --------------------------------------------------
 
 local function Emotes(...)
@@ -45,6 +46,10 @@ ns.PRESETS = {
         Category(L["Distress"], "distress", Emotes("HELPME", "HEALME", "OOM", "FLEE")),
         Category(L["Signals"], "signals", Emotes("FOLLOW", "WAIT", "NOD", "NO")),
     } },
+    camping = { name = L["Camping"], icon = { texture = "Interface\\Icons\\Spell_Fire_Fire" }, buttons = {
+        { kind = "campkits" },
+        { kind = "emote", emote = "SIT" },
+    } },
 }
 -- the sidebar's order
-ns.PRESET_ORDER = { "markers", "emotes", "voice" }
+ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping" }

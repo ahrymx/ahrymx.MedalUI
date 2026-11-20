@@ -702,6 +702,83 @@ ACTIONS.questitems = function(entry)
     return first.name, first.icon, first.attributes, { children = children, childIndex = 1 }
 end
 
+-- Camp Kits: the camp kits in your bags, a slice each (spread, as a party spell's people): the
+-- campfires first, best first, then the camp objects by profession and tier. A kit is an item whose
+-- name holds a camp object's (the server's names are English: Medalluin reads them so, in
+-- professions/camping.lua) and that has a use, or one Medalluin recorded from this character's
+-- recipes (MedalluinCharDB.camp). Gone while you carry none.
+RM.CAMP_KITS_ICON = "Interface\\Icons\\Spell_Fire_Fire"
+RM.CAMP_OBJECTS = {
+    "Expert Campfire", "Journeyman Campfire", "Basic Campfire",
+    "Mana Well", "Fermenter", "Alchemy Laboratory",
+    "Sharpening Wheel", "Anvil", "Master Forge",
+    "Enchanted Lute", "Arcane Salvager", "Arcane Forge",
+    "Reagent Bot", "Repair Bot", "Anarchist's Workbench",
+    "Incense Candle", "Greenhouse", "Seed Hybridizer",
+    "Camp Tent", "Tanning Rack", "Sewing Machine",
+    "Lodestone", "Rock Garden", "Molten Foundry",
+    "Camp Chair", "Field Guide", "Trapper's Workbench",
+    "Faction Banner", "Spinning Wheel", "Loom",
+    "First Aid Kit", "Toxin Study", "Plague Doctor's Laboratory",
+    "Fish Bowl", "Fishing Rack", "Fishing Hut",
+    "Cookie's Feast", "Iron Oven",
+}
+-- the kits carried, in the objects' order: { itemID, ... }
+function RM.CampKits()
+    local rank, found = {}, {}
+    local record = type(MedalluinCharDB) == "table" and type(MedalluinCharDB.camp) == "table" and MedalluinCharDB.camp
+    local function Rank(name)
+        if type(name) ~= "string" then return nil end
+        for i, object in ipairs(RM.CAMP_OBJECTS) do
+            if name:find(object, 1, true) then return i end
+        end
+    end
+    -- what Medalluin recorded from the recipes: kept by object name
+    if record then
+        for object, known in pairs(record) do
+            local id = type(known) == "table" and known.item
+            local r = Rank(object)
+            if id and r and C_Item.GetItemCount(id) > 0 then rank[id] = math.min(rank[id] or r, r) end
+        end
+    end
+    if C_Container then
+        for bag = 0, 5 do
+            for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+                local info = C_Container.GetContainerItemInfo(bag, slot)
+                local id = info and info.itemID
+                if id and not rank[id] then
+                    local name = C_Item.GetItemNameByID(id) or (info.hyperlink and info.hyperlink:match("%[(.-)%]"))
+                    local r = Rank(name)
+                    if r and C_Item.GetItemSpell and C_Item.GetItemSpell(id) then rank[id] = r end
+                end
+            end
+        end
+    end
+    for id in pairs(rank) do found[#found + 1] = id end
+    table.sort(found, function(a, b)
+        if rank[a] ~= rank[b] then return rank[a] < rank[b] end
+        return a < b
+    end)
+    return found
+end
+ACTIONS.campkits = function()
+    local spread = {}
+    for _, id in ipairs(RM.CampKits()) do
+        if #spread >= MAX_BUTTONS then break end
+        local name = C_Item.GetItemNameByID(id)
+        if not name then
+            awaitedItems[id] = true
+            C_Item.RequestLoadItemDataByID(id)
+        end
+        local icon = C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
+        spread[#spread + 1] = { name = name or L["Item"], icon = { texture = icon }, entry = { kind = "item", id = id },
+            attributes = { type = "item", item = "item:" .. id } }
+    end
+    if #spread == 0 then return nil end
+    local first = spread[1]
+    return L["Camp Kits"], { texture = RM.CAMP_KITS_ICON }, first.attributes, { spread = spread }
+end
+
 -- Party spell: one helpful spell spread over the group, a button for you and each party member
 -- (party1-4; in a raid, your own group), so you aim at a person and cast on them without changing
 -- your target. Units, not names, sit in the secure attributes; names are only drawn. The buttons

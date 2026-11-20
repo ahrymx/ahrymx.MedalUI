@@ -1133,6 +1133,46 @@ for _, key in ipairs(ns.PRESET_ORDER) do
     print("radial preset " .. key, "name=" .. p.name, "categories=" .. cats, "buttons=" .. n)
 end
 print("radial preset first run", "markers=" .. tostring(firstPreset))
+-- Camping: a slice for each camp kit carried (campfires first, then the objects), and Sit. A kit is
+-- an item whose name holds a camp object's and that has a use, or one Medalluin recorded
+do
+    local bag = { { itemID = 9001 }, { itemID = 9002 }, { itemID = 9003 }, { itemID = 9004 } }
+    local names = { [9001] = "Mana Well Kit", [9002] = "Tanned Leather", [9003] = "Basic Campfire Kit",
+        [9004] = "Anvil Polish", [9005] = "Odd Bundle" }
+    local uses = { [9001] = true, [9003] = true, [9005] = true }
+    local was = { C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemCount, MedalluinCharDB,
+        C_Item.GetItemIconByID }
+    C_Item.GetItemIconByID = function(id) return "icon" .. id end
+    C_Container = { GetContainerNumSlots = function(b) return b == 0 and #bag or 0 end,
+        GetContainerItemInfo = function(b, slot) return b == 0 and bag[slot] or nil end }
+    C_Item.GetItemNameByID = function(id) return names[id] end
+    C_Item.GetItemSpell = function(id) return uses[id] and "Use" or nil end
+    C_Item.GetItemCount = function(id)
+        for _, i in ipairs(bag) do if i.itemID == id then return 1 end end
+        return 0
+    end
+    local function ring(tag)
+        local out = {}
+        for _, b in ipairs(ns.PRESETS.camping.buttons) do
+            local info = RM:ResolveEntry(b)
+            for _, one in ipairs(info and (info.spread or { info }) or {}) do
+                out[#out + 1] = one.name .. (one.attributes.item and ("[" .. one.attributes.item .. "]") or "")
+            end
+        end
+        print(tag, table.concat(out, " "))
+    end
+    ring("radial camping kits")
+    -- a kit Medalluin recorded from the recipes, its name none of the objects'
+    MedalluinCharDB = { camp = { ["Camp Tent"] = { item = 9005 } } }
+    table.insert(bag, { itemID = 9005 })
+    ring("radial camping recorded")
+    bag = {}
+    MedalluinCharDB = nil
+    ring("radial camping none")
+    C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemCount, MedalluinCharDB =
+        was[1], was[2], was[3], was[4], was[5]
+    C_Item.GetItemIconByID = was[6]
+end
 local before = #RM:GetRadialOrder()
 local emo, voice = RM:AddPreset("emotes"), RM:AddPreset("voice")
 runTimers()

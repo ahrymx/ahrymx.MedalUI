@@ -1,3 +1,8 @@
+# mdlui_RadialMenu 0.63.0
+
+- **Camping preset:** a slice for each camp kit you carry, campfires first (the best first), then the camp objects by profession and tier, and **Sit**: a minute sat by the fire gives the camp's full buff.
+- **Camp Kits:** the button behind it, also in the Catalog's Items after Quest Items. It finds the kits in your bags by the camp objects' names, and the kits Medalluin has read from your recipes; it is gone while you carry none.
+
 # mdlui_RadialMenu 0.49.0
 
 - **Presets:** ready-made radials in the editor's sidebar, read-only: **Markers**, **Emotes** and **Voice Emotes**. **Add to my radials** makes a copy to change however you like; its Radial sheet's **Reset...** puts it back as it comes, keeping its name and key. The first-run Markers radial counts as the preset's copy.
