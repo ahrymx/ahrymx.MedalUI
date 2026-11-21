@@ -1591,8 +1591,8 @@ L["%d |4page:pages;"] = "%d |4страница:страницы:страниц;"
 L["%d |4section:sections;"] = "%d |4раздел:раздела:разделов;"
 L["%s and %s match \"%s\""] = "%s и %s по запросу «%s»"
 L["%s: the page, by macro conditional"] = "%s: страница по условию макроса"
-L["A %s debuff's glow on the canvas, in its colour (Unit Frames > General > Glows). One type at a time."] =
-    "Свечение дебаффа типа «%s» на холсте, в его цвете (Рамки юнитов > Общее > Свечение). По одному типу за раз."
+L["A %s debuff's glow on the canvas, in its colour (Unit Frames > General > Highlights). One type at a time."] =
+    "Свечение дебаффа типа «%s» на холсте, в его цвете (Рамки юнитов > Общее > Подсветка). По одному типу за раз."
 L["A dark edge round the letters."] = "Тёмная кайма вокруг букв."
 L["A party, a raid, bosses and an arena to edit out of a group"] = "Группа, рейд, боссы и арена для правки вне группы"
 L["A text's font size, an icon's width and height."] = "Размер шрифта текста, ширина и высота значка."
@@ -2091,14 +2091,14 @@ L["Poison"] = "Яд"
 L["Bleed"] = "Кровотечение"
 L["Dispel glow on frame borders"] = "Свечение рассеивания по краю рамки"
 L["Glow the frame's border in the debuff's color (purple for Curse, green for Poison, etc.) when an ally has a "
-    .. "debuff you can dispel. Which types, and their colours: Unit Frames > General > Glows."] =
+    .. "debuff you can dispel. Which types, and their colours: Unit Frames > General > Highlights."] =
     "Край рамки светится цветом дебаффа (фиолетовым для проклятия, зелёным для яда и т. д.), когда на союзнике "
-    .. "дебафф, который вы можете рассеять. Какие типы и их цвета: Рамки юнитов > Общее > Свечение."
+    .. "дебафф, который вы можете рассеять. Какие типы и их цвета: Рамки юнитов > Общее > Подсветка."
 L["Aggro glow on frame borders"] = "Свечение угрозы по краю рамки"
 L["Glow the frame's border while that unit has aggro: something is attacking it. A dispel glow comes first. Its "
-    .. "colour: Unit Frames > General > Glows."] =
+    .. "colour: Unit Frames > General > Highlights."] =
     "Край рамки светится, пока юнит под угрозой: его кто-то атакует. Свечение рассеивания важнее. Его цвет: Рамки "
-    .. "юнитов > Общее > Свечение."
+    .. "юнитов > Общее > Подсветка."
 L["You dispel nothing: none of your spells removes a debuff."] =
     "Вы ничего не рассеиваете: ни одно ваше заклинание не снимает дебаффы."
 L["You dispel %s  (%s)."] = "Вы рассеиваете: %s  (%s)."
@@ -2118,7 +2118,7 @@ L["Aggro colour"] = "Цвет угрозы"
 L["The aggro glow's colour."] = "Цвет свечения угрозы."
 L["Reset colours"] = "Сбросить цвета"
 L["Every glow's colour back to its first."] = "Цвета всех свечений — как изначально."
-L["Glows"] = "Свечение"
+L["Highlights"] = "Подсветка"
 L["Display a large icon in the middle of the frame with a radial timer sweep when the unit is affected by CC."] =
     "Показывать крупный значок в центре рамки с круговым таймером, когда юнит под контролем."
 L["Display a large icon in the middle of a member's frame with a radial timer sweep when the unit is affected by CC."] =

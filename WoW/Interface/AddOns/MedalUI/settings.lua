@@ -60,8 +60,9 @@ local DEFAULTS = {
     consoleAlpha = 1, consoleFadedAlpha = 0, consoleFadeIn = 0.2, consoleFadeOut = 0.6,
     overheadAlpha = 1, overheadFadeIn = 0.2, overheadFadeOut = 0.2,
     -- the overhead's bottom row (stances, pet bar, totems) and its deck: as an
-    -- action bar's visibility (ns.VISIBILITY), its faded opacity, its fade's length
-    overheadRowVis = 1, overheadRowFaded = 0, overheadRowFadeTime = 0.25,
+    -- action bar's visibility (ns.VISIBILITY), its faded opacity, its fade's length.
+    -- (2026-11-21) in combat or on mouseover, faded to 45%, for every profile
+    overheadRowVis = 4, overheadRowFaded = 0.45, overheadRowFadeTime = 0.25,
     -- Minimal OoC Mode (the Reticule): out of combat the console at Rest, the
     -- player and target at Units; combat, and what is ticked, bring it back
     consoleMinimal = false, consoleMinimalUnits = 0.2, consoleMinimalRest = 0, consoleMinimalRegen = 0,
@@ -238,7 +239,8 @@ local DEFAULTS = {
     dispelMagic = true, dispelCurse = true, dispelPoison = true, dispelDisease = true, dispelBleed = true,
     dispelColorMagic = "ff3399ff", dispelColorCurse = "ffb200ff", dispelColorPoison = "ff00d11f",
     dispelColorDisease = "ffd16100", dispelColorBleed = "ffcc0f0f",
-    dispelStyle = "glow",   -- a dispel shown as the border's glow, or "health": the health bar in its colour
+    dispelStyle = "health", -- a dispel shown as "health": the health bar in its colour (the default since
+                            -- 2026-11-21), or "glow": the border's glow
     threatColor = "ffe63c28",
     bossWidgetMine = true,
     arenaCC = true, arenaMine = true,
@@ -355,7 +357,9 @@ ns.LOOT_QUALITIES = { { 0, Tr["Poor"] }, { 1, Tr["Common"] }, { 2, Tr["Uncommon"
 -- were "light" and "default" until 0.44 (Migrate renames them).
 local PROFILES = {
     arena = {},
-    reticule = { rows = 3 },
+    -- (2026-11-21) the Reticule's minimap stays in its bay until the
+    -- player asks it to move by itself (Console > Minimap)
+    reticule = { rows = 3, minimapAuto = false },
 }
 -- Arena is set aside (2026-11-17): not chosen, and an install on it moved to
 -- the Reticule once (Migrate), each character's bars with it at its next

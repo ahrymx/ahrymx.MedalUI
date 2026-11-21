@@ -73,7 +73,7 @@ local sidePass = args[2] == "side" or args[2] == "zone" or args[3] == "zone"
 zonePass = args[2] == "zone" or args[3] == "zone"   -- a global: the main chunk is at its local limit
 -- "dispel" (console/auras.lua): what a Forever shaman dispels, read from
 -- the spells known (Cure Poison, Cure Disease), each type's option and
--- colour, the Glows group's note and greyed types, and the aggro glow.
+-- colour, the Highlights group's note and greyed types, and the aggro glow.
 dispelPass = args[2] == "dispel" or args[3] == "dispel"
 local savedNoSide = args[3] == "noside"
 local bagsPass = args[2] == "bags"
@@ -2481,8 +2481,11 @@ MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
     or profilesPass and { consoleProfile = "light", rows = 3, actionBar = true, bareIcons = true,
         artColor = "ffffffff", drawer = 2, sideTab = "loot", bagsPoint = { "TOP", "TOP", 4, -8 },
         bagsColumns = 12, retired = "kept" }
+    -- (the light pass tests the minimap's moves: ticked on, as a player
+    -- would, since the Reticule ships with them off; the profiles pass
+    -- prints that default)
     or lightPass and { consoleProfile = "light", bareIcons = true, simParty = grouped,
-        partyLayout = rowPass and "horizontal" or "vertical", minimapStart = savedStart }
+        partyLayout = rowPass and "horizontal" or "vertical", minimapStart = savedStart, minimapAuto = true }
     or barOff and { actionBar = false } or savedRows and { rows = savedRows }
     or pagingPass and { rows = 3 }
     or savedBare and { bareIcons = true } or savedNoChat and { chat = false }
@@ -2494,6 +2497,15 @@ MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
     or mailPass and { mail = { Nordanaar = { alts = { "Thalassa" }, recent = { "Thalric", "Okun" } } } }
     -- an install from before the Reticule became the default: on Arena
     or { consoleProfile = "arena" }
+-- (2026-11-21) a dispel shows as Health colour by default: the passes that
+-- test the border glow tick it, as a player would (the dispel pass prints
+-- the default)
+do
+    local function passed(w) return args[2] == w or args[3] == w or args[4] == w end
+    if MedalUIDB and (passed("dispel") or passed("editor") or passed("simparty") or passed("widgets")) then
+        MedalUIDB.dispelStyle = MedalUIDB.dispelStyle or "glow"
+    end
+end
 if modern then
     function CreateColor(r, g, b, a) return { r, g, b, a } end
     function Region:SetGradient(o, a, b) self.gradient = { o, a, b } end
@@ -10175,6 +10187,11 @@ end
 
 if profilesPass then
     local S = page.settings
+    -- the Reticule's minimap stays in its bay by default: it moves by
+    -- itself only when ticked on (and the Arena's never moves)
+    print("profiles minimap auto", "profile=" .. ns.db.consoleProfile, "auto=" .. tostring(ns.db.minimapAuto),
+        "default=" .. tostring(S.minimapAuto and S.minimapAuto:Default()),
+        "corner=" .. tostring(ns.MinimapInCorner and ns.MinimapInCorner()))
     local heard = {}
     for _, key in ipairs({ "rows", "bareIcons", "drawer", "lootMoney", "sideTab", "bagsPoint", "bagsColumns" }) do
         ns.OnSetting(key, function(v) table.insert(heard, key .. "=" .. tostring(v)) end)
@@ -14398,6 +14415,16 @@ function FadePass()
         local V = ns.VISIBILITY
         inCombat, mouseOver, cursor = false, false, nil
         fire("PLAYER_REGEN_ENABLED")
+        -- (2026-11-21) by default in combat or on mouseover, faded to 45%:
+        -- out of combat and away from the pointer, seen and still clickable
+        step(0.3)
+        row("default, idle")
+        print("fade row defaults", "vis=" .. tostring(ns.OptionBase("overheadRowVis")),
+            "faded=" .. tostring(ns.OptionBase("overheadRowFaded")))
+        -- the cases below from Always and 0%, set as a player would
+        set("overheadRowVis", V.ALWAYS)
+        set("overheadRowFaded", 0)
+        step(0.3)
         row("always")
         set("overheadRowVis", V.COMBAT)
         row("in combat, idle")
@@ -14498,6 +14525,10 @@ function FadePass()
         for _, k in ipairs({ "overheadRowVis", "overheadRowFaded", "overheadRowFadeTime" }) do
             set(k, ns.OptionBase(k))
         end
+        step(0.3)
+        row("back to defaults")
+        set("overheadRowVis", V.ALWAYS)
+        step(0.3)
         row("back to always")
         -- on Always, at whole, the watch sleeps
         step(0.05)
@@ -17883,6 +17914,7 @@ if dispelPass then
     fire("SPELLS_CHANGED")
     local types, spells = ns.PlayerDispels()
     print("dispel known", table.concat(types, ","), "by " .. table.concat(spells, ","))
+    print("dispel style", "default=" .. tostring(ns.OptionBase("dispelStyle")), "now=" .. tostring(ns.db.dispelStyle))
     -- an id known under another name is not that spell (527: Purify on
     -- retail, Dispel Magic on Forever)
     classOf.player = "PRIEST"
@@ -17894,11 +17926,11 @@ if dispelPass then
     classOf.player = "SHAMAN"
     known = { [526] = true, [2870] = true }
     fire("SPELLS_CHANGED")
-    -- the page: Unit Frames > General > Glows
+    -- the page: Unit Frames > General > Highlights
     local glows
     local function find(t)
         if type(t) ~= "table" or glows then return end
-        if t.title == ns.L["Glows"] and t.items then glows = t; return end
+        if t.title == ns.L["Highlights"] and t.items then glows = t; return end
         for _, v in pairs(t) do find(v) end
     end
     find(ns.OptionPages())

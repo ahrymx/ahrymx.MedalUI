@@ -596,7 +596,7 @@ for _, p in ipairs(E.PREVIEWS) do if p.dispel then DISPEL[p[1]] = true end end
 
 local function ChipTip(p)
     if p.dispel then
-        return format(Tr["A %s debuff's glow on the canvas, in its colour (Unit Frames > General > Glows). "
+        return format(Tr["A %s debuff's glow on the canvas, in its colour (Unit Frames > General > Highlights). "
             .. "One type at a time."], p[2])
     end
     if p[1] == "threat" then return Tr["The aggro glow on the canvas, and the console's tint red."] end

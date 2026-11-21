@@ -506,14 +506,14 @@ local DISPEL_NAMES = { Magic = Tr["Magic"], Curse = Tr["Curse"], Poison = Tr["Po
 local function Glow(key)
     return Check(key, Tr["Dispel glow on frame borders"],
         Tr["Glow the frame's border in the debuff's color (purple for Curse, green for Poison, etc.) when an ally has "
-        .. "a debuff you can dispel. Which types, and their colours: Unit Frames > General > Glows."])
+        .. "a debuff you can dispel. Which types, and their colours: Unit Frames > General > Highlights."])
 end
 local function Threat(key)
     return Check(key, Tr["Aggro glow on frame borders"],
         Tr["Glow the frame's border while that unit has aggro: something is attacking it. A dispel glow comes first. "
-        .. "Its colour: Unit Frames > General > Glows."])
+        .. "Its colour: Unit Frames > General > Highlights."])
 end
--- The glows' own group (Unit Frames > General): the types the player
+-- The Highlights group (Unit Frames > General; "Glows" until 2026-11-21): the types the player
 -- dispels, each one's on and colour, and the aggro glow's colour.
 local function Glows()
     local items = {
@@ -548,7 +548,7 @@ local function Glows()
         for _, t in ipairs(ns.DISPEL_TYPES) do ns.SetOption("dispelColor" .. t, ns.OptionBase("dispelColor" .. t)) end
         ns.SetOption("threatColor", ns.OptionBase("threatColor"))
     end, Tr["Every glow's colour back to its first."]))
-    return Group(Tr["Glows"], unpack(items))
+    return Group(Tr["Highlights"], unpack(items))
 end
 local CC_TIPS = {
     the = Tr["Display a large icon in the middle of the frame with a radial timer sweep when the unit is "
