@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The companions' marks: Medalluin's medal (assets/medalluin-icon.svg, the
+"""The companions' marks: MedalUI's medal (assets/medalui-icon.svg, the
 minimap button's), its gold turned to each companion's colour, the rest
 (the dark face, the letters' blue light) as it is. Each is the companion's
 minimap button and its icon in the game's AddOns list.
@@ -8,7 +8,7 @@ minimap button and its icon in the game's AddOns list.
                                              mdlui_Tooltips/art/logo.tga (blue),
                                              assets/companions/*.png
 
-Rendered at 64 pixels, twice the button's 32, as Medalluin's own is
+Rendered at 64 pixels, twice the button's 32, as MedalUI's own is
 (art/strips/gen_sidepanel.py); its letters want the Cinzel fonts installed.
 A colour is "gold" when its hue is warm (15 to 65 degrees) and it has some
 saturation; it keeps its lightness and saturation and takes the new hue.
@@ -26,7 +26,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, "art", "console"))
 import export  # noqa: E402
 
-SVG = os.path.join(ROOT, "assets", "medalluin-icon.svg")
+SVG = os.path.join(ROOT, "assets", "medalui-icon.svg")
 ADDONS = os.path.join(ROOT, "WoW", "Interface", "AddOns")
 ASSETS = os.path.join(ROOT, "assets", "companions")
 

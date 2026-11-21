@@ -1,5 +1,5 @@
--- The pieces the window (UI/Editor.lua) is built from: Medalluin's Settings window's
--- (Medalluin/options/controls.lua and window.lua), as mdlui_RadialMenu copies them
+-- The pieces the window (UI/Editor.lua) is built from: MedalUI's Settings window's
+-- (MedalUI/options/controls.lua and window.lua), as mdlui_RadialMenu copies them
 -- (its UI/Panel.lua); copied again here, so this addon stands alone. A card is a
 -- title band over rows; a row is its label, a line under it saying what it does,
 -- and its control at the right. The pill, the segment, the dropdown box, the
@@ -8,20 +8,20 @@
 --   ns.Panel         Fill, Paint, Outline, Inset, Heading, Serif, Plain, UButton,
 --                    Chip, Card, InBand, CardRow, Switch, Segment, Slider, Choice,
 --                    Search, SheetTab; and this addon's own: Swatch, Scroller
---   ns.PanelColors   Medalluin's palette (ns.ui is the panels' renderer)
+--   ns.PanelColors   MedalUI's palette (ns.ui is the panels' renderer)
 local _, ns = ...
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local ART = "Interface\\AddOns\\mdlui_Tooltips\\art\\ui\\"
--- Medalluin's serif for this client's letters: the face it settled on (its
+-- MedalUI's serif for this client's letters: the face it settled on (its
 -- General > Font; it loads first), else Marcellus SC for Latin, Forum for
--- Cyrillic (Medalluin's core.lua chooses the same)
-local SERIF = type(MedalluinFontFace) == "string" and MedalluinFontFace
+-- Cyrillic (MedalUI's core.lua chooses the same)
+local SERIF = type(MedalUIFontFace) == "string" and MedalUIFontFace
     or (GetLocale and GetLocale() == "ruRU")
-    and "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf"
-    or "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
+    and "Interface\\AddOns\\MedalUI\\media\\fonts\\Forum-Regular.ttf"
+    or "Interface\\AddOns\\MedalUI\\media\\fonts\\MarcellusSC-Regular.ttf"
 
--- Medalluin's palette (core.lua and options/controls.lua)
+-- MedalUI's palette (core.lua and options/controls.lua)
 local C = {
     gold = { 0.769, 0.647, 0.341 },
     goldDark = { 0.541, 0.439, 0.204 },
@@ -103,12 +103,12 @@ function Panel.Inset(t, x, y)
 end
 local Inset = Panel.Inset
 
--- Medalluin's serif for a heading, at size, while Medalluin is there and the
+-- MedalUI's serif for a heading, at size, while MedalUI is there and the
 -- client's letters are Latin; else the game's own face.
 -- (a bundled serif: Latin's and Cyrillic's; Korean and Chinese have none)
 local LATIN = not ({ koKR = true, zhCN = true, zhTW = true })[GetLocale and GetLocale() or "enUS"]
 function Panel.Heading(fs, size, color)
-    local serif = LATIN and ns.Game and ns.Game.addonInstalled and ns.Game.addonInstalled("Medalluin")
+    local serif = LATIN and ns.Game and ns.Game.addonInstalled and ns.Game.addonInstalled("MedalUI")
     if not (serif and fs:SetFont(SERIF, size or 14, "")) then
         fs:SetFontObject(GameFontNormal)
         local face = fs:GetFont()

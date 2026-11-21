@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, "art", "console"))
 import export  # noqa: E402
 
-OUT = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "spellbook")
+OUT = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "spellbook")
 SIZE = 256
 BASE, DARK = (70, 55, 34), (28, 22, 14)        # the page's light and its shadow
 

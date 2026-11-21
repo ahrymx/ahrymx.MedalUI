@@ -46,7 +46,7 @@ from brown import brown  # noqa: E402  (art/brown.py: the suite's navy as brown)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-ADDON = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin")
+ADDON = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI")
 MEDIA = os.path.join(ADDON, "media")
 CENTRE_X = 960                      # the screen's centre line in the mockups
 

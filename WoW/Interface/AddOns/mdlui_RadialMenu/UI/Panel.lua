@@ -4,8 +4,8 @@ local L = ns.L
 --------------------------------------------------
 -- PANEL
 -- What the radial editor (Radial/Editor.lua, from FlareUI's RadialEditor.lua) reads of FlareUI's
--- settings panel, drawn in Medalluin's look: a gold edge on an ink well, Marcellus headings; and the
--- Unit Frame Editor's pieces (Medalluin/options/controls.lua, copied: this addon stands alone), which
+-- settings panel, drawn in MedalUI's look: a gold edge on an ink well, Marcellus headings; and the
+-- Unit Frame Editor's pieces (MedalUI/options/controls.lua, copied: this addon stands alone), which
 -- the window (UI/Window.lua) is built from.
 --   ns.SettingsPanel   Rounded, Box, ScrollLine, KeyButton, Dress; Fill, Outline, Paint, Skin,
 --                      Serif, Plain, Caption, UButton, Tab, Switch, Segment, Stepper, Row
@@ -14,7 +14,7 @@ local L = ns.L
 --------------------------------------------------
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 
--- Medalluin's palette (options/controls.lua; copied: this addon stands alone)
+-- MedalUI's palette (options/controls.lua; copied: this addon stands alone)
 local C = {
     gold = { 0.769, 0.647, 0.341 },
     goldDark = { 0.541, 0.439, 0.204 },
@@ -79,7 +79,7 @@ function Panel.Dress(f, fill)
     f.mdlWell = well
 end
 
--- Medalluin's font for a heading, at size; the game's font keeps the client's letters elsewhere
+-- MedalUI's font for a heading, at size; the game's font keeps the client's letters elsewhere
 function Panel.Heading(fs, size, color)
     ns.SetFont(fs, ns.GetFontPath(ns.GLOBAL_FONT), size or 14, "")
     fs:SetShadowOffset(1, -1)
@@ -90,7 +90,7 @@ end
 
 --------------------------------------------------
 -- BUTTONS
--- As Medalluin's windows': a dark gold edge, an ink well, a white glow under the mouse; b.mark lit
+-- As MedalUI's windows': a dark gold edge, an ink well, a white glow under the mouse; b.mark lit
 -- while it is selected (b:SetSelected).
 --------------------------------------------------
 local function Face(b)
@@ -141,7 +141,7 @@ end
 
 --------------------------------------------------
 -- THE SETTINGS WINDOW'S PIECES
--- Medalluin's Settings window (Medalluin/options/controls.lua and window.lua), copied: this addon
+-- MedalUI's Settings window (MedalUI/options/controls.lua and window.lua), copied: this addon
 -- stands alone. A card is a title band over rows; a row is its label, a line under it saying what it
 -- does, and its control at the right. The pill, the segment, the dropdown box, the slider, the
 -- search box and the sheet tab are the Settings window's; so is the art in art/ui.

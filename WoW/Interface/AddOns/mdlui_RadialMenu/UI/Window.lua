@@ -3,7 +3,7 @@ local L = ns.L
 
 --------------------------------------------------
 -- WINDOW
--- The editor window, laid out as Medalluin's Settings window (Medalluin/options/window.lua):
+-- The editor window, laid out as MedalUI's Settings window (MedalUI/options/window.lua):
 --   the head      a bar across the top: the title, a faint subtitle, the x in its own cell
 --   the sidebar   a search over the radials, then the radials under their groups' headings, the
 --                 ones not on this character, and Options > Every radial (Radial/Editor.lua)
@@ -128,7 +128,7 @@ end
 
 local function FontName(face)
     if face == nil or face == ns.GLOBAL_FONT then
-        return C_AddOns.IsAddOnLoaded("Medalluin") and L["Medalluin"] or L["Game Font"]
+        return C_AddOns.IsAddOnLoaded("MedalUI") and L["MedalUI"] or L["Game Font"]
     end
     return face
 end

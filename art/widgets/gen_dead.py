@@ -19,7 +19,7 @@ from gen_widgets import GOLD, GOLD_D, font
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "render")
-MEDIA = os.path.join(HERE, "..", "..", "WoW", "Interface", "AddOns", "Medalluin", "media")
+MEDIA = os.path.join(HERE, "..", "..", "WoW", "Interface", "AddOns", "MedalUI", "media")
 SCALE = 3
 DEAD = (64, 66, 74)
 OFFLINE = (52, 56, 66)

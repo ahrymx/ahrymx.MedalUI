@@ -9,7 +9,7 @@ import math
 from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MEDIA = os.path.join(HERE, "..", "..", "WoW", "Interface", "AddOns", "Medalluin", "media")
+MEDIA = os.path.join(HERE, "..", "..", "WoW", "Interface", "AddOns", "MedalUI", "media")
 RENDER = os.path.join(HERE, "render")
 
 os.makedirs(MEDIA, exist_ok=True)

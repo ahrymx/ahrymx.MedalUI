@@ -37,7 +37,7 @@ def glow(size):
 
 
 def main():
-    out = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "character")
+    out = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "character")
     os.makedirs(out, exist_ok=True)
     export.to_tga(glow(SIZE), os.path.join(out, "glow.tga"))
     print(os.path.join(out, "glow.tga"))

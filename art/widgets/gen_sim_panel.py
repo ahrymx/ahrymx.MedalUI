@@ -103,7 +103,7 @@ def variant_a(img, x, y):
 def variant_b(img, x, y):
     dr = ImageDraw.Draw(img)
     W = 520
-    frame(dr, x, y, W, 360, "Medalluin · Unit frames")
+    frame(dr, x, y, W, 360, "MedalUI · Unit frames")
     tabs(dr, x + 8, y + 26, ["Player · Target", "Party", "Party widget", "Raid", "Boss", "Arena"], 1, W - 16)
     # the editor's pieces list and controls, schematic
     frame(dr, x + 8, y + 52, 120, 300)

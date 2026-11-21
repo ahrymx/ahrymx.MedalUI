@@ -1,10 +1,10 @@
 # mdlui_RadialMenu
 
-> **Radial menus for [Medalluin](https://github.com/ahrymx/ahrymx.medalluin/blob/main/README.md), for WoW Forever (`16001`).**
+> **Radial menus for [MedalUI](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/README.md), for WoW Forever (`16001`).**
 >
-> Based on the radial menu of [FlareUI](https://github.com/malkkav/FlareUI) by **Malkkav**, distributed under the [MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE).
+> Based on the radial menu of [FlareUI](https://github.com/malkkav/FlareUI) by **Malkkav**, distributed under the [MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE).
 
-Hold a key, sweep the mouse towards a button, and let go: the button you aimed at is used, in combat too. A radial holds up to twelve buttons, built in an editor window in Medalluin's look.
+Hold a key, sweep the mouse towards a button, and let go: the button you aimed at is used, in combat too. A radial holds up to twelve buttons, built in an editor window in MedalUI's look.
 
 ---
 
@@ -16,15 +16,15 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
 - **Categories.** A button can hold a ring of its own buttons. Click it, or turn the mouse wheel on it, and the ring opens in place while you hold the key; let go over a button to use it, or right-click to go back.
 - **Party spells.** A party button holds one slot for you and one for each party member: aim at a person to cast on them.
 - **Click mode.** A macro line such as `/click MdlRadial markers` opens a radial that stays up until you click a button.
-- **The look.** FlareUI's layout in Medalluin's gold and ink: its own rims (brighter, with a glow, on the button you aim at), an ink backdrop with a thin gold ring, a gold centre ring, pointer and cancel X.
+- **The look.** FlareUI's layout in MedalUI's gold and ink: its own rims (brighter, with a glow, on the button you aim at), an ink backdrop with a thin gold ring, a gold centre ring, pointer and cancel X.
 
 ## The editor
 
-`/mdlradial` opens the editor, as does its key binding (Key Bindings > AddOns). The window is laid out like Medalluin's Settings window. On first run, a copy of the **Markers** preset is made for you.
+`/mdlradial` opens the editor, as does its key binding (Key Bindings > AddOns). The window is laid out like MedalUI's Settings window. On first run, a copy of the **Markers** preset is made for you.
 
 | | |
 |:---:|:---:|
-| ![The editor on the Markers radial: its wheel of target markers, the chosen slot, and the Catalog's panels](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/radialmenu-showcase/radial-editor-markers.png) | ![The editor on an Emotes radial: five category buttons on its wheel](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/radialmenu-showcase/radial-editor-emotes.png) |
+| ![The editor on the Markers radial: its wheel of target markers, the chosen slot, and the Catalog's panels](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/radialmenu-showcase/radial-editor-markers.png) | ![The editor on an Emotes radial: five category buttons on its wheel](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/radialmenu-showcase/radial-editor-emotes.png) |
 
 - **The sidebar** lists your radials under their groups, with a search above them.
   - Right-click a radial to group it, and drag to reorder.
@@ -48,13 +48,13 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
 
 ## Every radial
 
-![The Every radial page: Opening, Look and Fonts](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/radialmenu-showcase/radial-every-radial.png)
+![The Every radial page: Opening, Look and Fonts](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/radialmenu-showcase/radial-every-radial.png)
 
 **Options > Every radial** (`/mdlradial options`) holds what is shared by every radial:
 
 - **Opening:** where the wheel opens (Cursor or Centre); whether you hold the key or press it once (Hold or Toggle); and whether a sub-radial opens on its first button again or on the one you left (Reset or Remember).
 - **Look:** the whole radial's size (70%–150%); whether the button you point at shows its name; and whether a spell casts the best rank you know.
-- **Fonts:** the font and size of the button names, and of item counts and spell charges. Medalluin's font is the default when Medalluin is installed.
+- **Fonts:** the font and size of the button names, and of item counts and spell charges. MedalUI's font is the default when MedalUI is installed.
 
 ## Importing from FlareUI
 
@@ -69,10 +69,10 @@ A radial imported from FlareUI with a stick press keeps it. It opens on a stick 
 ## What changed from upstream
 
 - **Stands alone:** no FlareUI and no Ace libraries. LibSharedMedia is used only when another addon has loaded it.
-- **Medalluin:** listed under **Medalluin** in the AddOn List. It uses Medalluin's font when Medalluin is installed, and opens from Medalluin's **Radial menu (ext)** settings page (`/mdlui`).
+- **MedalUI:** listed under **MedalUI** in the AddOn List. It uses MedalUI's font when MedalUI is installed, and opens from MedalUI's **Radial menu (ext)** settings page (`/mdlui`).
 - **Its own names:** `/click MdlRadial <radial>` instead of `/click FUIRadial <radial>`.
-- **The editor** is a window of its own, laid out like Medalluin's Settings window, instead of FlareUI's options panel. Its controller rows (stick press, gamepad bar slot) and the controller options are left out until 2.0.
-- **The wheel** keeps FlareUI's layout, in Medalluin's gold and ink.
+- **The editor** is a window of its own, laid out like MedalUI's Settings window, instead of FlareUI's options panel. Its controller rows (stick press, gamepad bar slot) and the controller options are left out until 2.0.
+- **The wheel** keeps FlareUI's layout, in MedalUI's gold and ink.
 - **Removed:** FlareUI's own micro-menu entries (its settings and its threat meter).
 - **Alongside FlareUI:** if FlareUI's radial menu is on too, a chat line says so once, because keys both addons bind go to whichever binds last.
 
@@ -86,12 +86,12 @@ A radial imported from FlareUI with a stick press keeps it. It opens on a stick 
 | `/mdlradial key <number or name> <key>` | Binds a radial, for example `/mdlradial key 1 SHIFT-Q`; `none` clears it |
 | `/mdlradial padlog` | Turns the controller aim log on or off |
 
-The editor also opens from its key binding (Key Bindings > AddOns > **mdlui_RadialMenu**) and from Medalluin's **Radial menu (ext)** page (`/mdlui`).
+The editor also opens from its key binding (Key Bindings > AddOns > **mdlui_RadialMenu**) and from MedalUI's **Radial menu (ext)** page (`/mdlui`).
 
 ## Install
 
 1. Download the `mdlui_RadialMenu` release zip and extract `mdlui_RadialMenu` into your World of Warcraft `Interface\AddOns` folder.
-2. In the character select **AddOns** list, find **mdlui_RadialMenu** under the **Medalluin** category and make sure it is enabled.
+2. In the character select **AddOns** list, find **mdlui_RadialMenu** under the **MedalUI** category and make sure it is enabled.
 
 ## Compatibility
 
@@ -114,7 +114,7 @@ The editor also opens from its key binding (Key Bindings > AddOns > **mdlui_Radi
 
 ## Credits and license
 
-`mdlui_RadialMenu` is licensed under the **[MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE)**.
+`mdlui_RadialMenu` is licensed under the **[MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE)**.
 
 - **Original addon:** the radial menu of [FlareUI](https://github.com/malkkav/FlareUI) — Copyright © 2026 **Malkkav**
-- **Medalluin companion adaptation:** **AhryMX** ([Medalluin](https://github.com/ahrymx/ahrymx.medalluin))
+- **MedalUI companion adaptation:** **AhryMX** ([MedalUI](https://github.com/ahrymx/ahrymx.MedalUI))

@@ -9,7 +9,7 @@ local _, ns = ...
 -- English only for now: a key is its own text
 ns.L = setmetatable({}, { __index = function(_, key) return key end })
 
--- Medalluin's palette (copied: this addon stands alone)
+-- MedalUI's palette (copied: this addon stands alone)
 ns.colors = {
     ink = { 0.071, 0.067, 0.063 },
     text = { 0.949, 0.918, 0.824 },
@@ -96,13 +96,13 @@ end
 
 --------------------------------------------------
 -- FONTS
--- ns.GLOBAL_FONT is Medalluin's Marcellus SC when Medalluin is installed, else the client's own font
+-- ns.GLOBAL_FONT is MedalUI's Marcellus SC when MedalUI is installed, else the client's own font
 -- (which has the client language's letters). Other names go through LibSharedMedia when present.
 --------------------------------------------------
 ns.GLOBAL_FONT = "__global"
-local MARCELLUS = "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
--- Medalluin's face for Cyrillic (its core.lua chooses the same)
-local FORUM = "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf"
+local MARCELLUS = "Interface\\AddOns\\MedalUI\\media\\fonts\\MarcellusSC-Regular.ttf"
+-- MedalUI's face for Cyrillic (its core.lua chooses the same)
+local FORUM = "Interface\\AddOns\\MedalUI\\media\\fonts\\Forum-Regular.ttf"
 local KNOWN_FONTS = {
     ["Arial Narrow"] = "Fonts\\ARIALN.TTF",
     ["Friz Quadrata TT"] = "Fonts\\FRIZQT__.TTF",
@@ -128,15 +128,15 @@ local function BaseFont()
     return _G.STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 end
 
-local function HasMedalluin()
-    return C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("Medalluin") and true or false
+local function HasMedalUI()
+    return C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("MedalUI") and true or false
 end
 
--- Medalluin's face for this client's letters: Marcellus for Latin, Forum
+-- MedalUI's face for this client's letters: Marcellus for Latin, Forum
 -- for Cyrillic; none for Korean and Chinese (the game's font then)
-local function MedalluinFace()
-    -- the face Medalluin settled on (its General > Font), set as it loads
-    if type(MedalluinFontFace) == "string" then return MedalluinFontFace end
+local function MedalUIFace()
+    -- the face MedalUI settled on (its General > Font), set as it loads
+    if type(MedalUIFontFace) == "string" then return MedalUIFontFace end
     local locale = GetLocale and GetLocale() or "enUS"
     if locale == "ruRU" then return FORUM end
     if locale == "koKR" or locale == "zhCN" or locale == "zhTW" then return nil end
@@ -145,7 +145,7 @@ end
 
 function ns.GetFontPath(face)
     if face == nil or face == ns.GLOBAL_FONT then
-        if HasMedalluin() and MedalluinFace() then return MedalluinFace() end
+        if HasMedalUI() and MedalUIFace() then return MedalUIFace() end
         return BaseFont()
     end
     local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)

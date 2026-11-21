@@ -61,7 +61,7 @@ function ns.Options.register()
     note:SetWidth(480)
     note:SetJustifyH("LEFT")
     note:SetText(L["A button on the minimap's edge: a click opens the radial editor. Drag it to move it. "
-        .. "With Medalluin, it is in the action bar's minimap drawer instead."])
+        .. "With MedalUI, it is in the action bar's minimap drawer instead."])
     check:SetScript("OnShow", function(self) self:SetChecked(DB().minimapButton and true or false) end)
     check:SetScript("OnClick", function(self)
         DB().minimapButton = self:GetChecked() and true or false

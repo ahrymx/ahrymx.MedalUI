@@ -1,4 +1,4 @@
-# Medalluin
+# MedalUI
 
 ## Committing
 
@@ -15,7 +15,7 @@ terminal), so answer them yourself:
    staged).
 2. Pick the level from what the change *is*; the evidence is a hint, not the
    answer:
-   - **none**: nothing under `WoW/Interface/AddOns/Medalluin` or any companion
+   - **none**: nothing under `WoW/Interface/AddOns/MedalUI` or any companion
      addon (`WoW/Interface/AddOns/mdlui_*`) changed (tools, the harness, art
      sources, docs, CI). Nothing ships.
    - **minor**: it adds something a player can use that was not there before:

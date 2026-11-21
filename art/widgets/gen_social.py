@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
-MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "gamemenu-honeycomb.tga")
+MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "gamemenu-honeycomb.tga")
 OUT = os.path.join(HERE, "render")
 
 SIZE, SIDE, LINE, SS = 512, 16, 1.25, 4

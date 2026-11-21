@@ -1,8 +1,8 @@
 # mdlui_Tooltips
 
-> **An ornamented tooltip reskin for [Medalluin](https://github.com/ahrymx/ahrymx.medalluin/blob/main/README.md), for WoW Forever (`16001`) and Retail WoW (`120105`).**
+> **An ornamented tooltip reskin for [MedalUI](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/README.md), for WoW Forever (`16001`) and Retail WoW (`120105`).**
 >
-> Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by **FallenShard**, distributed under the [MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE).
+> Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by **FallenShard**, distributed under the [MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE).
 
 `mdlui_Tooltips` replaces the game's tooltip with a compact, ornamented panel: the icon and name up front, the details in short colored rows grouped by kind, and the fine print gathered in a footer. Hold **ALT** (or the key you choose) at any time to see the game's own tooltip.
 
@@ -66,7 +66,7 @@ Turn on **Armor colors** under **Item Details** to tell armor types apart at a g
 
 ## Spell tooltips
 
-![Stormstrike's tooltip: its mana, cast, cooldown and range in a strip, the cooldown remaining, and the description](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-spell.png)
+![Stormstrike's tooltip: its mana, cast, cooldown and range in a strip, the cooldown remaining, and the description](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-spell.png)
 
 Spells use the same panel: the icon and name, small badges for the spell's school, its rank, and **Passive** for passive spells and talents, and a strip with cost, cast time, cooldown, and range. The description follows one sentence per line, with its numbers highlighted.
 
@@ -78,7 +78,7 @@ On **WoW Forever (`16001`)**, spells that deal magic damage or heal show their s
 
 ## Players and NPCs
 
-![A Gryphon Master's tooltip: the portrait with its level badge, Elite and PvP badges, and the game's health bar, the dragon behind the header](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-unit.png)
+![A Gryphon Master's tooltip: the portrait with its level badge, Elite and PvP badges, and the game's health bar, the dragon behind the header](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-unit.png)
 
 Units under the cursor get a panel with their portrait, the name in class color (players) or reaction color (NPCs: red hostile, yellow neutral, green friendly, grey when tapped by someone else), the guild or an NPC's role, and the level, race, and class or creature type, the level in its difficulty color. Badges mark elites, rares, bosses, a player's faction, PvP, AFK, DND, and the dead. Below sit what the unit is targeting (in red when it is you), and the unit's quest lines. Rows other addons add are kept below, and the game's own health bar closes the panel. Elites, rares, rare elites, and bosses show the dragon from the game's target frame behind the header, and players their faction's crest.
 
@@ -90,7 +90,7 @@ Auras show their icon and name, badges for buff or debuff, the dispel type in th
 
 ## Quests
 
-![The Dark Iron War, completed: its zone, level badges, the giver's words, the objectives ticked, where it starts and ends, its chain, the reputation and when it was done](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-quest.png)
+![The Dark Iron War, completed: its zone, level badges, the giver's words, the objectives ticked, where it starts and ends, its chain, the reputation and when it was done](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-quest.png)
 
 With **DialogueUI** installed, enable **Quest parchment** under **Details** on the **Quests** or **Items** page's **Panel** sheet for its brown parchment and darker ink. The shared toggle applies to quest tooltips, items marked **Quest Item**, and items that begin a quest; the **Quest item** sample on the **Items** page previews it. It is off by default. Per-part custom text colors still take precedence, and the artwork is read from DialogueUI's folder.
 
@@ -115,19 +115,19 @@ Herbs, ore, chests, and quest objects get a panel too. On **WoW Forever**, a Cla
 
 ## What changed from upstream
 
-- **Medalluin:** listed under **Medalluin** in the AddOn List, and opens from Medalluin's **Tooltips (ext)** settings page (`/mdlui`). Works alongside Medalluin or on its own.
+- **MedalUI:** listed under **MedalUI** in the AddOn List, and opens from MedalUI's **Tooltips (ext)** settings page (`/mdlui`). Works alongside MedalUI or on its own.
 - **Retail WoW (`12.5` / `120105`):**
   - Reads modern secondary and tertiary stats (**Mastery**, **Versatility**, **Speed**, **Avoidance**, **Leech**).
   - Knows modern class resources (**Fury**, **Pain**, **Astral Power**, **Insanity**, **Maelstrom**, **Essence**, **Holy Power**, **Soul Shards**, **Arcane Charges**, **Chi**).
   - Recognizes **Warbound** / **Warband** and **Accountbound** bindings. Item lines it does not recognize go to the footer.
   - Leaves out the Classic-only tables (disenchanting, spell coefficients, and the classic herb, ore and skinning drops).
   - Parks and unparks the game's tooltip safely during combat lockdown (`InCombatLockdown()`), to avoid secret-value taint on Retail 12.x.
-- **Medalluin's look:** every panel is restyled in Medalluin's gold and ink, whichever **Panel style** is picked.
-  - **Bars** (aura time left, durability, the health bar, Medalluin's own XP bar) sit in a recessed well, with a lit fill and a bright tip. On the **All tooltips** page, one set of options covers them all: **Bar style** (**Well**, or **Plain** for a flat track), **Bar height** (4–16), and **Bar texture** (Flat, or a game or LibSharedMedia status bar, which the game's health bar takes too while a panel shows it). Each bar keeps its own color, which says what it is for: reaction for health, dispel type for auras, wear for durability.
+- **MedalUI's look:** every panel is restyled in MedalUI's gold and ink, whichever **Panel style** is picked.
+  - **Bars** (aura time left, durability, the health bar, MedalUI's own XP bar) sit in a recessed well, with a lit fill and a bright tip. On the **All tooltips** page, one set of options covers them all: **Bar style** (**Well**, or **Plain** for a flat track), **Bar height** (4–16), and **Bar texture** (Flat, or a game or LibSharedMedia status bar, which the game's health bar takes too while a panel shows it). Each bar keeps its own color, which says what it is for: reaction for health, dispel type for auras, wear for durability.
   - **Badges** are boxed chips in capitals, tinted by what they mark, wrapping onto a second row when the header runs out of room.
   - **Icons** get a double frame (the quality line, then an ink gap and a dark-gold ring), and the item level sits on a gold-edged plate.
   - **Stats** line up: values right-aligned in one column, names starting together after them.
-  - **Text:** names and section captions in Marcellus SC (with Medalluin installed), and a larger damage per second.
+  - **Text:** names and section captions in Marcellus SC (with MedalUI installed), and a larger damage per second.
   - **The spell strip** (cost, cast time, cooldown, range) is a sunken well, and section dividers fade out at both ends.
 - **Gilded and Slate panel styles:** **Gilded**, the default, has a warm ink body, a dark-gold frame with ink and a quality-tinted ring outside it, a glow in the header's corner above a gold rule, and a sunken footer band. **Slate** is quieter: a flat dark body washed with the tint at the top, a thin tinted border, a drop shadow, and a hairline over the footer. **Blizzard border**, **Flat** and **DialogueUI** remain as choices.
 
@@ -140,23 +140,23 @@ Herbs, ore, chests, and quest objects get a panel too. On **WoW Forever**, a Cla
 
 | | |
 |:---:|:---:|
-| ![The window's Items page, Style sheet: the Weapon sample with its name chosen, and the part's font, size, color, outline and caps beside it](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-items.png) | ![The Spells page: the Fireball sample with its spell power breakdown, the spell name chosen](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-spells.png) |
-| ![The Units page: an elite enemy's sample with its quest progress](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-units.png) | ![The All tooltips page: fonts, bars, the panel and the school colors](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-all.png) |
+| ![The window's Items page, Style sheet: the Weapon sample with its name chosen, and the part's font, size, color, outline and caps beside it](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-items.png) | ![The Spells page: the Fireball sample with its spell power breakdown, the spell name chosen](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-spells.png) |
+| ![The Units page: an elite enemy's sample with its quest progress](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-units.png) | ![The All tooltips page: fonts, bars, the panel and the school colors](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-all.png) |
 
-![The Options page: the layout, the modifiers, placement, and every kind's Restyle and Follow cursor](https://raw.githubusercontent.com/ahrymx/ahrymx.medalluin/main/showcase/tooltips-showcase/tooltips-window-options.png)
+![The Options page: the layout, the modifiers, placement, and every kind's Restyle and Follow cursor](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-options.png)
 
-The window is laid out as Medalluin's settings: a sidebar of pages, cards of settings, and a footer with **Reset all fonts and colors**, **Undo changes** (every setting back as it was when the window opened) and **Close**. It can be dragged by its head, and opens where it was left.
+The window is laid out as MedalUI's settings: a sidebar of pages, cards of settings, and a footer with **Reset all fonts and colors**, **Undo changes** (every setting back as it was when the window opened) and **Close**. It can be dragged by its head, and opens where it was left.
 
 - **Tooltips:** a page for each kind: **Items**, **Spells**, **Units**, **Objects**, **Buffs**, **Quests**, **Macros** and **Mail**; a kind the game keeps is dimmed. Its **Style** sheet shows a live sample, with the kind's examples in the sample's band: click any part of it to set that part's font, size, color, outline and caps, or look a tooltip up by its ID or a shift-clicked link. Its **Panel** sheet holds the kind's **Restyle** and **Follow cursor**, its panel (icon, bands, backdrop, glow), its details and its colors.
 - **All tooltips:** the text and name fonts, outline and text size; the **Panel style**, padding, minimum width, icon side, tint and separators; the bars; the **School colors**.
 - **Options:** **Tooltips** (`mdlui_Tooltips` or `Blizzard`), **The game's tooltip** (`Ctrl`, `Alt` or `Never`) and the **Details** modifier (`Shift` or `Always`), following the cursor in combat, **Global scale** (50%–150%), and **Every kind**: each tooltip category's **Restyle** and **Follow cursor** in one list.
 
-The window also opens from Medalluin's **Tooltips (ext)** page (`/mdlui`) and the game's **AddOns > mdlui_Tooltips**.
+The window also opens from MedalUI's **Tooltips (ext)** page (`/mdlui`) and the game's **AddOns > mdlui_Tooltips**.
 
 ## Install
 
 1. Download the `mdlui_Tooltips` release zip and extract `mdlui_Tooltips` into your World of Warcraft `Interface\AddOns` folder.
-2. In the character select **AddOns** list, find **mdlui_Tooltips** under the **Medalluin** category and make sure it is enabled.
+2. In the character select **AddOns** list, find **mdlui_Tooltips** under the **MedalUI** category and make sure it is enabled.
 
 ## Compatibility
 
@@ -186,7 +186,7 @@ Each report opens in a window with its findings selected, under a line naming th
 
 ## Credits and license
 
-`mdlui_Tooltips` is licensed under the **[MIT License](https://github.com/ahrymx/ahrymx.medalluin/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE)**.
+`mdlui_Tooltips` is licensed under the **[MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE)**.
 
 - **Original addon:** [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) — Copyright © 2026 **FallenShard**
-- **Medalluin companion adaptation and Retail port:** **AhryMX** ([Medalluin](https://github.com/ahrymx/ahrymx.medalluin))
+- **MedalUI companion adaptation and Retail port:** **AhryMX** ([MedalUI](https://github.com/ahrymx/ahrymx.MedalUI))

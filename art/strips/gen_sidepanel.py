@@ -4,7 +4,7 @@ tabs, Loot and Meter (mockup only; nothing is exported yet).
 
 The user's calls (2026-11-01): the two sides "pretty much identical"; the loot
 log is the group's loot including personal, and is not a second chat log; the
-meter is Medalluin's own, a view over the client's C_DamageMeter, and every
+meter is MedalUI's own, a view over the client's C_DamageMeter, and every
 part of it can be switched off.
 
 Mirrored: the panel spans the same strip positions as the chat, its button
@@ -41,7 +41,7 @@ import gen_strips as S  # noqa: E402
 W, H = S.W, S.H
 GOLD, GOLD_D, INK, TEXT = S.GOLD, S.GOLD_D, S.INK, S.TEXT
 DIM = "#b3a88c"
-FONT = os.path.join(S.ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "fonts", "MarcellusSC-Regular.ttf")
+FONT = os.path.join(S.ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "fonts", "MarcellusSC-Regular.ttf")
 
 # the panel, in screen pixels: the chat's numbers, mirrored
 TOP = H - S.STRIP_H - S.CHAT_H
@@ -616,11 +616,11 @@ def parts():
     for name, inner in pieces.items():
         doc = S.svg(inner).replace(f'width="{W}" height="{H}"', 'width="32" height="32"')
         subprocess.run(["rsvg-convert", "-o", os.path.join(out, name + ".png")], input=doc.encode(), check=True)
-    # Medalluin's own minimap button: the medal of assets/medalluin-icon.svg
+    # MedalUI's own minimap button: the medal of assets/medalui-icon.svg
     # (its letters want the Cinzel fonts installed), at twice the button's
     # 32 pixels so a UI scale over 1 stays sharp
     subprocess.run(["rsvg-convert", "-w", "64", "-h", "64", "-o", os.path.join(out, "minimap-button.png"),
-                    os.path.join(S.ROOT, "assets", "medalluin-icon.svg")], check=True)
+                    os.path.join(S.ROOT, "assets", "medalui-icon.svg")], check=True)
     print(out, len(pieces) + 1, "side parts")
 
 

@@ -1,0 +1,540 @@
+-- The bags: one window for the backpack, the bags and the reagent bag, in
+-- the console's ink and gold. Baganator is the reference, kept simple: no
+-- other characters, no filters of one's own.
+--
+--   [the bags' slots]                              <- the drawer, from Bags
+--   [Bags]  [search .......]  [Bags|Grid|Groups] [Sort] [x]
+--   ------------------------------------------------------
+--   each bag on rows of its own under its name, or one grid of every slot,
+--   bag by bag (the reagent bag on its own rows), or the items in fixed
+--   groups: New, Equipment, Consumables, Quest items, Trade goods, Other,
+--   Junk, and one slot for the free ones
+--   [money]                                       [Free 23 / 120] .:
+--
+-- The corner's dots resize it: dragging them sets how many slots go across,
+-- and the height follows what is in the bags. Bags opens a drawer above the
+-- window with the equipped bags' slots (Blizzard's own, as on its bag bar:
+-- put a bag in, swap one, take one out).
+--
+-- The slots are Blizzard's own (ContainerFrameItemButtonTemplate), each in
+-- a holder frame whose ID is its bag, as Blizzard's bags hold them: using,
+-- moving, splitting, selling, tooltips and the new-item glow are the
+-- client's, and a click is never ours.
+--
+-- Opening and closing are Blizzard's too. Its bag frames still open and
+-- close (keybinds, the backpack, the bank, a vendor), but under a hidden
+-- parent, so they are never seen: this window shows while any of them is
+-- open. Nothing of Blizzard's is replaced, so nothing is tainted.
+--
+-- The search is the client's (C_Container.SetItemSearch): names, types and
+-- the rest, and the template dims what does not match. Sort is the client's
+-- (C_Container.SortBags).
+--
+-- Only on clients with Blizzard's combined bags (Forever and retail).
+local _, ns = ...
+local Tr = ns.L
+
+local Container = C_Container
+local SLOT, GAP, PAD = 37, 4, 8
+local HEAD, RULE, FOOT = 38, 32, 24
+local COLUMNS_MIN, COLUMNS_MAX = 8, 24
+local GOLD = { 0.941, 0.831, 0.533 }
+local GOLD_D = { 0.541, 0.439, 0.204 }
+
+-- The views, as the header's buttons show them.
+local VIEWS = {
+    { key = "bags", name = Tr["Bags"], icon = "view-bags",
+        tip = Tr["Show each bag on rows of its own, under its name."] },
+    { key = "grid", name = Tr["Grid"], icon = "view-grid", tip = Tr["Show every slot in one grid, bag by bag."] },
+    { key = "groups", name = Tr["Groups"], icon = "view-groups",
+        tip = Tr["Show the items in groups: new, equipment, consumables and the rest."] },
+}
+
+local window, body, search, money, free, drawer
+local set                   -- the slots (inventory/slots.lua)
+local head                  -- the header's buttons, one joined row
+local dirty = true
+local Remember              -- below: the window's place, saved
+local blizzard = {}         -- Blizzard's bag frames: kept, never seen
+
+-- --------------------------------------------------------------- the bags
+local function ReagentBag()
+    return Enum and Enum.BagIndex and Enum.BagIndex.ReagentBag
+end
+
+-- The key ring, Forever's only: its keys shown while its button in the
+-- drawer is pressed, for the session, as Blizzard's ring opens a bag of its own.
+local keysShown = false
+local function KeyRing()
+    return KeyRingButton and KEYRING_CONTAINER or nil
+end
+
+-- The bags shown, in order: the backpack, the equipped bags, the reagent bag,
+-- the key ring while its keys are shown (all: shown or not, for the slots made).
+local function Bags(all)
+    local out = {}
+    for bag = 0, NUM_BAG_SLOTS or 4 do table.insert(out, bag) end
+    local reagent = ReagentBag()
+    if reagent and Container.GetContainerNumSlots(reagent) > 0 then table.insert(out, reagent) end
+    local ring = KeyRing()
+    if ring and (keysShown or all) and Container.GetContainerNumSlots(ring) > 0 then table.insert(out, ring) end
+    return out
+end
+
+-- The key ring's slots shown as Blizzard's ring shows them: rows of four,
+-- one more than the last key fills.
+local function Size(bag)
+    if bag == KeyRing() and GetKeyRingSize then return GetKeyRingSize() end
+    return Container.GetContainerNumSlots(bag)
+end
+
+-- A bag's name, as its tooltip gives it.
+local function BagName(bag)
+    local name = Container.GetBagName and Container.GetBagName(bag)
+    if name and name ~= "" then return name end
+    if bag == KeyRing() then return KEYRING or Tr["Key ring"] end
+    if bag == 0 then return Tr["Backpack"] end
+    if bag == ReagentBag() then return Tr["Reagent bag"] end
+    return format(Tr["Bag %d"], bag)
+end
+
+local function Money()
+    local copper = GetMoney and GetMoney() or 0
+    if GetMoneyString then return GetMoneyString(copper, true) end
+    return string.format(Tr["%dg %ds %dc"], math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100)
+end
+
+local function Free()
+    local reagent, ring = ReagentBag(), KeyRing()
+    local spare, total, rSpare, rTotal = 0, 0, 0, 0
+    for _, bag in ipairs(Bags()) do
+        local n, f = Container.GetContainerNumSlots(bag), Container.GetContainerNumFreeSlots(bag)
+        if bag == reagent then
+            rSpare, rTotal = f, n
+        elseif bag ~= ring then         -- a key ring's room holds keys only
+            spare, total = spare + f, total + n
+        end
+    end
+    local text = string.format(Tr["Free %d / %d"], spare, total)
+    if rTotal > 0 then text = text .. string.format(Tr["   Reagents %d / %d"], rSpare, rTotal) end
+    return text
+end
+
+-- the view in use, marked in the head's row
+local function Paint()
+    for _, v in ipairs(VIEWS) do head:Set(v.key, { selected = ns.db.bagsView == v.key }) end
+end
+
+local function Refresh()
+    if not window then return end
+    dirty = false
+    local width, height = set.Refresh()
+    window:SetSize(width + PAD * 2, height + HEAD + FOOT + PAD)
+    money:SetText(Money())
+    free:SetText(Free())
+    Paint()
+end
+
+-- --------------------------------------------------------------- the window
+-- Where the window sits: where it was dragged, or over the side panel.
+local function Anchor()
+    window:ClearAllPoints()
+    local at = ns.db.bagsPoint
+    if at then
+        -- { point, relativePoint, x, y }; one saved before the corner, { point,
+        -- x, y }, reads as SetPoint(point, UIParent, x, y), which is the same place
+        window:SetPoint(at[1], UIParent, at[2], at[3], at[4])
+    elseif ns.side and ns.side.panel and ns.side.panel:IsShown() then
+        -- closed to its tabs, over the row (the medallion's corner spans it to the edge)
+        local over = ns.side.Closed() and ns.side.well or ns.side.panel
+        window:SetPoint("BOTTOMRIGHT", over, "TOPRIGHT", 0, 36)
+    else
+        window:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -24, 260)
+    end
+end
+
+-- Where it is now, kept for the next opening and the next session.
+Remember = function()
+    local point, _, relative, x, y = window:GetPoint()
+    ns.db.bagsPoint = { point, relative, x, y }
+end
+
+-- The new items are seen once the bags close, as Blizzard's bags do it.
+local function Seen()
+    if not C_NewItems then return end
+    for _, bag in ipairs(Bags()) do
+        for slot = 1, Container.GetContainerNumSlots(bag) do
+            if C_NewItems.IsNewItem(bag, slot) then C_NewItems.RemoveNewItem(bag, slot) end
+        end
+    end
+end
+
+-- ------------------------------------------------------------- the drawer
+-- The equipped bags' slots, left to right as the bags are numbered, then
+-- the reagent bag and the key ring. Blizzard's own buttons, off its bag bar
+-- (which blizzard.lua kills), styled as the old strip drawer styled them.
+local DRAWER_SLOT, DRAWER_PAD = 30, 6
+local OVER = { pushed = { 0, 0, 0, 0.35 }, highlight = { 1, 1, 1, 0.15 }, checked = { 0.77, 0.65, 0.34, 0.35 } }
+local bagSlots = {}
+local placing = false
+
+local function StyleBagSlot(btn)
+    local icon = ns.BagIcon(btn)
+    icon:ClearAllPoints()
+    icon:SetPoint("TOPLEFT", 1, -1)
+    icon:SetPoint("BOTTOMRIGHT", -1, 1)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    if btn.SquareMask then icon:RemoveMaskTexture(btn.SquareMask) end
+    local edge = btn:CreateTexture(nil, "BACKGROUND")
+    edge:SetColorTexture(0, 0, 0)
+    edge:SetAllPoints()
+    btn.medalui = {
+        pushed = btn:CreateTexture(), highlight = btn:CreateTexture(),
+        checked = btn.SetCheckedTexture and btn:CreateTexture() or nil,
+        restore = function(m)
+            for key, c in pairs(OVER) do
+                local t = m[key]
+                if t then
+                    t:ClearAllPoints()
+                    t:SetAllPoints(icon)
+                    t:SetColorTexture(unpack(c))
+                    t:SetBlendMode("BLEND")
+                    t:SetAlpha(1)
+                end
+            end
+            local open = btn.SlotHighlightTexture       -- marks the bag whose window is open
+            if open then
+                open:ClearAllPoints()
+                open:SetAllPoints(icon)
+                open:SetColorTexture(unpack(OVER.checked))
+            end
+        end,
+    }
+    ns.WatchBagButton(btn)
+end
+
+-- The key ring keeps its own tall art, which Forever sizes for its own
+-- 33x45 button: fitted to ours, and again whenever Blizzard re-sets it.
+local function FitRing(ring)
+    local function Fit()
+        for _, t in ipairs({ ring:GetNormalTexture(), ring:GetPushedTexture(), ring:GetHighlightTexture() }) do
+            if t then
+                t:ClearAllPoints()
+                t:SetAllPoints(ring)
+            end
+        end
+    end
+    Fit()
+    if ring.UpdateTextures then hooksecurefunc(ring, "UpdateTextures", Fit) end
+end
+
+-- Pressed, the ring shows its keys in the window, on rows of their own, and
+-- again hides them. Blizzard's click would open the ring's own bag (with the
+-- combined bags, it closes ours); a key held on the cursor still goes in.
+local function PressRing(ring)
+    local lit = ring:CreateTexture(nil, "OVERLAY", nil, 7)
+    lit:SetAllPoints()
+    lit:SetColorTexture(unpack(OVER.checked))
+    lit:Hide()
+    ring.medaluiLit = lit
+    ring:SetScript("OnClick", function()
+        if CursorHasItem and CursorHasItem() then
+            if PutKeyInKeyRing then PutKeyInKeyRing() end
+            return
+        end
+        keysShown = not keysShown
+        lit:SetShown(keysShown)
+        dirty = true
+        if GameTooltip:GetOwner() == ring then ring:GetScript("OnEnter")(ring) end
+    end)
+    ring:HookScript("OnEnter", function(self)
+        if GameTooltip:GetOwner() ~= self then return end
+        GameTooltip:AddLine(keysShown and Tr["Hide your keys."] or Tr["Show your keys in your bags."], 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+end
+
+local function PlaceBagSlots()
+    placing = true
+    local x = DRAWER_PAD
+    for _, b in ipairs(bagSlots) do
+        local w = b == KeyRingButton and DRAWER_SLOT / 2 or DRAWER_SLOT
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", drawer.inner, "TOPLEFT", x, -DRAWER_PAD)
+        b:SetSize(w, DRAWER_SLOT)
+        x = x + w + GAP
+    end
+    placing = false
+    drawer.full = x - GAP + DRAWER_PAD
+    drawer.inner:SetSize(drawer.full, DRAWER_SLOT + 2 * DRAWER_PAD)
+end
+
+-- It opens out of the window's top-left corner and grows to the right.
+local GROW = 0.15           -- seconds
+
+local function Drawer()
+    drawer = CreateFrame("Frame", "MedalUIBagsDrawer", window)
+    drawer:SetPoint("BOTTOMLEFT", window, "TOPLEFT", 0, 2)
+    drawer:SetHeight(DRAWER_SLOT + 2 * DRAWER_PAD)
+    drawer:SetClipsChildren(true)
+    drawer:EnableMouse(true)
+    drawer.inner = CreateFrame("Frame", nil, drawer)
+    drawer.inner:SetPoint("TOPLEFT")
+    local edge = drawer:CreateTexture(nil, "BACKGROUND", nil, 1)
+    edge:SetAllPoints()
+    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    local bg = drawer:CreateTexture(nil, "BACKGROUND", nil, 2)
+    bg:SetPoint("TOPLEFT", 1, -1)
+    bg:SetPoint("BOTTOMRIGHT", -1, 1)
+    bg:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.94)
+    for _, name in ipairs({ "CharacterBag0Slot", "CharacterBag1Slot", "CharacterBag2Slot", "CharacterBag3Slot",
+        "CharacterReagentBag0Slot", "KeyRingButton" }) do
+        local b = _G[name]
+        if b then
+            b:SetParent(drawer.inner)
+            b:SetFrameLevel(drawer:GetFrameLevel() + 2)
+            if b == KeyRingButton then
+                FitRing(b)
+                PressRing(b)
+            else
+                StyleBagSlot(b)
+            end
+            -- Blizzard's collapsed bag bar would hide them
+            if b.SetBarExpanded then hooksecurefunc(b, "SetBarExpanded", b.Show) end
+            b:Show()
+            table.insert(bagSlots, b)
+        end
+    end
+    PlaceBagSlots()
+    for _, b in ipairs(bagSlots) do
+        hooksecurefunc(b, "SetPoint", function()
+            if not placing then PlaceBagSlots() end
+        end)
+    end
+    drawer:SetScript("OnShow", function(self)
+        self.t = 0
+        self:SetWidth(1)
+    end)
+    drawer:SetScript("OnUpdate", function(self, elapsed)
+        if self.t >= GROW then return end
+        self.t = math.min(GROW, self.t + elapsed)
+        self:SetWidth(math.max(1, self.full * self.t / GROW))
+    end)
+    drawer:Hide()
+end
+
+-- The title: Bags, which opens and closes the drawer.
+local function Title()
+    local b = CreateFrame("Button", nil, window)
+    b:SetPoint("TOPLEFT", PAD - 2, -PAD + 2)
+    b:SetHeight(20)
+    b.label = ns.Text(b, 13)
+    b.label:SetPoint("LEFT", 2, 0)
+    b.label:SetText(Tr["Bags"])
+    b.label:SetTextColor(unpack(GOLD))
+    b:SetWidth(b.label:GetStringWidth() + 4)
+    b:SetScript("OnClick", function()
+        if not drawer then Drawer() end
+        drawer:SetShown(not drawer:IsShown())
+    end)
+    b:SetScript("OnEnter", function(self)
+        self.label:SetTextColor(1, 1, 1)
+        ns.Tip(self, ns.window.OutsideTop, { title = drawer and drawer:IsShown() and Tr["Hide your bags' slots."]
+            or Tr["Show your bags' slots: put a bag in, swap one or take one out."], color = ns.colors.white,
+                wrap = true })
+    end)
+    b:SetScript("OnLeave", function(self)
+        self.label:SetTextColor(unpack(GOLD))
+        GameTooltip:Hide()
+    end)
+    window.title = b
+    return b
+end
+
+-- ---------------------------------------------------------- the corner
+-- Six dots in a stair, the corner's mark: dragging them sets the columns.
+local function Columns(width)
+    local n = math.floor((width - 2 * PAD + GAP) / (SLOT + GAP) + 0.5)
+    return math.max(COLUMNS_MIN, math.min(COLUMNS_MAX, n))
+end
+
+local function Grip()
+    local g = CreateFrame("Button", "MedalUIBagsGrip", window)
+    g:SetSize(12, 12)
+    g:SetPoint("BOTTOMRIGHT", -3, 3)
+    g.dots = {}
+    for row = 0, 2 do
+        for col = 0, 2 - row do         -- three dots on the bottom, one at the top
+            local d = g:CreateTexture(nil, "OVERLAY")
+            d:SetSize(2, 2)
+            d:SetPoint("BOTTOMRIGHT", -col * 4, row * 4)
+            d:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            table.insert(g.dots, d)
+        end
+    end
+    local function Tint(c)
+        for _, d in ipairs(g.dots) do d:SetColorTexture(c[1], c[2], c[3], 1) end
+    end
+    g:SetScript("OnEnter", function() Tint(GOLD) end)
+    g:SetScript("OnLeave", function(self) if not self.held then Tint(GOLD_D) end end)
+    -- held: the window pinned by its top-left, the columns following the pointer
+    g:SetScript("OnMouseDown", function(self)
+        local left, top = window:GetLeft(), window:GetTop()
+        window:ClearAllPoints()
+        window:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+        self.held = true
+    end)
+    g:SetScript("OnMouseUp", function(self)
+        self.held = false
+        Remember()
+        if not self:IsMouseOver() then Tint(GOLD_D) end
+    end)
+    g:SetScript("OnUpdate", function(self)
+        if not self.held then return end
+        local x = GetCursorPosition() / window:GetEffectiveScale()
+        local n = Columns(x - window:GetLeft())
+        if n ~= ns.db.bagsColumns then ns.SetOption("bagsColumns", n) end
+    end)
+    window.grip = g
+end
+
+local function Build()
+    window = CreateFrame("Frame", "MedalUIBags", UIParent)
+    ns.window.Mark(window, 1)                    -- its tooltips beside it
+    window:SetFrameStrata("MEDIUM")
+    window:SetToplevel(true)
+    window:SetClampedToScreen(true)
+    window:SetMovable(true)
+    window:EnableMouse(true)
+    window:RegisterForDrag("LeftButton")
+    window:SetScript("OnDragStart", window.StartMoving)
+    window:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        Remember()
+    end)
+    window:Hide()
+    local edge = window:CreateTexture(nil, "BACKGROUND", nil, 1)
+    edge:SetAllPoints()
+    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    local bg = window:CreateTexture(nil, "BACKGROUND", nil, 2)
+    bg:SetPoint("TOPLEFT", 1, -1)
+    bg:SetPoint("BOTTOMRIGHT", -1, 1)
+    bg:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.94)
+
+    local title = Title()
+    local rule = window:CreateTexture(nil, "ARTWORK")
+    rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    rule:SetPoint("TOPLEFT", PAD, -RULE)
+    rule:SetPoint("TOPRIGHT", -PAD, -RULE)
+    rule:SetHeight(1)
+    window.rule = rule
+
+    -- the head's buttons, one joined row in the corner (ns.window.Segments),
+    -- from the top border down to the rule: the views, Sort, and the cross,
+    -- each a glyph (art/strips), its name and what it does in its tooltip
+    local items = {}
+    for _, v in ipairs(VIEWS) do
+        table.insert(items, { key = v.key, label = v.name, icon = v.icon, group = "views",
+            click = function() ns.SetOption("bagsView", v.key) end, tip = function() return v.tip end })
+    end
+    table.insert(items, { key = "sort", label = Tr["Sort"], icon = "sort", group = "sort",
+        click = function() if Container.SortBags then Container.SortBags() end end,
+        tip = function() return Tr["Sort the bags, as the game sorts them."] end })
+    table.insert(items, { key = "close", label = Tr["Close"], icon = "close", group = "close",
+        click = function() CloseAllBags() end })
+    head = ns.window.Segments(window, { height = RULE + 1, fit = true, items = items })
+    head:SetPoint("TOPRIGHT")
+    window.head = head
+
+    search = CreateFrame("EditBox", "MedalUIBagsSearch", window, "SearchBoxTemplate")
+    search:SetHeight(20)
+    search:SetPoint("LEFT", title, "RIGHT", 12, 0)
+    search:SetPoint("RIGHT", head, "LEFT", -8, 0)
+    search:SetAutoFocus(false)
+    search:HookScript("OnTextChanged", function(self)
+        if Container.SetItemSearch then Container.SetItemSearch(self:GetText()) end
+    end)
+
+    body = CreateFrame("Frame", nil, window)
+    body:SetPoint("TOPLEFT", PAD, -HEAD)
+    set = ns.Slots{ prefix = "MedalUIBags", body = body, Bags = Bags, Name = BagName, Size = Size,
+        All = function() return Bags(true) end,
+        Columns = function() return ns.db.bagsColumns end, View = function() return ns.db.bagsView end,
+        Apart = function(bag)
+            if bag == KeyRing() then return "keys" end
+            return bag == ReagentBag()
+        end }
+
+    money = ns.PlainText(window, 11)
+    money:SetPoint("BOTTOMLEFT", PAD, PAD - 2)
+    free = ns.PlainText(window, 11)
+    free:SetPoint("BOTTOMRIGHT", -PAD - 8, PAD - 2)     -- clear of the corner's dots
+    Grip()
+    free:SetTextColor(unpack(ns.colors.dim))
+
+    window:SetScript("OnShow", function()
+        Anchor()
+        Refresh()
+    end)
+    window:SetScript("OnHide", function()
+        Seen()
+        if drawer then drawer:Hide() end
+    end)
+    -- a change is drawn once, at the next frame, and only while the bags are open
+    window:SetScript("OnUpdate", function(self)
+        if dirty and self:IsShown() then Refresh() end
+    end)
+    Anchor()
+end
+
+-- ---------------------------------------------------- Blizzard's bag frames
+local function Open()
+    for _, f in ipairs(blizzard) do
+        if f:IsShown() then return true end
+    end
+    return false
+end
+
+local function Sync()
+    local open = Open()
+    if open ~= window:IsShown() then window:SetShown(open) end
+end
+
+-- Under a hidden parent, put back if Blizzard moves it (it does, for full
+-- screen panels); each opening and closing told to the window.
+local function Keep(f)
+    ns.Park(f)
+    for _, method in ipairs({ "Show", "Hide", "SetShown" }) do
+        if f[method] then hooksecurefunc(f, method, Sync) end
+    end
+    table.insert(blizzard, f)
+end
+
+local function Start()
+    if not ns.db.bags or not Container or not Container.GetContainerItemInfo or not ContainerFrameCombinedBags then
+        return
+    end
+    Build()
+    Keep(ContainerFrameCombinedBags)
+    for i = 1, NUM_CONTAINER_FRAMES or 13 do
+        local f = _G["ContainerFrame" .. i]
+        if f then Keep(f) end
+    end
+    ns.bags = { window = window, blizzard = blizzard }
+    local function Dirty() dirty = true end
+    -- the slots made before the bags first open, which may be in combat
+    -- (ns.Slots); a slot left out in combat comes when it ends
+    set.Make()
+    for _, e in ipairs({ "BAG_UPDATE_DELAYED", "BAG_CONTAINER_UPDATE", "PLAYER_REGEN_ENABLED" }) do
+        ns.On(e, function() set.Make() end)
+    end
+    for _, e in ipairs({ "BAG_UPDATE_DELAYED", "BAG_CONTAINER_UPDATE", "PLAYER_REGEN_ENABLED", "ITEM_LOCK_CHANGED",
+        "BAG_UPDATE_COOLDOWN", "INVENTORY_SEARCH_UPDATE", "BAG_NEW_ITEMS_UPDATED", "QUEST_ACCEPTED",
+        "UNIT_QUEST_LOG_CHANGED", "PLAYER_MONEY", "GET_ITEM_INFO_RECEIVED" }) do
+        ns.On(e, Dirty)
+    end
+    for _, key in ipairs({ "bagsView", "bagsColumns", "bagsItemLevel" }) do ns.OnSetting(key, Refresh) end
+    Sync()
+end
+
+ns.On("PLAYER_LOGIN", Start)

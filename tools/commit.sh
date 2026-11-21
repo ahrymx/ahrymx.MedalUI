@@ -28,8 +28,8 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-ADDON=WoW/Interface/AddOns/Medalluin
-TOC="$ADDON/Medalluin.toc"
+ADDON=WoW/Interface/AddOns/MedalUI
+TOC="$ADDON/MedalUI.toc"
 REL="$ROOT/tools/release.sh"
 
 die() { echo "commit.sh: $*" >&2; exit 1; }
@@ -96,11 +96,11 @@ CHANGES=$(changes)
 PATCH=$(patch)
 
 # ------------------------------------------------------------ the evidence
-# what ships: anything under Medalluin or any companion addon folder (mdlui_*)
-shipped_medalluin=$(awk -F'\t' -v a="$ADDON/" 'index($NF, a) == 1 { n++ } END { print n + 0 }' <<<"$CHANGES")
+# what ships: anything under MedalUI or any companion addon folder (mdlui_*)
+shipped_medalui=$(awk -F'\t' -v a="$ADDON/" 'index($NF, a) == 1 { n++ } END { print n + 0 }' <<<"$CHANGES")
 shipped_companions=$(awk -F'\t' 'index($NF, "WoW/Interface/AddOns/mdlui_") == 1 { n++ } END { print n + 0 }' <<<"$CHANGES")
-shipped=$((shipped_medalluin + shipped_companions))
-# new code files in Medalluin or companion addons
+shipped=$((shipped_medalui + shipped_companions))
+# new code files in MedalUI or companion addons
 newCode=$(awk -F'\t' '$1 == "A" && index($NF, "WoW/Interface/AddOns/") == 1 && $NF ~ /\.(lua|xml)$/ { print $NF }' <<<"$CHANGES")
 # options gained, net of options removed (a control moved is not new)
 controls() {
@@ -131,7 +131,7 @@ else suggest=patch
 fi
 
 echo "The change"
-echo "  files: $(wc -l <<<"$CHANGES"), $shipped shipped ($shipped_medalluin in Medalluin, $shipped_companions in companions)"
+echo "  files: $(wc -l <<<"$CHANGES"), $shipped shipped ($shipped_medalui in MedalUI, $shipped_companions in companions)"
 [[ -n $newCode ]] && echo "  new code: $(tr '\n' ' ' <<<"$newCode")"
 echo "  options: net $netControls added; key bindings: $bindings added"
 [[ -n $subject ]] && echo "  message: \"$subject\"$($fixWords && echo ' (reads as a fix)')"

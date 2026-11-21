@@ -1,5 +1,5 @@
--- A minimap button: the addon's mark (Medalluin's medal in the companion's
--- colour, art/companions/gen_logos.py), as Medalluin's own button wears its
+-- A minimap button: the addon's mark (MedalUI's medal in the companion's
+-- colour, art/companions/gen_logos.py), as MedalUI's own button wears its
 -- gold one, on the minimap's edge (on a square map, its square edge: GetMinimapShape,
 -- the convention LibDBIcon reads), dragged round it with the left button.
 -- Off until its setting turns it on.
@@ -10,8 +10,8 @@
 --   where its angle says.
 --
 -- It is a named Button on the minimap, as LibDBIcon's are, so a minimap
--- button collector takes it: Medalluin's drawer on the action bar
--- (Medalluin/bars/drawer.lua) reparents it into its line, and from then
+-- button collector takes it: MedalUI's drawer on the action bar
+-- (MedalUI/bars/drawer.lua) reparents it into its line, and from then
 -- on it is only shown or hidden here, never placed or dragged.
 local _, ns = ...
 
@@ -45,7 +45,7 @@ function ns.MinimapButton(spec)
     icon:SetTexture(spec.icon)
     icon:SetAllPoints()
     b.icon = icon
-    -- the pointer over it: the medal lit, as Medalluin's is
+    -- the pointer over it: the medal lit, as MedalUI's is
     local glow = b:CreateTexture(nil, "HIGHLIGHT")
     glow:SetTexture(spec.icon)
     glow:SetAllPoints()

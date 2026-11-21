@@ -48,7 +48,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, "art", "console"))
 import export  # noqa: E402
 
-MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "professions")
+MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "professions")
 ASSETS = os.path.join(ROOT, "assets", "professions")
 STYLES = ("engraved", "painted", "poster")
 SS = 3                                  # masks drawn this much finer

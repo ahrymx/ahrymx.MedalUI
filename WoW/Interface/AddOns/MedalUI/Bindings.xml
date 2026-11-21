@@ -1,0 +1,16 @@
+<Bindings>
+	<!-- Options > Keybindings > AddOns > MedalUI; Console > Minimap sets it too.
+	     The names are in console/minimap.lua. -->
+	<Binding name="MEDALUI_MINIMAP" header="MEDALUI" category="ADDONS">
+		MedalUIToggleMinimap()
+	</Binding>
+	<!-- quests/log.lua: the quest log key's own keys are bound to it while the
+	     Quest log option is on -->
+	<Binding name="MEDALUI_QUESTLOG" category="ADDONS">
+		MedalUIToggleQuestLog()
+	</Binding>
+	<!-- social/lfg.lua: the LFG / Who window -->
+	<Binding name="MEDALUI_LFG" category="ADDONS">
+		MedalUIToggleLFG()
+	</Binding>
+</Bindings>

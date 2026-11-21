@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""mdlui_RadialMenu's own wheel art: FlareUI's layout, each part redrawn in Medalluin's
+"""mdlui_RadialMenu's own wheel art: FlareUI's layout, each part redrawn in MedalUI's
 gold and ink (the user's call, 2026-11-16, from the mockups' "FlareUI layout" boards).
 
     python3 art/radial/gen_radial.py          -> assets/radial/*.png and the companion's art/radial/*.tga
@@ -27,7 +27,7 @@ from export import to_tga  # noqa: E402
 ASSETS = os.path.join(ROOT, "assets", "radial")
 MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "mdlui_RadialMenu", "art", "radial")
 
-# Medalluin's palette (options/theme.lua)
+# MedalUI's palette (options/theme.lua)
 INK = (0x12, 0x11, 0x10)
 TEXT = (0xf2, 0xea, 0xd2)
 GOLD = (0xc4, 0xa5, 0x57)
@@ -148,7 +148,7 @@ def pointer():
 
 def cancel():
     """The cancel X in the centre (Blizzard's Radial_Wheel_Icon_Close before), 24 px: two
-    round-ended strokes 20 px long, 3 px thick, in Medalluin's text colour. Idle, the code
+    round-ended strokes 20 px long, 3 px thick, in MedalUI's text colour. Idle, the code
     shows it at half alpha."""
     c = Canvas(64, 24)
     best = np.full(c.r.shape, 1e9)
@@ -179,7 +179,7 @@ def mask():
 
 # ------------------------------------------------------------------ emote category glyphs
 # The presets' categories (Core/Presets.lua), picked by the user from the mockup's candidates
-# (2026-11-16): Medalluin's glyph style, as art/strips/gen_strips.py's (a 20x20 box, the gold
+# (2026-11-16): MedalUI's glyph style, as art/strips/gen_strips.py's (a 20x20 box, the gold
 # gradient, a dark outline), on an ink square the round button masks. 64 texels; the glyph is
 # about 30 px in the 46 px icon.
 GLYPH_TEXELS, GLYPH_BOX = 64, 42

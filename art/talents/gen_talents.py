@@ -34,7 +34,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(ROOT, "art", "console"))
 import export  # noqa: E402
 
-OUT = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "talents")
+OUT = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "talents")
 
 
 def smooth(t):

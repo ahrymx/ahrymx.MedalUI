@@ -1,4 +1,4 @@
-# Releases, from the version in Medalluin.toc (tools/release.sh). On a push to
+# Releases, from the version in MedalUI.toc (tools/release.sh). On a push to
 # main with a new .toc version, only vMAJOR.MINOR and rolling tags exist:
 #
 #   rolling     the active minor line's only release: always the newest build,
@@ -84,7 +84,7 @@ jobs:
               tools/release.sh package dist-freeze "$t"
               tools/release.sh notes "$t" > freeze.md
               gh release create "$t" dist-freeze/*-"$t_ver".zip \
-                --title "Medalluin $t ($t_ver)" \
+                --title "MedalUI $t ($t_ver)" \
                 --notes-file freeze.md \
                 --latest=false
             fi
@@ -100,20 +100,20 @@ jobs:
           gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/rolling" -f sha="$GITHUB_SHA" -F force=true >/dev/null 2>&1 \
             || gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/rolling" -f sha="$GITHUB_SHA" >/dev/null 2>&1 || true
           {
-            echo "**Rolling release: always the newest Medalluin, now $ver.**"
+            echo "**Rolling release: always the newest MedalUI, now $ver.**"
             echo "Each earlier minor and major line has a frozen release of its own below."
             echo
             cat notes.md
           } > rolling.md
           if git ls-remote --exit-code --tags origin refs/tags/rolling >/dev/null 2>&1; then
             gh release create rolling dist/*-"$ver".zip \
-              --title "Medalluin $ver (rolling)" \
+              --title "MedalUI $ver (rolling)" \
               --notes-file rolling.md \
               --latest
           else
             gh release create rolling dist/*-"$ver".zip \
               --target "$GITHUB_SHA" \
-              --title "Medalluin $ver (rolling)" \
+              --title "MedalUI $ver (rolling)" \
               --notes-file rolling.md \
               --latest
           fi

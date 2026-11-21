@@ -579,8 +579,8 @@ local function readModel(tooltip, data, game)
     local addAppended = ns.TooltipData.extrasAdder(model.extras)
     for _, row in ipairs(appended) do
         local trimmed = row.left:match("^%s*(.-)%s*$")
-        if trimmed ~= "" and trimmed == _G.Medalluin_LockedLine then
-            -- Medalluin's item lock, said on the binding line instead.
+        if trimmed ~= "" and trimmed == _G.MedalUI_LockedLine then
+            -- MedalUI's item lock, said on the binding line instead.
             model.locked = trimmed
         elseif isStockChange(row.left) then
             addAppended(row)

@@ -20,7 +20,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
-MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "gamemenu-vignette.tga")
+MEDIA = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "gamemenu-vignette.tga")
 OUT = os.path.join(HERE, "render")
 
 SIZE, CLEAR, FULL = 256, 0.35, 1.3

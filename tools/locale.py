@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks a language's file against the words Medalluin's code looks up
+"""Checks a language's file against the words MedalUI's code looks up
 (locale/locale.lua): every Tr["..."] key the code uses, beside the
 L["..."] = "..." entries of locale/<lang>.lua.
 
@@ -15,7 +15,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ADDON = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin")
+ADDON = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI")
 STR = r'"((?:[^"\\]|\\.)*)"'
 # a literal, or several joined with .. (a key too long for one line)
 JOINED = r'("(?:[^"\\]|\\.)*"(?:\s*\.\.\s*"(?:[^"\\]|\\.)*")*)'

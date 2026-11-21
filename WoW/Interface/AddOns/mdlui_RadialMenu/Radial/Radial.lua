@@ -55,7 +55,7 @@ local STICK_KEYS_CVAR = "GamePadStickAxisButtons"
 local PAD_COMBO_STICKS = { "L3", "R3" }                  -- a controller key's stick press ...
 local PAD_COMBO_SIDES = { "TOP", "LT", "RT", "LTRT" }    -- ... and the triggers held (ns.ParsePadCombo)
 
--- Medalluin's own wheel art (art/radial/gen_radial.py), in FlareUI's layout; textures, not atlases
+-- MedalUI's own wheel art (art/radial/gen_radial.py), in FlareUI's layout; textures, not atlases
 local ART_POINTER       = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Pointer"
 local ART_CIRCLE_MASK   = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Mask"
 local ART_CANCEL_ICON   = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\Cancel"
@@ -83,7 +83,7 @@ local ROUND_STYLE = {
     glow = "Interface\\AddOns\\mdlui_RadialMenu\\art\\radial\\RimGlow", glowSize = 80,
     iconFactor = ROUND_ICON / ROUND_SIZE,
 }
-local BORDER_COLOR         = { 0.071, 0.067, 0.063 }   -- the ink well under the icon (Medalluin's ink)
+local BORDER_COLOR         = { 0.071, 0.067, 0.063 }   -- the ink well under the icon (MedalUI's ink)
 local ICON_SCALE_IDLE      = 0.88   -- the hovered button is full size
 
 -- tinted as Blizzard's action buttons; the portrait-mask swipe stays inside the round icon
@@ -106,10 +106,10 @@ local PING = {
     RING_SIZE = 56, HUB = 24,           -- the hub ring, and where the dividers start
     GLOW_SIZE = 400,                    -- the light's inner edge meets the hub ring at this size
     DIVIDER_THICKNESS = 4,
-    DIVIDER_COLOR = { 0.541, 0.439, 0.204, 0.85 },   -- Medalluin's dark gold
+    DIVIDER_COLOR = { 0.541, 0.439, 0.204, 0.85 },   -- MedalUI's dark gold
     RING_COLOR = { 1, 1, 1, 1 },                     -- the hub art carries its colours
-    LIT_COLOR = { 0.878, 0.722, 0.290 },             -- Medalluin's bright gold
-    LABEL_COLOR = { 0.949, 0.918, 0.824 },           -- Medalluin's text
+    LIT_COLOR = { 0.878, 0.722, 0.290 },             -- MedalUI's bright gold
+    LABEL_COLOR = { 0.949, 0.918, 0.824 },           -- MedalUI's text
     GLOW_ALPHA = 0.5,
     LIT_DIVIDER_ALPHA = 0.7,
     -- Blizzard_RadialWheel.lua's timings: fade in / out while the icons glide SLIDE px
@@ -713,9 +713,9 @@ end
 
 -- Camp Kits: the camp kits in your bags, a slice each (spread, as a party spell's people): the
 -- campfires first, best first, then the camp objects by profession and tier. A kit is an item whose
--- name holds a camp object's (the server's names are English: Medalluin reads them so, in
--- professions/camping.lua) and that has a use, or one Medalluin recorded from this character's
--- recipes (MedalluinCharDB.camp). Gone while you carry none.
+-- name holds a camp object's (the server's names are English: MedalUI reads them so, in
+-- professions/camping.lua) and that has a use, or one MedalUI recorded from this character's
+-- recipes (MedalUICharDB.camp). Gone while you carry none.
 RM.CAMP_KITS_ICON = "Interface\\Icons\\Spell_Fire_Fire"
 RM.CAMP_OBJECTS = {
     "Expert Campfire", "Journeyman Campfire", "Basic Campfire",
@@ -735,14 +735,14 @@ RM.CAMP_OBJECTS = {
 -- the kits carried, in the objects' order: { itemID, ... }
 function RM.CampKits()
     local rank, found = {}, {}
-    local record = type(MedalluinCharDB) == "table" and type(MedalluinCharDB.camp) == "table" and MedalluinCharDB.camp
+    local record = type(MedalUICharDB) == "table" and type(MedalUICharDB.camp) == "table" and MedalUICharDB.camp
     local function Rank(name)
         if type(name) ~= "string" then return nil end
         for i, object in ipairs(RM.CAMP_OBJECTS) do
             if name:find(object, 1, true) then return i end
         end
     end
-    -- what Medalluin recorded from the recipes: kept by object name
+    -- what MedalUI recorded from the recipes: kept by object name
     if record then
         for object, known in pairs(record) do
             local id = type(known) == "table" and known.item

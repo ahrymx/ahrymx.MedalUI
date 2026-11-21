@@ -1,4 +1,4 @@
--- The mdlui_Tooltips window (/mdltip), laid out as Medalluin's Settings window, as the radial
+-- The mdlui_Tooltips window (/mdltip), laid out as MedalUI's Settings window, as the radial
 -- editor and the Unit Frame Editor are:
 --   the head       the title, a faint line saying what the page is for, the x in its own cell
 --   the sidebar    TOOLTIPS: each kind there are samples of (one the game keeps, by the layout
@@ -1288,8 +1288,8 @@ do
                 .. "part has none of its own.", setting = optionSetting("titleFont") }, 150, function()
                 local locale = GetLocale()
                 return fontItems(locale ~= "koKR" and locale ~= "zhCN" and locale ~= "zhTW"
-                    and (ns.Game.addonInstalled("Medalluin")
-                        and (tostring(MedalluinFontFace):find("Forum") and "Forum (Medalluin)" or "Marcellus SC (Medalluin)")
+                    and (ns.Game.addonInstalled("MedalUI")
+                        and (tostring(MedalUIFontFace):find("Forum") and "Forum (MedalUI)" or "Marcellus SC (MedalUI)")
                         or ns.Game.addonInstalled("EllesmereUI") and "Expressway Bold (EllesmereUI)")
                     or "Game default")
             end, function() return ns.option("titleFont") end, function(name) ns.setOption("titleFont", name) end)
@@ -1310,7 +1310,7 @@ do
         end
     end)
     fonts:SetPoint("TOPLEFT")
-    -- One look for every bar: health, time left, durability, Medalluin's. Each keeps its own
+    -- One look for every bar: health, time left, durability, MedalUI's. Each keeps its own
     -- color, which says what the bar is for.
     local bars = RowsCard(at, "Bars", COL_W, 3, function(card, n)
         if n == 1 then
@@ -1345,9 +1345,9 @@ do
     end
     local panel = RowsCard(at, "Panel", COL_W, 6, function(card, n)
         if n == 1 then
-            -- Gilded, the default, is Medalluin's gold frame and ink; Slate its quieter shading.
+            -- Gilded, the default, is MedalUI's gold frame and ink; Slate its quieter shading.
             -- DialogueUI's art shows only while that addon is installed.
-            ChoiceRow(card, 1, { "Panel style", "Its frame and ink", tip = "Gilded: Medalluin's gold frame and "
+            ChoiceRow(card, 1, { "Panel style", "Its frame and ink", tip = "Gilded: MedalUI's gold frame and "
                 .. "ink. Slate: its quieter shading. DialogueUI's art shows only while that addon is installed.",
                 setting = optionSetting("backdropStyle") }, 150, function() return BACKDROP_STYLES end,
                 function() return ns.option("backdropStyle") end,

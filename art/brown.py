@@ -7,7 +7,7 @@ console, its strips, plates, wells and trays were drawn in a slate navy
 brown(rgba) recolours an image: a dark, greyish blue pixel (the navy and
 its shades) takes the brown's hue, a little more saturated and a little
 darker, so #3a4154 becomes #483c20. Bright or vivid blues (the tank's
-shield, a quality colour) are left as they are, and the Medalluin logo is
+shield, a quality colour) are left as they are, and the MedalUI logo is
 never passed to it; a
 pixel at the edge of the navy's range is blended part way, so edges stay
 smooth. rgb(colour) is the same for one colour, for the generators.

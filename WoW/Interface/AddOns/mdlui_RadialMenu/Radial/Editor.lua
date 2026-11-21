@@ -18,7 +18,7 @@ local L = ns.L
 -- game cursor (OnReceiveDrag); internal drags are resolved in FinishDrag.
 --------------------------------------------------
 
-local BRONZE       = { 0.769, 0.647, 0.341 }   -- Medalluin's gold
+local BRONZE       = { 0.769, 0.647, 0.341 }   -- MedalUI's gold
 local BRONZE_MUTED = { 0.541, 0.439, 0.204 }   -- and its dark gold
 local FALLBACK_ICON = 134400
 

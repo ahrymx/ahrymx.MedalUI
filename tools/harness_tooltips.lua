@@ -1,4 +1,4 @@
--- The "tooltips" pass: mdlui_Tooltips, loaded after Medalluin (tools/harness.lua
+-- The "tooltips" pass: mdlui_Tooltips, loaded after MedalUI (tools/harness.lua
 -- hands over what it keeps local). Every sample the style editor offers is drawn
 -- into a preview panel, and the panel's chrome, bars, boxes and text are read
 -- back as lines.
@@ -42,9 +42,9 @@ if type(LibStub) == "function" then
     LibStub = setmetatable({ GetLibrary = function(_, name, silent) return call(name, silent) end },
         { __call = function(_, name, silent) return call(name, silent) end })
 end
--- installed: Medalluin (its font names the panels) and the two companions
+-- installed: MedalUI (its font names the panels) and the two companions
 C_AddOns.GetAddOnInfo = function(name)
-    local here = name == "Medalluin" or name == "mdlui_Tooltips" or name == "mdlui_RadialMenu"
+    local here = name == "MedalUI" or name == "mdlui_Tooltips" or name == "mdlui_RadialMenu"
     return name, name, "", here, here and "" or "MISSING"
 end
 tinsert, tremove, wipe = tinsert or table.insert, tremove or table.remove, wipe or function(t)
@@ -147,8 +147,8 @@ local function minimapButton(tag, check, button, saved)
     button.scripts.OnDragStop(button)
     GetCursorPosition, Minimap.GetCenter, Minimap.GetEffectiveScale = cursor, centre, scale
     print(tag .. " minimap dragged", "at " .. where(), "following=" .. tostring(button.scripts.OnUpdate ~= nil))
-    -- Medalluin's drawer on the action bar takes it: in its line, no longer placed or dragged here
-    local M = H.medalluin
+    -- MedalUI's drawer on the action bar takes it: in its line, no longer placed or dragged here
+    local M = H.medalui
     if M and M.drawerScan then
         M.drawerScan()
         local angle = saved and button.points and button.points.CENTER and button.points.CENTER[3]
@@ -348,7 +348,7 @@ local function options(label, style, height, texture)
     local buff = render("aura", "Buff")
     bars("options " .. label .. " aura", buff)
     print("tooltips options " .. label .. " aura height", n(buff.h))
-    bars("options " .. label .. " medalluin", ui.renderPreview(anchor,
+    bars("options " .. label .. " medalui", ui.renderPreview(anchor,
         { title = "Experience", { "bar", 30, 120, "30 / 120", { .85, .72, .42 } } }, "mdlui"))
     bars("options " .. label .. " durability", render("item", "Weapon"))
     bars("options " .. label .. " health", healthBar(label))
@@ -384,10 +384,10 @@ do
     LibStub.GetLibrary = before
 end
 
--- Medalluin's own tooltips (mdlui/Medalluin.lua): a bar part, value of max
-local medalluin = ui.renderPreview(anchor, { title = "Experience", { "bar", 30, 120, "30 / 120", { .85, .72, .42 } } },
+-- MedalUI's own tooltips (mdlui/MedalUI.lua): a bar part, value of max
+local medalui = ui.renderPreview(anchor, { title = "Experience", { "bar", 30, 120, "30 / 120", { .85, .72, .42 } } },
     "mdlui")
-bars("medalluin xp", medalluin)
+bars("medalui xp", medalui)
 
 -- chips wrap where the panel ends: four in a panel room for two a row
 do

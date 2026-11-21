@@ -1,8 +1,8 @@
-Medalluin
+MedalUI
 Copyright (c) 2026 AhryMX <contact@ahrymx.dev>
 All Rights Reserved.
 
-This license covers everything in the Medalluin project: the source code,
+This license covers everything in the MedalUI project: the source code,
 the artwork, textures and other images, the generators and tools that produce
 them, and the documentation. That includes the project as published on GitHub
 and on CurseForge, in every version (together, "the Work"). The only
@@ -26,7 +26,7 @@ others are reserved by the author.
 
    d. Take screenshots and record videos of the Work in use, and publish
       them (streams, guides and reviews included), as long as the Work is
-      named as "Medalluin" where that is reasonable to do.
+      named as "MedalUI" where that is reasonable to do.
 
    e. Link to the Work's official pages.
 
@@ -51,7 +51,7 @@ others are reserved by the author.
       as anyone else's work, or remove or change the author's name,
       copyright notices or this license.
 
-   d. use the name "Medalluin", its logo or its artwork to name, advertise
+   d. use the name "MedalUI", its logo or its artwork to name, advertise
       or identify any other project, or in a way that suggests the author
       endorses it.
 
@@ -105,7 +105,7 @@ others are reserved by the author.
    5. Each stays under its own terms:
 
    a. The Marcellus SC typeface
-      (WoW/Interface/AddOns/Medalluin/media/fonts/MarcellusSC-Regular.ttf),
+      (WoW/Interface/AddOns/MedalUI/media/fonts/MarcellusSC-Regular.ttf),
       Copyright (c) 2012 by Brian J. Bonislawsky DBA Astigmatic (AOETI),
       with Reserved Font Name "Marcellus", is licensed under the SIL Open
       Font License, Version 1.1 (https://openfontlicense.org). The full
@@ -120,7 +120,7 @@ others are reserved by the author.
    c. World of Warcraft, Blizzard Entertainment, and the game's own art and
       interface, which the Work uses from the game client by reference
       only, are trademarks or property of Blizzard Entertainment, Inc.
-      Medalluin is not affiliated with or endorsed by Blizzard
+      MedalUI is not affiliated with or endorsed by Blizzard
       Entertainment.
 
 
@@ -128,7 +128,7 @@ others are reserved by the author.
 
    The Work is published only by the author, at:
 
-     GitHub:     https://github.com/ahrymx/ahrymx.medalluin
-     CurseForge: https://www.curseforge.com/wow/addons/medalluin/
+     GitHub:     https://github.com/ahrymx/ahrymx.MedalUI
+     CurseForge: https://www.curseforge.com/wow/addons/medalui/
 
    Any other copy is unofficial and is not permitted by this license.

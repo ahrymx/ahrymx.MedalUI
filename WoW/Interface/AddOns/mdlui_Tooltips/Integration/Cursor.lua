@@ -160,10 +160,10 @@ function ns.Cursor.register()
         defaultAnchored = false
         stop()
     end)
-    -- Medalluin places a tooltip beside its own windows (gear, bags): not
+    -- MedalUI places a tooltip beside its own windows (gear, bags): not
     -- default-anchored then, so it does not follow.
     hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
-        if tooltip == GameTooltip and not util.call(_G.Medalluin_TooltipBeside, parent) then
+        if tooltip == GameTooltip and not util.call(_G.MedalUI_TooltipBeside, parent) then
             defaultAnchored = true
         end
     end)

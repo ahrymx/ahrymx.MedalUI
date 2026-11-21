@@ -32,10 +32,10 @@ local function setFont(object, path, size, flags)
 end
 -- A commercial font: used from EllesmereUI's folder, never copied here.
 local ELLESMERE_BOLD = "Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway Bold.ttf"
-local MEDALLUIN_FONT = "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf"
--- Medalluin's face for Cyrillic: Marcellus has none (Medalluin's core.lua
+local MEDALUI_FONT = "Interface\\AddOns\\MedalUI\\media\\fonts\\MarcellusSC-Regular.ttf"
+-- MedalUI's face for Cyrillic: Marcellus has none (MedalUI's core.lua
 -- chooses the same)
-local MEDALLUIN_CYRILLIC = "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf"
+local MEDALUI_CYRILLIC = "Interface\\AddOns\\MedalUI\\media\\fonts\\Forum-Regular.ttf"
 local MAX_WIDTH = 408
 -- Wrapping prose is capped at this inner width; other rows fit on one line.
 local PROSE_WIDTH = 270
@@ -81,7 +81,7 @@ local BADGE_GAP = 5
 local BADGE_HEIGHT = 16
 local EXTRA_COLOR = colors.extras
 local GOLD_RULE = { .78, .59, .32 }
--- Medalluin's palette (Medalluin/options/theme.lua): the Gilded look's frame,
+-- MedalUI's palette (MedalUI/options/theme.lua): the Gilded look's frame,
 -- wells, and plates.
 local INK = { .043, .039, .035 }
 local GOLD_DARK = { .541, .439, .204 }
@@ -196,10 +196,10 @@ local function ellesmereInstalled()
     return hasEllesmere
 end
 
-local hasMedalluin
-local function medalluinInstalled()
-    if hasMedalluin == nil then hasMedalluin = ns.Game.addonInstalled("Medalluin") end
-    return hasMedalluin
+local hasMedalUI
+local function medaluiInstalled()
+    if hasMedalUI == nil then hasMedalUI = ns.Game.addonInstalled("MedalUI") end
+    return hasMedalUI
 end
 
 local function titleFont()
@@ -208,10 +208,10 @@ local function titleFont()
     -- Expressway and Marcellus SC have no Hangul or Chinese; use the client's header font there.
     local locale = GetLocale()
     if locale == "koKR" or locale == "zhCN" or locale == "zhTW" then return fontOf(GameTooltipHeaderText) end
-    if medalluinInstalled() then
-        -- the face Medalluin settled on (its General > Font)
-        if type(MedalluinFontFace) == "string" then return MedalluinFontFace end
-        return locale == "ruRU" and MEDALLUIN_CYRILLIC or MEDALLUIN_FONT
+    if medaluiInstalled() then
+        -- the face MedalUI settled on (its General > Font)
+        if type(MedalUIFontFace) == "string" then return MedalUIFontFace end
+        return locale == "ruRU" and MEDALUI_CYRILLIC or MEDALUI_FONT
     end
     -- (Expressway has no Cyrillic either)
     if locale == "ruRU" then return fontOf(GameTooltipHeaderText) end
@@ -219,7 +219,7 @@ local function titleFont()
 end
 
 -- "gilded", "slate", "dialogue", "flat", or "native". Unchosen, Gilded:
--- Medalluin's gold frame and ink. DialogueUI's art only while it is installed.
+-- MedalUI's gold frame and ink. DialogueUI's art only while it is installed.
 local function backdropStyle()
     local chosen = ns.option("backdropStyle")
     if chosen == "dialogue" then return hasDialogueBackdrop() and "dialogue" or "gilded" end
@@ -740,7 +740,7 @@ local function measureStyled(panel, text, style)
     return measure(panel, text, style.size, style.font, style.flags)
 end
 
--- Medalluin's key lines (its quest tooltips' clicks, "Shift + (mouse) Link"),
+-- MedalUI's key lines (its quest tooltips' clicks, "Shift + (mouse) Link"),
 -- two cells to a row: rows with its mouse glyph in them, as a grid, the
 -- second column starting where the widest first cell ends. keyGrid marks a
 -- list's key rows with their columns (grid); drawRow and rowWidth follow it.

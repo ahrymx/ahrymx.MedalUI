@@ -1,4 +1,4 @@
--- The "radial" pass: mdlui_RadialMenu, loaded after Medalluin (tools/harness.lua
+-- The "radial" pass: mdlui_RadialMenu, loaded after MedalUI (tools/harness.lua
 -- hands over what it keeps local). Its secure snippets run here in an emulated
 -- restricted environment: one shared table of globals per header (ACTIVE,
 -- MODE, CHILD ...), frame refs, header bindings, and the wraps' pre and post
@@ -62,7 +62,7 @@ local function runTimers()
     timers = {}
     for _, fn in ipairs(list) do fn() end
 end
-C_AddOns.IsAddOnLoaded = function(name) return name == "Medalluin" end
+C_AddOns.IsAddOnLoaded = function(name) return name == "MedalUI" end
 GetNumMacros = GetNumMacros or function() return 0, 0 end
 UIParent.GetCenter = function() return 960, 540 end
 UnitGUID = UnitGUID or function(u) return u == "player" and "Player-1-00000001" or nil end
@@ -214,8 +214,8 @@ local function minimapButton(tag, check, button, saved)
     button.scripts.OnDragStop(button)
     GetCursorPosition, Minimap.GetCenter, Minimap.GetEffectiveScale = cursor, centre, scale
     print(tag .. " minimap dragged", "at " .. where(), "following=" .. tostring(button.scripts.OnUpdate ~= nil))
-    -- Medalluin's drawer on the action bar takes it: in its line, no longer placed or dragged here
-    local M = H.medalluin
+    -- MedalUI's drawer on the action bar takes it: in its line, no longer placed or dragged here
+    local M = H.medalui
     if M and M.drawerScan then
         M.drawerScan()
         local angle = saved and button.points and button.points.CENTER and button.points.CENTER[3]
@@ -417,7 +417,7 @@ padState.buttons = {}
 C_AddOns.IsAddOnLoaded = function(name) return name == "ConsolePort" end
 RM:ApplyBindings()
 print("radial pad with ConsolePort", "overrides=" .. overrideList())
-C_AddOns.IsAddOnLoaded = function(name) return name == "Medalluin" end
+C_AddOns.IsAddOnLoaded = function(name) return name == "MedalUI" end
 gamepadUI = false
 RM:ApplyBindings()
 print("radial pad off", "overrides=" .. overrideList())
@@ -433,7 +433,7 @@ print("radial FlareUI radial on, FlareUI loaded", tostring(ns.FlareRadialOn()))
 FlareUI2_DB.profiles.Main.radialmenu.enabled = false
 print("radial FlareUI radial off", tostring(ns.FlareRadialOn()))
 FlareUI2_DB = nil
-C_AddOns.IsAddOnLoaded = function(name) return name == "Medalluin" end
+C_AddOns.IsAddOnLoaded = function(name) return name == "MedalUI" end
 
 -- ------------------------------------------------------------ a character's own key
 RM:SetOwnKey(first, true)
@@ -575,7 +575,7 @@ function Region:SetEnabled(on) self.enabled = on and true or false end
 function Region:IsEnabled() return self.enabled ~= false end
 C_Item.GetItemCount = C_Item.GetItemCount or function() return 0 end
 UnitFactionGroup = UnitFactionGroup or function() return "Alliance", "Alliance" end
--- ---- the window opens on a radial's Wheel sheet, laid out as Medalluin's Settings window
+-- ---- the window opens on a radial's Wheel sheet, laid out as MedalUI's Settings window
 setCombat(false)
 slash("")
 local win = _G.mdluiRadialEditor
@@ -1082,8 +1082,8 @@ end
 table.sort(arts)
 print("radial art editor icon", "art=" .. table.concat(arts, ","), "wells=" .. wells)
 
--- ---- round 4: Medalluin's Options > Extensions > Radial menu (ext), lit by /mdlradial's being there
-local mns = H.medalluin
+-- ---- round 4: MedalUI's Options > Extensions > Radial menu (ext), lit by /mdlradial's being there
+local mns = H.medalui
 local extPage
 for _, page in ipairs(mns.OptionPages()) do if page.id == "radial" then extPage = page end end
 local extButtons = {}
@@ -1134,13 +1134,13 @@ for _, key in ipairs(ns.PRESET_ORDER) do
 end
 print("radial preset first run", "markers=" .. tostring(firstPreset))
 -- Camping: a slice for each camp kit carried (campfires first, then the objects), and Sit. A kit is
--- an item whose name holds a camp object's and that has a use, or one Medalluin recorded
+-- an item whose name holds a camp object's and that has a use, or one MedalUI recorded
 do
     local bag = { { itemID = 9001 }, { itemID = 9002 }, { itemID = 9003 }, { itemID = 9004 } }
     local names = { [9001] = "Mana Well Kit", [9002] = "Tanned Leather", [9003] = "Basic Campfire Kit",
         [9004] = "Anvil Polish", [9005] = "Odd Bundle" }
     local uses = { [9001] = true, [9003] = true, [9005] = true }
-    local was = { C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemCount, MedalluinCharDB,
+    local was = { C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemCount, MedalUICharDB,
         C_Item.GetItemIconByID }
     C_Item.GetItemIconByID = function(id) return "icon" .. id end
     C_Container = { GetContainerNumSlots = function(b) return b == 0 and #bag or 0 end,
@@ -1162,14 +1162,14 @@ do
         print(tag, table.concat(out, " "))
     end
     ring("radial camping kits")
-    -- a kit Medalluin recorded from the recipes, its name none of the objects'
-    MedalluinCharDB = { camp = { ["Camp Tent"] = { item = 9005 } } }
+    -- a kit MedalUI recorded from the recipes, its name none of the objects'
+    MedalUICharDB = { camp = { ["Camp Tent"] = { item = 9005 } } }
     table.insert(bag, { itemID = 9005 })
     ring("radial camping recorded")
     bag = {}
-    MedalluinCharDB = nil
+    MedalUICharDB = nil
     ring("radial camping none")
-    C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemCount, MedalluinCharDB =
+    C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemCount, MedalUICharDB =
         was[1], was[2], was[3], was[4], was[5]
     C_Item.GetItemIconByID = was[6]
 end

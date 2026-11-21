@@ -1,16 +1,16 @@
 ## Interface: 16001
 ## Title: mdlui_RadialMenu
-## Notes: Hold a key, sweep, release: radial menus of spells, items, mounts, markers and more (Medalluin companion).
+## Notes: Hold a key, sweep, release: radial menus of spells, items, mounts, markers and more (MedalUI companion).
 ## Author: Malkkav, AhryMX
 ## X-License: MIT
-## Version: 0.63.0
+## Version: 0.63.1
 ## X-Upstream-Version: 6.8.2
-## Category: Medalluin
-## Category-enUS: Medalluin
-## Group: Medalluin
+## Category: MedalUI
+## Category-enUS: MedalUI
+## Group: MedalUI
 ## IconTexture: Interface\AddOns\mdlui_RadialMenu\art\logo
 ## SavedVariables: mdlui_RadialMenuDB
-## OptionalDeps: Medalluin, LibSharedMedia-3.0
+## OptionalDeps: MedalUI, LibSharedMedia-3.0
 
 Core\Shim.lua
 Core\Pad.lua

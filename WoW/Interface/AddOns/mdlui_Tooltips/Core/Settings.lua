@@ -25,7 +25,7 @@ local DEFAULTS = {
     minimapPanels = true,
     taxiPanels = true,
     mailPanels = true,
-    medalluinPanels = true,
+    medaluiPanels = true,
     iconMail = true,
     iconItems = true,
     iconSpells = true,
@@ -63,11 +63,11 @@ local DEFAULTS = {
     detailsKey = "SHIFT",
     -- DialogueUI's brown paper for quests and quest items, when installed.
     questParchment = false,
-    -- nil is Gilded, Medalluin's gold frame and ink. "slate" (its quieter
+    -- nil is Gilded, MedalUI's gold frame and ink. "slate" (its quieter
     -- shading: a wash from the top, a soft shadow), "native", "flat", or
     -- "dialogue" (DialogueUI's art, while it is installed) to pick another.
     backdropStyle = nil,
-    -- Every bar (health, time left, durability, Medalluin's): "well", sunken
+    -- Every bar (health, time left, durability, MedalUI's): "well", sunken
     -- with a lit fill, or "plain", a flat track; its height in pixels; and the
     -- fill's texture by name, nil for flat (the game's health bar keeps its own).
     barStyle = "well",
@@ -262,7 +262,7 @@ ns.TOOLTIP_TYPES = {
         cursor = "cursorObjects", types = { "Object" } },
     { label = "Flight paths", restyle = "taxiPanels", types = {} },
     { label = "Mail", restyle = "mailPanels", types = {} },
-    { label = "Medalluin", restyle = "medalluinPanels", types = {} },
+    { label = "MedalUI", restyle = "medaluiPanels", types = {} },
     { label = "Quests", restyle = "questPanels", cursor = "cursorQuests", types = { "Quest", "QuestPartyProgress" } },
     { label = "Macros", restyle = "macroPanels", cursor = "cursorMacros", types = { "Macro" } },
     { label = "Currencies", cursor = "cursorCurrencies", types = { "Currency" } },
@@ -286,7 +286,7 @@ local GAME_FONTS = {
     { "Arial Narrow", "Fonts\\ARIALN.TTF" },
     { "Morpheus", "Fonts\\MORPHEUS.TTF" },
     { "Skurri", "Fonts\\SKURRI.TTF" },
-    { "Marcellus SC (Medalluin)", "Interface\\AddOns\\Medalluin\\media\\fonts\\MarcellusSC-Regular.ttf" },
+    { "Marcellus SC (MedalUI)", "Interface\\AddOns\\MedalUI\\media\\fonts\\MarcellusSC-Regular.ttf" },
 }
 -- Use the client's Cyrillic and CJK faces where the Latin files lack glyphs.
 -- LibSharedMedia filters its fonts by language; these are the choices without it.
@@ -296,7 +296,7 @@ if GetLocale() == "ruRU" then
         { "Arial Narrow", "Fonts\\ARIALN.TTF" },
         { "Morpheus", "Fonts\\MORPHEUS_CYR.TTF" },
         { "Skurri", "Fonts\\SKURRI_CYR.TTF" },
-        { "Forum (Medalluin)", "Interface\\AddOns\\Medalluin\\media\\fonts\\Forum-Regular.ttf" },
+        { "Forum (MedalUI)", "Interface\\AddOns\\MedalUI\\media\\fonts\\Forum-Regular.ttf" },
     }
 elseif GetLocale() == "koKR" then
     GAME_FONTS = {

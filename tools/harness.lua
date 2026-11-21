@@ -1,4 +1,4 @@
--- Load Medalluin outside the game against a stubbed WoW API and print every
+-- Load MedalUI outside the game against a stubbed WoW API and print every
 -- named region's resolved rectangle, in art pixels from the console's
 -- top-left. tools/preview.py draws them over the art.
 --
@@ -49,7 +49,7 @@
 -- bag, and Blizzard's re-skinning methods. Lua's own arithmetic, comparison
 -- and concatenation on a secret raise, as in the game; a truth test cannot
 -- be trapped here.
-local ADDON = "WoW/Interface/AddOns/Medalluin/"
+local ADDON = "WoW/Interface/AddOns/MedalUI/"
 local args, modern = {}, false
 local argClass
 -- "ruRU" (any four-letter locale, ab + CD): the client's language; its
@@ -170,10 +170,10 @@ local npcPass = args[2] == "npc"
 -- (npc/mail.lua): six letters, Open all step by step (the bags filling, the
 -- mailbox closing, Stop), the send form and its wells, and the names it keeps.
 local mailPass = args[2] == "mail"
--- "radial" loads the mdlui_RadialMenu companion after Medalluin and plays it
+-- "radial" loads the mdlui_RadialMenu companion after MedalUI and plays it
 -- (tools/harness_radial.lua).
 radialPass = args[2] == "radial"   -- a global: the main chunk is at its local limit
--- "tooltips" loads the mdlui_Tooltips companion after Medalluin and draws its
+-- "tooltips" loads the mdlui_Tooltips companion after MedalUI and draws its
 -- style editor's samples (tools/harness_tooltips.lua).
 tooltipsPass = args[2] == "tooltips"
 local barOff = args[3] == "nobar"
@@ -985,7 +985,7 @@ function GameTooltip:ClearLines()
 end
 -- the spec ns.Tip handed over, as its parts' roles: what mdlui_Tooltips draws
 function tipSpec()
-    local s = Medalluin_TooltipSpec and Medalluin_TooltipSpec(GameTooltip)
+    local s = MedalUI_TooltipSpec and MedalUI_TooltipSpec(GameTooltip)
     if not s then return "spec=none" end
     local parts = {}
     for _, p in ipairs(s) do
@@ -1394,7 +1394,7 @@ function harnessPick(conditional, holds)
         if ok then return value end
     end
 end
--- Taint: Medalluin's code is insecure; only the game's own update (stateTick)
+-- Taint: MedalUI's code is insecure; only the game's own update (stateTick)
 -- runs secure. An attribute set on an action button outside it runs the
 -- button's OnAttributeChanged tainted, and its clicks are blocked after that
 -- (UseAction, BugSack 2026-11-01): the button keeps the attribute's name.
@@ -1637,7 +1637,7 @@ function GetTime() return now end
 bindings, bindingSaves = {}, {}
 for i = 1, 12 do bindings[tostring(i)] = "ACTIONBUTTON" .. i end
 -- a key bound to the centre grid's old buttons, before it took Action bar 7's
-bindings.G = "CLICK MedalluinBar7Button3:LeftButton"
+bindings.G = "CLICK MedalUIBar7Button3:LeftButton"
 function GetBindingKey(action)
     local keys = {}
     for k, c in pairs(bindings) do if c == action then table.insert(keys, k) end end
@@ -1748,7 +1748,7 @@ function UnitLevel() return 30 end
 -- the realm, a player's full name, and what the chat can learn of a speaker:
 -- a line's sender (line ID -> GUID), a GUID's class and level, the guild,
 -- friends and /who (strips/chat.lua's names)
-function GetNormalizedRealmName() return "Medalluin" end
+function GetNormalizedRealmName() return "MedalUI" end
 function UnitFullName(u) return UnitName(u), nil end
 chatSenders, guidInfo, harnessGuild, harnessFriends, harnessWho = {}, {}, {}, {}, {}
 C_ChatInfo = { GetChatLineSenderGUID = function(line) return chatSenders[assert(line, "chatLine")] end }
@@ -2375,9 +2375,9 @@ if modern then
     }
 end
 
--- Options > AddOns: Medalluin's page is a canvas (options/info.lua); a proxy
--- setting, if Medalluin ever built one again, is counted. The settings
--- themselves are Medalluin's own window (options/), reached through
+-- Options > AddOns: MedalUI's page is a canvas (options/info.lua); a proxy
+-- setting, if MedalUI ever built one again, is counted. The settings
+-- themselves are MedalUI's own window (options/), reached through
 -- page.settings[key], which works the window's control for that option the
 -- way a click does; page.opened is the window's page while it is shown.
 local page = { proxies = 0 }
@@ -2466,10 +2466,10 @@ function harnessMenu(tag)
 end
 -- Arena is set aside (settings.lua) but the passes still play it as it
 -- stands; the profiles pass closes it to see it set aside
-Medalluin_ArenaOpen = true
--- "face": Forum chosen as Medalluin's font (General > Font), saved: every
+MedalUI_ArenaOpen = true
+-- "face": Forum chosen as MedalUI's font (General > Font), saved: every
 -- text takes it, those made before the settings load too
-MedalluinDB = args[2] == "face" and { global = { medalluinFace = "forum" } }
+MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
     or profilesPass and args[3] == "saved" and { consoleProfile = "light",
         -- the overhead's options, per profile until 2026-11-15: the profile in
         -- use (light, now reticule) gives the shared ones; arena's are dropped
@@ -2810,7 +2810,7 @@ if characterPass or questPass or npcPass or bankPass or args.inspect then
     end
     function UnitPVPName(u)
         if args.inspect and u == "target" then return "Knight Lirael" end
-        return characterRetail and "Vasheron, Famed Slayer" or "Ahry Medalluin"
+        return characterRetail and "Vasheron, Famed Slayer" or "Ahry MedalUI"
     end
     function GetAverageItemLevel()
         if characterRetail then return 322.4, 322.0 end
@@ -4828,12 +4828,12 @@ if gamemenuPass then (function()
     GAMEMENU_SUPPORT, MACROS, LOG_OUT, EXIT_GAME, RETURN_TO_GAME = "Support", "Macros", "Log Out", "Exit Game",
         "Return to Game"
     MAINMENU_BUTTON = "Game Menu"
-    if args[3] == "game" then MedalluinDB = MedalluinDB or {}; MedalluinDB.gameMenu = "game" end
+    if args[3] == "game" then MedalUIDB = MedalUIDB or {}; MedalUIDB.gameMenu = "game" end
     -- the docked menu's This session section, as an earlier one kept it:
     -- shown again from its chip (false), migrated to the clock's key
-    MedalluinDB = MedalluinDB or { consoleProfile = "arena" }
-    MedalluinDB.global = MedalluinDB.global or {}
-    MedalluinDB.global.gameMenuHidden = { session = false }
+    MedalUIDB = MedalUIDB or { consoleProfile = "arena" }
+    MedalUIDB.global = MedalUIDB.global or {}
+    MedalUIDB.global.gameMenuHidden = { session = false }
     -- the game's sound CVars, as strings (the game menu's sound panel)
     gmSound = { Sound_MasterVolume = "0.65", Sound_MusicVolume = "0.7", Sound_SFXVolume = "0.9",
         Sound_AmbienceVolume = "0.4", Sound_DialogVolume = "1", Sound_EnableAllSound = "1",
@@ -4988,8 +4988,8 @@ end)() end
 
 if cdmPass or ccPass then (function()
     if cdmPass and args[3] == "off" then
-        MedalluinDB = MedalluinDB or {}
-        MedalluinDB.cdmWindow, MedalluinDB.cdmDisplay = false, false
+        MedalUIDB = MedalUIDB or {}
+        MedalUIDB.cdmWindow, MedalUIDB.cdmDisplay = false, false
     end
     function Region:GetObjectType() return self.kind end
     -- the game's pools: what they gave out, in order
@@ -5402,8 +5402,8 @@ end)() end
 -- headings and lines, each line filled by its Init as the game's), its foot.
 if ccPass then (function()
     if args[3] == "off" then
-        MedalluinDB = MedalluinDB or {}
-        MedalluinDB.ccWindow = false
+        MedalUIDB = MedalUIDB or {}
+        MedalUIDB.ccWindow = false
     end
     Enum = Enum or {}
     Enum.ClickBindingType = { None = 0, Spell = 1, Macro = 2, Interaction = 3, PetAction = 4 }
@@ -5643,7 +5643,7 @@ if ccPass then (function()
 end)() end
 
 -- "fixes" plays the known issues (fixes.lua) over a stubbed C_EditMode
--- whose saved layout anchors two systems to Medalluin's frames by name (the
+-- whose saved layout anchors two systems to MedalUI's frames by name (the
 -- Cooldown Manager to the console, as before 0.41.0): the login's chat line
 -- and dialog, a later login's line alone, /mui fix-issues (and in combat,
 -- until it ends), the Fix button's save and reload, a save that fails, and a
@@ -5666,12 +5666,12 @@ if fixesPass then
     function F.Stale()
         return { activeLayout = 3, layouts = {
             { layoutName = "testing", layoutType = 1, systems = {
-                { system = 20, systemIndex = 0, anchorInfo = at("BOTTOM", "MedalluinConsole", "TOP", 0, 14),
+                { system = 20, systemIndex = 0, anchorInfo = at("BOTTOM", "MedalUIConsole", "TOP", 0, 14),
                     isInDefaultPosition = false },
                 { system = 20, systemIndex = 1, anchorInfo = at("CENTER", "UIParent", "CENTER", 0, -200),
                     isInDefaultPosition = false },
                 { system = 0, systemIndex = 1, anchorInfo = at("BOTTOM", "UIParent", "BOTTOM", 0, 40),
-                    anchorInfo2 = at("LEFT", "MedalluinDrawer", "RIGHT", 4, 0), isInDefaultPosition = false },
+                    anchorInfo2 = at("LEFT", "MedalUIDrawer", "RIGHT", 4, 0), isInDefaultPosition = false },
             } },
             { layoutName = "alt", layoutType = 2, systems = {
                 { system = 20, systemIndex = 0, anchorInfo = at("CENTER", "UIParent", "CENTER", 0, -150),
@@ -5701,19 +5701,19 @@ end
 local ns = {}
 harnessNS = ns     -- for the helpers above it (harnessNextFrame)
 GetLocale = function() return argLocale or "enUS" end
-for line in io.lines(ADDON .. "Medalluin.toc") do
+for line in io.lines(ADDON .. "MedalUI.toc") do
     local file = line:match("^([^#][^%[]-%.lua)")
     -- a translation loads only on its own client
     local only = line:match("%[AllowLoadTextLocale (.-)%]")
     if only and not only:find(GetLocale(), 1, true) then file = nil end
     if file then
         local chunk = assert(loadfile(ADDON .. file:gsub("\\", "/")))
-        chunk("Medalluin", ns)
+        chunk("MedalUI", ns)
     end
 end
 -- (2026-11-19) the face for the client's letters, when a locale is asked
 if argLocale then print("locale", GetLocale(), "font=" .. tostring(ns.font)) end
-for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "Medalluin") end
+for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "MedalUI") end
 for _, e in ipairs({ "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD" }) do
     for _, f in ipairs(events[e] or {}) do
         local h = f.scripts.OnEvent
@@ -5802,7 +5802,7 @@ function partyLayoutMenu(tag)
         return
     end
     layout.button.scripts.OnClick(layout.button)
-    for _, row in ipairs(MedalluinOptionsMenu.rows) do
+    for _, row in ipairs(MedalUIOptionsMenu.rows) do
         if row.shown then
             print("party layout menu " .. tag, (row.mark.shown and "*" or "") .. row.text.text, row.tip)
         end
@@ -5812,7 +5812,7 @@ function partyLayoutMenu(tag)
 end
 
 local function menuRow(value)
-    for _, row in ipairs(MedalluinOptionsMenu and MedalluinOptionsMenu.rows or {}) do
+    for _, row in ipairs(MedalUIOptionsMenu and MedalUIOptionsMenu.rows or {}) do
         if row.shown and row.value == value then return row end
     end
 end
@@ -5888,7 +5888,7 @@ if barPass then
             r[4] + 916, extra or ""))
     end
     print("page", page.name, page.registered and "registered" or "-", "proxy settings=" .. page.proxies)
-    -- Options > AddOns > Medalluin: its words in order, and its one button
+    -- Options > AddOns > MedalUI: its words in order, and its one button
     local function texts(f, out)
         for _, r in ipairs(f.all_ or {}) do
             if r.kind == "FontString" and r.text then table.insert(out, r.text) end
@@ -5906,7 +5906,7 @@ if barPass then
     end
     -- the window: each page, its tree row, its controls in order
     -- (where each sits on the page, what it shows, whether it can be changed)
-    local win = MedalluinOptions
+    local win = MedalUIOptions
     local shows = optionShown
     local function lit(list, on)
         local o = {}
@@ -6134,7 +6134,7 @@ if barPass then
     -- starts from what the profile held
     ;(function()
         local profile = ns.db.consoleProfile
-        MedalluinDB.profiles[profile].row2Paging = "page4"     -- as kept before paging moved
+        MedalUIDB.profiles[profile].row2Paging = "page4"     -- as kept before paging moved
         ns.SetOption("gridPageStealth", false)
         ns.SetOption("row3Paging", "page2")
         local mine = { stealth = ns.db.gridPageStealth, row3 = ns.db.row3Paging, row2 = ns.db.row2Paging }
@@ -6143,11 +6143,11 @@ if barPass then
         classOf.player = nil
         print("options.paging per class", "mine=" .. tostring(mine.stealth) .. "/" .. mine.row3 .. "/" .. mine.row2,
             "rogue=" .. tostring(rogue.stealth) .. "/" .. rogue.row3 .. "/" .. rogue.row2,
-            "kept in=" .. tostring(MedalluinDB.classes and MedalluinDB.classes[(select(2, UnitClass("player")))]
-                and MedalluinDB.classes[(select(2, UnitClass("player")))][profile].gridPageStealth))
+            "kept in=" .. tostring(MedalUIDB.classes and MedalUIDB.classes[(select(2, UnitClass("player")))]
+                and MedalUIDB.classes[(select(2, UnitClass("player")))][profile].gridPageStealth))
         ns.SetOption("gridPageStealth", true)
         ns.SetOption("row3Paging", "default")
-        MedalluinDB.profiles[profile].row2Paging = nil
+        MedalUIDB.profiles[profile].row2Paging = nil
     end)()
     -- Settings > Shared: one value for an option many frames have, which a
     -- frame's own choice overrides (marked Own on its page, a gold corner
@@ -6615,7 +6615,7 @@ if barPass then
     ns.OpenOptions("units/party")
     local range = ns.optionControls.partyRange
     range.button.scripts.OnClick(range.button)
-    local menu = MedalluinOptionsMenu
+    local menu = MedalUIOptionsMenu
     local rows = {}
     for _, row in ipairs(menu.rows) do
         if row.shown then table.insert(rows, (row.mark.shown and "*" or "") .. row.text.text) end
@@ -6734,22 +6734,22 @@ if barPass then
     print("dragged", "optionsPoint=" .. table.concat(ns.db.optionsPoint, ","))
     win.closeX.scripts.OnClick(win.closeX)
     print("closed", "opened=" .. tostring(page.opened))
-    SlashCmdList.MEDALLUIN()
-    print("/medalluin opens", tostring(page.opened))
-    -- /medalluin and /mui are one command; /mdlui is its own, to the same place
+    SlashCmdList.MEDALUI()
+    print("/medalui opens", tostring(page.opened))
+    -- /medalui and /mui are one command; /mdlui is its own, to the same place
     local slashes = {}
     for k, v in pairs(_G) do
         if type(k) == "string" and k:match("^SLASH_") then slashes[#slashes + 1] = k .. "=" .. tostring(v) end
     end
     table.sort(slashes)
-    print("slash commands", table.concat(slashes, " "), "same=" .. tostring(SlashCmdList.MEDALLUIN == SlashCmdList.MDLUI))
+    print("slash commands", table.concat(slashes, " "), "same=" .. tostring(SlashCmdList.MEDALUI == SlashCmdList.MDLUI))
     SlashCmdList.MDLUI("console")
     print("/mdlui console opens", tostring(page.opened))
     SlashCmdList.MDLUI()
     print("/mdlui opens", tostring(page.opened))
     SlashCmdList.MDLUI("unit")
     print("/mdlui unit opens", tostring(page.opened))
-    -- Medalluin's minimap button: in the drawer, or on the minimap without one
+    -- MedalUI's minimap button: in the drawer, or on the minimap without one
     do
         local mb = ns.minimapButton
         local where = mb.parent == ns.drawer and "drawer" or mb.parent == Minimap and "minimap" or tostring(mb.parent)
@@ -6778,10 +6778,10 @@ if barPass then
         print("minimapButton right again", "simParty=" .. tostring(ns.db.simParty))
         -- middle: the unit frame editor, and again closes it
         mb.scripts.OnClick(mb, "MiddleButton")
-        print("minimapButton middle", "editor=" .. tostring(_G.MedalluinEditor and _G.MedalluinEditor.shown),
+        print("minimapButton middle", "editor=" .. tostring(_G.MedalUIEditor and _G.MedalUIEditor.shown),
             "opens=" .. tostring(page.opened))
         mb.scripts.OnClick(mb, "MiddleButton")
-        print("minimapButton middle again", "editor=" .. tostring(_G.MedalluinEditor and _G.MedalluinEditor.shown))
+        print("minimapButton middle again", "editor=" .. tostring(_G.MedalUIEditor and _G.MedalUIEditor.shown))
         GameTooltip.AddLine = add
     end
     if StatusTrackingBarManager then
@@ -6793,7 +6793,7 @@ if barPass then
     end
     if not ns.actionBar then
         print("tray none")
-        -- no bar, no cast bar of Medalluin's: Blizzard's stays
+        -- no bar, no cast bar of MedalUI's: Blizzard's stays
         for _, k in ipairs({ "CastingBarFrame", "PlayerCastingBarFrame" }) do
             if _G[k] then print(k .. ".parent", _G[k].parent == ns.hidden and "hidden" or "kept") end
         end
@@ -7232,7 +7232,7 @@ if barPass then
                 n = n + 1
                 if i == 1 or i == 12 then
                     screen(b.name, b, "level=" .. b.level .. " scale=" .. b:GetScale()
-                        .. " styled=" .. tostring(b.medalluinIcon ~= nil))
+                        .. " styled=" .. tostring(b.medaluiIcon ~= nil))
                     if b.HotKey then
                         print(b.name .. ".hotkey", tostring(b.HotKey.text), tostring(b.HotKey.shown))
                     end
@@ -7382,7 +7382,7 @@ if sidePass then
     end
     local side = ns.side
     if not side.panel then
-        print("side none", "panel=" .. tostring(_G.MedalluinSide ~= nil))
+        print("side none", "panel=" .. tostring(_G.MedalUISide ~= nil))
         return
     end
     local function fire(e, ...)
@@ -7462,7 +7462,7 @@ if sidePass then
         local views = {}
         for _, v in ipairs(side.views) do views[v.key] = v end
         local z = views.zone
-        local clip, hole = _G.MedalluinMinimapClip, _G.MedalluinMinimapEmpty
+        local clip, hole = _G.MedalUIMinimapClip, _G.MedalUIMinimapEmpty
         local function where(tag)
             local pt = Minimap.points.CENTER
             local to = pt and pt[1]
@@ -7471,7 +7471,7 @@ if sidePass then
                 .. "above the well=%s shape=%s", tostring(clip.parent and (clip.parent.name or
                 (clip.parent == ns.console and "console")) or "?"), name, Minimap.w, Minimap.h,
                 tostring(Minimap.mask):match("[^\\]+$"), tostring(Minimap.strata),
-                tostring(Minimap.level > (_G.MedalluinZoneMap.level or 0)),
+                tostring(Minimap.level > (_G.MedalUIZoneMap.level or 0)),
                 tostring(GetMinimapShape and GetMinimapShape())))
             local dark
             for _, r in ipairs(hole.all_ or {}) do if r.kind == "Texture" then dark = r end end
@@ -7542,7 +7542,7 @@ if sidePass then
         -- the quest's tooltip: its clicks, a mouse glyph each, as the log's and the tracker's
         local function keys(r)
             r.scripts.OnEnter(r)
-            local spec, out = Medalluin_TooltipSpec and Medalluin_TooltipSpec(GameTooltip), {}
+            local spec, out = MedalUI_TooltipSpec and MedalUI_TooltipSpec(GameTooltip), {}
             for _, k in ipairs(spec or {}) do
                 if k and k[1] == "key" then
                     table.insert(out, k[2] and k[2] .. (k[3] and "+" .. k[3] or "") .. "=" .. k[4] or "_")
@@ -7753,20 +7753,20 @@ if sidePass then
         -- hidden in combat; the quest closed, the button away
         fold(2)
         rows("item")
-        local use = _G.MedalluinZoneItem1
+        local use = _G.MedalUIZoneItem1
         print("zone item button", "shown=" .. tostring(use and use.shown),
             "item=" .. tostring(use and use:GetAttribute("item")),
-            "driver=" .. tostring(_G.MedalluinZoneItems and _G.MedalluinZoneItems.stateDrivers
-                and _G.MedalluinZoneItems.stateDrivers.visibility))
+            "driver=" .. tostring(_G.MedalUIZoneItems and _G.MedalUIZoneItems.stateDrivers
+                and _G.MedalUIZoneItems.stateDrivers.visibility))
         harnessHolds.combat = true
         stateTick()
-        print("zone item in combat", "layer=" .. tostring(_G.MedalluinZoneItems.shown))
+        print("zone item in combat", "layer=" .. tostring(_G.MedalUIZoneItems.shown))
         harnessHolds.combat = nil
         stateTick()
-        print("zone item after combat", "layer=" .. tostring(_G.MedalluinZoneItems.shown))
+        print("zone item after combat", "layer=" .. tostring(_G.MedalUIZoneItems.shown))
         fold(2)
         print("zone item closed", "shown=" .. tostring(use and use.shown),
-            "layer=" .. tostring(_G.MedalluinZoneItems and _G.MedalluinZoneItems.shown))
+            "layer=" .. tostring(_G.MedalUIZoneItems and _G.MedalUIZoneItems.shown))
         -- the column: zoom in twice, out once; the foot tracks the zone, then untracks it
         z.paint[1].scripts.OnClick(z.paint[1], "LeftButton")
         z.paint[1].scripts.OnClick(z.paint[1], "LeftButton")
@@ -8804,7 +8804,7 @@ if sidePass then
                 end
                 local function walk(f)
                     for _, c in ipairs(f.all_ or {}) do
-                        if c ~= at and not (c.name and c.name:match("^Medalluin")) then
+                        if c ~= at and not (c.name and c.name:match("^MedalUI")) then
                             if c.scripts and c.scripts.OnEnter then
                                 GameTooltip.owner, GameTooltip.points = nil, {}
                                 c.scripts.OnEnter(c)
@@ -9200,7 +9200,7 @@ if stripsPass then
     if GuildMicroButton and GuildMicroButton.NotificationOverlay then
         local g = GuildMicroButton
         local function tint()
-            local v = g.medalluin.tex.vertex or { 1, 1, 1 }
+            local v = g.medalui.tex.vertex or { 1, 1, 1 }
             return string.format("%.2f,%.2f,%.2f", v[1], v[2], v[3])
         end
         g:SetHasNotification(true)
@@ -9211,7 +9211,7 @@ if stripsPass then
     end
     for _, f in ipairs(micro) do
         if f.shown and resolve(f)[1] then
-            local m, hl = f.medalluin, f:GetHighlightTexture()
+            local m, hl = f.medalui, f:GetHighlightTexture()
             screen(f.name, f, string.format("parent=%s glyph=%s hl.alpha=%s lit=%s", tostring(f.parent.name),
                 m and m.tex.texture and m.tex.texture:match("[^\\]+$") or "-",
                 hl and hl.vertex and tostring(hl.vertex[4]) or "-", tostring(lit(f))))
@@ -9224,13 +9224,13 @@ if stripsPass then
     -- queue eye: in group finder, the eye appears over the character medallion, hiding the portrait
     QueueStatusButton:Show()
     print("queue eye queued", "shown=" .. tostring(QueueStatusButton.shown),
-        "portrait=" .. tostring(CharacterMicroButton.medalluin.tex.shown),
+        "portrait=" .. tostring(CharacterMicroButton.medalui.tex.shown),
         "level=" .. tostring(QueueStatusButton.level),
         "over=" .. tostring(QueueStatusButton.level > CharacterMicroButton.level))
     screen("queueEye", QueueStatusButton)
     QueueStatusButton:Hide()
     print("queue eye unqueued", "shown=" .. tostring(QueueStatusButton.shown),
-        "portrait=" .. tostring(CharacterMicroButton.medalluin.tex.shown))
+        "portrait=" .. tostring(CharacterMicroButton.medalui.tex.shown))
     -- the leave-vehicle seat: Blizzard's button over the backpack's well
     -- while a vehicle can be left, wearing our round art through Blizzard's
     -- own passes (Edit Mode placing it, Update's square highlight)
@@ -9306,7 +9306,7 @@ if stripsPass then
         local b = _G[n]
         if b then table.insert(left, n:gsub("Character", ""):gsub("Slot", "") .. "@" .. tostring(b.parent and b.parent.name)) end
     end
-    print("bags", "drawer=" .. tostring(_G.MedalluinBagDrawer ~= nil), table.concat(left, " "))
+    print("bags", "drawer=" .. tostring(_G.MedalUIBagDrawer ~= nil), table.concat(left, " "))
     for _, f in ipairs(all) do
         if f.kind == "FontString" and f.parent and f.parent.parent == ns.strips[1] and f.text then
             screen("stat", f.parent, string.format("%q", f.text))
@@ -9431,21 +9431,21 @@ if stripsPass then
         end
         local c = t.Text.textColor
         local slot = ""
-        if t.medalluinSlot and f.isDocked and next(t.points) then
-            local sr, hr = resolve(t.medalluinSlot), resolve(ns.chat.head)
+        if t.medaluiSlot and f.isDocked and next(t.points) then
+            local sr, hr = resolve(t.medaluiSlot), resolve(ns.chat.head)
             slot = string.format(" slot=%.1f..%.1f, %.1f high, %.1f over the hairline, text=%s",
                 sr[1] + 612, sr[3] + 612, sr[4] - sr[2], hr[4] - sr[4],
-                tostring(t.Text.points.CENTER and t.Text.points.CENTER[1] == t.medalluinSlot))
+                tostring(t.Text.points.CENTER and t.Text.points.CENTER[1] == t.medaluiSlot))
         end
         local faced = "-"
         for _, g in ipairs({ t:GetRegions() }) do
-            if g.all == t.medalluinSlot and t.medalluinSlot then faced = "slot" end
+            if g.all == t.medaluiSlot and t.medaluiSlot then faced = "slot" end
         end
-        local w = t.medalluinWell and t.medalluinWell.color
+        local w = t.medaluiWell and t.medaluiWell.color
         return "regions=" .. select("#", t:GetRegions()) .. " face=" .. faced .. slot
             .. (w and string.format(" well=%.2f,%.2f,%.2f", w[1], w[2], w[3]) or "")
             .. string.format(" alpha=%g", t:GetAlpha()) .. " blizzard=" .. (#lit > 0 and table.concat(lit, ",") or "none") .. " selected="
-            .. tostring(t.medalluin and t.mark.shown)
+            .. tostring(t.medalui and t.mark.shown)
             .. (c and string.format(" text=%.2f,%.2f,%.2f", c[1], c[2], c[3]) or "")
     end
     local function chatState(tag)
@@ -9470,9 +9470,9 @@ if stripsPass then
         screen("  drawer", chat.drawer, string.format("shown=%s strata=%s level=%s regions=%d", tostring(chat.drawer.shown),
             tostring(chat.drawer.strata), tostring(chat.drawer.level), select("#", chat.drawer:GetRegions())))
         for _, n in ipairs({ "ChatFrameMenuButton", "QuickJoinToastButton", "ChatFrameChannelButton",
-            "MedalluinChatLogButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }) do
+            "MedalUIChatLogButton", "ChatFrameToggleVoiceDeafenButton", "ChatFrameToggleVoiceMuteButton" }) do
             local b = _G[n]
-            local g, own = b.medalluinGlyph, {}
+            local g, own = b.medaluiGlyph, {}
             for _, t in ipairs({ b:GetNormalTexture(), b:GetPushedTexture(), b.Icon, b.FriendsButton }) do
                 table.insert(own, string.format("%g", t:GetAlpha()))
             end
@@ -9549,7 +9549,7 @@ if stripsPass then
         chatState("chat voice off")
         screen("ChatFrame2EditBox", ChatFrame2.editBox)
         -- the box's backing: only while it is typed in
-        local function lit(box) return tostring(box.medalluin and box.medalluin[1].shown) end
+        local function lit(box) return tostring(box.medalui and box.medalui[1].shown) end
         local b1 = ChatFrame1.editBox
         local rest = lit(b1)
         b1:SetFocus()
@@ -9562,7 +9562,7 @@ if stripsPass then
         b1:SetText("teeext")
         b1.scripts.OnTextChanged(b1, true)
         b1:ClearFocus()
-        local held, border = lit(b1), tostring(b1.medalluin[1].alpha)
+        local held, border = lit(b1), tostring(b1.medalui[1].alpha)
         b1:SetText("")
         b1.scripts.OnTextChanged(b1, false)
         print("editBox left with text", "backing=" .. held, "border=" .. border, "cleared=" .. lit(b1))
@@ -9800,7 +9800,7 @@ if stripsPass then
         chatSenders[102] = secret()
         chatSenders[103], guidInfo["G-Kim"] = "G-Kim", { "MAGE", nil }
         chatSenders[104], guidInfo["G-Lu"] = "G-Lu", { secret(), secret() }
-        harnessGuild = { { "Ann-Medalluin", 17 }, { "Lu-Medalluin", 0 }, { "Bob-Medalluin", 40 } }
+        harnessGuild = { { "Ann-MedalUI", 17 }, { "Lu-MedalUI", 0 }, { "Bob-MedalUI", 40 } }
         hear("GUILD_ROSTER_UPDATE")
         harnessWho = { { fullName = "Kim-Other", level = 33 }, { fullName = secret(), level = 9 },
             { fullName = "Pip", level = secret() } }
@@ -9821,13 +9821,13 @@ if stripsPass then
         harnessFriends = { { name = "Zed", level = 5 } }
         hear("FRIENDLIST_UPDATE")
         local names = {
-            "|Hplayer:Bob-Medalluin:101:CHANNEL:1|h[|cffaabbccBob|r]|h: hi",
-            "|Hplayer:Eve-Medalluin:102:SAY|h[Eve]|h says: secret sender",
+            "|Hplayer:Bob-MedalUI:101:CHANNEL:1|h[|cffaabbccBob|r]|h: hi",
+            "|Hplayer:Eve-MedalUI:102:SAY|h[Eve]|h says: secret sender",
             "|Hplayer:Ann|h[Ann]|h has come online.",
             "|Hplayer:Kim-Other:103:YELL|h[Kim-Other]|h yells: from afar",
-            "|Hplayer:Lu-Medalluin:104:GUILD|h[Lu]|h: secret class",
+            "|Hplayer:Lu-MedalUI:104:GUILD|h[Lu]|h: secret class",
             "|Hplayer:Zed:105:WHISPER|h[Zed]|h whispers: no sender",
-            "|Hplayer:Ahrymx-Medalluin:106:SAY|h[Ahrymx]|h says: me",
+            "|Hplayer:Ahrymx-MedalUI:106:SAY|h[Ahrymx]|h says: me",
             "|HBNplayer:Kay:1:107|h[Kay]|h: battle.net",
         }
         local function names_(tag)
@@ -10055,11 +10055,11 @@ if stripsPass then
         -- links kept but a player's line ID, at logout; back at the next
         -- login, dimmed under a divider, in the window and the log
         do
-            local hist, clock = MedalluinCharDB, time
+            local hist, clock = MedalUICharDB, time
             time = function() return 1763320800 end
             log.Clear()
             for n = 1, 600 do ChatFrame1:AddMessage("said " .. n, 1, 0.5, 0) end
-            ChatFrame1:AddMessage("|Hplayer:Bob-Medalluin:101:CHANNEL:1|h[Bob]|h: linked", 1, 1, 1)
+            ChatFrame1:AddMessage("|Hplayer:Bob-MedalUI:101:CHANNEL:1|h[Bob]|h: linked", 1, 1, 1)
             ChatFrame1:AddMessage("|HBNplayer:Kay:1:107|h[Kay]|h: |Kq7|k battle.net", 1, 1, 1)
             ChatFrame1:AddMessage(secret(), 1, 1, 1)
             ChatFrame2:AddMessage("a combat log line")
@@ -10192,11 +10192,11 @@ if profilesPass then
             "bare=" .. tostring(ns.db.bareIcons), "drawer=" .. tostring(ns.db.drawer),
             "lootMoney=" .. tostring(ns.db.lootMoney), "sideTab=" .. tostring(ns.db.sideTab),
             "rowsDefault=" .. tostring(S.rows:Default()), "page.rows=" .. tostring(S.rows:Get()))
-        print("  arena", list(MedalluinDB.profiles.arena))
-        print("  reticule", list(MedalluinDB.profiles.reticule))
-        print("  global", list(MedalluinDB.global))
-        print("  top", "rows=" .. tostring(rawget(MedalluinDB, "rows")), "bareIcons=" .. tostring(rawget(MedalluinDB,
-            "bareIcons")), "retired=" .. tostring(MedalluinDB.retired))
+        print("  arena", list(MedalUIDB.profiles.arena))
+        print("  reticule", list(MedalUIDB.profiles.reticule))
+        print("  global", list(MedalUIDB.global))
+        print("  top", "rows=" .. tostring(rawget(MedalUIDB, "rows")), "bareIcons=" .. tostring(rawget(MedalUIDB,
+            "bareIcons")), "retired=" .. tostring(MedalUIDB.retired))
         -- (heard in the order pairs() meets the keys: sorted, as no order is promised)
         local sorted = { unpack(heard) }
         table.sort(sorted)
@@ -10221,7 +10221,7 @@ if profilesPass then
     state("back to reticule")
     S.rows:Set(3)
     state("rows 3 = the profile's")
-    StaticPopupDialogs.MEDALLUIN_RESET_PROFILE.OnAccept()
+    StaticPopupDialogs.MEDALUI_RESET_PROFILE.OnAccept()
     state("reticule reset")
     S.consoleProfile:Set("arena")
     state("arena again")
@@ -10229,17 +10229,17 @@ if profilesPass then
     state("arena reset")
     print("profiles overhead after the resets", "topToT=" .. tostring(ns.db.topToT),
         "overheadAlpha=" .. tostring(ns.db.overheadAlpha), "detachPet=" .. tostring(ns.db.detachPet),
-        "bossFrames=" .. tostring(ns.db.bossFrames), "bossMine=" .. tostring(ns.db.bossMine), "shared once=" .. tostring(MedalluinDB.overheadShared))
+        "bossFrames=" .. tostring(ns.db.bossFrames), "bossMine=" .. tostring(ns.db.bossMine), "shared once=" .. tostring(MedalUIDB.overheadShared))
     if args[3] == "saved" then
         -- the widgets' options came from the profile in use once (see
         -- "migrated"): with the party's saved in it and the raid's back to
         -- the default (so not saved), the raid's stays the default at the
         -- next login
-        print("  widgets shared", "once=" .. tostring(rawget(MedalluinDB, "widgetsShared")),
-            "profile=" .. MedalluinDB.consoleProfile)
-        MedalluinDB.profiles[MedalluinDB.consoleProfile].partyRange, MedalluinDB.global.raidRange = 30, nil
-        for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "Medalluin") end
-        print("  widgets shared, next login", "raid=" .. tostring(MedalluinDB.global.raidRange))
+        print("  widgets shared", "once=" .. tostring(rawget(MedalUIDB, "widgetsShared")),
+            "profile=" .. MedalUIDB.consoleProfile)
+        MedalUIDB.profiles[MedalUIDB.consoleProfile].partyRange, MedalUIDB.global.raidRange = 30, nil
+        for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "MedalUI") end
+        print("  widgets shared, next login", "raid=" .. tostring(MedalUIDB.global.raidRange))
     end
     -- the profiles' names and ids: Reticule the default, first; Arena the
     -- medallion. Each login below is ADDON_LOADED again, on saved data of
@@ -10254,8 +10254,8 @@ if profilesPass then
         return apply(...)
     end
     local function login(db, char)
-        MedalluinDB, MedalluinCharDB, applied = db, char, 0
-        for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "Medalluin") end
+        MedalUIDB, MedalUICharDB, applied = db, char, 0
+        for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "MedalUI") end
     end
     local function ids(t)
         if type(t) ~= "table" then return "-" end
@@ -10270,16 +10270,16 @@ if profilesPass then
     end
     -- a new install: the Reticule, and its console built
     login(nil, nil)
-    print("profiles fresh", "saved=" .. tostring(MedalluinDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
+    print("profiles fresh", "saved=" .. tostring(MedalUIDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
         "rows=" .. tostring(ns.db.rows), "built=" .. applied)
     -- an install that never chose: the medallion it was on, now Arena
     login({ global = {}, profiles = { default = { rows = 2 } } }, {})
-    print("profiles upgrade", "saved=" .. tostring(MedalluinDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
+    print("profiles upgrade", "saved=" .. tostring(MedalUIDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
         "rows=" .. tostring(ns.db.rows), "built=" .. applied)
     -- Arena set aside: an install on it moved to the Reticule, its choice
     -- dimmed and refused; each character's bars at its first login after
     -- (Arena's kept under Arena, the Reticule's back), said once
-    Medalluin_ArenaOpen = false
+    MedalUI_ArenaOpen = false
     login({ consoleProfile = "arena", global = {}, profiles = { arena = { rows = 2 }, reticule = { rows = 1 } } },
         { layouts = { reticule = { ["1"] = { [1] = { "spell", 133 } } } } })
     -- (the option's choice is dimmed by wip, set at load from the same
@@ -10288,11 +10288,11 @@ if profilesPass then
     for _, p in ipairs(ns.PROFILE_NAMES) do
         if not ns.ProfileOpen(p[1]) then table.insert(wip, p[1] .. (p.wip and ":dim" or ":lit at load")) end
     end
-    print("profiles arena set aside", "saved=" .. tostring(MedalluinDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
-        "rows=" .. tostring(ns.db.rows), "left=" .. tostring(MedalluinDB.arenaLeft), "built=" .. applied,
+    print("profiles arena set aside", "saved=" .. tostring(MedalUIDB.consoleProfile), "profile=" .. ns.db.consoleProfile,
+        "rows=" .. tostring(ns.db.rows), "left=" .. tostring(MedalUIDB.arenaLeft), "built=" .. applied,
         "wip=" .. table.concat(wip, ","))
     ns.SetOption("consoleProfile", "arena")
-    print("profiles arena refused", "profile=" .. ns.db.consoleProfile, "saved=" .. tostring(MedalluinDB.consoleProfile))
+    print("profiles arena refused", "profile=" .. ns.db.consoleProfile, "saved=" .. tostring(MedalUIDB.consoleProfile))
     local said, switched, switch = {}, {}, ns.SwitchSkills
     local print_ = print
     ns.SwitchSkills = function(from, to) table.insert(switched, from .. ">" .. to) end
@@ -10306,18 +10306,18 @@ if profilesPass then
     print = print_
     ns.SwitchSkills = switch
     print("profiles arena bars", "switched=" .. table.concat(switched, ","), "said=" .. #said,
-        "char left=" .. tostring(MedalluinCharDB.arenaLeft))
-    Medalluin_ArenaOpen = true
+        "char left=" .. tostring(MedalUICharDB.arenaLeft))
+    MedalUI_ArenaOpen = true
     -- the old ids, wherever they key something; one already under its new
     -- id wins; a second login changes nothing
     local function idState(tag)
-        print("profiles ids " .. tag, "chosen=" .. tostring(MedalluinDB.consoleProfile),
-            "profiles=" .. ids(MedalluinDB.profiles), "account keys=" .. ids(MedalluinDB.keys),
-            "layouts=" .. ids(MedalluinCharDB.layouts), "character keys=" .. ids(MedalluinCharDB.keys),
-            "rows=" .. tostring(ns.db.rows), "drawer=" .. tostring(MedalluinDB.profiles.arena.drawer),
-            "A1=" .. tostring(MedalluinCharDB.keys.reticule and MedalluinCharDB.keys.reticule.ACTIONBUTTON1
-                and MedalluinCharDB.keys.reticule.ACTIONBUTTON1[1]),
-            "slot1=" .. tostring(MedalluinCharDB.layouts.arena["1"][1][2]), "built=" .. applied)
+        print("profiles ids " .. tag, "chosen=" .. tostring(MedalUIDB.consoleProfile),
+            "profiles=" .. ids(MedalUIDB.profiles), "account keys=" .. ids(MedalUIDB.keys),
+            "layouts=" .. ids(MedalUICharDB.layouts), "character keys=" .. ids(MedalUICharDB.keys),
+            "rows=" .. tostring(ns.db.rows), "drawer=" .. tostring(MedalUIDB.profiles.arena.drawer),
+            "A1=" .. tostring(MedalUICharDB.keys.reticule and MedalUICharDB.keys.reticule.ACTIONBUTTON1
+                and MedalUICharDB.keys.reticule.ACTIONBUTTON1[1]),
+            "slot1=" .. tostring(MedalUICharDB.layouts.arena["1"][1][2]), "built=" .. applied)
     end
     login({ consoleProfile = "light", global = {},
         profiles = { default = { drawer = 2 }, light = { rows = 1 }, reticule = { rows = 2 } },
@@ -10325,19 +10325,19 @@ if profilesPass then
         { layouts = { default = { ["1"] = { [1] = { "spell", 133 } } }, light = { ["1"] = {} } },
             keys = { light = { ACTIONBUTTON1 = { "Q" }, ACTIONBUTTON2 = { "E" } } } })
     idState("renamed")
-    login(MedalluinDB, MedalluinCharDB)
+    login(MedalUIDB, MedalUICharDB)
     idState("again")
     -- the setup wizard (options/setup.lua): owed at the first login of a
-    -- character new to Medalluin (no saved table of its own), not an old
+    -- character new to MedalUI (no saved table of its own), not an old
     -- one's, nor at a zone change; walked as a player would, its cards and
     -- buttons clicked; Finish writes the console first, so what is kept per
     -- profile lands in the one chosen
     do
-        local after, popup, slash = C_Timer and C_Timer.After, StaticPopup_Show, SlashCmdList.MEDALLUIN
+        local after, popup, slash = C_Timer and C_Timer.After, StaticPopup_Show, SlashCmdList.MEDALUI
         C_Timer = C_Timer or {}
         C_Timer.After = function(_, fn) fn() end
         local asked = 0
-        StaticPopup_Show = function(which) if which == "MEDALLUIN_PROFILE_RELOAD" then asked = asked + 1 end end
+        StaticPopup_Show = function(which) if which == "MEDALUI_PROFILE_RELOAD" then asked = asked + 1 end end
         local function enter(...)
             for _, f in ipairs(events.PLAYER_ENTERING_WORLD or {}) do
                 f.scripts.OnEvent(f, "PLAYER_ENTERING_WORLD", ...)
@@ -10361,12 +10361,12 @@ if profilesPass then
         enter(true, false)
         frame, views = ns.SetupFrame()
         print("setup new character", "shown=" .. shown(), "owed=" .. tostring(ns.SetupOwed()),
-            "escape=" .. tostring(table.concat(UISpecialFrames, ","):find("MedalluinSetup") ~= nil))
+            "escape=" .. tostring(table.concat(UISpecialFrames, ","):find("MedalUISetup") ~= nil))
         close()
-        login(MedalluinDB, { layouts = {} })
+        login(MedalUIDB, { layouts = {} })
         enter(true, false)
         print("setup old character", "shown=" .. shown(), "owed=" .. tostring(ns.SetupOwed()),
-            "marked=" .. tostring(MedalluinCharDB.setup))
+            "marked=" .. tostring(MedalUICharDB.setup))
         -- Arena and the widget: the reload asked once, every per-profile
         -- answer on Arena's, none on the Reticule's; no console Minimal
         newChar("reticule")
@@ -10385,14 +10385,14 @@ if profilesPass then
         for _, c in ipairs(views[3].cards) do table.insert(party, c.id .. (c.on and "*" or "")) end
         click(views[3].cards[2])
         click(frame.next)
-        local a, r = MedalluinDB.profiles.arena, MedalluinDB.profiles.reticule
+        local a, r = MedalUIDB.profiles.arena, MedalUIDB.profiles.reticule
         print("setup arena widget", "cards=" .. table.concat(cards, ","), "rows=" .. table.concat(rows, ","),
             "party=" .. table.concat(party, ","), "shown=" .. shown(), "profile=" .. ns.db.consoleProfile,
             "reloads=" .. asked, "arena layout=" .. tostring(a.partyLayout),
             "reticule layout=" .. tostring(r.partyLayout), "arena consoleMinimal=" .. tostring(a.consoleMinimal),
             "arena group=" .. tostring(a.groupMinimal), "arena cdm=" .. tostring(a.cdmMinimal),
-            "reticule group=" .. tostring(r.groupMinimal), "chat=" .. tostring(MedalluinDB.global.chatImmersion),
-            "side=" .. tostring(MedalluinDB.global.sideImmersion), "done=" .. tostring(MedalluinCharDB.setup))
+            "reticule group=" .. tostring(r.groupMinimal), "chat=" .. tostring(MedalUIDB.global.chatImmersion),
+            "side=" .. tostring(MedalUIDB.global.sideImmersion), "done=" .. tostring(MedalUICharDB.setup))
         -- the Reticule kept, every box ticked but the chat's: no reload; its
         -- console's Minimal on; the chat's left off (its default, not saved)
         newChar("reticule")
@@ -10406,25 +10406,25 @@ if profilesPass then
         local chatAfterBack = tostring(box.spec.get())
         click(frame.next)
         click(frame.next)
-        r = MedalluinDB.profiles.reticule
+        r = MedalUIDB.profiles.reticule
         print("setup reticule kept", "reloads=" .. asked, "consoleMinimal=" .. tostring(r.consoleMinimal),
             "group=" .. tostring(r.groupMinimal), "cdm=" .. tostring(r.cdmMinimal),
             "layout=" .. tostring(r.partyLayout), "db layout=" .. tostring(ns.db.partyLayout),
-            "chat=" .. tostring(MedalluinDB.global.chatImmersion), "chat after back=" .. chatAfterBack,
-            "side=" .. tostring(MedalluinDB.global.sideImmersion))
+            "chat=" .. tostring(MedalUIDB.global.chatImmersion), "chat after back=" .. chatAfterBack,
+            "side=" .. tostring(MedalUIDB.global.sideImmersion))
         -- Skip, and the cross: nothing written but that it was gone through
         newChar("reticule")
         ns.OpenSetup()
         click(frame.next)
         click(frame.skip)
-        print("setup skipped", "shown=" .. shown(), "done=" .. tostring(MedalluinCharDB.setup),
-            "owed=" .. tostring(ns.SetupOwed()), "consoleMinimal=" .. tostring(MedalluinDB.profiles.reticule.consoleMinimal),
-            "chat=" .. tostring(MedalluinDB.global.chatImmersion))
+        print("setup skipped", "shown=" .. shown(), "done=" .. tostring(MedalUICharDB.setup),
+            "owed=" .. tostring(ns.SetupOwed()), "consoleMinimal=" .. tostring(MedalUIDB.profiles.reticule.consoleMinimal),
+            "chat=" .. tostring(MedalUIDB.global.chatImmersion))
         newChar("reticule")
         ns.OpenSetup()
         click(frame.closeX)
-        print("setup crossed", "shown=" .. shown(), "done=" .. tostring(MedalluinCharDB.setup),
-            "group=" .. tostring(MedalluinDB.profiles.reticule.groupMinimal))
+        print("setup crossed", "shown=" .. shown(), "done=" .. tostring(MedalUICharDB.setup),
+            "group=" .. tostring(MedalUIDB.profiles.reticule.groupMinimal))
         -- again: /mdlui setup, and Console > General's button, on step 1
         slash("setup")
         print("setup slash", "shown=" .. shown())
@@ -10462,7 +10462,7 @@ if args[2] == "skills" then
         return table.concat(o, " ")
     end
     local function saved(profile, spec)
-        local t = MedalluinCharDB.layouts[profile] and MedalluinCharDB.layouts[profile][spec or "1"]
+        local t = MedalUICharDB.layouts[profile] and MedalUICharDB.layouts[profile][spec or "1"]
         if not t then return "none" end
         local o = {}
         for slot = 1, 180 do
@@ -10530,7 +10530,7 @@ if args[2] == "skills" then
     inCombat = false
     fire("PLAYER_REGEN_ENABLED")
     state("combat over")
-    StaticPopupDialogs.MEDALLUIN_PROFILE_RELOAD.OnAccept()
+    StaticPopupDialogs.MEDALUI_PROFILE_RELOAD.OnAccept()
     print("  reload asked, accepted", "reloads=" .. reloads)
     -- a later switch in combat asks again
     inCombat = true
@@ -10546,7 +10546,7 @@ if args[2] == "skills" then
     actionSlots[4] = { "spell", 122 }
     S.consoleProfile:Set("reticule")
     state("slot 4 used on arena: the hearthstone gone from it")
-    StaticPopupDialogs.MEDALLUIN_RESET_PROFILE.OnAccept()
+    StaticPopupDialogs.MEDALUI_RESET_PROFILE.OnAccept()
     state("reticule reset: the bars stay")
     fire("PLAYER_LOGOUT")
     state("logout")
@@ -10554,7 +10554,7 @@ if args[2] == "skills" then
     S.consoleProfile:Set("arena")
     state("other spec: its first switch")
     print("  saved on spec 2", "reticule", saved("reticule", "2"), "arena", saved("arena", "2"))
-    print("  key sets", "character", keySets(MedalluinCharDB), "account", keySets(MedalluinDB))
+    print("  key sets", "character", keySets(MedalUICharDB), "account", keySets(MedalUIDB))
     -- account bindings: kept account-wide, and put back at login, where
     -- another character left the other profile's
     bindingSet = 1
@@ -10562,8 +10562,8 @@ if args[2] == "skills" then
     state("account bindings: the first switch keeps the keys")
     SetBinding("E", "ACTIONBUTTON1")
     S.consoleProfile:Set("arena")
-    print("  key sets", "character", keySets(MedalluinCharDB), "account", keySets(MedalluinDB))
-    MedalluinDB.keys.arena.ACTIONBUTTON2 = { "Z" }   -- another character's arena
+    print("  key sets", "character", keySets(MedalUICharDB), "account", keySets(MedalUIDB))
+    MedalUIDB.keys.arena.ACTIONBUTTON2 = { "Z" }   -- another character's arena
     fire("PLAYER_LOGIN")
     state("login: the account's arena keys")
 end
@@ -10693,7 +10693,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
                 tostring(rp), tostring(x), tostring(y), tostring(r.text), c[1] or 0, c[2] or 0, c[3] or 0,
                 tostring(b.shown))
         end
-        print("  level " .. tag, "party1 " .. level(ns.units.party1), "| boss1 " .. level(MedalluinBossWidgetUnit1))
+        print("  level " .. tag, "party1 " .. level(ns.units.party1), "| boss1 " .. level(MedalUIBossWidgetUnit1))
     end
     -- the game's header: a button per member of its group, configured by
     -- its initialConfigFunction, then given its unit
@@ -10918,8 +10918,8 @@ if args[2] == "widgets" or args[3] == "widgets" then
     local tab = ns.partyWidget.tabs[1]
     tab.scripts.OnDragStart(tab)
     tab.scripts.OnDragStop(tab)
-    print("  dragged", "saved=" .. table.concat(MedalluinDB.global.partyWidgetPoint or {}, ","),
-        "in a profile=" .. tostring(MedalluinDB.profiles[ns.db.consoleProfile].partyWidgetPoint))
+    print("  dragged", "saved=" .. table.concat(MedalUIDB.global.partyWidgetPoint or {}, ","),
+        "in a profile=" .. tostring(MedalUIDB.profiles[ns.db.consoleProfile].partyWidgetPoint))
     inCombat = true
     harnessDropAt = { "TOPLEFT", "TOPLEFT", 10, -10 }
     tab.scripts.OnDragStart(tab)
@@ -11101,7 +11101,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
     if C_UnitAuras then
         held.raid1 = { HARMFUL = { { id = 905, icon = "sheep", spellId = 118, isHarmful = true } } }
         fire("UNIT_AURA", "raid1")
-        local b = _G.MedalluinRaidGroup1UnitButton1
+        local b = _G.MedalUIRaidGroup1UnitButton1
         print("raid1 sheeped", "cc=" .. tostring(b.ccWidget.shown and b.ccWidget.icon.texture))
         held.raid1 = nil
         fire("UNIT_AURA", "raid1")
@@ -11217,7 +11217,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
             ns.UpdateWidgetCell(f)
             print("  raid dead", f.stub.name, "shown=" .. tostring(f.dead and f.dead.shown),
                 "name=" .. tostring(f.dead and f.dead.name.text), "texts=" .. tostring(f.text.alpha or 1),
-                "wings=" .. tostring(f.dead and f.dead.wings.w), "boss cell=" .. tostring(_G.MedalluinBossWidgetUnit1.dead))
+                "wings=" .. tostring(f.dead and f.dead.wings.w), "boss cell=" .. tostring(_G.MedalUIBossWidgetUnit1.dead))
             f.stub.dead = nil
             ns.UpdateWidgetCell(f)
             print("  raid alive", f.stub.name, "shown=" .. tostring(f.dead and f.dead.shown))
@@ -11281,7 +11281,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
         end
         print("auras " .. tag, "raid", table.concat(o, " | "), "range=" .. tostring(ns.RaidRange()))
         o = {}
-        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalluinBossWidgetUnit" .. i])) end
+        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIBossWidgetUnit" .. i])) end
         print("auras " .. tag, "boss widget", table.concat(o, " | "))
         o = {}
         for i = 1, 3 do
@@ -11295,7 +11295,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
         end
         print("auras " .. tag, "overhead", table.concat(o, " | "))
         o = {}
-        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalluinArenaWidgetUnit" .. i])) end
+        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIArenaWidgetUnit" .. i])) end
         print("auras " .. tag, "arena", table.concat(o, " | "))
     end
     -- the party's frames answer to the console's options or the widget's,
@@ -11321,9 +11321,9 @@ if args[2] == "widgets" or args[3] == "widgets" then
             break
         end
     end
-    local m = _G.MedalluinBossWidgetUnit1.mineWidgets
-    print("auras mine row", "size=" .. n(m[1].w) .. "x" .. n(m[1].h), "at=" .. at(m[1], _G.MedalluinBossWidgetUnit1)
-        .. " " .. at(m[3], _G.MedalluinBossWidgetUnit1), "overhead=" .. n(ns.overheadUnits.boss1.mineWidgets[1].w))
+    local m = _G.MedalUIBossWidgetUnit1.mineWidgets
+    print("auras mine row", "size=" .. n(m[1].w) .. "x" .. n(m[1].h), "at=" .. at(m[1], _G.MedalUIBossWidgetUnit1)
+        .. " " .. at(m[3], _G.MedalUIBossWidgetUnit1), "overhead=" .. n(ns.overheadUnits.boss1.mineWidgets[1].w))
     for _, key in ipairs({ "bossMine", "bossWidgetMine", "arenaCC", "arenaMine", "raidGlow", "raidCC", "raidBoss" }) do
         S[key]:Set(false)
         cells(key .. " off")
@@ -11405,8 +11405,8 @@ local function KeybindPass()
                 if t.kind == "Texture" and t.layer == "OVERLAY" and t.sub == 7 and t.shown then marked = marked + 1 end
             end
         end
-        say("kb " .. tag, "on=" .. tostring(ns.keybinding), "banner=" .. tostring(_G.MedalluinKeybindBanner
-            and _G.MedalluinKeybindBanner.shown), "binder=" .. tostring(binder.shown)
+        say("kb " .. tag, "on=" .. tostring(ns.keybinding), "banner=" .. tostring(_G.MedalUIKeybindBanner
+            and _G.MedalUIKeybindBanner.shown), "binder=" .. tostring(binder.shown)
             .. (binder.shown and binder.target and ("@" .. binder.target:GetName()) or ""),
             "keyboard=" .. tostring(binder.keyboard), "marked=" .. marked, "saves=" .. #bindingSaves)
     end
@@ -11515,7 +11515,7 @@ local function KeybindPass()
     if b7 then
         hover(b7); key("V")
         fire("UPDATE_BINDINGS")
-        local hk = b7.medalluinHotkey or b7.HotKey
+        local hk = b7.medaluiHotkey or b7.HotKey
         say("kb grid", "keys=" .. keysOf(ns.BindingCommand(b7)),
             "buttonType=" .. tostring(b7.buttonType), "bare=" .. tostring(ns.db.bareIcons),
             "hotkey=" .. tostring(hk and hk.text))
@@ -11523,7 +11523,7 @@ local function KeybindPass()
     binder.scripts.OnLeave(binder)
     state("left")
     -- the banner: Esc ends it, other keys go on to the game
-    local banner = _G.MedalluinKeybindBanner
+    local banner = _G.MedalUIKeybindBanner
     banner.scripts.OnKeyDown(banner, "W")
     say("kb banner W", "propagated=" .. tostring(banner.propagate))
     banner.scripts.OnKeyDown(banner, "ESCAPE")
@@ -11583,7 +11583,7 @@ local function PagingPass()
         return string.format("page=%s b1=%s b12=%s", tostring(h.attrs.page), tostring(b1.attrs.actionpage),
             tostring(b12.attrs.actionpage))
     end
-    -- which buttons Medalluin's own code set an attribute on (each a blocked
+    -- which buttons MedalUI's own code set an attribute on (each a blocked
     -- click), by row
     local function taint(tag)
         local line = {}
@@ -11607,7 +11607,7 @@ local function PagingPass()
         if ns.bar7Buttons then table.insert(line, "grid slot1=" .. tostring(ns.bar7Buttons[1].action)) end
         print("paging pages " .. tag, table.concat(line, " | "))
     end
-    -- after login: paged by the game's first update, none by Medalluin
+    -- after login: paged by the game's first update, none by MedalUI
     pages("after login")
     taint("at login")
     print("paging headers", "bar1 buttons=" .. (H.bar1Paging and #H.bar1Paging.buttons or 0),
@@ -11643,7 +11643,7 @@ local function PagingPass()
     print("paging custom, empty", "popups=" .. table.concat(shown, ","),
         "editor starts=" .. ns.PagingStart("row3Paging"))
     bars("custom, empty")
-    local dialog = StaticPopupDialogs.MEDALLUIN_PAGING
+    local dialog = StaticPopupDialogs.MEDALUI_PAGING
     local box = { text = "" }
     function box:SetText(t) self.text = t end
     function box:GetText() return self.text end
@@ -11724,13 +11724,13 @@ local function PagingPass()
     -- /mdlui taint: WoW's own answer for every field and global the click
     -- reads; here a stub that knows two tainted values and one of ours
     do
-        -- a machinery table with one field Medalluin wrote, and a global it did
+        -- a machinery table with one field MedalUI wrote, and a global it did
         local spareGlobal = NUM_ACTIONBAR_BUTTONS
         NUM_ACTIONBAR_BUTTONS = 12
         HarnessCVarRegistry = { cache = 1, clean = 2 }
-        local tainted = { [ActionButton1] = { isExtra = "Medalluin", medalluinIcon = "Medalluin" },
-            [HarnessCVarRegistry] = { cache = "Medalluin" } }
-        ActionButton1.isExtra, ActionButton1.medalluinIcon = false, true
+        local tainted = { [ActionButton1] = { isExtra = "MedalUI", medaluiIcon = "MedalUI" },
+            [HarnessCVarRegistry] = { cache = "MedalUI" } }
+        ActionButton1.isExtra, ActionButton1.medaluiIcon = false, true
         function issecurevariable(t, k)
             if k == nil then
                 if t == "NUM_ACTIONBAR_BUTTONS" then return false, "SomeAddon" end
@@ -11744,13 +11744,13 @@ local function PagingPass()
         function GetMouseFoci() return { MultiBarBottomLeftButton1 } end
         for _, f in ipairs(events.ADDON_ACTION_FORBIDDEN or {}) do
             f.scripts.OnEvent(f, "ADDON_ACTION_FORBIDDEN", "OtherAddon", "UseAction()")
-            f.scripts.OnEvent(f, "ADDON_ACTION_FORBIDDEN", "Medalluin", "UseAction()")
-            f.scripts.OnEvent(f, "ADDON_ACTION_FORBIDDEN", "Medalluin", "UseAction()")
+            f.scripts.OnEvent(f, "ADDON_ACTION_FORBIDDEN", "MedalUI", "UseAction()")
+            f.scripts.OnEvent(f, "ADDON_ACTION_FORBIDDEN", "MedalUI", "UseAction()")
         end
         GetMouseFoci = nil
         issecurevariable = nil
         HarnessCVarRegistry, NUM_ACTIONBAR_BUTTONS = nil, spareGlobal
-        ActionButton1.isExtra, ActionButton1.medalluinIcon = nil, nil
+        ActionButton1.isExtra, ActionButton1.medaluiIcon = nil, nil
         SlashCmdList.MDLUI("debug")
     end
     -- per profile: the other profile has its own, and coming back brings these
@@ -11817,7 +11817,7 @@ local function RowPass()
     local function console(tag)
         print(tag, "row=" .. tostring(ns.PartyRowShown()), "band=" .. shown(ns.partyRowBand),
             "art=" .. tostring(ns.consoleTex.texture):match("[^\\]+$"),
-            "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalluinMinimapBezel),
+            "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel),
             "bar7Alpha=" .. tostring(ns.bar7Frame.alpha))
     end
     local function members(tag)
@@ -11834,7 +11834,7 @@ local function RowPass()
         end
     end
     print("row option", "saved=" .. tostring(ns.db.partyLayout), "profile=" .. ns.db.consoleProfile,
-        "stored=" .. tostring(MedalluinDB.profiles.reticule.partyLayout))
+        "stored=" .. tostring(MedalUIDB.profiles.reticule.partyLayout))
     hasTarget = false
     inCombat = false
     fire("PLAYER_TARGET_CHANGED")
@@ -11980,7 +11980,7 @@ local function EditorPass()
         return #a .. " pieces, " .. diff .. " moved"
     end
     local function stored(key)
-        local p = MedalluinDB.profiles and MedalluinDB.profiles[ns.db.consoleProfile]
+        local p = MedalUIDB.profiles and MedalUIDB.profiles[ns.db.consoleProfile]
         local function s(t)
             if type(t) ~= "table" then return tostring(t) end
             local k = {}
@@ -11993,7 +11993,7 @@ local function EditorPass()
             table.sort(k)
             return table.concat(k, " ")
         end
-        return "profile=" .. s(p and p[key]) .. " global=" .. s(MedalluinDB.global and MedalluinDB.global[key])
+        return "profile=" .. s(p and p[key]) .. " global=" .. s(MedalUIDB.global and MedalUIDB.global[key])
     end
     local P, T = ns.units.player, ns.units.target
 
@@ -12024,7 +12024,7 @@ local function EditorPass()
     -- the window: its tabs, the pieces of the chosen frame
     ns.BuildEditor()
     ns.OpenEditor("unit")
-    local w = MedalluinEditor
+    local w = MedalUIEditor
     local function window(tag)
         local t, r = {}, {}
         for _, b in ipairs(w.tabs) do t[#t + 1] = b.text.text end
@@ -12684,11 +12684,11 @@ local function EditorPass()
     ns.SetOption("editUnit", edits)
     at("all secret, put back")
     -- and with no record (a text not made by ns.Text): the older ways
-    local recV, recP = P.value.medalluinPoints, P.powerValue.medalluinPoints
-    P.value.medalluinPoints, P.powerValue.medalluinPoints = nil, nil
+    local recV, recP = P.value.medaluiPoints, P.powerValue.medaluiPoints
+    P.value.medaluiPoints, P.powerValue.medaluiPoints = nil, nil
     E.onApply()
     at("all secret, no record")
-    P.value.medalluinPoints, P.powerValue.medalluinPoints = recV, recP
+    P.value.medaluiPoints, P.powerValue.medaluiPoints = recV, recP
     choose("unit", "name")
     P.value.GetPoint, P.powerValue.GetPoint, P.editShots = nil, nil, shots
     E.onApply()
@@ -13361,11 +13361,11 @@ function MinimapPass()
     local function fire(e, ...)
         for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
     end
-    local bezel = _G.MedalluinMinimapBezel
+    local bezel = _G.MedalUIMinimapBezel
     local function set(k, v) page.settings[k]:Set(v) end
     -- the frame the map sits in, the shape shown, clipping what is on it
     local function clip()
-        local c = _G.MedalluinMinimapClip
+        local c = _G.MedalUIMinimapClip
         if not c then return "clip=none" end
         local p = c.points.CENTER
         return string.format("clip=%.0fx%.0f clips=%s parent=%s on=%s", c.w, c.h, tostring(c.clipsChildren),
@@ -13376,7 +13376,7 @@ function MinimapPass()
     local function greyed()
         ns.OpenOptions("console/minimap")
         local out = {}
-        for _, key in ipairs({ "MEDALLUIN_MINIMAP", "minimapStart", "minimapAuto", "minimapAutoCombat",
+        for _, key in ipairs({ "MEDALUI_MINIMAP", "minimapStart", "minimapAuto", "minimapAutoCombat",
             "minimapScale", "minimapAreaTime" }) do
             local c = ns.optionControls[key]
             -- a slider is greyed through its - and + buttons, a choice through its box
@@ -13389,7 +13389,7 @@ function MinimapPass()
     -- the area at the shown map's top left: shown with the pointer on the
     -- map, kept over a pin, renamed by a zone event, gone off the shape
     local function area()
-        local a, c = _G.MedalluinMinimapArea, _G.MedalluinMinimapClip
+        local a, c = _G.MedalUIMinimapArea, _G.MedalUIMinimapClip
         local text, well, trim = a.all_[#a.all_], 0, 0
         for _, t in ipairs(a.all_) do
             if t.layer == "BACKGROUND" then well = t.color end
@@ -13534,7 +13534,7 @@ function MinimapPass()
         -- the key: back where the game loads it when it is not there (As it
         -- moves: where rule 3 puts it, no pin); there, pinned in the other
         -- place, through every trigger
-        MedalluinToggleMinimap()
+        MedalUIToggleMinimap()
         where("key (from the binding), away from the load's place")
         hasTarget, inCombat = true, true
         fire("PLAYER_TARGET_CHANGED")
@@ -13585,7 +13585,7 @@ function MinimapPass()
         set("consoleScale", 1.2)
         corner("console at 120%")
         set("consoleScale", 1)
-        local reset = MedalluinMoverPopup
+        local reset = MedalUIMoverPopup
         EventRegistry:TriggerEvent("EditMode.Enter")
         print("minimap mover", "shown=" .. tostring(ns.consoleMovers.minimap and ns.consoleMovers.minimap.shown),
             "over the corner=" .. tostring(ns.consoleMovers.minimap and ns.consoleMovers.minimap.all == bezel))
@@ -13640,9 +13640,9 @@ function MinimapPass()
         ns.UpdateWidgetMovers()
         gripLine("on mouseover, pointer on it")
         -- the console's hover label is the bay's: not over the corner
-        mouseOver = _G.MedalluinMinimapClip
+        mouseOver = _G.MedalUIMinimapClip
         Minimap.scripts.OnEnter(Minimap)
-        print("minimap grip, area in the corner", "shown=" .. tostring(_G.MedalluinMinimapArea.shown))
+        print("minimap grip, area in the corner", "shown=" .. tostring(_G.MedalUIMinimapArea.shown))
         mouseOver = false
         ns.UpdateWidgetMovers()
         set("minimapMoverHover", false)
@@ -13652,18 +13652,18 @@ function MinimapPass()
         ns.ToggleMinimap()
         gripLine("in the bay")
         -- the bay's label, showing when the key takes the map to the corner
-        mouseOver = _G.MedalluinMinimapClip
+        mouseOver = _G.MedalUIMinimapClip
         Minimap.scripts.OnEnter(Minimap)
-        local inBay = _G.MedalluinMinimapArea.shown
+        local inBay = _G.MedalUIMinimapArea.shown
         ns.ToggleMinimap()
         print("minimap grip, the key takes the hovered map to the corner", "area in the bay=" .. tostring(inBay),
-            "then=" .. tostring(_G.MedalluinMinimapArea.shown))
+            "then=" .. tostring(_G.MedalUIMinimapArea.shown))
         mouseOver = false
         ns.ToggleMinimap()
 
         -- the page's key control binds the key, and unbinds it
         ns.OpenOptions("console/minimap")
-        local key = ns.optionControls.MEDALLUIN_MINIMAP
+        local key = ns.optionControls.MEDALUI_MINIMAP
         local box = key.box
         box.scripts.OnClick(box, "LeftButton")
         local listening = box.text.text
@@ -13673,16 +13673,16 @@ function MinimapPass()
         box.scripts.OnKeyDown(box, "M")
         modsDown.SHIFT = nil
         print("minimap key bound", "listening=" .. listening, "after a modifier=" .. afterModifier,
-            "shows=" .. box.text.text, "binding=" .. tostring((GetBindingKey("MEDALLUIN_MINIMAP"))))
+            "shows=" .. box.text.text, "binding=" .. tostring((GetBindingKey("MEDALUI_MINIMAP"))))
         box.scripts.OnClick(box, "LeftButton")
         box.scripts.OnKeyDown(box, "ESCAPE")
-        print("minimap key escape", "shows=" .. box.text.text, "binding=" .. tostring((GetBindingKey("MEDALLUIN_MINIMAP"))))
+        print("minimap key escape", "shows=" .. box.text.text, "binding=" .. tostring((GetBindingKey("MEDALUI_MINIMAP"))))
         box.scripts.OnClick(box, "RightButton")
-        print("minimap key unbound", "shows=" .. box.text.text, "binding=" .. tostring((GetBindingKey("MEDALLUIN_MINIMAP"))))
+        print("minimap key unbound", "shows=" .. box.text.text, "binding=" .. tostring((GetBindingKey("MEDALUI_MINIMAP"))))
         ns.CloseOptions()
     end
-    print("minimap saved", "reticule=" .. tostring(MedalluinDB.profiles.reticule.minimapScale),
-        "arena=" .. tostring(MedalluinDB.profiles.arena.minimapScale), "window stale=" .. optionsStale())
+    print("minimap saved", "reticule=" .. tostring(MedalUIDB.profiles.reticule.minimapScale),
+        "arena=" .. tostring(MedalUIDB.profiles.arena.minimapScale), "window stale=" .. optionsStale())
 end
 
 -- Time enough for every fade under way to end (console/fade.lua).
@@ -14381,7 +14381,7 @@ function FadePass()
             end
             for i = 1, 10 do
                 local b = _G["StanceButton" .. i]
-                if b and not onRow[b] and b.medalluinFrame then off = b end
+                if b and not onRow[b] and b.medaluiFrame then off = b end
             end
             print("fade row " .. tag, string.format("alpha=%.2f", ns.OverheadRowAlpha()), "icons=" .. #r,
                 r[1] and string.format("first=%.2f last=%.2f", r[1]:GetAlpha(), r[#r]:GetAlpha()) or "first=none",
@@ -14521,8 +14521,8 @@ if lightPass then
         "bar=" .. tostring(ns.barArt.file), "rows=" .. ns.db.rows)
     -- Initially hasTarget is true, so combat/target mode is active
     print("initial(targeted)", "art=" .. tostring(ns.consoleTex.texture):match("[^\\]+$"),
-        "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalluinMinimapBezel),
-        "bezelShown=" .. tostring(_G.MedalluinMinimapBezel.shown),
+        "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel),
+        "bezelShown=" .. tostring(_G.MedalUIMinimapBezel.shown),
         "bar7Alpha=" .. tostring(ns.bar7Frame.alpha),
         "bar7Buttons=" .. #ns.bar7Buttons,
         "bar7Slot1=" .. tostring(ns.bar7Buttons[1].action),
@@ -14531,11 +14531,11 @@ if lightPass then
     -- the load's place (Console > Minimap: When the game loads), then held
     -- through an event that leaves the triggers' answer as it was
     print("minimap load place", tostring(ns.db.minimapStart), "pin=" .. tostring(ns.MinimapPinned()),
-        "corner=" .. tostring(Minimap.points.CENTER[1] == _G.MedalluinMinimapBezel))
+        "corner=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel))
     if savedStart then
         fire("PLAYER_TARGET_CHANGED")
         print("minimap load place, target kept", "pin=" .. tostring(ns.MinimapPinned()),
-            "corner=" .. tostring(Minimap.points.CENTER[1] == _G.MedalluinMinimapBezel))
+            "corner=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel))
         -- the key, at the load's place, pins the other one: not let go when
         -- the target, which the load's place was held against, clears.
         -- Pressed again, it is back as the load left it, held until the
@@ -14548,7 +14548,7 @@ if lightPass then
             .. tostring(ns.MinimapPinned()))
         ns.ToggleMinimap()
         print("minimap load place, key again", "pin=" .. tostring(ns.MinimapPinned()),
-            "corner=" .. tostring(Minimap.points.CENTER[1] == _G.MedalluinMinimapBezel))
+            "corner=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel))
         hasTarget = true
         fire("PLAYER_TARGET_CHANGED")
         print("minimap load place, let go again with a target", "pin=" .. tostring(ns.MinimapPinned()))
@@ -14578,7 +14578,7 @@ if lightPass then
     fire("PLAYER_TARGET_CHANGED")
     print("explore(no target, no combat)", "art=" .. tostring(ns.consoleTex.texture):match("[^\\]+$"),
         "minimapInConsole=" .. tostring(Minimap.points.CENTER[1] == ns.console),
-        "bezelShown=" .. tostring(_G.MedalluinMinimapBezel.shown),
+        "bezelShown=" .. tostring(_G.MedalUIMinimapBezel.shown),
         "bar7Alpha=" .. tostring(ns.bar7Frame.alpha))
     out("minimap(explore)", Minimap)
     -- Skyriding out of combat, no target: the grid comes out to fly on page
@@ -14588,8 +14588,8 @@ if lightPass then
         flight.scripts.OnAttributeChanged(flight, "state-skyriding", value)
         print("skyriding " .. tag, "driver=" .. tostring(flight.stateDrivers and flight.stateDrivers.skyriding),
             "art=" .. tostring(ns.consoleTex.texture):match("[^\\]+$"),
-            "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalluinMinimapBezel),
-            "bezelShown=" .. tostring(_G.MedalluinMinimapBezel.shown),
+            "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel),
+            "bezelShown=" .. tostring(_G.MedalUIMinimapBezel.shown),
             "bar7Alpha=" .. tostring(ns.bar7Frame.alpha))
     end
     sky("mounted", "on")
@@ -14607,8 +14607,8 @@ if lightPass then
     inCombat = true
     fire("PLAYER_REGEN_DISABLED")
     print("combat(no target)", "art=" .. tostring(ns.consoleTex.texture):match("[^\\]+$"),
-        "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalluinMinimapBezel),
-        "bezelShown=" .. tostring(_G.MedalluinMinimapBezel.shown),
+        "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel),
+        "bezelShown=" .. tostring(_G.MedalUIMinimapBezel.shown),
         "bar7Alpha=" .. tostring(ns.bar7Frame.alpha))
     out("minimap(combat)", Minimap)
     -- the combat aura: a glow round each piece shown, under all the art
@@ -14647,7 +14647,7 @@ if lightPass then
     -- back as the load left it (a load place's pin is let go at combat's end)
     if not savedStart or ns.MinimapPinned() ~= savedStart then ns.ToggleMinimap() end
     -- The game's update pages Bar 7: cat form (Bar 8, slots 85..94), then
-    -- stealth in combat (Bar 10, slots 109..118); Medalluin's code never does
+    -- stealth in combat (Bar 10, slots 109..118); MedalUI's code never does
     stateTick()
     harnessHolds["bonusbar:1"] = true
     stateTick()
@@ -15079,7 +15079,7 @@ if savedSimParty then
                 or string.format("solid=%.3f,%.3f,%.3f", gold.color[1], gold.color[2], gold.color[3]),
             "black=" .. tostring(black and black.all == btn and black.color[1] == 0 and black.color[4] == 1),
             "every icon=" .. tostring((function()
-                for _, b in ipairs(ns.overheadRow) do if not b.medalluinFrame then return false end end
+                for _, b in ipairs(ns.overheadRow) do if not b.medaluiFrame then return false end end
                 return true
             end)()))
     end
@@ -15178,7 +15178,7 @@ if savedSimParty then
         end
         print(tag, table.concat(out, " "), "cellAt=" .. want,
             "owner=" .. tostring(GameTooltip.owner == owner), "stub=" .. tostring(owner.stub ~= nil),
-            "beside=" .. tostring(Medalluin_TooltipBeside(owner)))
+            "beside=" .. tostring(MedalUI_TooltipBeside(owner)))
         mouseOver = false
     end
     local units = ns.overheadUnits
@@ -15192,7 +15192,7 @@ if savedSimParty then
     tip("overhead.tip.boss2", units.boss2)
     tip("overhead.tip.tray", PetActionButton1)
     tip("overhead.tip.enter", units.pet, "enter")
-    local said = Medalluin_TooltipSpec(GameTooltip)
+    local said = MedalUI_TooltipSpec(GameTooltip)
     print("overhead.tip.enter words", tostring(said and said.title), tostring(said and said[1] and said[1][2]))
     -- a real unit: the game's UnitFrame_OnEnter (its default anchor, then the unit)
     local was, stub = UnitFrame_OnEnter, units.focus.stub
@@ -15329,7 +15329,7 @@ if savedSimParty then
 
     -- 6. The simulation panel: shown while simulating, a tab per set of
     -- frames; its buttons by id (ns.simButtons)
-    local sp = _G.MedalluinSimPanel
+    local sp = _G.MedalUISimPanel
     local spb = ns.simButtons
     local function press(id)
         assert(spb[id], "no sim button " .. id)
@@ -15388,7 +15388,7 @@ if savedSimParty then
         local out = {}
         for _, kind in ipairs({ "Boss", "Arena" }) do
             for i = 1, 5 do
-                local b = _G["Medalluin" .. kind .. "WidgetUnit" .. i]
+                local b = _G["MedalUI" .. kind .. "WidgetUnit" .. i]
                 if b and b.shown and b.stub then
                     table.insert(out, string.format("%s%d:hp=%s%s", kind, i, tostring(b.health.value),
                         b.stub.dead and ",dead" or ""))
@@ -15582,7 +15582,7 @@ if bagsPass then
     local function fire(e, ...)
         for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
     end
-    local w = _G.MedalluinBags
+    local w = _G.MedalUIBags
     -- the window's own parts, and its head's buttons (one joined row)
     -- a button's name: its word, or (an icon in the head) the word its tooltip heads
     local function name(r) return r.data and r.data.label or r.label and r.label.text end
@@ -15603,10 +15603,10 @@ if bagsPass then
         local p = b.points.TOPLEFT
         return string.format("%d,%d", p[3] / 41, -p[4])
     end
-    local function slot(bag, i) return _G["MedalluinBagsItem" .. bag .. "_" .. i] end
+    local function slot(bag, i) return _G["MedalUIBagsItem" .. bag .. "_" .. i] end
     local function grid(tag)
         print(tag, "shown=" .. tostring(w.shown), string.format("size=%dx%d", w.w, w.h),
-            "body=" .. string.format("%dx%d", w.parent and _G.MedalluinBagsBag0.parent.w or 0, _G.MedalluinBagsBag0.parent.h))
+            "body=" .. string.format("%dx%d", w.parent and _G.MedalUIBagsBag0.parent.w or 0, _G.MedalUIBagsBag0.parent.h))
         for _, bag in ipairs({ 0, 1, 2, 3, 4, 5 }) do
             local first, last, n, items = nil, nil, 0, {}
             for i = 1, 20 do
@@ -15630,11 +15630,11 @@ if bagsPass then
                 end
             end
             print("  bag" .. bag, "slots=" .. n, "first=" .. tostring(first), "last=" .. tostring(last),
-                "id=" .. tostring(_G["MedalluinBagsBag" .. bag] and _G["MedalluinBagsBag" .. bag]:GetID()),
+                "id=" .. tostring(_G["MedalUIBagsBag" .. bag] and _G["MedalUIBagsBag" .. bag]:GetID()),
                 table.concat(items, "; "))
         end
         local heads = {}
-        for _, r in ipairs(_G.MedalluinBagsBag0.parent.all_) do
+        for _, r in ipairs(_G.MedalUIBagsBag0.parent.all_) do
             if r.kind == "FontString" and r.shown and r.text then
                 table.insert(heads, r.text .. "@" .. -r.points.TOPLEFT[4])
             end
@@ -15664,7 +15664,7 @@ if bagsPass then
 
     -- 1. at login: Blizzard's frames out of sight, the window closed
     blizz("bags.login")
-    print("bags.strata", w.strata, "parent=" .. tostring(w.parent == UIParent), "search=" .. tostring(_G.MedalluinBagsSearch ~= nil))
+    print("bags.strata", w.strata, "parent=" .. tostring(w.parent == UIParent), "search=" .. tostring(_G.MedalUIBagsSearch ~= nil))
     -- not dragged: over the side panel, or over its tab row while it is
     -- closed to it (a click on the lit tab)
     ;(function()
@@ -15749,7 +15749,7 @@ if bagsPass then
     W.items["3:2"].isLocked = true
     fire("ITEM_LOCK_CHANGED", 3, 2)
     w.scripts.OnUpdate(w, 0.02)
-    print("bags.lock", "3:2 desaturated=" .. tostring(_G.MedalluinBagsItem3_2.desat))
+    print("bags.lock", "3:2 desaturated=" .. tostring(_G.MedalUIBagsItem3_2.desat))
     W.items["3:2"].isLocked = false
 
     -- 4b. Alt+click locks an item from the vendor and from destroying: a
@@ -15766,7 +15766,7 @@ if bagsPass then
             print("  padlock " .. blend, "atlas=" .. tostring(t.atlas), "grey=" .. tostring(t.desaturated),
                 string.format("tint=%.2f,%.2f,%.2f", unpack(t.vertex or { 1, 1, 1 })), "blend=" .. tostring(t.blend))
         end
-        local function db() return MedalluinCharDB and MedalluinCharDB.lockedItems or {} end
+        local function db() return MedalUICharDB and MedalUICharDB.lockedItems or {} end
         local function marks(tag)
             local on = {}
             for bag = 0, 5 do
@@ -15841,17 +15841,17 @@ if bagsPass then
                 if post.kind == Enum.TooltipDataType.Item then post.fn(t, { id = id }) end
             end
             print(tag, "lines=" .. (#lines > 0 and table.concat(lines, " / ") or "none"),
-                "shared=" .. tostring(Medalluin_LockedLine))
+                "shared=" .. tostring(MedalUI_LockedLine))
         end
         ns.locks.Toggle(107)
         tip("bags.tip locked", 107)
         tip("bags.tip not locked", 103)
         -- a secret id is never a key: the game refuses one
-        setmetatable(MedalluinCharDB.lockedItems, { __index = function(_, k)
+        setmetatable(MedalUICharDB.lockedItems, { __index = function(_, k)
             if isSecret(k) then error("a secret value as a table key") end
         end })
         tip("bags.tip secret", secret())
-        setmetatable(MedalluinCharDB.lockedItems, nil)
+        setmetatable(MedalUICharDB.lockedItems, nil)
         tip("bags.tip no id", nil)
 
         -- at a vendor: a guard over each locked slot takes its clicks, so the
@@ -15869,7 +15869,7 @@ if bagsPass then
         guards("bags.guard before a vendor")
         fire("MERCHANT_SHOW")
         guards("bags.guard at a vendor")
-        harnessBeside("bags guard tips", MedalluinBags)
+        harnessBeside("bags guard tips", MedalUIBags)
         local g = stone.guard
         print("bags.guard", "covers=" .. tostring(g.all == stone),
             "above padlock=" .. tostring((g.level or 0) > (stone.lock.level or 0)),
@@ -15905,7 +15905,7 @@ if bagsPass then
             ChatFrame_OpenChat = function(l) table.insert(opened, tostring(l)) end
             IsModifiedClick = function(action) return action == "CHATLINK" end
             g.scripts.OnClick(g, "LeftButton")
-            local one, stack = _G.MedalluinBagsItem0_1, _G.MedalluinBagsItem0_2
+            local one, stack = _G.MedalUIBagsItem0_1, _G.MedalUIBagsItem0_2
             one.scripts.OnClick(one, "LeftButton")
             stack.scripts.OnClick(stack, "LeftButton")
             one.scripts.OnClick(one, "RightButton")
@@ -15958,7 +15958,7 @@ if bagsPass then
     for _, r in ipairs(parts()) do
         if r.kind == "Button" and r.mark and name(r) == "Bags" then r.scripts.OnClick(r) end
     end
-    print("bags.view bags", ns.db.bagsView, "saved=" .. tostring(MedalluinDB.global.bagsView),
+    print("bags.view bags", ns.db.bagsView, "saved=" .. tostring(MedalUIDB.global.bagsView),
         "window shows=" .. optionShows("bagsView"))
     grid("bags.by bag")
     do
@@ -15973,10 +15973,10 @@ if bagsPass then
         print("bags.view lit", table.concat(lit, " "))
     end
     page.settings.bagsView:Set("grid")
-    print("bags.view grid", "saved=" .. tostring(MedalluinDB.global.bagsView))
+    print("bags.view grid", "saved=" .. tostring(MedalUIDB.global.bagsView))
 
     -- 6. the search, the client's: what does not match is dimmed
-    local box = _G.MedalluinBagsSearch
+    local box = _G.MedalUIBagsSearch
     box.text = "potion"
     box.scripts.OnTextChanged(box)
     fire("INVENTORY_SEARCH_UPDATE")
@@ -16093,7 +16093,7 @@ if bagsPass then
     OpenAllBags()
     local rule, closeTop = w.rule, nil
     print("bags.rule", "y=" .. -rule.points.TOPLEFT[4], "inset=" .. rule.points.TOPLEFT[3] .. "," .. rule.points.TOPRIGHT[3],
-        "h=" .. rule.h, "slots from=" .. -_G.MedalluinBagsBag0.parent.points.TOPLEFT[4])
+        "h=" .. rule.h, "slots from=" .. -_G.MedalUIBagsBag0.parent.points.TOPLEFT[4])
     -- the head's row: in the corner, from the top border to the rule; its
     -- buttons joined (left+width), dividers between the groups
     do
@@ -16104,7 +16104,7 @@ if bagsPass then
         for _, g in ipairs(h.gaps) do table.insert(t, "gap@" .. g) end
         print("bags.head", "at=" .. tostring(h.points.TOPRIGHT and h.points.TOPRIGHT[3] .. "," .. h.points.TOPRIGHT[4]),
             "size=" .. h.w .. "x" .. h.h, table.concat(t, " "),
-            "search right=" .. tostring(_G.MedalluinBagsSearch.points.RIGHT[1] == h and "head" or "?"))
+            "search right=" .. tostring(_G.MedalUIBagsSearch.points.RIGHT[1] == h and "head" or "?"))
     end
 
     -- 16. the drawer: Bags opens it above the window, growing to the right
@@ -16112,7 +16112,7 @@ if bagsPass then
     title.scripts.OnEnter(title)
     print("bags.title tip", tostring(GameTooltip.text))
     title.scripts.OnClick(title)
-    local d = _G.MedalluinBagsDrawer
+    local d = _G.MedalUIBagsDrawer
     local function drawerState(tag)
         local order = {}
         for _, n in ipairs({ "CharacterBag0Slot", "CharacterBag1Slot", "CharacterBag2Slot", "CharacterBag3Slot",
@@ -16130,8 +16130,8 @@ if bagsPass then
     drawerState("bags.drawer growing")
     d.scripts.OnUpdate(d, 0.5)
     drawerState("bags.drawer grown")
-    print("bags.drawer styled", "edge=" .. tostring(CharacterBag0Slot.medalluin ~= nil),
-        "ring styled=" .. tostring(KeyRingButton.medalluin ~= nil))
+    print("bags.drawer styled", "edge=" .. tostring(CharacterBag0Slot.medalui ~= nil),
+        "ring styled=" .. tostring(KeyRingButton.medalui ~= nil))
     -- Blizzard re-sets the ring's art for its own button: fitted again
     KeyRingButton:GetNormalTexture():ClearAllPoints()
     KeyRingButton:UpdateTextures()
@@ -16191,7 +16191,7 @@ if bagsPass then
         local function keys(tag)
             local made, shown, first = 0, {}, nil
             for i = 1, 32 do
-                local b = _G["MedalluinBagsItem-2_" .. i]
+                local b = _G["MedalUIBagsItem-2_" .. i]
                 if b then
                     made = made + 1
                     if b.shown then
@@ -16201,7 +16201,7 @@ if bagsPass then
                 end
             end
             print(tag, "made=" .. made, "shown=" .. (#shown > 0 and table.concat(shown, ",") or "none"),
-                "first=" .. tostring(first), "lit=" .. tostring(ring.medalluinLit and ring.medalluinLit.shown),
+                "first=" .. tostring(first), "lit=" .. tostring(ring.medaluiLit and ring.medaluiLit.shown),
                 "free=" .. freeText())
         end
         ns.SetOption("bagsView", "grid")
@@ -16219,11 +16219,11 @@ if bagsPass then
         print("bags.keys tip shown", "lines=" .. table.concat(lines, " / "))
         local last0 = 0
         for i = 1, 16 do if slot(5, i) and slot(5, i).shown then last0 = i end end
-        print("bags.keys under the reagents", "reagent last=" .. at(slot(5, last0)), "keys first=" .. at(_G["MedalluinBagsItem-2_1"]))
+        print("bags.keys under the reagents", "reagent last=" .. at(slot(5, last0)), "keys first=" .. at(_G["MedalUIBagsItem-2_1"]))
         ns.SetOption("bagsView", "bags")
         w.scripts.OnUpdate(w, 0.02)
         local heads = {}
-        for _, r in ipairs(_G.MedalluinBagsBag0.parent.all_) do
+        for _, r in ipairs(_G.MedalUIBagsBag0.parent.all_) do
             if r.kind == "FontString" and r.shown and r.text then table.insert(heads, r.text) end
         end
         print("bags.keys by bag", table.concat(heads, ", "))
@@ -16260,7 +16260,7 @@ if bagsPass then
     -- 17. the corner: six dots; held, the window keeps its top-left and the
     -- columns follow the pointer
     OpenAllBags()
-    local g = _G.MedalluinBagsGrip
+    local g = _G.MedalUIBagsGrip
     local dots = {}
     for _, t in ipairs(g.dots) do table.insert(dots, t.points.BOTTOMRIGHT[3] .. "," .. t.points.BOTTOMRIGHT[4]) end
     for _, r in ipairs(w.all_) do
@@ -16308,25 +16308,25 @@ if bagsPass then
     CloseAllBags()
     OpenAllBags()
     local p = w.points.TOPLEFT
-    harnessBeside("bags tips", MedalluinBags)
+    harnessBeside("bags tips", MedalUIBags)
     do
         local items = {}
-        for i = 1, 4 do local b = _G["MedalluinBagsItem0_" .. i]; if b then items[b] = "default" end end
-        harnessBeside("bags item default tips", MedalluinBags, nil, nil, items)
+        for i = 1, 4 do local b = _G["MedalUIBagsItem0_" .. i]; if b then items[b] = "default" end end
+        harnessBeside("bags item default tips", MedalUIBags, nil, nil, items)
         for b in pairs(items) do items[b] = "button" end
-        harnessBeside("bags item button tips", MedalluinBags, nil, nil, items)
+        harnessBeside("bags item button tips", MedalUIBags, nil, nil, items)
         -- the pointer gone (a tooltip fading, or parked off the screen): left where it is put
-        GameTooltip:SetOwner(MedalluinBagsItem0_1, "ANCHOR_NONE")
+        GameTooltip:SetOwner(MedalUIBagsItem0_1, "ANCHOR_NONE")
         GameTooltip:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", -10000, -10000)
         local park = GameTooltip.points.TOPRIGHT
         print("bags item parked", "kept=" .. tostring(park and park[1] == UIParent and park[3] == -10000))
-        print("bags item beside", "told=" .. tostring(Medalluin_TooltipBeside(MedalluinBagsItem0_1)),
-            "elsewhere=" .. tostring(Medalluin_TooltipBeside(UIParent)))
+        print("bags item beside", "told=" .. tostring(MedalUI_TooltipBeside(MedalUIBagsItem0_1)),
+            "elsewhere=" .. tostring(MedalUI_TooltipBeside(UIParent)))
         -- another tooltip in the default place leaves GameTooltip where it is
         local other = new("Frame", UIParent)
         function other:SetOwner() end
         GameTooltip.points = {}
-        GameTooltip_SetDefaultAnchor(other, MedalluinBagsItem0_1)
+        GameTooltip_SetDefaultAnchor(other, MedalUIBagsItem0_1)
         print("bags item other tooltip", "GameTooltip moved=" .. tostring(next(GameTooltip.points) ~= nil))
     end
     print("bags.old point", p and (p[2] .. "," .. p[3] .. "," .. p[4]))
@@ -16340,9 +16340,9 @@ if bankPass then
     end
     local B = bankWorld
     local W = ns.bank and ns.bank.W
-    local w = _G.MedalluinBank
+    local w = _G.MedalUIBank
     print("bank", "window=" .. tostring(w ~= nil), "setting=" .. tostring(ns.db.bank),
-        "parked=" .. tostring(BankFrame.parent == ns.hidden), "cover=" .. tostring(_G.MedalluinBankCover ~= nil))
+        "parked=" .. tostring(BankFrame.parent == ns.hidden), "cover=" .. tostring(_G.MedalUIBankCover ~= nil))
     if not w then return end
     local function frame()
         local now = B.timers
@@ -16377,8 +16377,8 @@ if bankPass then
     local function state(tag)
         local p = W.Current()
         print(tag, "shown=" .. tostring(w.shown), "blizzard=" .. tostring(BankFrame.shown),
-            "cover=" .. tostring(_G.MedalluinBankCover.shown), "tracker=" .. tostring(_G.MedalluinQuests
-            and _G.MedalluinQuests.shown), "npc=" .. tostring(_G.MedalluinNPC and _G.MedalluinNPC.shown),
+            "cover=" .. tostring(_G.MedalUIBankCover.shown), "tracker=" .. tostring(_G.MedalUIQuests
+            and _G.MedalUIQuests.shown), "npc=" .. tostring(_G.MedalUINPC and _G.MedalUINPC.shown),
             "page=" .. (p and p.key or "none"), "detached=" .. tostring(W.Detached()),
             "medal=" .. tostring(w.medal.shown), "grip=" .. tostring(w.grip.shown),
             string.format("scale=%g", w.scale or 1), "at=" .. where(w),
@@ -16472,7 +16472,7 @@ if bankPass then
     -- 3. the views, the band's buttons and the option's
     click(button(p.band, "Bags"))
     frame()
-    print("bank.view", ns.db.bankView, "saved=" .. tostring(MedalluinDB.global.bankView))
+    print("bank.view", ns.db.bankView, "saved=" .. tostring(MedalUIDB.global.bankView))
     slots("bank.by bag", p)
     band("bank.band bags", p)
     click(button(p.band, "Groups"))
@@ -16525,7 +16525,7 @@ if bankPass then
     -- game refuses PurchaseBankTab to addons); its popup's Yes buys
     local layer = ns.bank.layer
     local function buy(tag)
-        local b = _G.MedalluinBankPurchase
+        local b = _G.MedalUIBankPurchase
         print(tag, "secure=" .. tostring(b ~= nil), "shown=" .. tostring(b and b.shown),
             "over=" .. tostring(b and b.shown and harnessOver(b, p.purchase)),
             "type=" .. tostring(b and b.attrs.type),
@@ -16534,7 +16534,7 @@ if bankPass then
             "face=" .. tostring(p.purchase.label.text))
     end
     buy("bank.purchase")
-    local secure = _G.MedalluinBankPurchase
+    local secure = _G.MedalUIBankPurchase
     secure.scripts.OnEnter(secure)
     print("bank.purchase tip", tostring(GameTooltip.text))
     -- the secure click presses Blizzard's button; its popup's Yes buys
@@ -16633,7 +16633,7 @@ if bankPass then
     end
     buy("bank.purchase detached")
     print("bank.place", string.format("w=%s h=%s", tostring(ns.db.bankPlace.w), tostring(ns.db.bankPlace.h)),
-        "size=" .. w.w .. "x" .. w.h, "saved=" .. tostring(type(MedalluinDB.global.bankPlace)))
+        "size=" .. w.w .. "x" .. w.h, "saved=" .. tostring(type(MedalUIDB.global.bankPlace)))
     tabs("bank.detached tabs")
     CharacterFrame:Show()
     state("bank.detached character")
@@ -16690,7 +16690,7 @@ if bankPass then
         function layer:GetEffectiveScale() return 1 end
         fire("BANK_TABS_CHANGED")
         frame()
-        local b = _G.MedalluinBankPurchase
+        local b = _G.MedalUIBankPurchase
         local at = b.points.BOTTOMLEFT
         print("bank.purchase scaled", string.format("at=%.1f,%.1f size=%.1fx%.1f on=%s", at[3], at[4], b.w, b.h,
             tostring(at[1] == layer)))
@@ -16808,10 +16808,10 @@ if args.inspect then
         for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
     end
     print("inspect", "setting=" .. tostring(ns.db.inspect), "loaded=" .. charWorld.inspectLoads,
-        "window=" .. tostring(_G.MedalluinInspect ~= nil))
+        "window=" .. tostring(_G.MedalUIInspect ~= nil))
     -- the first inspection loads Blizzard_InspectUI, and the window is built
     InspectUnit("target")
-    local w = _G.MedalluinInspect
+    local w = _G.MedalUIInspect
     local function where(f)
         return f.parent == ns.veil and "veil" or f.parent == ns.hidden and "hidden"
             or f.parent == UIParent and "UIParent" or "other"
@@ -16963,7 +16963,7 @@ if characterPass then
         for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
     end
     local C = ns.character
-    local w = _G.MedalluinCharacter
+    local w = _G.MedalUICharacter
     print("char", "window=" .. tostring(w ~= nil), "setting=" .. tostring(ns.db.character),
         "parked=" .. tostring(CharacterFrame.parent == ns.hidden))
     if not w then return end
@@ -17343,7 +17343,7 @@ if characterPass then
     end
     -- the shortcuts: secure clicks on Blizzard's micro buttons, on the strip,
     -- following the window out of combat and hidden by a driver in it
-    local row = _G.MedalluinCharacterShortcuts
+    local row = _G.MedalUICharacterShortcuts
     local function shortcuts(tag)
         local out = {}
         for _, b in ipairs(row.buttons) do
@@ -17570,7 +17570,7 @@ if characterPass then
     fire("EQUIPMENT_SETS_CHANGED")
     frame()
     rows("gear.sets equipped", "sets")
-    harnessBeside("char sets tips", MedalluinCharacter)
+    harnessBeside("char sets tips", MedalUICharacter)
     buttons("gear.sets worn")
     -- Save asks first; its answer keeps the set's own ignored slots
     charWorld.sets[2].worn = false
@@ -17586,7 +17586,7 @@ if characterPass then
     rows("gear.sets new", "sets")
     buttons("gear.sets full")
     -- a name already taken makes nothing
-    StaticPopupDialogs.MEDALLUIN_SET_NEW.OnAccept({ editBox = { GetText = function() return "PvP" end } })
+    StaticPopupDialogs.MEDALUI_SET_NEW.OnAccept({ editBox = { GetText = function() return "PvP" end } })
     act("Remove")
     StaticPopupDialogs[charWorld.popup.which].OnAccept({}, charWorld.popup.data)
     fire("EQUIPMENT_SETS_CHANGED")
@@ -17653,7 +17653,7 @@ if characterPass then
     tabs("cur.tabs")
     print("cur.blizzard on", TokenFrame.shown and "TokenFrame" or "?")
     rows("cur", "currency")
-    harnessBeside("char currency tips", MedalluinCharacter)
+    harnessBeside("char currency tips", MedalUICharacter)
     click("currency", "Honor Points")
     details("cur.honor", "currency")
     click("currency", "Arena Points")
@@ -17796,7 +17796,7 @@ if characterPass then
             .available), "stats=" .. tostring(page("statistics").available))
     end
     HideUIPanel(CharacterFrame)
-    harnessBeside("char tips", MedalluinCharacter)
+    harnessBeside("char tips", MedalUICharacter)
     do
         local p = CharacterFeetSlot.parent
         local f = p and p.flyoutSettings
@@ -17807,11 +17807,11 @@ if characterPass then
     do
         local gear = {}
         for _, n in ipairs({ "Head", "Chest", "MainHand", "Trinket0" }) do gear[_G["Character" .. n .. "Slot"]] = true end
-        harnessBeside("char gear tips", MedalluinCharacter, nil, nil, gear)
+        harnessBeside("char gear tips", MedalUICharacter, nil, nil, gear)
         for b in pairs(gear) do gear[b] = "default" end
-        harnessBeside("char gear default tips", MedalluinCharacter, nil, nil, gear)
+        harnessBeside("char gear default tips", MedalUICharacter, nil, nil, gear)
     end
-    harnessBeside("char tips, no width", MedalluinCharacter, true)
+    harnessBeside("char tips, no width", MedalUICharacter, true)
     state("char.end")
     return
 end
@@ -17996,7 +17996,7 @@ if dispelPass then
             CUA.GetUnitAuras = nil
             CUA.GetAuraDataByIndex = function(unit, i, filter)
                 if inCombat and not harnessAuraSecure then
-                    error("Auras cannot be accessed when secret while tainted by 'Medalluin'")
+                    error("Auras cannot be accessed when secret while tainted by 'MedalUI'")
                 end
                 if unit ~= "player" or i ~= 1 or not debuff or not filter:find("HARMFUL") then return end
                 if filter:find("RAID_PLAYER_DISPELLABLE") and not yours[debuff] then return end
@@ -18233,7 +18233,7 @@ do
         if page.id == "general" then
             for _, g in ipairs(page.groups or {}) do
                 for _, item in ipairs(g.items or {}) do
-                    if item.key == "medalluinFace" then spec = item end
+                    if item.key == "medaluiFace" then spec = item end
                 end
             end
         end
@@ -18241,10 +18241,10 @@ do
     local fonts = ns.Fonts()
     print("face", "marcellus=" .. (counts.marcellus or 0) .. " forum=" .. (counts.forum or 0) .. " any="
         .. tostring((counts.marcellus or 0) + (counts.forum or 0) > 100),
-        "companions=" .. tostring(MedalluinFontFace and MedalluinFontFace:match("[^\\]+$")),
+        "companions=" .. tostring(MedalUIFontFace and MedalUIFontFace:match("[^\\]+$")),
         "reading=" .. fonts[1][2] .. ":" .. tostring(ns.FontPath("marcellus"):match("[^\\]+$")),
         "option=" .. (spec and (spec.label .. " " .. #spec.choices .. " reload=" .. tostring(spec.reload)
-            .. " now=" .. tostring(ns.db.medalluinFace)) or "none"))
+            .. " now=" .. tostring(ns.db.medaluiFace)) or "none"))
 end
 
 -- `look [bare] [modern]`: the Action Bar page's Text and Cooldowns options
@@ -18254,7 +18254,7 @@ end
 if lookPass then
     local function show(tag)
         local function one(b)
-            local hk = b.medalluinHotkey or b.HotKey or _G[b:GetName() .. "HotKey"]
+            local hk = b.medaluiHotkey or b.HotKey or _G[b:GetName() .. "HotKey"]
             local cd = b.cooldown or _G[b:GetName() .. "Cooldown"]
             local fs = cd.GetCountdownFontString and cd:GetCountdownFontString()
             return string.format("%s keys=%s/alpha %s sweep=%s edge=%s flash=%s hideNumbers=%s numberSize=%s",
@@ -18275,8 +18275,8 @@ if lookPass then
     set({ { "hotkeySize", 0 } })
     show("hidden keys")
     local other = ns.db.consoleProfile == "reticule" and "arena" or "reticule"
-    print("look saved", "here=" .. tostring(MedalluinDB.profiles[ns.db.consoleProfile].hotkeySize),
-        other .. "=" .. tostring(MedalluinDB.profiles[other].hotkeySize))
+    print("look saved", "here=" .. tostring(MedalUIDB.profiles[ns.db.consoleProfile].hotkeySize),
+        other .. "=" .. tostring(MedalUIDB.profiles[other].hotkeySize))
     set({ { "hotkeySize", 1 }, { "cooldownTextSize", 1 }, { "cooldownSwipe", true },
         { "cooldownEdge", false }, { "cooldownBling", true }, { "cooldownText", "auto" } })
     show("back")
@@ -18298,7 +18298,7 @@ if movePass then
             string.format("strip=%.3f stripOnScreen=%.3f", ns.strips[-1]:GetScale(), ns.strips[-1]:GetEffectiveScale()),
             "movers=" .. tostring(ns.consoleMovers.console and ns.consoleMovers.console:IsShown()) .. ","
                 .. tostring(ns.consoleMovers.overhead and ns.consoleMovers.overhead:IsShown()),
-            "popup=" .. tostring(MedalluinMoverPopup and MedalluinMoverPopup:IsShown() and MedalluinMoverPopup.title.text))
+            "popup=" .. tostring(MedalUIMoverPopup and MedalUIMoverPopup:IsShown() and MedalUIMoverPopup.title.text))
     end
     state("drawn")
     page.settings.consoleScale:Set(1.2)
@@ -18315,8 +18315,8 @@ if movePass then
     state("other profile")
     page.settings.consoleProfile:Set(here)
     state("back")
-    print("move saved", "here=" .. tostring(MedalluinDB.profiles[here].consoleScale) .. ","
-        .. tostring(MedalluinDB.profiles[here].consoleX), other .. "=" .. tostring(MedalluinDB.profiles[other].consoleScale))
+    print("move saved", "here=" .. tostring(MedalUIDB.profiles[here].consoleScale) .. ","
+        .. tostring(MedalUIDB.profiles[here].consoleX), other .. "=" .. tostring(MedalUIDB.profiles[other].consoleScale))
 
     EventRegistry:TriggerEvent("EditMode.Enter")
     state("edit mode")
@@ -18342,12 +18342,12 @@ if movePass then
     state("clicked overhead")
     GetCursorPosition = realCursor
     local shown = {}
-    for _, ctl in ipairs(MedalluinMoverPopup.controls) do
+    for _, ctl in ipairs(MedalUIMoverPopup.controls) do
         table.insert(shown, ctl.spec.key .. "=" .. ctl.value.text)
     end
     print("move popup", table.concat(shown, " "))
     -- its - and +: Shift five steps, Ctrl ten; held, repeating after a pause
-    local across, size = MedalluinMoverPopup.controls[2], MedalluinMoverPopup.controls[1]
+    local across, size = MedalUIMoverPopup.controls[2], MedalUIMoverPopup.controls[1]
     local function press(b, mods)
         modsDown.SHIFT, modsDown.CTRL = mods == "shift", mods == "ctrl"
         if b.scripts.OnMouseDown then b.scripts.OnMouseDown(b, "LeftButton") end
@@ -18401,7 +18401,7 @@ if movePass then
     local p1 = press(plain.more, "shift")
     print("move plain slider", "from " .. tostring(before), "shift=" .. p1,
         "hold=" .. tostring(plain.more.scripts.OnUpdate ~= nil))
-    MedalluinMoverPopup.reset.scripts.OnClick(MedalluinMoverPopup.reset)
+    MedalUIMoverPopup.reset.scripts.OnClick(MedalUIMoverPopup.reset)
     state("popup reset")
 
     inCombat = true
@@ -18431,7 +18431,7 @@ if (args[2] == "auraguard" or args[3] == "auraguard") and C_UnitAuras then
     local refuse = false
     local saved = C_UnitAuras.GetAuraDataByIndex
     C_UnitAuras.GetAuraDataByIndex = function(unit, i, filter)
-        if refuse then error("Auras cannot be accessed when secret while tainted by 'Medalluin'") end
+        if refuse then error("Auras cannot be accessed when secret while tainted by 'MedalUI'") end
         if unit == "player" and filter == "HELPFUL|PLAYER" and i <= 2 then
             return { auraInstanceID = 900 + i, icon = 136000 + i, applications = 0, duration = 30,
                 expirationTime = 60 }
@@ -18847,9 +18847,9 @@ if args[2] == "detach" or args[3] == "detach" then
     drag(pet, true, { "TOPLEFT", "BOTTOMLEFT", 100, 500 })
     drag(tot, true, { "TOPLEFT", "BOTTOMLEFT", 500, 300 })
     state("all off")
-    print("detach overhead", "shown=" .. tostring(ns.overhead.shown), "holder alpha=" .. tostring(MedalluinDetachedPet.alpha))
+    print("detach overhead", "shown=" .. tostring(ns.overhead.shown), "holder alpha=" .. tostring(MedalUIDetachedPet.alpha))
     page.settings.overheadAlpha:Set(0.5)
-    print("detach opacity", "holder alpha=" .. tostring(MedalluinDetachedPet.alpha))
+    print("detach opacity", "holder alpha=" .. tostring(MedalUIDetachedPet.alpha))
     page.settings.overheadAlpha:Set(1)
     -- the pet frame switched off while detached: gone, its buttons to the tray
     page.settings.topPet:Set(false)
@@ -18867,7 +18867,7 @@ if spellPass then
         for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
     end
     local B = ns.spellbook
-    local w = _G.MedalluinSpellbook
+    local w = _G.MedalUISpellbook
     print("book", "window=" .. tostring(w ~= nil and B.layer ~= nil), "setting=" .. tostring(ns.db.spellbook))
     if not (w and B.layer) then return end
     local layer = B.layer
@@ -19038,8 +19038,8 @@ if spellPass then
     print("book.loaded", "parked=" .. tostring(PlayerSpellsFrame.parent == ns.hidden))
     -- the first show: Blizzard's own toggle opens before it turns the tab
     state("book.open")
-    harnessBeside("book open tips", MedalluinSpellbook)
-    harnessBeside("book casts tips", MedalluinSpellbook, nil, MedalluinSpellbookCasts)
+    harnessBeside("book open tips", MedalUISpellbook)
+    harnessBeside("book casts tips", MedalUISpellbook, nil, MedalUISpellbookCasts)
     print("book.backpack", tostring(MainMenuBarBackpackButton.strata) .. "/" .. tostring(MainMenuBarBackpackButton.level))
     tabs("book.tabs")
     -- one list: General, each specialisation; Healing Wave's five ranks
@@ -19101,7 +19101,7 @@ if spellPass then
     local elemT = tab("Elemental")
     elemT.scripts.OnClick(elemT, "LeftButton")
     rows("book.tab elemental", 1, 6)
-    print("book.tab kept", tostring(MedalluinCharDB.bookTab and MedalluinCharDB.bookTab.book),
+    print("book.tab kept", tostring(MedalUICharDB.bookTab and MedalUICharDB.bookTab.book),
         "buttons=" .. (function()
             local n = 0
             for _, bb in ipairs(layer.buttons) do if bb.shown then n = n + 1 end end
@@ -19147,7 +19147,7 @@ if spellPass then
     wb.scripts.PostClick(wb, "LeftButton", false)
     rows("book.unfolded", 14)
     print("book.ranks tip open", lines(button("Healing Wave")))
-    print("book.unfolded kept", tostring(MedalluinCharDB.bookOpen and MedalluinCharDB.bookOpen["Healing Wave"]))
+    print("book.unfolded kept", tostring(MedalUICharDB.bookOpen and MedalUICharDB.bookOpen["Healing Wave"]))
     book.Refresh()
     rows("book.unfolded again", 14)
     -- a rank's left click: nothing; its right chooses it
@@ -19163,7 +19163,7 @@ if spellPass then
     -- the row's own left click (as in combat) folds it shut
     row("Healing Wave").scripts.OnClick(row("Healing Wave"), "LeftButton")
     rows("book.folded", 14)
-    print("book.folded kept", tostring(MedalluinCharDB.bookOpen["Healing Wave"]))
+    print("book.folded kept", tostring(MedalUICharDB.bookOpen["Healing Wave"]))
     -- Shift-click (2026-11-16): the spell linked, the chat opened with it
     -- (no box open), not unfolded; its secure button's the same
     ;(function()
@@ -19182,7 +19182,7 @@ if spellPass then
         ChatFrameUtil, ChatEdit_InsertLink, ChatEdit_GetActiveWindow = util, insert, active
         ChatFrame_OpenChat = open
         print("book.shift-click", "opened=" .. table.concat(opened, ","),
-            "unfolded=" .. tostring(MedalluinCharDB.bookOpen["Healing Wave"]))
+            "unfolded=" .. tostring(MedalUICharDB.bookOpen["Healing Wave"]))
     end)()
 
     -- 5. a short screen: only the rows wholly in view get a button; the
@@ -19447,7 +19447,7 @@ if spellPass then
         print("book.toprank mode", tostring(ns.db.spellbookUpRank), "chevron=" .. chevron())
         modsDown.SHIFT = true
         rb.scripts.PostClick(rb, "RightButton", true)     -- the press: nothing yet
-        print("book.toprank press", tostring(MedalluinCharDB.upRank and MedalluinCharDB.upRank["Rockbiter Weapon"]))
+        print("book.toprank press", tostring(MedalUICharDB.upRank and MedalUICharDB.upRank["Rockbiter Weapon"]))
         rb.scripts.PostClick(rb, "RightButton", false)
         modsDown.SHIFT = nil
         bars("book.uprank marked")
@@ -19485,7 +19485,7 @@ if spellPass then
     end
     B.UpRank()
     bars("book.uprank kept")
-    print("book.uprank saved", tostring(MedalluinCharDB.upRank and MedalluinCharDB.upRank["Rockbiter Weapon"]))
+    print("book.uprank saved", tostring(MedalUICharDB.upRank and MedalUICharDB.upRank["Rockbiter Weapon"]))
     -- a busy cursor waits; combat waits for its end
     actionSlots[3] = { "spell", 301 }
     cursor = { "item", 6948 }
@@ -19498,7 +19498,7 @@ if spellPass then
     combat(false)
     bars("book.uprank after combat")
     -- not kept, nothing moves; every spell asked, it does
-    MedalluinCharDB.upRank = nil
+    MedalUICharDB.upRank = nil
     actionSlots[3] = { "spell", 301 }
     fire("LEARNED_SPELL_IN_SKILL_LINE")
     bars("book.uprank unticked")
@@ -19506,11 +19506,11 @@ if spellPass then
     bars("book.uprank all")
     -- None: marked or not, nothing moves
     actionSlots[3] = { "spell", 301 }
-    MedalluinCharDB.upRank = { ["Rockbiter Weapon"] = true }
+    MedalUICharDB.upRank = { ["Rockbiter Weapon"] = true }
     ns.SetOption("spellbookUpRank", "none")
     fire("LEARNED_SPELL_IN_SKILL_LINE")
     bars("book.uprank none")
-    MedalluinCharDB.upRank = nil
+    MedalUICharDB.upRank = nil
     ns.SetOption("spellbookUpRank", "marked")
     -- the trainer: no tab until one is read; then what is left to learn,
     -- now first, the filter put back as the box's tab had it
@@ -19564,7 +19564,7 @@ if spellPass then
         if t.shown and t.section and t.section.name == "Elemental" then t.scripts.OnClick(t, "LeftButton") break end
     end
     rows("book.trainer elemental")
-    print("book.trainer tab kept", tostring(MedalluinCharDB.bookTab.trainer), "book's=" .. tostring(MedalluinCharDB.bookTab.book))
+    print("book.trainer tab kept", tostring(MedalUICharDB.bookTab.trainer), "book's=" .. tostring(MedalUICharDB.bookTab.book))
     -- no secure buttons over the trainer's rows: they answer themselves
     local armed = 0
     for _, bb in ipairs(layer.buttons) do if bb.shown then armed = armed + 1 end end
@@ -19628,12 +19628,12 @@ if spellPass then
     function GetTrainerServiceSkillReq(i) return "Mining", ({ 50, 65 })[i] end
     fire("TRAINER_SHOW")
     local trade = {}
-    for line, list in pairs(MedalluinCharDB.trainer.trade) do
+    for line, list in pairs(MedalUICharDB.trainer.trade) do
         for key, e in pairs(list) do table.insert(trade, line .. ":" .. key .. "@" .. tostring(e.skill)) end
     end
     table.sort(trade)
     local class = 0
-    for _ in pairs(MedalluinCharDB.trainer.class) do class = class + 1 end
+    for _ in pairs(MedalUICharDB.trainer.class) do class = class + 1 end
     print("book.trade trainer", table.concat(trade, " "), "class=" .. class)
     -- 10. click casting (spells/clickcast.lua): a bound spell wears the
     -- mouse and its click after its rank (a binding on a lower rank marks
@@ -19849,11 +19849,11 @@ if spellPass then
         focus.scripts.OnClick(focus, "LeftButton")
         cards("book.macros opened")
         edit("book.macros opened editor")
-        print("book.macros remembered", tostring(MedalluinCharDB.macroOpen and MedalluinCharDB.macroOpen.Focus),
+        print("book.macros remembered", tostring(MedalUICharDB.macroOpen and MedalUICharDB.macroOpen.Focus),
             "calls=" .. calls())
         -- the right on the card (the layer away): nothing
         focus.scripts.OnClick(focus, "RightButton")
-        print("book.macros right on the card", "open=" .. tostring(MedalluinCharDB.macroOpen.Focus), "calls=" .. calls())
+        print("book.macros right on the card", "open=" .. tostring(MedalUICharDB.macroOpen.Focus), "calls=" .. calls())
         -- the secure button's left: as the card's (folds it again)
         local sb = secure("Focus")
         sb.scripts.PostClick(sb, "LeftButton", false)
@@ -19873,7 +19873,7 @@ if spellPass then
         print("book.macros cancel calls", calls())
         -- the other set: the game's tab pressed, remembered
         MM.switch.buttons[2].scripts.OnClick(MM.switch.buttons[2], "LeftButton")
-        print("book.macros character", switch(), "tab=" .. tostring(MedalluinCharDB.macroTab), "calls=" .. calls())
+        print("book.macros character", switch(), "tab=" .. tostring(MedalUICharDB.macroTab), "calls=" .. calls())
         cards("book.macros character cards")
         edit("book.macros character editor")
         -- New: the picker, left of the book at the list's top, over it
@@ -20046,7 +20046,7 @@ if spellPass then
 
     -- 9. the close button
     w.close.scripts.OnClick(w.close)
-    harnessBeside("book tips", MedalluinSpellbook)
+    harnessBeside("book tips", MedalUISpellbook)
     state("book.closed")
     print("book.backpack", tostring(MainMenuBarBackpackButton.strata) .. "/" .. tostring(MainMenuBarBackpackButton.level))
 end
@@ -20058,10 +20058,10 @@ if talentPass then
     end
     local T = talentWorld
     local W = ns.talents
-    local w = _G.MedalluinTalents
+    local w = _G.MedalUITalents
     print("talents", "window=" .. tostring(w ~= nil), "setting=" .. tostring(ns.db.talents))
     if not w then return end
-    local book = _G.MedalluinSpellbook
+    local book = _G.MedalUISpellbook
     local function frame()
         bookWorld.Tick()
         if w.shown and w.scripts.OnUpdate then w.scripts.OnUpdate(w, 0) end
@@ -20424,7 +20424,7 @@ if talentPass then
     -- the plans kept for a specialisation: each name, its talents, the
     -- active one starred
     local function plan(tag, spec)
-        local b = MedalluinCharDB.talentPlans and MedalluinCharDB.talentPlans[spec or 1]
+        local b = MedalUICharDB.talentPlans and MedalUICharDB.talentPlans[spec or 1]
         local list = {}
         for k, kept in ipairs(b and b.list or {}) do
             local names = {}
@@ -20804,7 +20804,7 @@ if talentPass then
     -- a head folds its checkpoints away, and back; kept with the plan
     press(ord.heads[1])
     plans("talents.plans folded")
-    print("talents.plans folded kept", tostring(MedalluinCharDB.talentPlans[1].list[1].collapsed))
+    print("talents.plans folded kept", tostring(MedalUICharDB.talentPlans[1].list[1].collapsed))
     press(ord.heads[1])
     plans("talents.plans unfolded")
     -- Remove asks twice; leaving disarms it. The first plan removed, none
@@ -20887,13 +20887,13 @@ if talentPass then
     import("talents.import warrior", "[talent=warrior/vk53]")
     classOf.player = nil
     -- the one plan of before becomes "Plan", active
-    MedalluinCharDB.talentPlans = nil
+    MedalUICharDB.talentPlans = nil
     local id = {}
     for k, name in pairs(T.names) do id[name] = k end
-    MedalluinCharDB.talentPlan = { { id.Convection, id.Convection, id.Concussion, id.Concussion } }
+    MedalUICharDB.talentPlan = { { id.Convection, id.Convection, id.Concussion, id.Concussion } }
     ord.Refresh()
     plans("talents.plans migrated")
-    print("talents.plans migrated old", tostring(MedalluinCharDB.talentPlan[1]))
+    print("talents.plans migrated old", tostring(MedalUICharDB.talentPlan[1]))
     -- Edit reopens the whole last checkpoint: both Concussion ranks are the
     -- draft, so one off leaves one to checkpoint
     press(ord.edit)
@@ -20978,7 +20978,7 @@ if talentPass then
     PlayerSpellsUtil.OpenToClassTalentsTab()
     frame()
     state("talents.opened to")
-    harnessBeside("talents tips", MedalluinTalents)
+    harnessBeside("talents tips", MedalUITalents)
     HideUIPanel(PlayerSpellsFrame)
     frame()
     bookWorld.others = false
@@ -20990,11 +20990,11 @@ if profPass then
     end
     local P = profWorld
     local W = ns.professions
-    local w = _G.MedalluinProfessions
+    local w = _G.MedalUIProfessions
     print("prof", "window=" .. tostring(w ~= nil), "setting=" .. tostring(ns.db.professions))
     if not w then return end
     local layer = W.layer
-    local book = _G.MedalluinSpellbook
+    local book = _G.MedalUISpellbook
     local function frame()
         bookWorld.Tick()
         if w.shown and w.scripts.OnUpdate then w.scripts.OnUpdate(w, 0) end
@@ -21177,13 +21177,13 @@ if profPass then
     P.info[1] = { "Blacksmithing", 136241, 370, 375, 1, 50, 164, 0 }
     card("prof.rank grand master", 1)
     GetMaxLevelForPlayerExpansion = nil
-    MedalluinCharDB.trainer = { class = {}, trade = { Blacksmithing = {
+    MedalUICharDB.trainer = { class = {}, trade = { Blacksmithing = {
         ["Blacksmithing|Expert"] = { name = "Blacksmithing", rank = "Expert", level = 22, skill = 130, icon = 1 } } } }
     P.info[1] = { "Blacksmithing", 136241, 128, 150, 1, 50, 164, 0 }
     card("prof.rank trainer", 1)
     P.info[1] = { "Blacksmithing", 136241, 131, 150, 1, 50, 164, 0 }
     card("prof.rank trainer met", 1)
-    MedalluinCharDB.trainer = nil
+    MedalUICharDB.trainer = nil
     P.info[1] = smithInfo
     card("prof.rank back", 1)
 
@@ -21259,7 +21259,7 @@ if profPass then
     right("Copper Bracers")
     rows("prof.starred")
     hint("Copper Bracers")
-    print("prof.favourites", tostring(MedalluinCharDB.recipeFavourites and MedalluinCharDB.recipeFavourites[2663]),
+    print("prof.favourites", tostring(MedalUICharDB.recipeFavourites and MedalUICharDB.recipeFavourites[2663]),
         "chosen=" .. tostring(smith.chosen))
     right("Heavy Copper Maul")
     rows("prof.starred two")
@@ -21278,7 +21278,7 @@ if profPass then
     foot("prof.worth no skill-up")
 
     -- 5c. at the trainer: the services not learned, those allowed first
-    MedalluinCharDB.trainer = { class = {}, trade = { Blacksmithing = {
+    MedalUICharDB.trainer = { class = {}, trade = { Blacksmithing = {
         ["Copper Mace|"] = { name = "Copper Mace", level = 1, skill = 15, cost = 100, icon = 11 },
         ["Copper Bracers|"] = { name = "Copper Bracers", level = 1, skill = 1, cost = 10, icon = 12 },
         ["Copper Axe|"] = { name = "Copper Axe", level = 1, skill = 35, cost = 50, icon = 13, known = true },
@@ -21301,7 +21301,7 @@ if profPass then
     row("Blacksmithing (Expert)")
     foot("prof.trainer now")
     right("Copper Mace")
-    print("prof.trainer right", tostring(MedalluinCharDB.recipeFavourites[11]), "trained=" .. tostring(smith.trained))
+    print("prof.trainer right", tostring(MedalUICharDB.recipeFavourites[11]), "trained=" .. tostring(smith.trained))
     row("Copper Chain Pants")
     foot("prof.trainer back to a recipe")
     smith.search:SetText("mace")
@@ -21318,7 +21318,7 @@ if profPass then
     frame()
     rows("prof.unknown off")
     print("prof.unknown off", "on=" .. tostring(smith.unknown.on), "enabled=" .. tostring(smith.unknown.enabled),
-        "kept=" .. tostring(MedalluinCharDB.recipesUnknownHidden))
+        "kept=" .. tostring(MedalUICharDB.recipesUnknownHidden))
     click(smith.unknown)
     frame()
     row("At the trainer (4)")
@@ -21326,12 +21326,12 @@ if profPass then
     row("At the trainer (4)")
     -- a picked service gone from the list: the details let it go
     row("Iron Buckle")
-    MedalluinCharDB.trainer.trade.Blacksmithing["Iron Buckle|"].known = true
+    MedalUICharDB.trainer.trade.Blacksmithing["Iron Buckle|"].known = true
     fire("TRAINER_UPDATE")
     frame()
     foot("prof.trainer learned")
     -- back on the list (forgotten, say): no longer picked
-    MedalluinCharDB.trainer.trade.Blacksmithing["Iron Buckle|"].known = nil
+    MedalUICharDB.trainer.trade.Blacksmithing["Iron Buckle|"].known = nil
     fire("TRAINER_UPDATE")
     frame()
     rows("prof.trainer unpicked")
@@ -21343,7 +21343,7 @@ if profPass then
     P.learned[1] = 1
     smith.Available()
     print("prof.trainer tab back", smith.label, "trained=" .. tostring(smith.trained))
-    MedalluinCharDB.trainer = nil
+    MedalUICharDB.trainer = nil
     smith.list.body.h = tall
     GameTooltip.AddLine = addLine
     smith.chosen, smith.trained = nil, nil
@@ -21523,16 +21523,16 @@ if profPass then
         print("prof.banner me", b.what.text, b.guild.shown and b.guild.text or "-",
             "what@" .. b.what.points.TOP[4], "in panel=" .. tostring(b.parent == ov.panel))
         local realm = GetRealmName and GetRealmName() or "?"
-        local me = MedalluinDB.roster[realm][UnitName("player")]
+        local me = MedalUIDB.roster[realm][UnitName("player")]
         local profs = {}
         for _, p in ipairs(me.primaries) do table.insert(profs, p.name .. " " .. p.rank .. "/" .. p.max) end
         print("prof.roster me", me.class, me.level, table.concat(profs, ", "))
         -- two alts recorded: listed, most recently played first, a click opens one's window
-        local roster = MedalluinDB.roster[realm]
+        local roster = MedalUIDB.roster[realm]
         roster.Barkhide = { class = "DRUID", className = "Druid", level = 40, seen = 5,
             primaries = { { name = "Herbalism", icon = 1, rank = 200, max = 225 },
                 { name = "Alchemy", icon = 2, rank = 190, max = 225 } } }
-        roster.Medalluin = { class = "PRIEST", className = "Priest", level = 60, seen = 9,
+        roster.MedalUI = { class = "PRIEST", className = "Priest", level = 60, seen = 9,
             primaries = { { name = "Tailoring", icon = 3, rank = 300, max = 300 } } }
         roster.Newbie = { class = "MAGE", className = "Mage", level = 1, seen = 1, primaries = {} }
         fire("SKILL_LINES_CHANGED")
@@ -21559,7 +21559,7 @@ if profPass then
         beside("prof.tip alts", ov.alts.button)
         overview("prof.alts")
         local aw = function()
-            local f = _G.MedalluinAlt
+            local f = _G.MedalUIAlt
             return f and f.shown and (W.altWindow.Current().key .. ":" .. W.altWindow.Current().who.text) or "closed"
         end
         -- the Characters tab: every character, the playing one first; the
@@ -21584,7 +21584,7 @@ if profPass then
         click(ov.alts.button)
         local R = chars("prof.alt roster")
         beside("prof.tip char", row(R, "Barkhide"))
-        click(row(R, "Medalluin"))
+        click(row(R, "MedalUI"))
         print("prof.alt open", aw())
         click(ov.alts.button)
         chars("prof.alt roster again")
@@ -21596,8 +21596,8 @@ if profPass then
         do
             local clock = time
             time = function() return 1000000 end            -- (a fixed now)
-            roster.Medalluin.seen = time() - 3 * 86400
-            local d = ns.alts.Data("Medalluin")
+            roster.MedalUI.seen = time() - 3 * 86400
+            local d = ns.alts.Data("MedalUI")
             d.skills = { { name = "Tailoring", icon = 3, rank = 287, max = 300, primary = true },
                 { name = "Cooking", icon = 4, rank = 150, max = 300 } }
             d.recipes = { Tailoring = { { id = 1, name = "Mooncloth Robe", icon = 11, item = 9001 },
@@ -21638,7 +21638,7 @@ if profPass then
                 print(tag, p.who.text, p.what.text, table.concat(out, " ~ "), "note=" .. tostring(p.note.text))
             end
             local P, I, N = page("professions"), page("items"), page("notes")
-            W.ShowAlt({ name = "Medalluin", e = roster.Medalluin }, P)
+            W.ShowAlt({ name = "MedalUI", e = roster.MedalUI }, P)
             frame()
             P.Refresh()
             dump("prof.alt professions", P)
@@ -21716,7 +21716,7 @@ if profPass then
             N.Refresh()
             N.box:SetText("Dire Maul on Thursday")
             N.box.scripts.OnTextChanged(N.box, true)
-            print("prof.alt notes saved", tostring(ns.alts.Data("Medalluin").notes), "note=" .. N.note.text)
+            print("prof.alt notes saved", tostring(ns.alts.Data("MedalUI").notes), "note=" .. N.note.text)
             -- the pad's caret: shown with the focus, where the cursor is, blinking
             local function caret(tag)
                 local _, _, _, x, y = N.caret:GetPoint(1)
@@ -21761,7 +21761,7 @@ if profPass then
             C_Spell.GetSpellCooldown = function(id) return id == 501 and { startTime = 400, duration = 3700 } or nil end
             fire("SPELL_UPDATE_COOLDOWN")
             print("prof.cool refreshed", mine[501].ready - time())
-            ns.alts.Data("Medalluin").cooldowns = { [601] = { name = "Mooncloth", icon = 61, ready = time() - 5 } }
+            ns.alts.Data("MedalUI").cooldowns = { [601] = { name = "Mooncloth", icon = 61, ready = time() - 5 } }
             ns.alts.Data("Barkhide").cooldowns = { [501] = { name = "Transmute: Arcanite", icon = 62,
                 ready = time() + 86400 + 6 * 3600 } }
             for i = 1, 6 do
@@ -21788,7 +21788,7 @@ if profPass then
             local R = chars("prof.cool roster")
             R.Refresh()
             chars("prof.cool roster")
-            ns.alts.Data("Medalluin").cooldowns, ns.alts.Data("Barkhide").cooldowns = nil, nil
+            ns.alts.Data("MedalUI").cooldowns, ns.alts.Data("Barkhide").cooldowns = nil, nil
             ns.alts.Data("Newbie").cooldowns, ns.alts.Data(UnitName("player")).cooldowns = nil, nil
             ov.Refresh()
             print("prof.cool none", "rows=" .. #ns.alts.Cooldowns(), "none=" .. tostring(cd.none.shown),
@@ -21802,7 +21802,7 @@ if profPass then
                 was[4]
             C_Spell.GetSpellCooldown, C_Timer.After, GetTime, T.GetRecipeSchematic = was[5], was[6], was[7], was[8]
             end)()
-            W.OpenAlt({ name = "Medalluin", e = roster.Medalluin })
+            W.OpenAlt({ name = "MedalUI", e = roster.MedalUI })
             print("prof.alt closed", aw())
             -- the banner: the playing character's own window
             ov.banner.scripts.OnMouseUp(ov.banner, "LeftButton")
@@ -21812,7 +21812,7 @@ if profPass then
                 GetCoinTextureString = was[1], was[2], was[3], was[4], was[5]
             time = clock
         end
-        roster.Barkhide, roster.Medalluin, roster.Newbie = nil, nil, nil
+        roster.Barkhide, roster.MedalUI, roster.Newbie = nil, nil, nil
         fire("SKILL_LINES_CHANGED")
         frame()
         click(pageOf("overview").tab)
@@ -22023,14 +22023,14 @@ if profPass then
     row("Tin Vein")
     foot("prof.node")
     -- a service at the trainer, read next, is the one row chosen
-    MedalluinCharDB.trainer = { class = {}, trade = {} }
-    MedalluinCharDB.trainer.trade.Mining = {
+    MedalUICharDB.trainer = { class = {}, trade = {} }
+    MedalUICharDB.trainer.trade.Mining = {
         ["Smelt Iron|"] = { name = "Smelt Iron", level = 1, skill = 125, cost = 500, icon = 17 } }
     fire("TRAINER_UPDATE")
     frame()
     row("Smelt Iron")
     rows("prof.node to trainer")
-    MedalluinCharDB.trainer = nil
+    MedalUICharDB.trainer = nil
     fire("TRAINER_UPDATE")
     frame()
     row("Tin Vein")
@@ -22127,7 +22127,7 @@ if questPass and not questLogPass then
     end
     local W = questWorld
     local T = ns.quests
-    local f = _G.MedalluinQuests
+    local f = _G.MedalUIQuests
     print("quests", "tracker=" .. tostring(f ~= nil), "setting=" .. tostring(ns.db.quests),
         "sort=" .. tostring(ns.db.questsSort))
     if not f then return end
@@ -22569,9 +22569,9 @@ if questPass and not questLogPass then
     ToggleQuestLog = function() toggled = toggled + 1 end
     T.book.scripts.OnClick(T.book, "LeftButton")
     ToggleQuestLog = nil
-    -- Medalluin's own log, while its option is on; Blizzard's when it is off
-    print("quests.footer book toggles", toggled, "ours=" .. tostring(_G.MedalluinQuestLog and _G.MedalluinQuestLog.shown))
-    _G.MedalluinQuestLog:Hide()
+    -- MedalUI's own log, while its option is on; Blizzard's when it is off
+    print("quests.footer book toggles", toggled, "ours=" .. tostring(_G.MedalUIQuestLog and _G.MedalUIQuestLog.shown))
+    _G.MedalUIQuestLog:Hide()
     ns.db.questLog = false
     ToggleQuestLog = function() toggled = toggled + 1 end
     T.book.scripts.OnClick(T.book, "LeftButton")
@@ -22948,7 +22948,7 @@ if questPass and not questLogPass then
     items("quests.type items")
     ns.SetOption("questsObjectiveFont", "lsm:Gone")
     frame()
-    harnessBeside("quests tips", MedalluinQuests)
+    harnessBeside("quests tips", MedalUIQuests)
     type_("quests.type font gone")
 
     -- the left-edge tray (strips/tray.lua): out of sight; the pointer at
@@ -23110,7 +23110,7 @@ if questLogPass then (function()
     end
     local W = questWorld
     local QL, QD, QP = ns.questLog, ns.questDrop, ns.questPage
-    local f = _G.MedalluinQuestLog
+    local f = _G.MedalUIQuestLog
     print("questlog", "box=" .. tostring(f ~= nil), "setting=" .. tostring(ns.db.questLog),
         "shown=" .. tostring(f and f.shown))
     if not f then return end
@@ -23182,9 +23182,9 @@ if questLogPass then (function()
     -- 1. at login: built, hidden; the key bound to ours, the map's panel gone
     print("questlog keys", "L=" .. tostring(W.bound.L), "map cvar=" .. tostring(W.cvars and W.cvars.questLogOpen),
         "panel toggle=" .. tostring(WorldMapFrame and WorldMapFrame.SidePanelToggle.shown),
-        "escape=" .. tostring(UISpecialFrames and table.concat(UISpecialFrames, ","):find("MedalluinQuestLog") ~= nil))
+        "escape=" .. tostring(UISpecialFrames and table.concat(UISpecialFrames, ","):find("MedalUIQuestLog") ~= nil))
     -- 2. the key opens it, over the side panel
-    MedalluinToggleQuestLog()
+    MedalUIToggleQuestLog()
     QL.body.h = 20 * 14
     QL.Refresh()
     print("questlog open", "shown=" .. tostring(f.shown))
@@ -23349,7 +23349,7 @@ if questLogPass then (function()
     -- 8. a quest's page: its words, rewards and buttons
     r = row("Princess Must Die!")
     r.scripts.OnClick(r, "LeftButton")
-    local page = _G.MedalluinQuestPage
+    local page = _G.MedalUIQuestPage
     QP.child.w = 400
     QP.Refresh()
     -- Escape (the game hides UISpecialFrames' shown frames, the page's
@@ -23357,17 +23357,17 @@ if questLogPass then (function()
     -- again on a click
     do
         local listed = false
-        for _, n in ipairs(UISpecialFrames) do if n == "MedalluinQuestPageEscape" then listed = true end end
+        for _, n in ipairs(UISpecialFrames) do if n == "MedalUIQuestPageEscape" then listed = true end end
         local before = page.shown ~= false
         -- only the page's: the log, listed too, stays open for what follows
-        _G.MedalluinQuestPageEscape:Hide()
+        _G.MedalUIQuestPageEscape:Hide()
         print("questpage.escape", "listed=" .. tostring(listed), "open=" .. tostring(before)
             .. ">" .. tostring(page.shown ~= false), "stand-in=" .. tostring(page.shown == false
-            and _G.MedalluinQuestPageEscape.shown ~= false))
+            and _G.MedalUIQuestPageEscape.shown ~= false))
         r.scripts.OnClick(r, "LeftButton")
         QP.Refresh()
         print("questpage.escape reopened", "open=" .. tostring(page.shown ~= false),
-            "stand-in=" .. tostring(_G.MedalluinQuestPageEscape.shown ~= false))
+            "stand-in=" .. tostring(_G.MedalUIQuestPageEscape.shown ~= false))
     end
     -- the head (its tab: mark and title), then the page's words, edit
     -- boxes and texts, top down; a tile with its column
@@ -23756,7 +23756,7 @@ if questLogPass then (function()
             C_SuperTrack.SetSuperTrackedQuestID(0)
             fire("SUPER_TRACKING_CHANGED")
         end
-        MedalluinDB.questGivers = nil
+        MedalUIDB.questGivers = nil
         QP.Refresh()
         W.calls = {}                    -- (the waypoint's, not the head's)
     end)()
@@ -23956,7 +23956,7 @@ if questLogPass then (function()
 
     -- 9. Drop: the picks, a zone's tick, the confirm, and the abandon
     QL.foot.byKey.drop.scripts.OnClick(QL.foot.byKey.drop)
-    local dropFrame = _G.MedalluinQuestDrop
+    local dropFrame = _G.MedalUIQuestDrop
     QD.list.h = 20 * 14
     QD.Refresh()
     local function picked()
@@ -24130,7 +24130,7 @@ if npcPass then
     -- pinned in the console's units, the screen's scale is the console's
     -- (the mock's tops are all in those units)
     function UIParent:GetEffectiveScale() return ns.console:GetEffectiveScale() end
-    local tracker = _G.MedalluinQuests
+    local tracker = _G.MedalUIQuests
     local reach = ns.chat.reach
     -- the tracker's full view drawn before anyone talks: the reach is up
     ns.chat.Reach(true, 1)
@@ -24327,7 +24327,7 @@ if npcPass then
     end
     numbers("npc gossip")
     bound("npc gossip")
-    local keyer = _G.MedalluinNPCKeys
+    local keyer = _G.MedalUINPCKeys
     local function key(k) keyer.scripts.OnClick(keyer, k) end
     key("2"); key("4"); key("9"); key("SPACE")
     calls("npc gossip keys pressed")
@@ -24360,7 +24360,7 @@ if npcPass then
     W.gossip.options, W.gossip.active, W.gossip.available = options, active, available
     fire("GOSSIP_SHOW")
     -- Escape: Blizzard hides its frame, and ours follows
-    harnessBeside("npc gossip tips", MedalluinNPC)
+    harnessBeside("npc gossip tips", MedalUINPC)
     GossipFrame:Hide()
     state("npc gossip escaped")
     fire("GOSSIP_CLOSED")
@@ -24465,7 +24465,7 @@ if npcPass then
     calls("npc progress")
     fire("QUEST_COMPLETE")
     rows = page("npc reward")
-    harnessBeside("npc reward tips", MedalluinNPC)
+    harnessBeside("npc reward tips", MedalUINPC)
     bound("npc reward")
     -- back to the greeting: its rows again, and no button for Space
     fire("QUEST_GREETING")
@@ -24508,7 +24508,7 @@ if npcPass then
     fire("MERCHANT_SHOW")
     state("npc merchant")
     rows = page("npc merchant")
-    harnessBeside("npc buy tips", MedalluinNPC)
+    harnessBeside("npc buy tips", MedalUINPC)
     shop("npc merchant")
     foot("npc merchant")
     -- the uncached item arrives
@@ -24615,7 +24615,7 @@ if npcPass then
         if r.c.data.label == "Star Ruby  x2" then r.c.scripts.OnEnter(r.c) end
     end
     print("npc sell tip", tostring(GameTooltip.item))
-    harnessBeside("npc vendor beside", MedalluinNPC)
+    harnessBeside("npc vendor beside", MedalUINPC)
     -- never in combat, and never once the vendor has gone
     inCombat = true
     click(rows, "junk701  x3")
@@ -24654,7 +24654,7 @@ if npcPass then
     -- the buyback tab
     click(rows, "Buyback")
     rows = page("npc buyback")
-    harnessBeside("npc buyback tips", MedalluinNPC)
+    harnessBeside("npc buyback tips", MedalUINPC)
     click(rows, "Linen Cloth  x20")
     calls("npc buyback")
     -- Shift-click: the link, not bought back (the chat opened with it)
@@ -24825,7 +24825,7 @@ if npcPass then
     ns.npc.Update("trainer")
     docked("npc trainer back")
     -- Escape: the game hides its frame, the box follows
-    harnessBeside("npc trainer tips", MedalluinNPC)
+    harnessBeside("npc trainer tips", MedalUINPC)
     ClassTrainerFrame:Hide()
     state("npc trainer escaped")
     fire("TRAINER_CLOSED")
@@ -24841,7 +24841,7 @@ if npcPass then
     state("npc trainer closed")
     print("npc trainer untouched", tostring(keys(ClassTrainerFrame) == trainerBefore))
     -- the flight map: Blizzard's TaxiFrame parked, ours in the box's place
-    local fl = _G.MedalluinFlight
+    local fl = _G.MedalUIFlight
     print("npc flight", "parked=" .. tostring(TaxiFrame.parent == ns.hidden), "frame=" .. tostring(fl ~= nil),
         "covered=" .. tostring(fl and fl.scripts.OnShow ~= nil))
     local taxiBefore = keys(TaxiFrame)
@@ -24966,7 +24966,7 @@ if npcPass then
     W.money = 20000
     fire("PLAYER_MONEY")
     frows("npc flight richer")
-    harnessBeside("npc flight tips", MedalluinFlight)
+    harnessBeside("npc flight tips", MedalUIFlight)
     -- Escape: the game hides its frame; ours follows and tells the game
     W.calls = {}
     TaxiFrame:Hide()
@@ -24998,7 +24998,7 @@ if npcPass then
     end
     C_Item.GetItemNameByID = function(id) return "Letter " .. id end
     C_Item.GetItemIconByID = function(id) return 1000 + id end
-    local use = MedalluinQuestItemUse
+    local use = MedalUIQuestItemUse
     local function qi(tag)
         state("npc questitem " .. tag)
         local rows = {}
@@ -25010,12 +25010,12 @@ if npcPass then
         for _, b in ipairs(ns.npc.pages.questItem.Blocks()) do
             if b[1] == "text" and not b.pin then more = b[2] end
         end
-        print("npc questitem " .. tag, "holder=" .. tostring(MedalluinQuestItem.shown),
+        print("npc questitem " .. tag, "holder=" .. tostring(MedalUIQuestItem.shown),
             "front=" .. tostring(ns.npc.Front()), "says=" .. tostring(ns.npc.bar.say:IsVisible()
                 and ns.npc.bar.say.text), "page=" .. table.concat(rows, " | "),
             "use=" .. tostring(use and use.attrs.type) .. "/" .. tostring(use and use.attrs.item),
-            "layer=" .. tostring(MedalluinQuestItemLayer.shown) .. "/" .. tostring(MedalluinQuestItemLayer.stateDrivers
-                and MedalluinQuestItemLayer.stateDrivers.visibility),
+            "layer=" .. tostring(MedalUIQuestItemLayer.shown) .. "/" .. tostring(MedalUIQuestItemLayer.stateDrivers
+                and MedalUIQuestItemLayer.stateDrivers.visibility),
             "over=" .. (over and string.format("%d,%d %dx%d", over[3], over[4], use.w or 0, use.h or 0) or "-"),
             "fits=" .. tostring(face and use:GetLeft() and math.abs(use:GetLeft() - face:GetLeft()) < 0.5
                 and math.abs(use:GetTop() - face:GetTop()) < 0.5 and math.abs(use:GetRight() - face:GetRight()) < 0.5
@@ -25064,7 +25064,7 @@ if npcPass then
     -- Escape puts it away; the option off asks nothing
     held[1] = { id = 906, quest = 56 }
     fire("BAG_UPDATE_DELAYED")
-    MedalluinQuestItem:Hide()
+    MedalUIQuestItem:Hide()
     qi("escaped")
     ns.SetOption("npcQuestItems", false)
     held[7] = { id = 907, quest = 57 }
@@ -25235,7 +25235,7 @@ if mailPass then
         f.edit.scripts.OnTextChanged(f.edit, true)
     end
     local function book()
-        local b = MedalluinDB.mail.Nordanaar
+        local b = MedalUIDB.mail.Nordanaar
         return "alts=" .. table.concat(b.alts, ",") .. " recent=" .. table.concat(b.recent, ",")
     end
 
@@ -25309,7 +25309,7 @@ if mailPass then
     calls("mail take linen")
     M.Answer()
     shown("mail read cloth after")
-    harnessBeside("mail letter tips", MedalluinNPC)
+    harnessBeside("mail letter tips", MedalUINPC)
     press("mail read cloth", "Take all")
     calls("mail take all")
     click("mail read cloth", "‹ Inbox")
@@ -25496,7 +25496,7 @@ if mailPass then
     press("mail stop opening", "Stop")
     M.Answer()
     M.Tick(2)
-    harnessBeside("mail tips", MedalluinNPC)
+    harnessBeside("mail tips", MedalUINPC)
     calls("mail stopped")
     foot("mail stopped")
     -- the mailbox closes mid-way
@@ -25586,7 +25586,7 @@ if mailPass then
     fire("MAIL_SEND_INFO_UPDATE")
     calls("mail dropped")
     shown("mail attached")
-    harnessBeside("mail attached tips", MedalluinNPC)
+    harnessBeside("mail attached tips", MedalUINPC)
     foot("mail attached")
     inBags[6949] = true
     C_Item.PickupItem(6949)
@@ -25678,7 +25678,7 @@ end
 if lfgPass then (function()
     local W = lfgWorld
     local G = ns.lfg
-    local box = _G.MedalluinLFG
+    local box = _G.MedalUILFG
     -- a frame passing: the box draws what changed
     local function frame() if box and box.shown and box.scripts.OnUpdate then box.scripts.OnUpdate(box, 0.016) end end
     local function fire(e, ...)
@@ -25724,14 +25724,14 @@ if lfgPass then (function()
     -- its list opened, and the choice starting with these words clicked
     local function menu()
         local out = {}
-        for _, r in ipairs(_G.MedalluinOptionsMenu.rows) do
+        for _, r in ipairs(_G.MedalUIOptionsMenu.rows) do
             if r.shown then table.insert(out, (r.mark.shown and "[v]" or "") .. r.text.text) end
         end
         return table.concat(out, " | ")
     end
     local function choose(p, words, show)
         p.scripts.OnClick(p, "LeftButton")
-        local m = _G.MedalluinOptionsMenu
+        local m = _G.MedalUIOptionsMenu
         if not (m and m.shown) then
             print("  no list for", picker(p))
             return
@@ -25799,11 +25799,11 @@ if lfgPass then (function()
 
     -- 1. at login: Blizzard's addon asked for, its frame parked; Escape knows ours
     print("lfg login", "parked=" .. tostring(LFGParentFrame and LFGParentFrame.parent == ns.hidden),
-        "escape=" .. tostring(table.concat(UISpecialFrames or {}, ","):find("MedalluinLFG") ~= nil),
-        "binding=" .. tostring(BINDING_NAME_MEDALLUIN_LFG))
+        "escape=" .. tostring(table.concat(UISpecialFrames or {}, ","):find("MedalUILFG") ~= nil),
+        "binding=" .. tostring(BINDING_NAME_MEDALUI_LFG))
     calls("lfg login calls")
     if lfgRetail then
-        MedalluinToggleLFG()
+        MedalUIToggleLFG()
         state("lfg retail open")
         G.who.list.frame.h = 200
         press(G.who.quick, "zone")
@@ -25892,7 +25892,7 @@ if lfgPass then (function()
     fire("LFG_LIST_SEARCH_FAILED")
     -- the game refuses a search: not stuck searching, the list waits for a click
     local search = C_LFGList.Search
-    C_LFGList.Search = function() fire("ADDON_ACTION_BLOCKED", "Medalluin", "UNKNOWN()") end
+    C_LFGList.Search = function() fire("ADDON_ACTION_BLOCKED", "MedalUI", "UNKNOWN()") end
     choose(G.browse.cat, "Dungeons")
     G.browse.go.scripts.OnClick(G.browse.go)
     print("lfg refused", "searching=" .. tostring(ns.lfgData.searching), G.browse.list.empty.text,
@@ -26139,22 +26139,22 @@ if lfgPass then (function()
     state("lfg game opens: Browse")
     ToggleLFGParentFrame()
     state("lfg game closes: ours too")
-    MedalluinToggleLFG()
+    MedalUIToggleLFG()
     state("lfg binding opens")
-    MedalluinToggleLFG()
+    MedalUIToggleLFG()
     state("lfg binding closes")
-    MedalluinToggleLFG()
+    MedalUIToggleLFG()
     G.box.scripts.OnHide(G.box)          -- Escape's Hide, as the harness has it
     box.shown = false
     state("lfg escape")
     ShowUIPanel(FriendsFrame)
     WhoFrame:Show()
     state("lfg who tab")
-    MedalluinToggleLFG()
+    MedalUIToggleLFG()
     LFGWhoListFrame:Show()
     state("lfg their who tab")
     -- /who with theirs open: the panel manager shows theirs again, then the Who tab
-    MedalluinToggleLFG()
+    MedalUIToggleLFG()
     ToggleLFGParentFrame()
     state("lfg theirs open again")
     W.calls = {}
@@ -27143,7 +27143,7 @@ if cdmPass then (function()
         -- nothing to simulate: the dress is off
         ns.SetOption("simCdm", true)
         print("cdm sim display off", "running=" .. tostring(ns.cdmSim.Running()),
-            "panel=" .. tostring(_G.MedalluinCdmSimPanel ~= nil))
+            "panel=" .. tostring(_G.MedalUICdmSimPanel ~= nil))
         ns.SetOption("simCdm", false)
         return
     end
@@ -27796,7 +27796,7 @@ if cdmPass then (function()
     local em = ns.consoleMovers.cdmE
     em.scripts.OnMouseDown(em, "LeftButton")
     em.scripts.OnMouseUp(em, "LeftButton")
-    local P = MedalluinMoverPopup
+    local P = MedalUIMoverPopup
     local function popupShown(tag)
         local out = {}
         for _, ctl in ipairs(P.controls) do
@@ -28055,7 +28055,7 @@ if cdmPass then (function()
     sim("cdm sim before")
     function Region:SetCooldown(start, duration) self.start, self.duration = start, duration end
     ns.SetOption("simCdm", true)
-    local sp = _G.MedalluinCdmSimPanel
+    local sp = _G.MedalUICdmSimPanel
     print("cdm sim panel", "shown=" .. tostring(sp.shown ~= false), "running=" .. tostring(Sim.Running()),
         "count less=" .. tostring(spb["cdm.count.essential.less"]:IsEnabled()),
         "again=" .. tostring(spb["cdm.again"]:IsEnabled()), "label=" .. tostring(spb["cdm.count.buffs"].label.text))
@@ -28197,7 +28197,7 @@ if cdmPass then (function()
         clicks[ns.L["Simulate cooldowns"]]()
         text, clicks = harnessMenu("COOLDOWN_VIEWER_SETTINGS_MENU")
         print("cdm gear menu ticked", text, "simCdm=" .. tostring(ns.db.simCdm),
-            "panel=" .. tostring(_G.MedalluinCdmSimPanel and _G.MedalluinCdmSimPanel:IsShown()))
+            "panel=" .. tostring(_G.MedalUICdmSimPanel and _G.MedalUICdmSimPanel:IsShown()))
         clicks[ns.L["Simulate cooldowns"]]()
         ns.SetOption("cdmDisplay", false)
         text = harnessMenu("COOLDOWN_VIEWER_SETTINGS_MENU")
@@ -28399,21 +28399,21 @@ if fixesPass then (function()
     print("fixes entering again", "checks waiting=" .. again)
     ns.CheckIssues()
     state("first login")
-    print("  offered", tostring(MedalluinDB.issuesOffered and MedalluinDB.issuesOffered.editModeConsoleAnchor))
+    print("  offered", tostring(MedalUIDB.issuesOffered and MedalUIDB.issuesOffered.editModeConsoleAnchor))
     ns.CheckIssues()
     state("later login, still there")
-    SlashCmdList.MEDALLUIN("fix-issues")
+    SlashCmdList.MEDALUI("fix-issues")
     state("/mui fix-issues")
-    SlashCmdList.MEDALLUIN("  FIX  ")
+    SlashCmdList.MEDALUI("  FIX  ")
     state("/mui fix")
     inCombat = true
-    SlashCmdList.MEDALLUIN("fix-issues")
+    SlashCmdList.MEDALUI("fix-issues")
     state("/mui fix-issues in combat")
     inCombat = false
     regen()
     state("combat over")
     -- the dialog's buttons
-    local d = StaticPopupDialogs.MEDALLUIN_FIX_ISSUES
+    local d = StaticPopupDialogs.MEDALUI_FIX_ISSUES
     print("fixes dialog", d.button1, d.button2, "timeout=" .. d.timeout, "dead=" .. tostring(d.whileDead))
     F.failSave = true
     d.OnAccept()
@@ -28423,21 +28423,21 @@ if fixesPass then (function()
     d.OnAccept()
     state("fix")
     layouts()
-    SlashCmdList.MEDALLUIN("fix-issues")
+    SlashCmdList.MEDALUI("fix-issues")
     state("/mui fix-issues, fixed")
     ns.CheckIssues()
     state("login, fixed")
     -- a client with no Edit Mode
     C_EditMode = nil
-    SlashCmdList.MEDALLUIN("fix-issues")
+    SlashCmdList.MEDALUI("fix-issues")
     ns.CheckIssues()
     state("no Edit Mode")
 end)() end
 
 if radialPass then
     assert(loadfile("tools/harness_radial.lua"))({ events = events, setCombat = function(on) inCombat = on end,
-        medalluin = ns, pointAt = function(r) mouseOver = r or false end })
+        medalui = ns, pointAt = function(r) mouseOver = r or false end })
 end
 if tooltipsPass then
-    assert(loadfile("tools/harness_tooltips.lua"))({ events = events, medalluin = ns, region = Region })
+    assert(loadfile("tools/harness_tooltips.lua"))({ events = events, medalui = ns, region = Region })
 end

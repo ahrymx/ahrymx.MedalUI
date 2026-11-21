@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Medalluin's versions and release packages. The version lives in one place,
+# MedalUI's versions and release packages. The version lives in one place,
 # the .toc's "## Version:" line, as MAJOR.MINOR.PATCH; its line tag is vMAJOR.MINOR.
 #
 #   tools/release.sh bump patch|minor|major   raise the .toc's version (a minor
@@ -37,8 +37,15 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-ADDON=WoW/Interface/AddOns/Medalluin
-TOC="$ROOT/$ADDON/Medalluin.toc"
+ADDON=WoW/Interface/AddOns/MedalUI
+TOC="$ROOT/$ADDON/MedalUI.toc"
+# The addon's name at a git ref: the project was Medalluin until 0.63.0
+# (2026-11-21), so a ref from before the rename keeps its folder and .toc
+# under the old name. The one place the old name stays in the code.
+OLD_NAME=Medalluin
+name_at() {
+    if git -C "$ROOT" cat-file -e "$1:$ADDON/MedalUI.toc" 2>/dev/null; then echo MedalUI; else echo "$OLD_NAME"; fi
+}
 
 die() { echo "release.sh: $*" >&2; exit 1; }
 
@@ -51,7 +58,9 @@ version() {
 
 # The .toc's version at a git ref, or empty.
 toc_at() {
-    git -C "$ROOT" show "$1:$ADDON/Medalluin.toc" 2>/dev/null \
+    local n
+    n=$(name_at "$1")
+    git -C "$ROOT" show "$1:WoW/Interface/AddOns/$n/$n.toc" 2>/dev/null \
         | sed -n 's/^## Version:[[:space:]]*\([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' | head -n 1 || true
 }
 
@@ -181,26 +190,28 @@ cmd_plan() {
     echo "previous=${last:+v${last%.*}}"
 }
 
-# The addon as players install it: a Medalluin folder (with the LICENSE) in a zip,
+# The addon as players install it: a MedalUI folder (with the LICENSE) in a zip
+# (a ref from before the rename: its own name's folder and zip),
 # and any optional companion addons as separate <companion>-vX.Y.Z.zip packages.
 cmd_package() {
-    local out=${1:?package where?} ref=${2:-HEAD} v stage companion cpath
+    local out=${1:?package where?} ref=${2:-HEAD} v stage companion cpath n
     if [[ $ref == HEAD ]]; then v=$(version); else v=$(toc_at "$ref"); fi
     mkdir -p "$out"
     out=$(cd "$out" && pwd)
     stage=$(mktemp -d)
     trap 'rm -rf "$stage"' RETURN
     # only what git tracks, so nothing local or ignored slips in
-    git -C "$ROOT" archive --format=tar "$ref" "$ADDON" | tar -x -C "$stage"
-    mv "$stage/$ADDON" "$stage/Medalluin"
+    n=$(name_at "$ref")
+    git -C "$ROOT" archive --format=tar "$ref" "WoW/Interface/AddOns/$n" | tar -x -C "$stage"
+    mv "$stage/WoW/Interface/AddOns/$n" "$stage/$n"
     if git -C "$ROOT" cat-file -e "$ref:LICENSE" 2>/dev/null; then
-        git -C "$ROOT" show "$ref:LICENSE" > "$stage/Medalluin/LICENSE"
+        git -C "$ROOT" show "$ref:LICENSE" > "$stage/$n/LICENSE"
     else
-        cp "$ROOT/LICENSE" "$stage/Medalluin/LICENSE"
+        cp "$ROOT/LICENSE" "$stage/$n/LICENSE"
     fi
-    rm -f "$out/Medalluin-v$v.zip"
-    (cd "$stage" && zip -qr -X "$out/Medalluin-v$v.zip" Medalluin)
-    echo "$out/Medalluin-v$v.zip"
+    rm -f "$out/$n-v$v.zip"
+    (cd "$stage" && zip -qr -X "$out/$n-v$v.zip" "$n")
+    echo "$out/$n-v$v.zip"
     for companion in $(companions); do
         cpath="WoW/Interface/AddOns/$companion"
         if git -C "$ROOT" cat-file -e "$ref:$cpath/$companion.toc" 2>/dev/null; then
@@ -244,7 +255,7 @@ cmd_notes() {
 # line's tag sits at the newest commit of that line. Any old 3-part vX.Y.Z tags
 # here are removed so local tags match GitHub's.
 cmd_tags() {
-    local quiet=false tip="refs/remotes/origin/main" sha v line tag old
+    local quiet=false tip="refs/remotes/origin/main" sha v line tag old n
     while (($#)); do
         case $1 in
             --quiet) quiet=true ;;
@@ -260,7 +271,8 @@ cmd_tags() {
     # newest first: the first commit seen for a minor line is where vMAJOR.MINOR sits
     while read -r sha; do
         git -C "$ROOT" cat-file -e "$sha:.github/workflows/release.yml" 2>/dev/null || continue
-        v=$(git -C "$ROOT" show "$sha:$ADDON/Medalluin.toc" 2>/dev/null \
+        n=$(name_at "$sha")
+        v=$(git -C "$ROOT" show "$sha:WoW/Interface/AddOns/$n/$n.toc" 2>/dev/null \
             | sed -n 's/^## Version:[[:space:]]*\([0-9]*\.[0-9]*\.[0-9]*\)[[:space:]]*$/\1/p' | head -n 1)
         [[ -n $v ]] || continue
         line=${v%.*}
@@ -274,7 +286,7 @@ cmd_tags() {
 
 # The hook: git runs it on every ref update; it answers only a push (or fetch)
 # that moved origin/main, once the update is committed.
-HOOK_MARK="# medalluin: release tags (tools/release.sh hook)"
+HOOK_MARK="# medalui: release tags (tools/release.sh hook)"
 cmd_hook() {
     local hooks file
     hooks=$(git -C "$ROOT" rev-parse --git-path hooks)

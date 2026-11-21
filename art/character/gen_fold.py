@@ -33,7 +33,7 @@ def fold(size):
 
 
 def main():
-    out = os.path.join(ROOT, "WoW", "Interface", "AddOns", "Medalluin", "media", "character")
+    out = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "character")
     export.to_tga(fold(SIZE), os.path.join(out, "fold.tga"))
     print(os.path.join(out, "fold.tga"))
 
