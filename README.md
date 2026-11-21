@@ -78,7 +78,11 @@ A quest's own page spells out where it sits in its chain, step by step, with its
 
 | Spellbook | Macros |
 |:---:|:---:|
-| ![The spellbook: spells by school, with ranks, costs and click-cast bindings](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/spellbook.png) | ![The macros page, with a macro's editor](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/macros.png) |
+| ![The spellbook's Restoration tab: spells not on your bars, on your bars and passive, with ranks, cast times, mana costs and click-cast bindings](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/spellbook.png) | ![The macros page, with a macro's editor](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/macros.png) |
+
+| Professions |
+|:---:|
+| ![The professions overview: primary professions with their skill bars, the secondary ones, cooldowns to track, and the camping row](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/professions.png) |
 
 - **Bags** (inspired by Baganator) put the backpack, bags and reagent bag in one window. Items are grouped (New, Equipment, Consumables, Quest items, Trade goods, Junk), and the equipped bags open in a drawer above.
 - **Alt+click** an item to lock it: it shows a padlock and can't be sold or destroyed.
@@ -91,7 +95,7 @@ A **plan** lays out a build by level. In plan mode the tree turns to a drafting 
 
 | Talents | A talent's ranks |
 |:---:|:---:|
-| ![The talents window: the Elemental tree on its ember wash, under the console with the points left and the next talent in your plan](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talents.png) | ![The Restoration tree on its green wash, Water Shield chosen: its rank, what it needs, and what it does](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-details.png) |
+| ![The talents window: the Enhancement tree on its ember wash, its learned talents lit, under the console with the point left, Reset, Follow and Apply, and the next talent in your plan](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talents.png) | ![The Restoration tree on its green wash, Water Shield chosen: its rank, what it needs, and what it does](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-details.png) |
 
 | Drafting a plan | Talent plans |
 |:---:|:---:|
