@@ -26607,6 +26607,13 @@ if cdmPass then (function()
     it.Icon:SetDesaturated(true)
     print("cdm look off", "sweep=" .. tostring(it.Cooldown.drawSwipe), "grey=" .. tostring(it.Icon.desaturated),
         "oor alpha=" .. tostring(it.OutOfRange.alpha))
+    -- in combat the game's sweep and greying can be secret (the client
+    -- raises on testing them: the harness's secrets test true, so only the
+    -- result shows here): put back as off all the same
+    it.Cooldown:SetDrawSwipe(secret())
+    it.Icon:SetDesaturated(secret())
+    print("cdm look off, secret", "sweep=" .. tostring(it.Cooldown.drawSwipe),
+        "grey=" .. tostring(it.Icon.desaturated))
     ns.SetOption("cdmESwipe", true)
     ns.SetOption("cdmEDesat", true)
     ns.SetOption("cdmERange", true)

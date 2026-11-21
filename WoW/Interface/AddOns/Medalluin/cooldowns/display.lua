@@ -241,10 +241,13 @@ local function DressIcon(item, key)
     if cd then
         if cd.SetSwipeColor then cd:SetSwipeColor(0, 0, 0, 0.7) end
         if cd.SetDrawEdge then cd:SetDrawEdge(false) end
-        -- the game sets its sweep on each refresh: put ours back after
+        -- the game sets its sweep on each refresh: put ours back after. In
+        -- combat what it sets can be secret, never tested: put back as off
+        -- all the same, which is all that is wanted
         if cd.SetDrawSwipe then
             hooksecurefunc(cd, "SetDrawSwipe", function(self, on)
-                if on and not d.swiping and not Opt(key, "Swipe") then
+                if d.swiping or Opt(key, "Swipe") then return end
+                if ns.IsSecret(on) or on then
                     d.swiping = true
                     self:SetDrawSwipe(false)
                     d.swiping = nil
@@ -252,10 +255,12 @@ local function DressIcon(item, key)
             end)
         end
     end
-    -- the game greys a cooling-down icon: put back, if this viewer says not to
+    -- the game greys a cooling-down icon: put back, if this viewer says not
+    -- to (a secret greying, in combat, untested: put back as not grey)
     if icon.SetDesaturated then
         hooksecurefunc(icon, "SetDesaturated", function(self, on)
-            if on and not d.greying and not Opt(key, "Desat") then
+            if d.greying or Opt(key, "Desat") then return end
+            if ns.IsSecret(on) or on then
                 d.greying = true
                 self:SetDesaturated(false)
                 d.greying = nil
