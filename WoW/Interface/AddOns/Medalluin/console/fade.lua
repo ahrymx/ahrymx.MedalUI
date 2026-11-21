@@ -9,7 +9,8 @@
 --                  frames, lifted out of the console's alpha to their own
 --                  (20%); combat, and what is ticked there, bring it back.
 --                  While regenerating (health, or mana, energy or focus,
---                  refilling) the faded parts show at least its own opacity
+--                  refilling) the faded parts show at least its own opacity;
+--                  above 0% it wins over "Back when health is not full"
 --                  It takes over from fading when idle while it is on. The
 --                  overhead is not the console's: it keeps its own opacity
 --   the overhead   Console > Overhead > Opacity: it shows whenever it holds
@@ -174,9 +175,11 @@ function ns.ConsoleWanted()
         return true
     end
     if minimal then
+        -- hurt out of combat is regenerating: with While regenerating above
+        -- 0% it shows at that, not whole (the user's call, 2026-11-21)
         return inCombat
             or (db.consoleMinimalTarget and UnitExists("target"))
-            or (db.consoleMinimalHurt and Hurt())
+            or (db.consoleMinimalHurt and Num("consoleMinimalRegen", 0, 1) == 0 and Hurt())
             or (db.consoleMinimalGroup and IsInGroup())
             or (db.consoleMinimalMouse and Over())
             or false

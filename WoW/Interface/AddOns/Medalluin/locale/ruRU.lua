@@ -2331,13 +2331,17 @@ L["How much of the rest of the console, its bars and its party row shows out of 
     "Насколько видна остальная консоль, её панели и ряд группы вне боя. У верхних рамок своё."
 L["While regenerating"] = "При восстановлении"
 L["While your health, mana, energy or focus refills out of combat, the faded console and your player and target "
-    .. "frames show at least this much. 0%: as faded. Combat and what brings it back below still make it whole."] =
+    .. "frames show at least this much, hurt included. 0%: as faded. Combat and what brings it back below still make "
+    .. "it whole, but for health not full."] =
     "Пока вне боя восполняются здоровье, мана, энергия или концентрация, скрытая консоль и рамки игрока и цели видны "
-    .. "хотя бы настолько. 0% — как скрытые. Бой и условия ниже по-прежнему возвращают её целиком."
+    .. "хотя бы настолько, и при ранении тоже. 0% — как скрытые. Бой и условия ниже по-прежнему возвращают её "
+    .. "целиком, кроме неполного здоровья."
 L["Back with a target"] = "Возвращать при цели"
 L["Whole again while you have a target."] = "Снова целиком, пока у вас есть цель."
 L["Back when health is not full"] = "Возвращать при неполном здоровье"
 L["Whole again while your health is below its most."] = "Снова целиком, пока здоровье не на максимуме."
+L["Whole again while your health is below its most, unless While regenerating is above 0%: then at that."] =
+    "Снова целиком, пока здоровье не на максимуме; если «При восстановлении» выше 0% — с этой видимостью."
 L["Back in a group"] = "Возвращать в группе"
 L["Whole again while you are in a party or a raid."] = "Снова целиком, пока вы в группе или рейде."
 L["Back on mouseover"] = "Возвращать при наведении"

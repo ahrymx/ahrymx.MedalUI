@@ -13997,6 +13997,26 @@ function FadePass()
         health = 82
         run(0.7)
         mini("regenerating 50%, hurt")
+        -- Back when health is not full ticked too: hurt out of combat is
+        -- regenerating, so at that opacity, not whole (2026-11-21); at 0%,
+        -- whole as before; combat still whole
+        set("consoleMinimalHurt", true)
+        run(0.7)
+        mini("regenerating 50%, hurt, back when hurt ticked")
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        run(0.7)
+        mini("regenerating 50%, hurt, ticked, in combat")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
+        run(0.7)
+        mini("regenerating 50%, hurt, ticked, after combat")
+        set("consoleMinimalRegen", 0)
+        run(0.7)
+        mini("regenerating 0%, hurt, ticked")
+        set("consoleMinimalRegen", 0.5)
+        set("consoleMinimalHurt", false)
+        run(0.7)
         health = 100
         UnitPower = function() return 40 end
         UnitPowerType = function() return 1 end

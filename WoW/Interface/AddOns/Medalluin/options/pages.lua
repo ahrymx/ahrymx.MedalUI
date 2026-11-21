@@ -999,12 +999,14 @@ function ns.OptionPages()
                                 .. "combat. The overhead keeps its own."]),
                             Opacity("consoleMinimalRegen", Tr["While regenerating"],
                                 Tr["While your health, mana, energy or focus refills out of combat, the faded console "
-                                .. "and your player and target frames show at least this much. 0%: as faded. "
-                                .. "Combat and what brings it back below still make it whole."]),
+                                .. "and your player and target frames show at least this much, hurt included. "
+                                .. "0%: as faded. Combat and what brings it back below still make it whole, "
+                                .. "but for health not full."]),
                             { kind = "check", key = "consoleMinimalTarget", label = Tr["Back with a target"],
                                 tip = Tr["Whole again while you have a target."] },
                             { kind = "check", key = "consoleMinimalHurt", label = Tr["Back when health is not full"],
-                                tip = Tr["Whole again while your health is below its most."] },
+                                tip = Tr["Whole again while your health is below its most, unless While "
+                                .. "regenerating is above 0%: then at that."] },
                             { kind = "check", key = "consoleMinimalGroup", label = Tr["Back in a group"],
                                 tip = Tr["Whole again while you are in a party or a raid."] },
                             { kind = "check", key = "consoleMinimalMouse", label = Tr["Back on mouseover"],
