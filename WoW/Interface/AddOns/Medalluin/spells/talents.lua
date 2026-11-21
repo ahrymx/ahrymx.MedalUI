@@ -3,13 +3,12 @@
 -- medallion. Forever only: its talents are one tree of three groups, the
 -- old trees, drawn by Blizzard side by side; retail's keep Blizzard's.
 --
---   [tree][tree][tree]                                          [x]
---   ---------------------------------------------------------------
+--   (medallion)               Talents                           [x]
 --   +---------------------------------------------------------------+
---   |    Elemental      |    12  points    |     Next in plan      |
---   | 5 points in tree  |        left      |   Concussion 2/5      |
---   |-------------------+------------------+-----------------------|
---   |      Reset        |      Follow      |        Apply          |
+--   |    Elemental        |    Enhancement     |    Restoration     |
+--   |    <> 5 points      |    <> 0 points     |    <> 11 points    |
+--   |=====================+--------------------+--------------------|
+--   | 12 points left                          | Reset | Follow | Apply |
 --   +---------------------------------------------------------------+
 --        [o]     [o]                (a tree's talents, where the
 --         |                          tree puts them, with the
@@ -123,6 +122,10 @@ local STRIP = 26                        -- a row of controls: the points' over t
 local READOUTS, CONTROLS = 84, 34       -- the console's readouts, and its row of controls under them
 local CONSOLE = READOUTS + CONTROLS     -- the console over the tree
 local LIFT = 4                          -- the console raised to meet the tabs (the page starts under a gap)
+-- the panel joined under the head on a tree's page: the trees' tabs, and
+-- one row under them (the points left, the controls)
+local TABS_H, ROW_H = 44, 40
+local CONTROL_W = 74                    -- each control, joined at the row's right end
 local HEAD = CONSOLE - LIFT + 16        -- what stands over the tree (a page may say its own: p.over)
 local FOOT = 6 + STRIP + 6 + 2 * 15     -- the plan's row and two lines of hint under it
 local PLAN_ROW = 8 + 1 + 6 + 15         -- out of the plan's mode: a gap, a rule, a gap, the plan's line
@@ -824,6 +827,7 @@ local function Band(p)
 end
 
 local Controls                          -- the console's controls laid out (with the console, below)
+local TreeTabs                          -- the panel's tabs drawn (with the panel, below)
 local function Refresh(p)
     local config = Config()
     local groups = Groups()
@@ -850,7 +854,9 @@ local function Refresh(p)
             p.details.nothing:SetText(Tr["Choose a talent to read it."])
             p.details:Set(nil)
         end
+        -- (an import's note, as what it left out, until the plan changes)
         p.planLine:SetText(why and format("%s: %s", chosen.talent.name, why)
+            or sim.note
             or d and format(Tr["Checkpoint keeps %s %d/%d as a step of the plan."],
                 Entry(config, m[d.id].node).name, plan.counts[d.id], m[d.id].node.maxRanks)
             or Tr["Click a talent to add a point to the plan; right-click takes its last off."])
@@ -875,44 +881,26 @@ local function Refresh(p)
         end
         p.planLine:SetText(line)
     end
-    -- the console: the points left to spend (or planned), the tree's, and
-    -- the status (the tabs' tips say each tree's)
+    -- the panel: the trees' tabs, each with its points (or planned); the
+    -- row's points left to spend (or planned). (What comes next, and the
+    -- plan's state, are the foot's line.)
     local spent = Spent(config, groups)
     local staged = not planning and C_Traits.ConfigHasStagedChanges(config) and true or false
     local c = p.console
-    c.title:SetText(group.displayName)
-    local function State(head, line, lit)
-        c.state:SetText(head)
-        c.status:SetText(line)
-        local color = lit and GOLD or ns.colors.dim
-        c.state:SetTextColor(color[1], color[2], color[3])
+    local counts = {}
+    for i, g in ipairs(groups) do
+        counts[i] = planning and (plan.spent[g.groupID] or 0) or (spent[g.groupID] or 0)
     end
+    TreeTabs(p, groups, counts)
     if planning then
         c.number:SetText(#plan.kept)
-        c.caption:SetText(format(Tr["planned\nof %d"], Cap()))
-        c.line:SetText(format(Tr["%d planned in this tree"], plan.spent[group.groupID] or 0))
-        State(sim.name or Tr["New plan"], sim.note
-            or d and format(Tr["Draft: %s +%d"], Entry(config, m[d.id].node).name, d.n)
-            or sim.saved and Tr["Saved"] or Tr["Not saved"], true)
+        c.caption:SetText(format(Tr["planned of %d"], Cap()))
     else
         local left = Left(config)
         c.number:SetText(left)
-        c.caption:SetText(ns.Plural(left, Tr["|4point:points;\nleft"]))
-        c.line:SetText(format(Tr["%d |4point:points; in this tree"], spent[group.groupID] or 0))
-        local nextOne = nextID and m[nextID]
-        if staged then
-            State(Tr["Points chosen"], Tr["Apply to learn them"], true)
-        elseif nextOne then
-            State(Tr["Next in plan"], format("%s %d/%d", Entry(config, nextOne.node).name, nextRank,
-                nextOne.node.maxRanks))
-        elseif #Plan() == 0 then
-            State(Tr["No plan"], Tr["Make one under Plans"])
-        else
-            State(Tr["Plan complete"], "")
-        end
+        c.caption:SetText(ns.Plural(left, Tr["|4point:points; left"]))
     end
     if not planning then p.name:Hide() end
-    c.state:SetShown(not p.name:IsShown())
     p.ground.Plan(planning)
     Controls(p, staged, not planning and nextID ~= nil and Editable() and Left(config) > 0, d and true or false,
         planning and #sim.steps > 0 and not d)
@@ -1160,8 +1148,159 @@ local function Can(b, on)
     if b.lit then b.well:SetColorTexture(unpack(b.on and b.lit or b.dark)) end
 end
 
+-- The panel joined under the head (2026-11-21, mockup C of
+-- https://claude.ai/artifact/3hVpaA6jqLXJxVM8ion36j): a tab per tree, as the
+-- spellbook's (its role's gem, its name, its points under), the tree in
+-- view held (a gold wash, a gold line under its words); a click views the
+-- tree. Under them one row: the points left (or planned), large, its word
+-- after; the controls joined at the right end (what comes next is the
+-- foot's line). The head above says only the window's name.
+--   c.tabs, c.cells; c.number, c.caption; c.say (the room between the
+--   points and the controls, where Save plan asks for the name); c.row
+local function Gem(parent)
+    local g = {}
+    g.rim = parent:CreateTexture(nil, "ARTWORK", nil, 1)
+    g.rim:SetSize(9, 9)
+    g.rim:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    g.stone = parent:CreateTexture(nil, "ARTWORK", nil, 2)
+    g.stone:SetSize(7, 7)
+    g.stone:SetPoint("CENTER", g.rim)
+    if g.rim.SetRotation then
+        g.rim:SetRotation(math.pi / 4)
+        g.stone:SetRotation(math.pi / 4)
+    end
+    return g
+end
+
+local function TreePage(i)
+    for _, page in ipairs(W.pages) do if page.tree == i then return page end end
+end
+
+local function TreeCell(c, i)
+    local t = CreateFrame("Button", nil, c.tabs)
+    t.wash = t:CreateTexture(nil, "BACKGROUND", nil, 3)
+    t.wash:SetAllPoints()
+    t.wash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.3)
+    t.line = t:CreateTexture(nil, "ARTWORK")
+    t.line:SetHeight(2)
+    t.line:SetPoint("BOTTOMLEFT", 10, 1)
+    t.line:SetPoint("BOTTOMRIGHT", -10, 1)
+    t.line:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    t.split = t:CreateTexture(nil, "BORDER")
+    t.split:SetWidth(1)
+    t.split:SetPoint("TOPLEFT", -1, 0)
+    t.split:SetPoint("BOTTOMLEFT", -1, 0)
+    t.split:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    t.name = ns.Text(t, 12)
+    t.name:SetWordWrap(false)
+    -- the gem beside the count, so a long name has the whole width
+    t.count = ns.Text(t, 9)
+    t.gem = Gem(t)
+    t.gem.rim:SetPoint("RIGHT", t.count, "LEFT", -6, 0)
+    local glow = t:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetAllPoints()
+    glow:SetColorTexture(1, 1, 1, 0.06)
+    t:SetScript("OnClick", function()
+        local page = TreePage(i)
+        if page and page.available and W.Current() ~= page then W.Select(page) end
+    end)
+    t:SetScript("OnEnter", function(self)
+        local page = TreePage(i)
+        if page and page.tip then ns.Tip(self, ns.window.OutsideTop, { title = page.tip, color = GOLD }) end
+    end)
+    t:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    c.cells[i] = t
+    return t
+end
+
+-- the tabs as the trees now are, each a share of the panel's width; a name
+-- too wide drops a size or three. counts: each tree's points (or planned)
+function TreeTabs(p, groups, counts)
+    local c = p.console
+    local width = (c.tabs:GetWidth() or 0) > 0 and c.tabs:GetWidth() or (W.width + 2 * ns.window.pad)
+    -- the medallion and its step stand over the inner end (the left: the
+    -- talents are on the right): that cell's words centred in what they leave
+    local clear = (W.step or 40) + 6
+    local class = select(2, UnitClass("player"))
+    for i, g in ipairs(groups) do
+        local t = c.cells[i] or TreeCell(c, i)
+        local x0 = math.floor((i - 1) * width / #groups)
+        local x1 = math.floor(i * width / #groups)
+        t:ClearAllPoints()
+        t:SetPoint("TOPLEFT", c.tabs, "TOPLEFT", x0, 0)
+        t:SetSize(x1 - x0, TABS_H)
+        local held = i == p.tree
+        t.wash:SetShown(held)
+        t.line:SetShown(held)
+        t.split:SetShown(i > 1)
+        local shift = i == 1 and clear / 2 or 0
+        t.name:ClearAllPoints()
+        t.name:SetPoint("CENTER", shift, 7)
+        t.count:ClearAllPoints()
+        t.count:SetPoint("CENTER", shift + 6, -9)
+        local room = (x1 - x0) - 10 - (i == 1 and clear or 0)
+        local size = 12
+        t.name:SetFont(ns.font, size, "")
+        t.name:SetText(g.displayName)
+        while size > 9 and (t.name:GetStringWidth() or 0) > room do
+            size = size - 1
+            t.name:SetFont(ns.font, size, "")
+        end
+        t.name:SetWidth(math.min(room, math.ceil(t.name:GetStringWidth() or 0) + 1))
+        local col = ROLE_COLOR[Role(class, i)] or GOLD_D
+        t.gem.stone:SetColorTexture(col[1], col[2], col[3], 1)
+        local nc = held and GOLD or ns.colors.dim
+        t.name:SetTextColor(nc[1], nc[2], nc[3])
+        local n = counts[i] or 0
+        t.count:SetText(planning and format(Tr["%d planned"], n)
+            or ns.Plural(n, format(Tr["%d |4point:points;"], n)))
+        local cc = held and ns.colors.dim or OFF
+        t.count:SetTextColor(cc[1], cc[2], cc[3])
+        t:Show()
+    end
+end
+
+local function Panel(p)
+    local panel = p.panel
+    local c = CreateFrame("Frame", nil, panel)
+    c:SetAllPoints(panel)
+    c.cells = {}
+    c.tabs = CreateFrame("Frame", nil, c)
+    c.tabs:SetPoint("TOPLEFT")
+    c.tabs:SetPoint("TOPRIGHT")
+    c.tabs:SetHeight(TABS_H)
+    c.tabs:SetScript("OnSizeChanged", function() if p.console and W.Current() == p then W.Refresh() end end)
+    -- the row: a gold rule over it
+    local rule = c:CreateTexture(nil, "BORDER")
+    rule:SetHeight(1)
+    rule:SetPoint("TOPLEFT", 0, -TABS_H)
+    rule:SetPoint("TOPRIGHT", 0, -TABS_H)
+    rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    c.row = CreateFrame("Frame", nil, c)
+    c.row:SetPoint("BOTTOMLEFT", 0, 0)
+    c.row:SetPoint("BOTTOMRIGHT", 0, 0)
+    c.row:SetHeight(ROW_H)
+    -- the points at the left, as wide as their words
+    c.number = ns.Text(c.row, 24)
+    c.number:SetPoint("LEFT", 14, 0)
+    c.number:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    c.caption = ns.Text(c.row, 13)
+    c.caption:SetPoint("LEFT", c.number, "RIGHT", 6, -2)
+    c.caption:SetJustifyH("LEFT")
+    c.caption:SetWordWrap(false)
+    c.caption:SetTextColor(unpack(ns.colors.dim))
+    -- the room from the points to the controls: empty, but where Save plan
+    -- asks for the plan's name
+    local say = CreateFrame("Frame", nil, c.row)
+    say:SetHeight(ROW_H)
+    say:SetPoint("LEFT", c.caption, "RIGHT", 14, 2)        -- (the caption sits 2 low)
+    say:SetPoint("RIGHT", c.row, "RIGHT", -3 * CONTROL_W, 0)
+    c.say = say
+    return c
+end
+
 local function Points(p, body)
-    local c = Console(body, true, p.panel)
+    local c = Panel(p)
     p.console = c
     local row = c.row
     p.reset = Button(row, 64, function()
@@ -1203,7 +1342,6 @@ local function Points(p, body)
         if sim.draft then return end
         p.name:SetText(sim.name or format(Tr["Plan %d"], #Book().list + 1))
         p.name:Show()
-        c.state:Hide()
         p.name:SetFocus()
         p.name:HighlightText()
     end, function()
@@ -1221,15 +1359,15 @@ local function Points(p, body)
     end
     -- Save plan asks for the name in a box over the plan's name, in the
     -- console: Enter keeps it, Escape (or leaving the box) does not
-    p.name = CreateFrame("EditBox", nil, c.cells[3])
+    p.name = CreateFrame("EditBox", nil, c.say)
     p.name:SetAutoFocus(false)
     p.name:SetFont(ns.font, 14, "")
     p.name:SetTextColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3])
     p.name:SetTextInsets(8, 8, 0, 0)
     p.name:SetMaxLetters(32)
     p.name:SetHeight(24)
-    p.name:SetPoint("BOTTOMLEFT", c.cells[3], "LEFT", 16, 0)
-    p.name:SetPoint("BOTTOMRIGHT", c.cells[3], "RIGHT", -16, 0)
+    p.name:SetPoint("LEFT", c.say, "LEFT", 8, 0)
+    p.name:SetPoint("RIGHT", c.say, "RIGHT", -8, 0)
     local well = p.name:CreateTexture(nil, "BACKGROUND")
     well:SetAllPoints()
     well:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
@@ -1247,17 +1385,16 @@ local function Points(p, body)
     p.name:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     p.name:SetScript("OnEditFocusLost", function(self)
         self:Hide()
-        c.state:Show()
     end)
-    -- joined: each a third, neighbours sharing their edge; the mode's
-    -- three or the others (Controls)
+    -- joined at the row's right end, neighbours sharing their edge; the
+    -- mode's three or the others (Controls)
     local function Lay()
-        local w = (row:GetWidth() or 0) / 3
+        local w = row:GetWidth() or 0
         for _, list in ipairs({ { p.reset, p.follow, p.apply }, { p.exit, p.checkpoint, p.save } }) do
             for i, b in ipairs(list) do
                 b:ClearAllPoints()
-                b:SetPoint("TOPLEFT", row, "TOPLEFT", math.floor((i - 1) * w) - (i > 1 and 1 or 0), 0)
-                b:SetSize(math.floor(w) + (i > 1 and 1 or 0), CONTROLS + 1)
+                b:SetPoint("TOPLEFT", row, "TOPLEFT", w - (4 - i) * CONTROL_W - 1, 0)
+                b:SetSize(CONTROL_W + 1, ROW_H)
             end
         end
     end
@@ -1341,12 +1478,15 @@ end
 
 -- ------------------------------------------------------------------ pages
 for i = 1, TREES do
-    local p = { key = "tree" .. i, tree = i, order = i, label = "", frame = "TalentsFrame" }
+    -- no tab of the shell's: the panel's own tabs view the trees, and the
+    -- head says only the window's name (no "1 of 3", no list)
+    local p = { key = "tree" .. i, tree = i, order = i, label = "", frame = "TalentsFrame", tabless = true,
+        heading = Tr["Talents"], headGlyph = "talents" }
     p.nodes, p.edges, p.halos = {}, {}, {}
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true
     -- the console joined under the head (the shell's panel); the tree from
     -- just under it
-    p.under, p.over = CONSOLE, 8
+    p.under, p.over = TABS_H + 1 + ROW_H, 8
     p.events = { "TRAIT_CONFIG_UPDATED", "TRAIT_NODE_CHANGED", "TRAIT_TREE_CURRENCY_INFO_UPDATED",
         "PLAYER_TALENT_UPDATE", "ACTIVE_TALENT_GROUP_CHANGED", "SPELLS_CHANGED", "PLAYER_LEVEL_UP",
         "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED" }

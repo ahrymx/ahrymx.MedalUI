@@ -229,9 +229,25 @@ local function isSecret(v) return getmetatable(v) == Secret end
 -- the talents' console (spells/talents.lua): its medallion, title, lines
 function TalentConsole(c)
     if c.shown == false then return "(hidden)" end
-    return string.format("%s / %s | %s %s | %s / %s", tostring(c.title.text), tostring(c.line.text),
-        tostring(c.number.text), tostring(c.caption.text):gsub("\n", " "), tostring(c.state.text),
-        tostring(c.status.text))
+    local first
+    if c.tabs then
+        -- a tree's panel: its tabs (the held one starred), then its row
+        local t = {}
+        for _, cell in ipairs(c.cells) do
+            if cell:IsShown() then
+                table.insert(t, (cell.line:IsShown() and "*" or "") .. tostring(cell.name.text) .. " "
+                    .. tostring(cell.count.text))
+            end
+        end
+        first = table.concat(t, ", ")
+    else
+        first = tostring(c.title.text) .. " / " .. tostring(c.line.text)
+    end
+    local row = string.format("%s | %s %s", first, tostring(c.number.text),
+        (tostring(c.caption.text):gsub("\n", " ")))
+    -- (a tree's panel has no status: the foot's line says what comes next)
+    if c.tabs then return row .. (c.state and " | status!" or "") end
+    return row .. string.format(" | %s / %s", tostring(c.state.text), tostring(c.status.text))
 end
 local secretsUsed = 0
 
@@ -20063,15 +20079,33 @@ if talentPass then
             "parked=" .. tostring(PlayerSpellsFrame and PlayerSpellsFrame.parent == ns.hidden),
             "page=" .. (p and p.key or "none"))
     end
+    -- (2026-11-21) the trees' tabs are the panel's: name, count, held,
+    -- width; and the head as it reads (the window's name, no count)
     local function tabs(tag)
         local list = {}
-        for _, p in ipairs(W.pages) do
-            if p.tab and p.tab.shown then
-                table.insert(list, p.label .. "=" .. tostring(p.tab.icon.texture) .. (p.tab.mark.shown and "*" or "")
-                    .. "@" .. p.tab.w .. "[" .. p.tip .. "]")
+        local p = W.Current()
+        local c = p and p.console
+        for i, cell in ipairs(c and c.cells or {}) do
+            if cell:IsShown() then
+                local page
+                for _, q in ipairs(W.pages) do if q.tree == i then page = q end end
+                table.insert(list, tostring(cell.name.text) .. (cell.line:IsShown() and "*" or "")
+                    .. "@" .. cell.points.TOPLEFT[3] .. "+" .. cell.w .. " ~" .. cell.name.points.CENTER[3]
+                    .. "/" .. tostring(cell.name.font and cell.name.font[2]) .. " " .. tostring(cell.count.text)
+                    .. " gem=" .. (cell.gem.stone.color and string.format("%.2f", cell.gem.stone.color[1]) or "-") .. "[" .. tostring(page and page.tip) .. "]")
             end
         end
-        print(tag, table.concat(list, " "))
+        local h = W.dropdown and W.dropdown.head
+        print(tag, table.concat(list, " "), h and ("head=" .. tostring(h.label.text) .. " count="
+            .. tostring(h.count.text) .. " chevron=" .. tostring(h.chevron:IsShown()) .. " glyph="
+            .. tostring(h.icon.texture):match("[^\\]+$")) or "head=-")
+    end
+    -- a tree viewed by its tab in the panel (the page's own, as a player)
+    local function view(page)
+        local c = W.Current().console
+        local cell = c and c.cells[page.tree]
+        if cell then cell.scripts.OnClick(cell) else print("talents no tab for " .. page.key .. ": selected") W.Select(page) end
+        if W.Current() ~= page then print("talents tab click did not view " .. page.key) W.Select(page) end
     end
     local function c3(c) return c and string.format("%.2f", c[1]) or "-" end
     local function tree(tag)
@@ -20146,7 +20180,7 @@ if talentPass then
         c.row.scripts.OnSizeChanged(c.row)
         local function at(b)
             local q = b.points.TOPLEFT
-            return string.format("%s@%s %dx%d", b.on and "on" or "off", tostring(q[4]), b.w, b.h)
+            return string.format("%s@%s,%s %dx%d", b.on and "on" or "off", tostring(q[3]), tostring(q[4]), b.w, b.h)
         end
         print(tag, "h=" .. c.h, "body=" .. tostring(c.parent == p.body), "head=" .. W.head,
             "row=" .. c.row.h, "reset=" .. at(p.reset), "follow=" .. at(p.follow), "apply=" .. at(p.apply),
@@ -20162,11 +20196,10 @@ if talentPass then
         local p = W.pages[1]
         if p.panel then
             local c = p.console
-            local sp = c and c.splits and c.splits[1]
             print("talents.joined", "under=" .. tostring(p.under) .. " h=" .. tostring(p.panel.h),
                 "console in panel=" .. tostring(c and c.parent == p.panel and c.all == p.panel),
-                "split=" .. (sp and (tostring(sp.kind) .. " " .. tostring(sp.points.TOP and sp.points.TOP[4]) .. "/"
-                    .. tostring(sp.points.BOTTOM and sp.points.BOTTOM[4])) or "-"), "over=" .. tostring(p.over))
+                "tabs h=" .. tostring(c.tabs.h) .. " row h=" .. tostring(c.row.h), "over=" .. tostring(p.over),
+                "tabless=" .. tostring(p.tabless), "head=" .. tostring(p.heading) .. "/" .. tostring(p.headGlyph))
         else
             print("talents.joined", "not built")
         end
@@ -20296,10 +20329,36 @@ if talentPass then
 
     -- 4. the next tree
     local enh = pageOf("tree2")
-    enh.tab.scripts.OnClick(enh.tab)
+    view(enh)
     frame()
     tree("talents.enhancement")
     tabs("talents.tabs")
+    do  -- a tab's tip: its tree and its points, outside the window's top
+        local cell = W.Current().console.cells[1]
+        cell.scripts.OnEnter(cell)
+        print("talents.tab tip", tipSpec())
+    end
+    -- the panel narrowed, and a tree's name too long for its share: the
+    -- tabs re-share the width, the long name drops a size or more
+    do
+        local c = W.Current().console
+        local was = C_Traits.GetGroupDisplayInfoByTreeID
+        C_Traits.GetGroupDisplayInfoByTreeID = function(...)
+            local list = was(...)
+            for _, g in ipairs(list) do if g.groupID == 13 then g.displayName = "Restoration of the Earthen Ring" end end
+            return list
+        end
+        W.Refresh()
+        local w = c.tabs.w
+        c.tabs.w = 360
+        local sized = c.tabs.scripts.OnSizeChanged
+        if sized then sized(c.tabs) else print("talents.tabs no size script") end
+        tabs("talents.tabs narrow")
+        C_Traits.GetGroupDisplayInfoByTreeID = was
+        c.tabs.w = w
+        if sized then sized(c.tabs) end
+        tabs("talents.tabs wide again")
+    end
     -- Enhancement's deepest talent stands inside the page
     do
         local p, low = W.Current(), 0
@@ -20360,7 +20419,7 @@ if talentPass then
 
     -- 7. the plan. Elemental, with Convection 5/5 and Concussion 1/3 learned
     local elemT = pageOf("tree1")
-    elemT.tab.scripts.OnClick(elemT.tab)
+    view(elemT)
     frame()
     -- the plans kept for a specialisation: each name, its talents, the
     -- active one starred
@@ -20382,8 +20441,7 @@ if talentPass then
         print(tag, "points=" .. TalentConsole(p.console), "plan=" .. (p.exit.shown and "on" or "off"),
             "ground=" .. (g.grid.shown and "grid" or "") .. (g.clouds.shown ~= false and "clouds" or ""),
             "follow=" .. on(p.follow), "exit=" .. on(p.exit), "checkpoint=" .. on(p.checkpoint),
-            "save=" .. on(p.save), "name=" .. (p.name.shown and tostring(p.name.text) or "off")
-                .. (p.console.state.shown == false and "(over the name)" or ""),
+            "save=" .. on(p.save), "name=" .. (p.name.shown and tostring(p.name.text) or "off"),
             "details=" .. (p.details.nothing.shown and "-" or tostring(p.details.title.text) .. " | "
                 .. tostring(p.details.sub.text)),
             "row=" .. (p.planLine.shown ~= false and tostring(p.planLine.text) or "off"))
@@ -20439,7 +20497,7 @@ if talentPass then
             return host .. (h.points.TOPLEFT and string.format("%d", -h.points.TOPLEFT[4]) or "?")
         end
         print("talents.chrome", "exit@" .. row(elemT.exit), "checkpoint@" .. row(elemT.checkpoint),
-            "save@" .. row(elemT.save), "name@" .. row(elemT.name), "console@" .. row(elemT.console.title),
+            "save@" .. row(elemT.save), "name@" .. row(elemT.name), "console@" .. row(elemT.console.number),
             "reset@" .. row(elemT.reset), "apply@" .. row(elemT.apply), "follow@" .. row(elemT.follow),
             "face=" .. face(elemT.exit), "margin=" .. face(elemT.specs[1]),
             "row=" .. (function()
@@ -20460,7 +20518,7 @@ if talentPass then
         print("talents.chrome foot", "height=" .. elemT.footHeight, "shown=" .. tostring(elemT.foot.shown),
             "chevron=" .. tostring(W.window.chevron ~= nil), "hint@" .. tostring(hint.parent == elemT.foot and "foot"
                 or "?") .. " " .. hint.points.BOTTOMLEFT[3] .. "," .. hint.points.BOTTOMLEFT[4] .. ">"
-                .. hint.points.BOTTOMRIGHT[3], "name@" .. (elemT.name.parent == elemT.console.cells[3]
+                .. hint.points.BOTTOMRIGHT[3], "name@" .. (elemT.name.parent == elemT.console.say
                     and "console" or "?"))
     end
     strip("talents.plan fresh")
@@ -20512,11 +20570,11 @@ if talentPass then
     -- the tiers' own gate where no condition says: Shamanistic Focus, six
     -- tiers down, wants 30 in Enhancement
     local enhT = pageOf("tree2")
-    enhT.tab.scripts.OnClick(enhT.tab)
+    view(enhT)
     frame()
     click("Shamanistic Focus")
     foot("talents.plan tier gate")
-    elemT.tab.scripts.OnClick(elemT.tab)
+    view(elemT)
     frame()
     -- nothing kept until Save plan: the name offered, Enter keeps it
     plan("talents.plan unsaved")
@@ -20704,7 +20762,7 @@ if talentPass then
     press(ord.rows[2])
     foot("talents.plans opened")
     -- Plans from Enhancement, and back to it
-    enhT.tab.scripts.OnClick(enhT.tab)
+    view(enhT)
     frame()
     press(W.Current().plans)
     press(ord.plans)
@@ -20715,7 +20773,7 @@ if talentPass then
     press(ord.edit)
     strip("talents.plan edit")
     print("talents.plan edit page", W.Current().key)
-    elemT.tab.scripts.OnClick(elemT.tab)
+    view(elemT)
     frame()
     -- opened at its last checkpoint: Elemental Mastery is the draft, and
     -- another talent waits for its Checkpoint
@@ -20729,11 +20787,11 @@ if talentPass then
     click("Call of Flame")
     press(elemT.checkpoint)
     -- a step in another tree: its row wears that tree's icon
-    enhT.tab.scripts.OnClick(enhT.tab)
+    view(enhT)
     frame()
     click("Ancestral Knowledge")
     press(enhT.checkpoint)
-    elemT.tab.scripts.OnClick(elemT.tab)
+    view(elemT)
     frame()
     save("Fire")
     plan("talents.plan replaced")
@@ -20839,13 +20897,15 @@ if talentPass then
     -- Edit reopens the whole last checkpoint: both Concussion ranks are the
     -- draft, so one off leaves one to checkpoint
     press(ord.edit)
-    elemT.tab.scripts.OnClick(elemT.tab)
+    view(elemT)
     frame()
     click("Concussion", "RightButton")
     strip("talents.plan edit run")
     toggle()
     press(elemT.plans)
-    enhT.tab.scripts.OnClick(enhT.tab)
+    -- from the plans, Plans again goes back to the trees, then a tab
+    press(elemT.plans)
+    view(enhT)
     frame()
 
     -- 8. the book takes the frame, and the talents take it back

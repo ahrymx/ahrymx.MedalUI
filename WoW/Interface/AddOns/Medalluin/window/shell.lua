@@ -46,6 +46,9 @@
 --   not inside it).
 --   w.Page{ key, label, tip, glyph, icon, frame (Blizzard's page), order, row,
 --           tabless (no tab: the page's own controls Select it),
+--           heading, headGlyph (the head's words and glyph while the page
+--           is open, in place of its label and icon: pages that are one
+--           window's views, as the talents' trees, say the window's name),
 --           Available() (or Blizzard's frame exists), height, footHeight,
 --           flex, bandUsed, bandFlush, events = { ... }, Build(body, foot, band),
 --           Fit(height), Refresh(), OnEvent(event, ...), Shown(),
@@ -1660,8 +1663,11 @@ function ns.Window(spec)
         end
         return true
     end
-    local function PageIcon(t, p)
-        if p.icon then
+    local function PageIcon(t, p, head)
+        if head and p.headGlyph then
+            t:SetTexture(ns.media .. "strips\\" .. p.headGlyph)
+            t:SetTexCoord(0, 1, 0, 1)
+        elseif p.icon then
             t:SetTexture(p.icon)
             t:SetTexCoord(GAME_ICON, 1 - GAME_ICON, GAME_ICON, 1 - GAME_ICON)
         else
@@ -1682,9 +1688,9 @@ function ns.Window(spec)
         local h = drop.head
         if not h then return end
         local p = current
-        if p then PageIcon(h.icon, p) end
+        if p then PageIcon(h.icon, p, true) end
         h.medal:SetShown(p ~= nil)
-        h.label:SetText(p and p.label or "")
+        h.label:SetText(p and (p.heading or p.label) or "")
         local many = drop.count and drop.count > 1 or false
         local at = 0
         for i, q in ipairs(drop.order or {}) do if q == p then at = i end end
@@ -1951,7 +1957,7 @@ function ns.Window(spec)
         if not h then
             h = Button(window, 100, function() drop.Toggle() end, function()
                 local p = current
-                local name = p and (p.tip or p.label) or ""
+                local name = p and (p.heading or p.tip or p.label) or ""
                 return drop.count and drop.count > 1 and format(Tr["%s. Click for the window's pages."], name) or name
             end)
             -- a gold band fading right, lit along its top
