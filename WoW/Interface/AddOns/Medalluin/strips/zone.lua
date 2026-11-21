@@ -9,7 +9,8 @@
 --
 -- Over the list, the zone's name, and the subzone with where in it you
 -- stand. Then a row a quest: those the log files under this zone, and on
--- retail those the game marks on this map too. A row is the quest's title,
+-- retail those the game marks on this map too; the waypoint's quest heads
+-- the list always, from whatever zone. A row is the quest's title,
 -- its progress over all its objectives ("13/30", the counts read from
 -- them) and a tick once it is complete; one not tracked is striped, as the
 -- quest log stripes it (quests/log.lua), and a gold hairline above each
@@ -84,9 +85,15 @@ local function Here()
             if e.questID then marked[e.questID] = true end
         end
     end
+    -- the waypoint's quest first, always, wherever it is
+    local way = ns.waypoint and ns.waypoint.Quest()
     local out = {}
     for _, q in ipairs(ns.questSource.Log()) do
-        if names[q.zone] or marked[q.id] then table.insert(out, q) end
+        if q.id == way then
+            table.insert(out, 1, q)
+        elseif names[q.zone] or marked[q.id] then
+            table.insert(out, q)
+        end
     end
     return out
 end

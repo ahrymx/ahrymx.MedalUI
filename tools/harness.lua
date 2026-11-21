@@ -7610,10 +7610,23 @@ if sidePass then
         row(2).scripts.OnClick(row(2), "LeftButton")
         fire("SUPER_TRACKING_CHANGED")
         washed("zone waypoint")
-        row(2).scripts.OnClick(row(2), "LeftButton")
+        -- (its quest now heads the list)
+        print("zone waypoint row 1", tostring(row(1).text.text))
+        row(1).scripts.OnClick(row(1), "LeftButton")
         fire("SUPER_TRACKING_CHANGED")
         modsDown.CTRL = nil
         washed("zone waypoint cleared")
+        -- the waypoint's quest heads the list: one from another zone joins it,
+        -- one here moves up; cleared, the list is as it was
+        C_SuperTrack.SetSuperTrackedQuestID(101)
+        fire("SUPER_TRACKING_CHANGED")
+        rows("waypoint elsewhere")
+        C_SuperTrack.SetSuperTrackedQuestID(203)
+        fire("SUPER_TRACKING_CHANGED")
+        rows("waypoint here, last")
+        C_SuperTrack.SetSuperTrackedQuestID(0)
+        fire("SUPER_TRACKING_CHANGED")
+        rows("waypoint gone")
         -- a kill's line: a sword for "slain"; too long, the name's first word
         -- an initial (a short one keeps its words)
         fold(2)
