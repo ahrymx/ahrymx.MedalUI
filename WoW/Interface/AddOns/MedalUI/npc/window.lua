@@ -1050,9 +1050,10 @@ function ns.npc.Update(key)
     if box and current and current.key == key and box:IsShown() then ns.npc.Refresh() end
 end
 
+-- (a page whose frame Blizzard keeps for now, p.Blizzard, is not open here)
 local function Open(p)
     local f = _G[p.frame]
-    return f and f:IsShown()
+    return f and f:IsShown() and not (p.Blizzard and p.Blizzard())
 end
 
 -- Shown while one of Blizzard's is, and the character window is not over
@@ -1207,11 +1208,29 @@ local function Build()
 end
 
 -- Blizzard's frame parked and followed
+-- Blizzard's frame parked, or, while the page says Blizzard keeps it
+-- (p.Blizzard), given back; closed (gone), parked again
+local function Place(p, gone)
+    local f = _G[p.frame]
+    if not (f and p.adopted) then return end
+    if not gone and p.Blizzard and p.Blizzard() then
+        ns.Unpark(f)
+    else
+        ns.Park(f, p.veil and ns.veil)
+    end
+end
+function ns.npc.Place(key, gone)
+    for _, p in ipairs(order) do
+        if p.key == key then Place(p, gone) end
+    end
+end
+
+-- Blizzard's frame parked and followed
 local function Adopt(p)
     local f = _G[p.frame]
     if not f or p.adopted then return end
     p.adopted = true
-    ns.Park(f, p.veil and ns.veil)
+    Place(p)
     for _, method in ipairs({ "Show", "Hide", "SetShown" }) do
         hooksecurefunc(f, method, ns.npc.Sync)
     end

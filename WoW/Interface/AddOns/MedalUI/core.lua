@@ -355,17 +355,31 @@ local killed = {}
 ns.veil = CreateFrame("Frame", nil, UIParent)
 ns.veil:SetAlpha(0)
 ns.veil:SetScale(0.01)
+local parkedUnder = {}                  -- a parked frame's parent, while it is parked
 function ns.Park(frame, under)
     if not frame then return end
     under = under or ns.hidden
+    parkedUnder[frame] = under
     frame:SetParent(under)
     if killed[frame] then return end
     killed[frame] = true
     hooksecurefunc(frame, "SetParent", function(self, parent)
-        if parent ~= under then
-            ns.OutOfCombat(function() self:SetParent(under) end)
+        if parent ~= parkedUnder[self] then
+            -- (asked again when the move is made: given back meanwhile, left be)
+            ns.OutOfCombat(function()
+                local held = parkedUnder[self]
+                if held then self:SetParent(held) end
+            end)
         end
     end)
+end
+-- A parked frame given back to Blizzard (UIParent's, shown as it draws
+-- it) until it is parked again: the pet trainer's, whose Train only
+-- Blizzard's own button may press (npc/trainer.lua).
+function ns.Unpark(frame)
+    if not frame then return end
+    parkedUnder[frame] = nil
+    frame:SetParent(UIParent)
 end
 function ns.Kill(frame)
     if not frame then return end

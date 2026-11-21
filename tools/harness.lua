@@ -24973,6 +24973,65 @@ if npcPass then
     fire("TRAINER_CLOSED")
     state("npc trainer closed")
     print("npc trainer untouched", tostring(keys(ClassTrainerFrame) == trainerBefore))
+    -- (2026-11-21) a hunter's Beast Training, the pet trainer: Blizzard
+    -- keeps it (its Train is for Blizzard's own button alone); its frame
+    -- given back while it is open, the box not over it; parked again after
+    ;(function()
+        Enum = Enum or {}
+        local T, kinds = C_Trainer, Enum.TrainerType
+        local kind = 1
+        Enum.TrainerType = { Class = 1, Pet = 2 }
+        C_Trainer = { GetTrainerType = function() return kind end }
+        local function where(tag)
+            local parent = ClassTrainerFrame.parent
+            print("npc pet trainer " .. tag, "parent=" .. (parent == ns.veil and "veil" or parent == UIParent
+                and "UIParent" or parent == ns.hidden and "hidden" or "other"),
+                "visible=" .. tostring(ClassTrainerFrame:IsVisible()), "front=" .. tostring(ns.npc.Front()))
+            state("npc pet trainer " .. tag)
+        end
+        kind = 2
+        W.calls = {}
+        fire("TRAINER_SHOW")
+        W.ShowTrainer()
+        where("open")
+        calls("npc pet trainer open")
+        -- Blizzard's own panel code moving it: left where it puts it
+        ClassTrainerFrame:SetParent(UIParent)
+        where("reparented by Blizzard")
+        CloseTrainer()
+        fire("TRAINER_CLOSED")
+        where("closed")
+        -- parked again: taken back by another hand, it returns to the veil
+        ClassTrainerFrame:SetParent(UIParent)
+        where("closed, reparented")
+        -- taken in combat, then the pet trainer opened before it ends:
+        -- the move back, waiting for combat, finds it given back and leaves it
+        inCombat = true
+        ClassTrainerFrame:SetParent(UIParent)
+        kind = 2
+        fire("TRAINER_SHOW")
+        W.ShowTrainer()
+        inCombat = false
+        for _, h in ipairs(events.PLAYER_REGEN_ENABLED or {}) do h.scripts.OnEvent(h, "PLAYER_REGEN_ENABLED") end
+        where("given back in combat")
+        CloseTrainer()
+        fire("TRAINER_CLOSED")
+        -- a class trainer after it: ours again
+        kind = 1
+        fire("TRAINER_SHOW")
+        W.ShowTrainer()
+        where("class trainer after")
+        CloseTrainer()
+        fire("TRAINER_CLOSED")
+        -- a client with no trainer kinds (retail): every trainer ours
+        C_Trainer = nil
+        fire("TRAINER_SHOW")
+        W.ShowTrainer()
+        where("no C_Trainer")
+        CloseTrainer()
+        fire("TRAINER_CLOSED")
+        C_Trainer, Enum.TrainerType = T, kinds
+    end)()
     -- the flight map: Blizzard's TaxiFrame parked, ours in the box's place
     local fl = _G.MedalUIFlight
     print("npc flight", "parked=" .. tostring(TaxiFrame.parent == ns.hidden), "frame=" .. tostring(fl ~= nil),

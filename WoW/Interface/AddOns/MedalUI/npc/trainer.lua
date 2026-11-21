@@ -225,19 +225,38 @@ end
 
 local function Update() ns.npc.Update("trainer") end
 
+-- (2026-11-21) A hunter's Beast Training is the pet trainer: its Train
+-- (BuyTrainerService) is for Blizzard's own button alone, and from ours the
+-- game blocked it ("blocked from an action only available to the Blizzard
+-- UI"). So Blizzard keeps that trainer: its frame given back while it is
+-- open, this page out of the way; parked again when it closes.
+local function PetTrainer()
+    local T, kinds = C_Trainer, Enum and Enum.TrainerType
+    return T ~= nil and T.GetTrainerType ~= nil and kinds ~= nil and kinds.Pet ~= nil
+        and T.GetTrainerType() == kinds.Pet
+end
+
 ns.npc.Page{
     key = "trainer", frame = "ClassTrainerFrame", addon = "Blizzard_TrainerUI", veil = true, price = Tr["Price"],
     -- a profession's trainer teaches skills, any other spells
     column = function() return IsTradeskillTrainer and IsTradeskillTrainer() and Tr["Skill"] or Tr["Spell"] end,
-    Blocks = Blocks, Foot = Foot, Close = Close,
+    Blocks = Blocks, Foot = Foot, Close = Close, Blizzard = PetTrainer,
     Start = function()
         ns.On("TRAINER_SHOW", function()
+            ns.npc.Place("trainer")
+            if PetTrainer() then
+                ns.npc.Sync()
+                return
+            end
             picked = nil
             if ExpandTrainerSkillLine then ExpandTrainerSkillLine(0) end
             Filter()
             ns.npc.Show("trainer")
         end)
-        ns.On("TRAINER_CLOSED", ns.npc.Sync)
+        ns.On("TRAINER_CLOSED", function()
+            ns.npc.Place("trainer", true)
+            ns.npc.Sync()
+        end)
         for _, e in ipairs({ "TRAINER_UPDATE", "PLAYER_MONEY", "SKILL_LINES_CHANGED" }) do ns.On(e, Update) end
     end,
 }
