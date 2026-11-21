@@ -12,6 +12,7 @@ local COMMANDS = {
     { "/mdlui party, raid, boss, arena, bar, side...", Tr["Open it on that page."] },
     { "/mdlui kb", Tr["Bind keys: point at an action button and press a key."] },
     { "/mdlui edit", Tr["Edit the unit frames: move, size, show or hide their pieces."] },
+    { "/mdlui setup", Tr["Run the setup again: the console, Immersion Mode and the party frames."] },
     { "/mdlui taint", Tr["Say what blocked a click, if one was blocked."] },
     { "/mui, /medalluin", Tr["The same as /mdlui, with the same words after it."] },
 }

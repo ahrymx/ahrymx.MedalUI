@@ -133,4 +133,5 @@ options\window.lua
 options\editor.lua
 options\canvas.lua
 options\info.lua
+options\setup.lua
 movers.lua

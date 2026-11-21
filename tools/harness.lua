@@ -9523,6 +9523,121 @@ if profilesPass then
     idState("renamed")
     login(MedalluinDB, MedalluinCharDB)
     idState("again")
+    -- the setup wizard (options/setup.lua): owed at the first login of a
+    -- character new to Medalluin (no saved table of its own), not an old
+    -- one's, nor at a zone change; walked as a player would, its cards and
+    -- buttons clicked; Finish writes the console first, so what is kept per
+    -- profile lands in the one chosen
+    do
+        local after, popup, slash = C_Timer and C_Timer.After, StaticPopup_Show, SlashCmdList.MEDALLUIN
+        C_Timer = C_Timer or {}
+        C_Timer.After = function(_, fn) fn() end
+        local asked = 0
+        StaticPopup_Show = function(which) if which == "MEDALLUIN_PROFILE_RELOAD" then asked = asked + 1 end end
+        local function enter(...)
+            for _, f in ipairs(events.PLAYER_ENTERING_WORLD or {}) do
+                f.scripts.OnEvent(f, "PLAYER_ENTERING_WORLD", ...)
+            end
+        end
+        local function click(b) b.scripts.OnClick(b) end
+        local function newChar(profile)
+            login({ consoleProfile = profile, global = {}, profiles = {} }, nil)
+            asked = 0
+        end
+        local frame, views = nil, nil
+        local function shown() return tostring(ns.SetupShown()) end
+        local function close()
+            frame = ns.SetupFrame()
+            if frame and frame:IsShown() then frame:Hide() end
+        end
+        close()
+        newChar("reticule")
+        enter(false, false)
+        print("setup zone change", "shown=" .. shown(), "owed=" .. tostring(ns.SetupOwed()))
+        enter(true, false)
+        frame, views = ns.SetupFrame()
+        print("setup new character", "shown=" .. shown(), "owed=" .. tostring(ns.SetupOwed()),
+            "escape=" .. tostring(table.concat(UISpecialFrames, ","):find("MedalluinSetup") ~= nil))
+        close()
+        login(MedalluinDB, { layouts = {} })
+        enter(true, false)
+        print("setup old character", "shown=" .. shown(), "owed=" .. tostring(ns.SetupOwed()),
+            "marked=" .. tostring(MedalluinCharDB.setup))
+        -- Arena and the widget: the reload asked once, every per-profile
+        -- answer on Arena's, none on the Reticule's; no console Minimal
+        newChar("reticule")
+        enter(true, false)
+        frame, views = ns.SetupFrame()
+        local cards = {}
+        for _, c in ipairs(views[1].cards) do table.insert(cards, c.id .. (c.on and "*" or "")) end
+        click(views[1].cards[2])
+        click(frame.next)
+        local rows = {}
+        for _, c in ipairs(views[2].checks) do
+            if c:IsShown() then table.insert(rows, c.key .. (c.spec.get() and ":on" or ":off")) end
+        end
+        click(frame.next)
+        local party = {}
+        for _, c in ipairs(views[3].cards) do table.insert(party, c.id .. (c.on and "*" or "")) end
+        click(views[3].cards[2])
+        click(frame.next)
+        local a, r = MedalluinDB.profiles.arena, MedalluinDB.profiles.reticule
+        print("setup arena widget", "cards=" .. table.concat(cards, ","), "rows=" .. table.concat(rows, ","),
+            "party=" .. table.concat(party, ","), "shown=" .. shown(), "profile=" .. ns.db.consoleProfile,
+            "reloads=" .. asked, "arena layout=" .. tostring(a.partyLayout),
+            "reticule layout=" .. tostring(r.partyLayout), "arena consoleMinimal=" .. tostring(a.consoleMinimal),
+            "arena group=" .. tostring(a.groupMinimal), "arena cdm=" .. tostring(a.cdmMinimal),
+            "reticule group=" .. tostring(r.groupMinimal), "chat=" .. tostring(MedalluinDB.global.chatImmersion),
+            "side=" .. tostring(MedalluinDB.global.sideImmersion), "done=" .. tostring(MedalluinCharDB.setup))
+        -- the Reticule kept, every box ticked but the chat's: no reload; its
+        -- console's Minimal on; the chat's left off (its default, not saved)
+        newChar("reticule")
+        ns.OpenSetup()
+        click(frame.next)
+        local box
+        for _, c in ipairs(views[2].checks) do if c.key == "chatImmersion" then box = c end end
+        click(box)
+        click(frame.back)
+        click(frame.next)
+        local chatAfterBack = tostring(box.spec.get())
+        click(frame.next)
+        click(frame.next)
+        r = MedalluinDB.profiles.reticule
+        print("setup reticule kept", "reloads=" .. asked, "consoleMinimal=" .. tostring(r.consoleMinimal),
+            "group=" .. tostring(r.groupMinimal), "cdm=" .. tostring(r.cdmMinimal),
+            "layout=" .. tostring(r.partyLayout), "db layout=" .. tostring(ns.db.partyLayout),
+            "chat=" .. tostring(MedalluinDB.global.chatImmersion), "chat after back=" .. chatAfterBack,
+            "side=" .. tostring(MedalluinDB.global.sideImmersion))
+        -- Skip, and the cross: nothing written but that it was gone through
+        newChar("reticule")
+        ns.OpenSetup()
+        click(frame.next)
+        click(frame.skip)
+        print("setup skipped", "shown=" .. shown(), "done=" .. tostring(MedalluinCharDB.setup),
+            "owed=" .. tostring(ns.SetupOwed()), "consoleMinimal=" .. tostring(MedalluinDB.profiles.reticule.consoleMinimal),
+            "chat=" .. tostring(MedalluinDB.global.chatImmersion))
+        newChar("reticule")
+        ns.OpenSetup()
+        click(frame.closeX)
+        print("setup crossed", "shown=" .. shown(), "done=" .. tostring(MedalluinCharDB.setup),
+            "group=" .. tostring(MedalluinDB.profiles.reticule.groupMinimal))
+        -- again: /mdlui setup, and Console > General's button, on step 1
+        slash("setup")
+        print("setup slash", "shown=" .. shown())
+        close()
+        local button
+        local function find(t, seen)
+            if type(t) ~= "table" or seen[t] then return end
+            seen[t] = true
+            if t.kind == "button" and t.label == "Run setup again" then button = t end
+            for _, v in pairs(t) do find(v, seen) end
+        end
+        find(ns.OptionPages(), {})
+        if button then button.click() end
+        print("setup button", "found=" .. tostring(button ~= nil), "shown=" .. shown())
+        close()
+        C_Timer.After, StaticPopup_Show = after, popup
+    end
     ns.ApplyLightProfile = apply
 end
 -- ------------------------------------------------------------ skills per profile

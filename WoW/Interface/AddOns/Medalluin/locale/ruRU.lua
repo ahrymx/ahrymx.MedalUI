@@ -2963,3 +2963,41 @@ L["That build does not fit these trees: Wowhead's may be newer or older."] =
 L["No Wowhead talent build in that: paste the calculator's link, or its WHML."] =
     "Здесь нет сборки талантов Wowhead: вставьте ссылку из калькулятора или её WHML."
 L["Left out by the rules: %d |4point:points;."] = "Пропущено по правилам: %d |4очко:очка:очков;."
+
+-- ------------------------------------------------------ the setup wizard
+-- (options/setup.lua: a new character's console, Immersion Mode and party)
+L["Setup · %d of %d"] = "Настройка · %d из %d"
+L["Choose your console"] = "Выберите консоль"
+L["The console the pages under Console start from. Every character on this account shares it; you can switch "
+    .. "later under Console > General."] =
+    "Консоль, от которой отталкиваются страницы раздела «Консоль». Она общая для всех персонажей учётной записи; "
+    .. "сменить её можно позже в «Консоль > Общее»."
+L["Parts that fade out of the way when you are not fighting or using them. Each can be shaped later under "
+    .. "Shared > Visibility & fading."] =
+    "Части, которые уходят с глаз, пока вы не сражаетесь и не пользуетесь ими. Каждую можно настроить позже в "
+    .. "«Общее > Видимость и исчезание»."
+L["Chat: bare when idle"] = "Чат: без рамки в покое"
+L["The chat's box hides while it is idle, its lines left on the screen; it comes back on use."] =
+    "Рамка чата скрывается, пока он в покое, а строки остаются на экране; она возвращается при использовании."
+L["Side panel: faded when idle"] = "Боковая панель: бледнее в покое"
+L["The side panel's background fades while it is idle; its text and buttons stay whole."] =
+    "Фон боковой панели бледнеет, пока она в покое; текст и кнопки остаются целыми."
+L["Out of combat, the party and raid boxes fade away."] = "Вне боя рамки группы и рейда исчезают."
+L["Out of combat, every Cooldown Manager viewer fades away: cooldowns, buffs and bars."] =
+    "Вне боя исчезает каждое окно менеджера восстановлений: восстановления, баффы и полосы."
+L["Where the party frames sit. You can change it later under Console > Layout."] =
+    "Где стоят рамки группы. Изменить можно позже в «Консоль > Расположение»."
+L["Docked to the console"] = "На консоли"
+L["Skip"] = "Пропустить"
+L["Leave everything as it is. /mdlui setup brings this back."] =
+    "Оставить всё как есть. /mdlui setup откроет это снова."
+L["Back"] = "Назад"
+L["Next"] = "Далее"
+L["Finish"] = "Готово"
+L["Run setup again"] = "Пройти настройку заново"
+L["Closes this window and opens the setup a new character starts with: the console, Immersion Mode and where "
+    .. "the party frames sit. Also /mdlui setup."] =
+    "Закрывает это окно и открывает настройку, с которой начинает новый персонаж: консоль, режим погружения и место "
+    .. "рамок группы. Также /mdlui setup."
+L["Run the setup again: the console, Immersion Mode and the party frames."] =
+    "Пройти настройку заново: консоль, режим погружения и рамки группы."

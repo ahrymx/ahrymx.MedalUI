@@ -633,6 +633,36 @@ function ns.ResetProfile()
     end)
 end
 
+-- The setup wizard's answers (options/setup.lua), written in one go: the
+-- console first, so what is kept per profile lands in the profile chosen
+-- (Store reads the one saved, and a switch saves it at once, then asks for
+-- the reload); then each other answer through SetOption, so the parts hear
+-- it. A console that cannot be chosen is refused as on Profiles, and the
+-- console's Minimal OoC Mode is the Reticule's only.
+--   answers = { console = id, immersion = { [key] = on }, partyLayout = "console" | "widget" }
+ns.SETUP_IMMERSION = { "consoleMinimal", "chatImmersion", "sideImmersion", "groupMinimal", "cdmMinimal" }
+function ns.ApplySetup(answers)
+    if answers.console and answers.console ~= Profile() then ns.SetOption("consoleProfile", answers.console) end
+    for _, key in ipairs(ns.SETUP_IMMERSION) do
+        local on = answers.immersion and answers.immersion[key]
+        if on ~= nil and (key ~= "consoleMinimal" or Profile() == "reticule") then ns.SetOption(key, on) end
+    end
+    if answers.partyLayout then ns.SetOption("partyLayout", answers.partyLayout) end
+    ns.SetupDone()
+end
+-- This character has been through setup (finished, skipped or closed): it
+-- is not offered again at login; /mui setup still opens it.
+function ns.SetupDone()
+    MedalluinCharDB = MedalluinCharDB or {}
+    MedalluinCharDB.setup = "done"
+end
+-- Whether the wizard is owed at this login: a character new to Medalluin
+-- (no saved table of its own when the addon loaded), not yet through it.
+-- One that existed before the wizard counts as set up.
+function ns.SetupOwed()
+    return ns.setupFresh == true and not (MedalluinCharDB and MedalluinCharDB.setup)
+end
+
 -- A saved table from before profiles is flat, every option at the top with
 -- the defaults filled in. Its console options become the choices of the
 -- profile it was on (the other profile starts as it is drawn), the rest the
@@ -828,6 +858,8 @@ end
 ns.On("ADDON_LOADED", function(_, name)
     if name ~= addonName then return end
     local fresh = MedalluinDB == nil
+    -- a character with nothing saved yet: new, so the setup wizard is owed
+    ns.setupFresh = MedalluinCharDB == nil
     MedalluinDB = MedalluinDB or {}
     Migrate(fresh)
     ns.db = layered
@@ -849,6 +881,7 @@ local EDITOR = { edit = true, editor = true, frames = true }
 local MOVE = { move = true, movers = true, unlock = true }
 -- fixes.lua: the known-issues dialog again
 local FIX = { ["fix-issues"] = true, ["fix-issue"] = true, fix = true, fixes = true, issues = true }
+local SETUP = { setup = true, wizard = true }
 
 -- /mdlui <word>: the window on that page.
 local PAGES = {
@@ -905,6 +938,11 @@ local function OpenSettings(arg)
     end
     if FIX[arg] then
         if ns.FixIssues then ns.FixIssues() end
+        return
+    end
+    -- options/setup.lua: the setup wizard again
+    if SETUP[arg] then
+        if ns.OpenSetup then ns.OpenSetup() end
         return
     end
     if KEYBIND[arg] then

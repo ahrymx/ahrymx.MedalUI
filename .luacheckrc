@@ -115,7 +115,7 @@ read_globals = {
     "RAID_CLASS_COLORS", "FACTION_BAR_COLORS", "PowerBarColor", "MAX_PLAYER_LEVEL",
     "PLAYER_OFFLINE", "DEAD", "LEVEL", "XP", "REPUTATION", "FAILED", "INTERRUPTED",
     "BAGSLOTTEXT", "NUM_BAG_SLOTS", "DURABILITY", "TIMEMANAGER_TITLE", "TIMEMANAGER_TOOLTIP_LOCALTIME",
-    "TIMEMANAGER_TOOLTIP_REALMTIME", "OKAY", "CANCEL", "StaticPopup_Show", "StaticPopup_Hide",
+    "TIMEMANAGER_TOOLTIP_REALMTIME", "OKAY", "CANCEL", "StaticPopup_Show", "StaticPopup_Hide", "StaticPopup_Visible",
     -- Lua extras WoW provides
     "wipe", "format", "unpack", "CopyTable",
     -- the raid (widgets/raid.lua)

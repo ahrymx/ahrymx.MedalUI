@@ -234,8 +234,9 @@ end
 
 -- Where the party sits: on the console (the Reticule's row, or the
 -- Arena's wings), or the widget.
-local function PartyLayout(id)
-    return Choice("partyLayout", Tr["Party layout"], {
+-- (the setup wizard, options/setup.lua, says the same of the two)
+function ns.PartyLayoutText(id)
+    return {
         { "console", Tr["Console"], id == "reticule"
             and (Tr["A row of four frames under the Reticule, each member's pet hanging under its frame. While you "
                 .. "are in a group the minimap stays in the top right corner and the centre grid stays out."])
@@ -243,7 +244,10 @@ local function PartyLayout(id)
         { "widget", Tr["Widget"],
             Tr["A box of party frames, under a Party tab, that you can drag anywhere: hold the tab "
             .. "to move it. In a raid it gives way to the raid frames."] },
-    }, Tr["Where the party frames sit."])
+    }
+end
+local function PartyLayout(id)
+    return Choice("partyLayout", Tr["Party layout"], ns.PartyLayoutText(id), Tr["Where the party frames sit."])
 end
 
 local function Concat(...)
@@ -944,7 +948,12 @@ function ns.OptionPages()
                             Button(Tr["Reset profile"], function() StaticPopup_Show("MEDALLUIN_RESET_PROFILE") end,
                                 Tr["This profile's options under Console but the Overhead, and its console party under "
                                 .. "Unit Frames, back to its own. The overhead, the widgets, Chat, Side panel and Bags "
-                                .. "are left as they are."])),
+                                .. "are left as they are."]),
+                            Button(Tr["Run setup again"], function()
+                                if ns.CloseOptions then ns.CloseOptions() end
+                                if ns.OpenSetup then ns.OpenSetup() end
+                            end, Tr["Closes this window and opens the setup a new character starts with: the console, "
+                                .. "Immersion Mode and where the party frames sit. Also /mdlui setup."])),
                         Group(Tr["Cast bars"],
                             Check("xpCast", Tr["Player casts on the experience bar"],
                                 Tr["The experience bar under your portrait becomes your cast bar while you cast, and "
