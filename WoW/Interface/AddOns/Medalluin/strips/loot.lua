@@ -396,6 +396,10 @@ local function FillRow(r, item)
     r:Show()
 end
 
+-- for the Rolls window (strips/rolls.lua): the same names, colours and icons
+ns.loot = { HOW = HOW, GOLD = GOLD, GOLD_D = GOLD_D, DIM = DIM, HISTORY = HISTORY and true or false,
+    Short = Short, Quality = Quality, QualityColor = QualityColor, Icon = Icon }
+
 local function QualityName(q)
     for _, e in ipairs(ns.LOOT_QUALITIES) do
         if e[1] == q then return e[2] end
@@ -554,6 +558,19 @@ view.buttons = {
         end,
     },
 }
+-- the Rolls window (strips/rolls.lua), under whose: only where the client
+-- keeps the loot history its rolls are read from (the ladder stays last)
+if HISTORY then
+    table.insert(view.buttons, 2, {
+        glyph = function() return "side-roll" end,
+        lit = function() return ns.RollsShown and ns.RollsShown() or false end,
+        click = function() if ns.ToggleRolls then ns.ToggleRolls() end end,
+        tip = function()
+            return Tr["Rolls"], Tr["Need, greed or pass on what drops, and everyone's roll on it. Click to show or "
+                .. "hide it."]
+        end,
+    })
+end
 view.foot = {
     glyph = function() return "side-reset" end,
     lit = function() return false end,

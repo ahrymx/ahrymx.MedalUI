@@ -110,6 +110,9 @@ local DEFAULTS = {
     altRecipesSort = "name", -- its Professions page's recipes: "name", "quality" or "newest"
     altRecipesFolded = false, -- and the professions folded there: { [profession] = true } (not on the page)
     chatLogPlace = false,   -- the chat log's box: { point, relative, x, y, w, h, scale } (not on the page)
+    rollFrame = true,       -- the Rolls window (strips/rolls.lua) instead of the game's roll frames
+    rollsPlace = false,     -- its place: { point, relative, x, y } (not on the page)
+    rollsFolded = false,    -- its log folded (not on the page)
     character = true,       -- Medalluin's character window instead of Blizzard's
     inspect = true,         -- Medalluin's inspect window instead of Blizzard's
     spellbook = true,       -- Medalluin's spellbook instead of Blizzard's (Forever)

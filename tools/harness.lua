@@ -2256,6 +2256,32 @@ if modern then
         end,
         GetSortedDropsForEncounter = function(id) return loot.drops[id] end,
     }
+    -- the rolls owed (START_LOOT_ROLL): id -> { info = GetLootRollItemInfo's
+    -- returns, link, left (ms) }; what was rolled, in order; the game's roll
+    -- frames' events, as UIParent hears them or not
+    loot.rolls, loot.rolled = {}, {}
+    function GetLootRollItemInfo(id)
+        local r = loot.rolls[id]
+        if r then return unpack(r.info, 1, 13) end
+    end
+    function GetLootRollItemLink(id) return loot.rolls[id] and loot.rolls[id].link end
+    function GetLootRollTimeLeft(id) return loot.rolls[id] and loot.rolls[id].left or 0 end
+    function RollOnLoot(id, kind) table.insert(loot.rolled, id .. ":" .. kind) end
+    function GetActiveLootRollIDs()
+        local ids = {}
+        for id in pairs(loot.rolls) do table.insert(ids, id) end
+        table.sort(ids)
+        return ids
+    end
+    UIParent.gameRolls = { START_LOOT_ROLL = true, CANCEL_LOOT_ROLL = true }
+    local register = UIParent.RegisterEvent
+    function UIParent:RegisterEvent(e)
+        if self.gameRolls[e] ~= nil then self.gameRolls[e] = true end
+        return register(self, e)
+    end
+    function UIParent:UnregisterEvent(e)
+        if self.gameRolls[e] ~= nil then self.gameRolls[e] = false end
+    end
     C_CurrencyInfo = { GetCurrencyInfoFromLink = function(link)
         return { iconFileID = "currency" .. link:match("currency:(%d+)") }
     end }
@@ -7783,16 +7809,20 @@ if sidePass then
     column(L)
     lootState("loot mine")
     click(L, 1)
-    -- the ladder: epic at the top (paint 2), poor at the foot (paint 6)
-    click(L, 2)
+    -- the ladder: epic at the top (step 1), poor at the foot (step 5); found
+    -- by step, the Rolls die (where there is a loot history) above it
+    local function step(n)
+        for i, b in ipairs(L.paint) do if b.step == n then return i end end
+    end
+    click(L, step(1))
     column(L)
     lootState("loot epic and up")
-    click(L, 5)
+    click(L, step(4))
     column(L)
-    click(L, 6)
+    click(L, step(5))
     print("lootQuality poor", ns.db.lootQuality)
     do
-        local b = L.paint[4]
+        local b = L.paint[step(3)]
         b.scripts.OnEnter(b)
         print("loot ladder tip", tostring(GameTooltip.text))
     end
@@ -7835,6 +7865,179 @@ if sidePass then
     page.settings.lootMoney:Set(false)
     lootState("loot money only, money off")
     page.settings.lootMoney:Set(true)
+
+    -- ---------------------------------------------------------- rolls
+    -- The Rolls window (strips/rolls.lua): the game's roll frames, minimal,
+    -- and the log of the item rolled on; the Loot tab's die shows it by hand
+    if not (ns.rolls and ns.rolls.frame) then
+        print("rolls none")
+    else
+        local R = ns.rolls
+        local win = R.frame
+        local function rollDie()
+            for i, b in ipairs(L.paint) do
+                if b.glyph and tostring(b.glyph.texture):match("side%-roll") then return i end
+            end
+        end
+        local function update(dt) win.scripts.OnUpdate(win, dt or 0.2) end
+        local function game()
+            return string.format("game frames start=%s cancel=%s", tostring(UIParent.gameRolls.START_LOOT_ROLL),
+                tostring(UIParent.gameRolls.CANCEL_LOOT_ROLL))
+        end
+        local function rolls(tag)
+            if win:IsShown() then update() end
+            print(tag, win:IsShown() and "shown" or "hidden", string.format("h=%.0f", win:GetHeight()),
+                "owed=" .. #R.owed(), "rolled=" .. table.concat(loot.rolled, ","))
+            for _, l in ipairs(R.lines) do
+                if l:IsShown() and l.roll then
+                    local picks = {}
+                    for _, b in ipairs(l.buttons) do if b:IsShown() then table.insert(picks, b.choice.word) end end
+                    print("", string.format("line@%.0f", -l.points.TOPLEFT[4]), l.link.text,
+                        table.concat(picks, "/"), string.format("bar=%.0f", l.bar:GetWidth()))
+                end
+            end
+            local h = R.head
+            print("", h.points.TOPLEFT and string.format("log@%.0f", -h.points.TOPLEFT[4]) or "log@-",
+                h.link.text, h.state.text,
+                h.chevron:IsShown() and string.format("rot=%.2f", h.chevron.rotation or 0) or "-",
+                R.empty:IsShown() and "empty" or "")
+            for _, r in ipairs(R.rows) do
+                if r:IsShown() then
+                    print("", string.format("row@%.0f", -r.points.TOPLEFT[4]), r.who.text,
+                        r.who.textColor and string.format("(%.2f,%.2f,%.2f)", unpack(r.who.textColor)) or "",
+                        r.how.text, r.die.shown and tostring(r.die.texture):match("[^\\]+$") or "-", r.roll.text)
+                end
+            end
+        end
+        -- a choice button on roll line n
+        local function choose(n, word)
+            for _, b in ipairs(R.lines[n].buttons) do
+                if b.choice.word == word and b:IsShown() then return b.scripts.OnClick(b) end
+            end
+            print("no " .. word .. " on line " .. n)
+        end
+        print("rolls at load", game())
+        rolls("rolls at load")
+        -- shown by hand: the latest item's log, nothing owed
+        click(L, rollDie())
+        column(L)
+        rolls("rolls opened by hand")
+        click(L, rollDie())
+        column(L)
+        -- a boss's item to roll on: the box pops up, need / greed / pass
+        -- (no transmog, no disenchant); the history has it rolling: a need,
+        -- a greed, one not chosen, one passed, Alfa leading
+        local t0 = now
+        table.insert(loot.encounters, { encounterID = 603, encounterName = "Supremus", startTime = 900 })
+        local blade = itemLink(30002, "Supremus Blade", 4)
+        loot.rolls[11] = { link = blade, left = 30000,
+            info = { "iconBlade", "Supremus Blade", 1, 4, true, true, true, false, nil, nil, nil, nil, false } }
+        loot.drops[603] = { { lootListKey = 1, itemHyperlink = blade,
+            startTime = t0, duration = 30, allPassed = false, currentLeader = { playerName = "Alfa-Realm" },
+            rollInfos = {
+                { playerName = "Bravo-Realm", playerClass = "PRIEST", state = 3, roll = 40 },
+                { playerName = "Delta-Realm", playerClass = "MAGE", state = 5 },
+                { playerName = "Charlie-Realm", playerClass = "ROGUE", state = 4 },
+                { playerName = "Alfa-Realm", playerClass = "WARRIOR", state = 0, roll = 87 },
+                { playerName = "Golf-Realm", playerClass = "HUNTER", state = 3, roll = 95 },
+                { playerName = "Ahrymx", playerClass = "PALADIN", state = 4, isSelf = true },
+            } } }
+        fire("LOOT_HISTORY_UPDATE_ENCOUNTER", 603)
+        fire("START_LOOT_ROLL", 11, 30000)
+        column(L)
+        rolls("rolls a roll owed")
+        -- a second at once, every choice allowed: two lines, the log on the
+        -- newer one (the history has no rolling drop for it yet: the drop
+        -- last updated stays)
+        local signet = itemLink(30003, "Ashtongue Signet", 3)
+        loot.rolls[12] = { link = signet, left = 20000,
+            info = { "iconSignet", "Ashtongue Signet", 1, 3, false, true, true, true, nil, nil, nil, nil, true } }
+        fire("START_LOOT_ROLL", 12, 20000)
+        loot.rolls[11].left = 15000
+        now = now + 15
+        rolls("rolls two owed, 15s on")
+        -- greed on the first: its line goes, the game told
+        choose(1, "greed")
+        -- the history's timer in milliseconds, as the client may give it
+        loot.drops[603][1].startTime, loot.drops[603][1].duration = now * 1000, 12000
+        fire("LOOT_HISTORY_UPDATE_DROP", 603, 1)
+        rolls("rolls greed on the blade, a timer in ms")
+        -- the second passed by its button
+        choose(1, "pass")
+        rolls("rolls passed the signet")
+        -- the blade won; nothing owed: the box lingers, then goes
+        local d1 = loot.drops[603][1]
+        d1.winner = { playerName = "Alfa-Realm", playerClass = "WARRIOR", state = 0, roll = 87 }
+        d1.rollInfos[4].isWinner = true
+        d1.rollInfos[6].state, d1.rollInfos[6].roll = 3, 12
+        fire("LOOT_HISTORY_UPDATE_DROP", 603, 1)
+        rolls("rolls the blade won")
+        now = now + 5
+        update()
+        print("rolls 5s after", win:IsShown() and "shown" or "hidden")
+        now = now + 4
+        update()
+        print("rolls 9s after", win:IsShown() and "shown" or "hidden")
+        column(L)
+        -- shown by hand, it stays
+        ns.ToggleRolls()
+        now = now + 30
+        update()
+        print("rolls by hand, 30s on", win:IsShown() and "shown" or "hidden")
+        -- the log folds by its head, and stays folded
+        R.head.scripts.OnClick(R.head, "LeftButton")
+        rolls("rolls log folded")
+        print("rollsFolded", tostring(ns.db.rollsFolded))
+        R.head.scripts.OnClick(R.head, "LeftButton")
+        -- its cross closes it; the die goes out
+        R.head.close.scripts.OnClick(R.head.close)
+        print("rolls closed by its cross", win:IsShown() and "shown" or "hidden")
+        column(L)
+        -- a roll cancelled by the game (time out): its line goes
+        loot.rolls[13] = { link = blade, left = 5000,
+            info = { "iconBlade", "Supremus Blade", 1, 4, true, false, true, false, nil, nil, nil, nil, false } }
+        fire("START_LOOT_ROLL", 13, 5000)
+        rolls("rolls a greed-only roll")
+        fire("CANCEL_LOOT_ROLL", 13)
+        rolls("rolls cancelled")
+        -- two drops rolling at once: the log follows the one last updated
+        table.insert(loot.drops[603], { lootListKey = 2, itemHyperlink = signet, startTime = now, duration = 20,
+            allPassed = false, currentLeader = { playerName = "Bravo-Realm" }, rollInfos = {
+                { playerName = "Kilo-Realm", playerClass = "MAGE", state = 0, roll = 30 },
+                { playerName = "Bravo-Realm", playerClass = "PRIEST", state = 0, roll = secret() },
+                { playerName = "Echo-Realm", playerClass = "DRUID", state = 4 },
+                { playerName = "Foxtrot-Realm", playerClass = "HUNTER", state = secret() } } })
+        table.insert(loot.drops[603], { lootListKey = 3, itemHyperlink = itemLink(30004, "Felsteel Bar", 2),
+            startTime = now, duration = 20, allPassed = false,
+            rollInfos = { { playerName = "Echo-Realm", playerClass = "DRUID", state = 3, roll = 7 } } })
+        fire("LOOT_HISTORY_UPDATE_DROP", 603, 3)
+        rolls("rolls two rolling, the bar updated")
+        -- a secret roll and choice in the log; the leader's roll secret,
+        -- still above a need of 30
+        fire("LOOT_HISTORY_UPDATE_DROP", 603, 2)
+        rolls("rolls secrets in the log")
+        fire("LOOT_HISTORY_UPDATE_DROP", 603, 3)
+        -- opened in combat; dragged: its place kept
+        win:Hide()
+        inCombat = true
+        fire("START_LOOT_ROLL", 12, 20000)
+        rolls("rolls popped in combat: the owed signet logged, not the bar")
+        inCombat = false
+        harnessDropAt = { "TOPLEFT", "TOPLEFT", 300, -200 }
+        win.scripts.OnDragStart(win)
+        win.scripts.OnDragStop(win)
+        local at = ns.db.rollsPlace
+        print("rolls dragged", type(at) == "table" and string.format("%s %s %s %s", tostring(at.point),
+            tostring(at.relative), tostring(at.x), tostring(at.y)) or tostring(at))
+        -- the option off: the game's frames back, ours shut and deaf
+        page.settings.rollFrame:Set(false)
+        print("rolls option off", win:IsShown() and "shown" or "hidden", game())
+        fire("START_LOOT_ROLL", 12, 20000)
+        print("rolls option off, a roll", win:IsShown() and "shown" or "hidden", "owed=" .. #R.owed())
+        page.settings.rollFrame:Set(true)
+        print("rolls option on", game())
+        loot.rolls = {}
+    end
 
     -- --------------------------------------------------------- meter
     local M = views.meter

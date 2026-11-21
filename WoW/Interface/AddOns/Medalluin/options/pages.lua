@@ -1402,6 +1402,11 @@ function ns.OptionPages()
                             Check("lootMoney", Tr["Money and currencies"],
                                 Tr["Your share of looted money on each heading, and the currencies you loot as "
                                     .. "lines."])),
+                        Group(Tr["Rolls"],
+                            Check("rollFrame", Tr["Roll window"],
+                                Tr["A small window of Medalluin's own pops up for each item to roll on: need, "
+                                    .. "greed or pass in one line, and under it everyone's choice and roll on it. The "
+                                    .. "die button shows and hides it. Untick it to keep the game's roll frames."])),
                     }),
                 Switched(Check("sideImmersion", Tr["Faded when idle"],
                         Tr["Left alone, the panel's background fades to its faded opacity, whole again on what "

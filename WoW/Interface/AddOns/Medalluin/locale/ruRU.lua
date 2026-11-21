@@ -747,6 +747,28 @@ L["Clear"] = "Очистить"
 L["Clear the loot log. The game's own loot history keeps its rolls."] =
     "Очистить журнал добычи. История добычи игры сохранит броски."
 
+-- the Rolls window (strips/rolls.lua) and its die on the Loot tab
+L["Rolls"] = "Броски"
+L["Need, greed or pass on what drops, and everyone's roll on it. Click to show or hide it."] =
+    "Нужно, не откажусь или отказ — за выпавшую добычу, и броски всех за неё. "
+    .. "Нажмите, чтобы показать или скрыть."
+L["Roll window"] = "Окно бросков"
+L["A small window of Medalluin's own pops up for each item to roll on: need, greed or pass in one line, and under it "
+    .. "everyone's choice and roll on it. The die button shows and hides it. Untick it to keep the game's roll "
+    .. "frames."] =
+    "Небольшое окно Medalluin появляется для каждого предмета, за который идёт бросок: «нужно», «не откажусь» или "
+    .. "«отказ» в одной строке, а под ней выбор и бросок каждого. Кнопка с кубиком показывает и скрывает его. "
+    .. "Снимите флажок, чтобы оставить окна бросков игры."
+L["No rolls yet."] = "Бросков пока нет."
+L["rolling"] = "разыгрывается"
+L["passed"] = "все отказались"
+L["need"] = "нужно"
+L["off-spec"] = "другая спец."
+L["transmog"] = "трансмог."
+L["disenchant"] = "распылить"
+L["greed"] = "не откажусь"
+L["pass"] = "отказ"
+
 -- the meter (strips/meter.lua)
 L["Meter"] = "Счётчик"
 L["Damage per second"] = "Урон в секунду"

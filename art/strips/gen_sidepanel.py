@@ -187,6 +187,14 @@ def g_people(cx, cy, group):  # loot: whose (2026-11-10, was a funnel): yours, o
     return person(cx - 5, cy - 2.5, 0.55) + person(cx + 5, cy - 2.5, 0.55) + person(cx, cy + 1.5, 0.62)
 
 
+def g_die(cx, cy):            # loot: the Rolls window (2026-11-21), a die showing five
+    pips = "".join(f'<circle cx="{cx + dx}" cy="{cy + dy}" r="1.35" fill="#2a1e08"/>'
+                   for dx, dy in ((-3.2, -3.2), (3.2, -3.2), (0, 0), (-3.2, 3.2), (3.2, 3.2)))
+    return (f'<rect x="{cx - 6.5}" y="{cy - 6.5}" width="13" height="13" rx="2.6" fill="url(#gold)" '
+            f'stroke="#2a1e08" stroke-width="1.2" transform="rotate(-8 {cx} {cy})"/>'
+            f'<g transform="rotate(-8 {cx} {cy})">{pips}</g>')
+
+
 def g_quality(cx, cy):        # loot: least quality shown
     return (f'<polygon points="{cx},{cy - 7} {cx + 6},{cy} {cx},{cy + 7} {cx - 6},{cy}" fill="{QUALITY["epic"]}" '
             f'stroke="url(#gold)" stroke-width="1"/>')
@@ -585,6 +593,7 @@ def parts():
         "side-filter": g_filter(c, c),
         "side-mine": g_people(c, c, False),
         "side-group": g_people(c, c, True),
+        "side-roll": g_die(c, c),
         "side-quality": white,
         "side-timeless": g_timeless(c, c),
         "side-zoom-in": g_zoom(c, c, True),
