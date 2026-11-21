@@ -920,26 +920,24 @@ end
 -- rectangle, it drew the medallion's cut there (2026-11-16).
 --
 -- What this addon made on the client's aura frame is the client's in combat
--- too: forbidden to this addon, a Hide on it raising ("calling 'Hide' on bad
--- self", 2026-11-21: the health's tint redressed as a spell was learned
--- mid-fight). The client is still handed the colours at once; showing and
--- hiding the pieces waits for combat's end, and the glow is dressed again
--- then.
+-- too: a Hide on it raises ("calling 'Hide' on bad self", 2026-11-21: the
+-- health's tint redressed as a spell was learned mid-fight). Its
+-- IsForbidden says false all the while (a reload in combat, the same day),
+-- so nothing asks first: in combat a piece is left as it is, and out of it
+-- the call is tried. The client is still handed the colours at once; a
+-- piece left, or refused, waits for the next combat end, where the glows
+-- are dressed again.
 local RedressLiveGlows
 local redressWaits
-local function Kept(r) return r.IsForbidden and r:IsForbidden() or false end
 local function ShowPiece(r, on)
-    if not Kept(r) then
-        r:SetShown(on and true or false)
-        return
-    end
-    if redressWaits or not InCombatLockdown() then return end
+    if not InCombatLockdown() and pcall(r.SetShown, r, on and true or false) then return end
     redressWaits = true
-    ns.OutOfCombat(function()
-        redressWaits = nil
-        RedressLiveGlows()
-    end)
 end
+ns.On("PLAYER_REGEN_ENABLED", function()
+    if not redressWaits then return end
+    redressWaits = nil
+    RedressLiveGlows()
+end)
 
 local function DressLiveGlow(lg)
     local btn = lg.btn

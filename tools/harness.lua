@@ -17212,19 +17212,20 @@ if dispelPass then
             inCombat = true
             fire("PLAYER_REGEN_DISABLED")
             live("poison, combat")
-            -- (what this addon made on the client's aura frame is forbidden
-            -- to it in combat, as in the game: a Hide raised there,
-            -- 2026-11-21)
+            -- (what this addon made on the client's aura frame is refused to
+            -- it in combat, as in the game: a Hide raised there, 2026-11-21,
+            -- while its IsForbidden said false; harnessRefused, a reload in
+            -- combat: refused before this addon has heard of the combat)
             local lgMade = b.liveGlow
             local made = {}
             for _, e in ipairs(lgMade and lgMade.edges or {}) do made[#made + 1] = e end
             if lgMade and lgMade.tint then made[#made + 1] = lgMade.tint end
             for _, r in ipairs(made) do
-                r.IsForbidden = function() return inCombat end
+                r.IsForbidden = function() return false end
                 for _, m in ipairs({ "Hide", "Show", "SetShown" }) do
                     local f = r[m]
                     r[m] = function(self, ...)
-                        if inCombat then
+                        if inCombat or harnessRefused then
                             error("calling '" .. m .. "' on bad self (Attempt to access forbidden object from "
                                 .. "code tainted by an AddOn)")
                         end
@@ -17286,6 +17287,21 @@ if dispelPass then
             fire("PLAYER_REGEN_DISABLED")
             ns.SetOption("dispelStyle", "glow")
             pieces("glow again, combat")
+            -- a reload in combat: the client refuses the pieces before
+            -- InCombatLockdown says so; the spells read at the reload change
+            -- nothing on them then, and the glow is dressed at combat's end
+            inCombat = false
+            fire("PLAYER_REGEN_ENABLED")
+            harnessRefused = true
+            ns.SetOption("dispelStyle", "health")
+            fire("SPELLS_CHANGED")
+            pieces("tint, a reload in combat")
+            harnessRefused = nil
+            fire("PLAYER_REGEN_ENABLED")
+            pieces("tint, that combat over")
+            ns.SetOption("dispelStyle", "glow")
+            inCombat = true
+            fire("PLAYER_REGEN_DISABLED")
             -- a ready check hides the frame's auras, the client's glow too
             b.isChecking = true
             ns.UpdateUnitAuras(b)
