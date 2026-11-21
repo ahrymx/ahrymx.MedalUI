@@ -177,6 +177,63 @@ ns.On("PLAYER_LOGIN", function()
         function GetMinimapShape() return ns.minimapShape or "ROUND" end
     end
 
+    -- Far pins (2026-11-21): HereBeDragons floats a pin its addon asked to
+    -- float (Questie asks for all of them) to the map's edge however far away
+    -- it is, and a zone's worth of quests stood round the square. A pin more
+    -- than FAR times the map's reach from the player is not floated: the
+    -- library hides it, as it hides any pin past the edge; back in reach, it
+    -- floats again. Only a flag this turned off is ever turned back on.
+    local FAR = 1.5
+    -- the map's reach, in yards, where the client cannot say it
+    -- (HereBeDragons' table: the map's width at each zoom)
+    local ZOOMS = {
+        indoor = { [0] = 300, 240, 180, 120, 80, 50 },
+        outdoor = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 6, 200, 133 + 1 / 3 },
+    }
+    local function Reach()
+        if C_Minimap and C_Minimap.GetViewRadius then return C_Minimap.GetViewRadius() end
+        local zoom = Minimap:GetZoom()
+        local outdoor = tonumber(GetCVar and GetCVar("minimapZoom")) == zoom
+        local width = ZOOMS[outdoor and "outdoor" or "indoor"][zoom]
+        return width and width / 2
+    end
+    local grounded = setmetatable({}, { __mode = "k" })    -- a pin's data whose float this turned off
+    local function FarPins()
+        local lib = LibStub and LibStub("HereBeDragons-Pins-2.0", true)
+        local hbd = LibStub and LibStub("HereBeDragons-2.0", true)
+        if not (lib and lib.minimapPins and hbd and hbd.GetPlayerWorldPosition and hbd.GetWorldDistance) then
+            return
+        end
+        local reach = Reach()
+        if not reach or reach <= 0 then return end
+        local x, y, instance = hbd:GetPlayerWorldPosition()
+        local changed = false
+        for _, data in pairs(lib.minimapPins) do
+            if type(data) == "table" and (data.floatOnEdge or grounded[data]) then
+                local far = false
+                if x and y and data.x and data.y and instance == data.instanceID then
+                    local d = hbd:GetWorldDistance(instance, x, y, data.x, data.y)
+                    far = d ~= nil and d > FAR * reach
+                end
+                if far and data.floatOnEdge then
+                    grounded[data], data.floatOnEdge, changed = true, false, true
+                elseif not far and grounded[data] then
+                    grounded[data], data.floatOnEdge, changed = nil, true, true
+                end
+            end
+        end
+        -- drawn again at once: standing still, the library would wait for a move
+        if changed and lib.SetMinimapObject then lib:SetMinimapObject(lib.Minimap) end
+    end
+    ns.MinimapFarPins = FarPins             -- the harness's
+    local farWatch, farWait = CreateFrame("Frame"), 0
+    farWatch:SetScript("OnUpdate", function(_, elapsed)
+        farWait = farWait - elapsed
+        if farWait > 0 then return end
+        farWait = 0.25
+        FarPins()
+    end)
+
     local area                              -- the area's name over the hovered map, below
 
     -- The map at its place, w x h shown, centred on (to, rel, x, y); or,

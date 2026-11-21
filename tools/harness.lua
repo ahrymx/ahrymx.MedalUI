@@ -950,11 +950,20 @@ MinimapButton(nil, 12)
 -- and one its addon has removed (hidden, still on the minimap), and a pin
 -- placed after the drawer is built
 do
-    local hbd = { minimapPins = {} }
+    local hbd = { minimapPins = {}, redraws = 0 }
+    function hbd:SetMinimapObject(m) self.Minimap = m or Minimap; self.redraws = self.redraws + 1 end
+    -- the library's own half: where the player is, in yards on an instance
+    local core = { x = 0, y = 0, instance = 0 }
+    function core:GetPlayerWorldPosition() return self.x, self.y, self.instance end
+    function core:GetWorldDistance(instance, ox, oy, dx, dy)
+        if instance ~= self.instance then return nil end
+        return math.sqrt((dx - ox) ^ 2 + (dy - oy) ^ 2)
+    end
+    hbdPins, hbdCore = hbd, core
     function hbd:AddMinimapIconMap(_, icon) icon:SetParent(Minimap); self.minimapPins[icon] = {} end
     function hbd:AddMinimapIconWorld(ref, icon) self:AddMinimapIconMap(ref, icon) end
     function hbd:RemoveMinimapIcon(_, icon) self.minimapPins[icon] = nil; icon:Hide() end
-    local libs = { ["HereBeDragons-Pins-2.0"] = hbd }
+    local libs = { ["HereBeDragons-Pins-2.0"] = hbd, ["HereBeDragons-2.0"] = core }
     function LibStub(major) return libs[major] end
     hbd:AddMinimapIconMap("Questie", MinimapButton("QuestieFrame1", 16))
     local gone = MinimapButton("QuestieFrame2", 16)
@@ -13388,6 +13397,53 @@ function MinimapPass()
         return string.format("clip=%.0fx%.0f clips=%s parent=%s on=%s", c.w, c.h, tostring(c.clipsChildren),
             tostring(Minimap.parent == c), tostring(p and p[1] == Minimap))
     end
+    -- (2026-11-21) a pin floated to the edge from more than 1.5 times the
+    -- map's reach is grounded (the library hides it), and floats again in reach
+    ;(function()
+        local made = {}
+        local function pin(name, x, y, float, instance)
+            local icon = new("Frame", Minimap, name)
+            hbdPins.minimapPins[icon] = { x = x, y = y, instanceID = instance or 0, floatOnEdge = float }
+            made[name] = hbdPins.minimapPins[icon]
+        end
+        -- outdoors at zoom 0 the map reaches 233 yards: far is past 350
+        local cvar, zoom = GetCVar, Minimap.GetZoom
+        GetCVar = function(k) if k == "minimapZoom" then return "0" end end
+        pin("PinNear", 300, 0, true)
+        pin("PinFar", 400, 0, true)
+        pin("PinFarStill", 0, -400, false)
+        pin("PinElsewhere", 400, 0, true, 1)
+        local function pins(tag)
+            local out = {}
+            for _, n in ipairs({ "PinNear", "PinFar", "PinFarStill", "PinElsewhere" }) do
+                table.insert(out, n .. "=" .. tostring(made[n].floatOnEdge))
+            end
+            print("minimap far pins " .. tag, table.concat(out, " "), "redraws=" .. hbdPins.redraws)
+        end
+        ns.MinimapFarPins()
+        pins("at the start")
+        ns.MinimapFarPins()
+        pins("again, nothing new")
+        hbdCore.x = 200
+        ns.MinimapFarPins()
+        pins("walked 200 east")
+        hbdCore.x = 0
+        ns.MinimapFarPins()
+        pins("back")
+        -- indoors, zoom 0: 150 yards
+        GetCVar = function(k) if k == "minimapZoom" then return "3" end end
+        ns.MinimapFarPins()
+        pins("indoors")
+        -- where the client says how far the map reaches
+        local had = C_Minimap
+        C_Minimap = { GetViewRadius = function() return 300 end }
+        ns.MinimapFarPins()
+        pins("the client's 300")
+        C_Minimap, GetCVar, Minimap.GetZoom = had, cvar, zoom
+        for icon in pairs(hbdPins.minimapPins) do
+            if made[icon:GetName() or ""] then hbdPins.minimapPins[icon] = nil end
+        end
+    end)()
     -- the square map drops the round map's edge rings; the round one keeps them
     print("minimap blob rings", ns.layout.minimap and ns.layout.minimap.square and "square" or "round", BlobRing())
     local function greyed()
