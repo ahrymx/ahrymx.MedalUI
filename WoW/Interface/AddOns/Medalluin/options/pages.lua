@@ -1421,6 +1421,12 @@ function ns.OptionPages()
                                     .. "its level against what you wear, need, greed or pass, and under it everyone's "
                                     .. "choice and roll on it. The die button shows and hides it. Untick it to keep "
                                     .. "the game's roll frames."]),
+                            { kind = "slider", key = "rollsScale", label = Tr["Window scale"], min = 0.6, max = 1.6,
+                                step = 0.05, tip = Tr["The Roll window's size, all of it."],
+                                text = function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end },
+                            Choice("rollsTextSize", Tr["Text size"], {
+                                { 1, Tr["Small"] }, { 1.15, Tr["Normal"] }, { 1.3, Tr["Large"] },
+                                { 1.45, Tr["Larger"] } }, Tr["The Roll window's text, its box kept as it is."]),
                             Check("simRolls", Tr["Simulate rolls"], Tr["Drop simulated items to roll on: the Roll "
                                 .. "window pops up as for a real roll, its choices work, and a simulated group rolls "
                                 .. "too. A small panel on the right sets what drops. Nothing is sent to the game."])),

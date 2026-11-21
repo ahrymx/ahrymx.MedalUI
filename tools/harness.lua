@@ -8326,6 +8326,42 @@ if sidePass then
         GroupLootFrame1:Show()
         print("rolls option on, the game's dialog shown anyway", game())
         loot.rolls = {}
+        -- the window's scale and its text size: the place kept in the
+        -- screen's units, so a drag at another scale stays put
+        do
+            local function size(fs) return string.format("%.1f", select(2, fs:GetFont())) end
+            local function look(tag)
+                local at = {}
+                for name, p in pairs(win.points) do
+                    table.insert(at, string.format("%s>%s %.1f,%.1f", name, tostring(p[2]), p[3] or 0, p[4] or 0))
+                end
+                table.sort(at)
+                print(tag, string.format("scale=%.2f", win:GetScale()), table.concat(at, " "),
+                    "title=" .. size(R.top.title), "card link=" .. size(R.card.link), "log=" .. size(R.head.link),
+                    "row=" .. (R.rows[1] and size(R.rows[1].who) or "-"), "empty=" .. size(R.empty))
+            end
+            local place = ns.db.rollsPlace
+            look("rolls look at 100%")
+            ns.SetOption("rollsTextSize", 1.45)
+            look("rolls text larger")
+            ns.SetOption("rollsScale", 1.25)
+            look("rolls scale 125%")
+            harnessDropAt = { "BOTTOM", "BOTTOM", 40, 200 }
+            R.top.scripts.OnDragStart(R.top)
+            R.top.scripts.OnDragStop(R.top)
+            local at = ns.db.rollsPlace
+            print("rolls dragged at 125%", string.format("%s %.1f,%.1f", at.point, at.x, at.y))
+            look("rolls dragged at 125%")
+            ns.SetOption("rollsScale", 1)
+            look("rolls back to 100%: the place in screen units")
+            ns.SetOption("rollsTextSize", 1.15)
+            look("rolls text normal")
+            ns.SetOption("rollsPlace", false)
+            ns.SetOption("rollsScale", 1.25)
+            look("rolls never dragged, at 125%: 320 above the bottom on screen")
+            ns.SetOption("rollsScale", 1)
+            ns.SetOption("rollsPlace", place)
+        end
         -- Simulate rolls (strips/rolls_sim.lua): items drop on their own,
         -- the group answers one by one, the choices made go nowhere
         do

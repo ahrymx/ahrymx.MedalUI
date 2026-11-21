@@ -1917,6 +1917,10 @@ L["Twenty roll on each item instead of five: the log stops short, the rest count
 L["New rolls"] = "Новые броски"
 L["Drop the items again, the group choosing from scratch."] = "Выбросить предметы заново; группа выбирает с начала."
 L["Turn off Simulate rolls."] = "Выключить имитацию бросков."
+L["Window scale"] = "Масштаб окна"
+L["The Roll window's size, all of it."] = "Размер окна бросков целиком."
+L["Text size"] = "Размер текста"
+L["The Roll window's text, its box kept as it is."] = "Текст окна бросков; само окно не меняется."
 L["Show every viewer's icons and bars as these options draw them, without a fight: your own spells or a random full "
     .. "set, cooling down, with charges and stacks, buffs coming and going. A small panel on the right sets what they "
     .. "show."] =

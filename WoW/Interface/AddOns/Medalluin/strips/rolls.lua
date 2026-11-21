@@ -97,6 +97,25 @@ local latest                                    -- the drop last updated: encoun
 local byHand, decidedAt = false, nil
 
 local function Secret(v) return ns.IsSecret(v) end
+
+-- The window's texts at the Text size option's share of their own size
+-- (each one's own kept as it was made), and the window at its Scale: its
+-- 100% is BASE of the window as drawn (2026-11-21: 15% larger by default).
+local BASE = 1.15
+local texts = {}                -- font string -> its size at 100%
+local function TextSize() return tonumber(ns.db.rollsTextSize) or 1.15 end
+local function Sized(fs, size)
+    texts[fs] = size
+    local path, _, flags = fs:GetFont()
+    fs:SetFont(path, size * TextSize(), flags or "")
+    return fs
+end
+local function Text(parent, size) return Sized(ns.Text(parent, size), size) end
+local function Plain(parent, size) return Sized(ns.PlainText(parent, size), size) end
+local function Resize()
+    for fs, size in pairs(texts) do Sized(fs, size) end
+end
+local function WindowScale() return (tonumber(ns.db.rollsScale) or 1) * BASE end
 local function Loot() return ns.loot or {} end
 
 -- a choice in words (loot.lua's HOW names them in English)
@@ -398,7 +417,7 @@ local function ChoiceButton(parent, c)
     b.glyph:SetSize(13, 13)
     local atlas = c.atlas and b.glyph.SetAtlas and C_Texture and C_Texture.GetAtlasInfo
     if atlas and C_Texture.GetAtlasInfo(c.atlas) then b.glyph:SetAtlas(c.atlas) else b.glyph:SetTexture(c.tex) end
-    b.word = ns.Text(b, 10)
+    b.word = Text(b, 10)
     b.word:SetText(Button(c.word))
     b.word:SetPoint("CENTER", 8, 0)
     b.glyph:SetPoint("RIGHT", b.word, "LEFT", -3, 0)
@@ -430,12 +449,12 @@ local function MakeCard()
     c.hit:EnableMouse(true)
     c.hit:SetScript("OnEnter", function(self) Tip(self, c.roll and c.roll.link) end)
     c.hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    c.link = ns.PlainText(c, 12)
+    c.link = Plain(c, 12)
     c.link:SetPoint("TOPLEFT", c.edge, "TOPRIGHT", 7, -1)
     c.link:SetPoint("RIGHT", -PAD, 0)
     c.link:SetJustifyH("LEFT")
     c.link:SetWordWrap(false)
-    c.meta = ns.Text(c, 10)
+    c.meta = Text(c, 10)
     c.meta:SetPoint("TOPLEFT", c.link, "BOTTOMLEFT", 0, -3)
     c.meta:SetPoint("RIGHT", -PAD, 0)
     c.meta:SetJustifyH("LEFT")
@@ -444,7 +463,7 @@ local function MakeCard()
     c.arrow = c:CreateTexture(nil, "ARTWORK")
     c.arrow:SetSize(9, 9)
     c.arrow:SetPoint("TOPLEFT", c.meta, "BOTTOMLEFT", 0, -3)
-    c.up = ns.Text(c, 10)
+    c.up = Text(c, 10)
     c.up:SetJustifyH("LEFT")
     c.up:SetWordWrap(false)
     c.buttons = {}
@@ -457,7 +476,7 @@ local function MakeCard()
     c.bar = c:CreateTexture(nil, "ARTWORK", nil, 1)
     c.bar:SetPoint("BOTTOMLEFT", c.track)
     c.bar:SetHeight(BAR)
-    c.sec = ns.Text(c, 10)
+    c.sec = Text(c, 10)
     c.sec:SetPoint("RIGHT", c, "BOTTOMRIGHT", -PAD, 8)
     c.sec:SetJustifyH("RIGHT")
     return c
@@ -543,14 +562,14 @@ local function Stamp(i)
     s:SetSize(WIDTH - 2, STAMP)
     s.edge, s.icon = MakeIcon(s, CHIP)
     s.edge:SetPoint("LEFT", PAD, 0)
-    s.sec = ns.Text(s, 10)
+    s.sec = Text(s, 10)
     s.sec:SetPoint("RIGHT", -PAD, 0)
-    s.link = ns.PlainText(s, 10)
+    s.link = Plain(s, 10)
     s.link:SetPoint("TOPLEFT", s.edge, "TOPRIGHT", 6, 0)
     s.link:SetPoint("RIGHT", s.sec, "LEFT", -6, 0)
     s.link:SetJustifyH("LEFT")
     s.link:SetWordWrap(false)
-    s.line = ns.Text(s, 10)
+    s.line = Text(s, 10)
     s.line:SetPoint("BOTTOMLEFT", s.edge, "BOTTOMRIGHT", 6, 0)
     s.line:SetPoint("RIGHT", s.sec, "LEFT", -6, 0)
     s.line:SetJustifyH("LEFT")
@@ -599,7 +618,7 @@ local function MakeTop()
     t.close:SetScript("OnEnter", function(self) self.icon:SetVertexColor(0.9, 0.3, 0.25) end)
     t.close:SetScript("OnLeave", function(self) self.icon:SetVertexColor(DIM[1], DIM[2], DIM[3]) end)
     t.close:SetScript("OnClick", function() ns.rolls.Close() end)
-    t.title = ns.Text(t, 11)
+    t.title = Text(t, 11)
     t.title:SetPoint("LEFT", PAD + 1, 0)
     t.title:SetPoint("RIGHT", t.close, "LEFT", -6, 0)
     t.title:SetJustifyH("LEFT")
@@ -637,9 +656,9 @@ local function MakeHead()
     h.chevron:SetSize(10, 10)
     h.chevron:SetPoint("LEFT", PAD - 1, 0)
     h.chevron:SetTexture(ns.media .. "strips\\chevron-down")
-    h.state = ns.Text(h, 10)
+    h.state = Text(h, 10)
     h.state:SetPoint("RIGHT", -PAD, 0)
-    h.link = ns.PlainText(h, 10)
+    h.link = Plain(h, 10)
     h.link:SetPoint("LEFT", INDENT + 4, 0)
     h.link:SetPoint("RIGHT", h.state, "LEFT", -6, 0)
     h.link:SetJustifyH("LEFT")
@@ -704,22 +723,22 @@ local function Row(i)
     r.me:SetPoint("BOTTOMLEFT")
     r.me:SetWidth(2)
     Fill(r.me, GOLD_D)
-    r.mark = ns.Text(r, 9)
+    r.mark = Text(r, 9)
     r.mark:SetPoint("RIGHT", -PAD, 0)
     r.mark:SetWidth(MARK_W)
     r.mark:SetJustifyH("RIGHT")
     Paint(r.mark, GOLD)
-    r.roll = ns.Text(r, 10)
+    r.roll = Text(r, 10)
     r.roll:SetPoint("RIGHT", -PAD - MARK_W, 0)
     r.roll:SetWidth(ROLL_W)
     r.roll:SetJustifyH("RIGHT")
     local right = PAD + MARK_W + ROLL_W
-    r.how = ns.Text(r, 10)
+    r.how = Text(r, 10)
     r.how:SetPoint("LEFT", r, "RIGHT", -right - HOW_W + 14, 0)
     r.die = r:CreateTexture(nil, "ARTWORK")
     r.die:SetSize(12, 12)
     r.die:SetPoint("LEFT", r, "RIGHT", -right - HOW_W, 0)
-    r.who = ns.Text(r, 10)
+    r.who = Text(r, 10)
     r.who:SetPoint("LEFT", INDENT, 0)
     r.who:SetPoint("RIGHT", r, "RIGHT", -right - HOW_W - 4, 0)
     r.who:SetJustifyH("LEFT")
@@ -892,19 +911,22 @@ end
 
 -- ----------------------------------------------------------------- place
 local function Place()
-    local at = ns.db.rollsPlace
+    -- its place is kept in the screen's units; the frame's own are its scale's
+    local at, k = ns.db.rollsPlace, WindowScale()
+    frame:SetScale(k)
     frame:ClearAllPoints()
     if type(at) == "table" then
-        frame:SetPoint(at.point or "BOTTOM", UIParent, at.relative or "BOTTOM", at.x or 0, at.y or 320)
+        frame:SetPoint(at.point or "BOTTOM", UIParent, at.relative or "BOTTOM", (at.x or 0) / k, (at.y or 320) / k)
     else
-        frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 320)
+        frame:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 320 / k)
     end
 end
 
 local function Dropped()
     frame:StopMovingOrSizing()
     local point, _, relative, x, y = frame:GetPoint()
-    ns.SetOption("rollsPlace", { point = point, relative = relative, x = x, y = y })
+    local k = WindowScale()
+    ns.SetOption("rollsPlace", { point = point, relative = relative, x = x * k, y = y * k })
     Place()
 end
 
@@ -1032,11 +1054,11 @@ local function Start()
     card = MakeCard()
     card:Hide()
     logHead = MakeHead()
-    empty = ns.Text(logHead, 10)
+    empty = Text(logHead, 10)
     empty:SetPoint("LEFT", INDENT + 4, 0)
     Paint(empty, DIM)
     empty:SetText(Tr["No rolls yet."])
-    more = ns.Text(frame, 10)
+    more = Text(frame, 10)
     Paint(more, DIM)
     more:Hide()
     linger = frame:CreateTexture(nil, "ARTWORK")
@@ -1088,6 +1110,11 @@ local function Start()
             if frame:IsShown() then Draw() end
         end)
     end
+    ns.OnSetting("rollsScale", Place)
+    ns.OnSetting("rollsTextSize", function()
+        Resize()
+        if frame:IsShown() then Draw() end
+    end)
     ns.OnSetting("rollFrame", function(on)
         Game(not on)
         if not on then
