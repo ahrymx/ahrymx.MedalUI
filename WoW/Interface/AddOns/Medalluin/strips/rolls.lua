@@ -25,7 +25,19 @@ local _, ns = ...
 local Tr = ns.L
 
 local LH = C_LootHistory
-local HISTORY = LH and LH.GetSortedDropsForEncounter and LH.GetInfoForEncounter
+-- The game's roll API, read through here so the simulation (rolls_sim.lua)
+-- can stand in for it without touching a global: the item of a roll, its
+-- link and time left (ms), a choice made, the history's bosses and drops.
+local GAME = {
+    history = LH and LH.GetSortedDropsForEncounter and LH.GetInfoForEncounter and true or false,
+    Info = function(id) if GetLootRollItemInfo then return GetLootRollItemInfo(id) end end,
+    Link = function(id) return GetLootRollItemLink and GetLootRollItemLink(id) end,
+    Left = function(id) return GetLootRollTimeLeft and GetLootRollTimeLeft(id) or 0 end,
+    Roll = function(id, kind) RollOnLoot(id, kind) end,
+    Encounters = function() return LH and LH.GetAllEncounterInfos and LH.GetAllEncounterInfos() or {} end,
+    Drops = function(encounter) return LH.GetSortedDropsForEncounter(encounter) end,
+}
+local api = GAME
 local WIDTH, PAD = 270, 6
 local TOP, ICON, BUTTON, BAR = 20, 40, 20, 4    -- the title band, the card's icon, a choice, the time bar
 local CHIP, STAMP = 22, 26                      -- a queued roll's chip, a chosen roll's stamp
@@ -191,7 +203,7 @@ end
 
 local function Encounters()
     local infos = {}
-    for _, info in ipairs(LH.GetAllEncounterInfos and LH.GetAllEncounterInfos() or {}) do
+    for _, info in ipairs(api.Encounters() or {}) do
         table.insert(infos, info)
     end
     table.sort(infos, function(a, b) return (a.startTime or 0) > (b.startTime or 0) end)
@@ -200,9 +212,9 @@ end
 
 -- the history's drop of an item, still rolling
 local function DropFor(link)
-    if not HISTORY or not link or Secret(link) then return nil end
+    if not api.history or not link or Secret(link) then return nil end
     for _, info in ipairs(Encounters()) do
-        for _, d in ipairs(LH.GetSortedDropsForEncounter(info.encounterID) or {}) do
+        for _, d in ipairs(api.Drops(info.encounterID) or {}) do
             if d.itemHyperlink == link and Rolling(d) then return d end
         end
     end
@@ -222,12 +234,12 @@ end
 -- first, then the newest boss's); else the drop last updated; else the
 -- newest boss's last drop.
 local function Logged()
-    if not HISTORY then return nil end
+    if not api.history then return nil end
     local want = Current() or (chosen[#chosen] and chosen[#chosen].roll)
     want = want and want.link
     local updated, live, last
     for n, info in ipairs(Encounters()) do
-        for _, d in ipairs(LH.GetSortedDropsForEncounter(info.encounterID) or {}) do
+        for _, d in ipairs(api.Drops(info.encounterID) or {}) do
             local link, rolling = d.itemHyperlink, Rolling(d)
             if want and link == want and not Secret(link) and rolling then return d, info end
             local isLatest = latest and latest[1] == info.encounterID and latest[2] == d.lootListKey
@@ -346,7 +358,7 @@ end
 
 -- a roll's seconds left, and its share of the whole
 local function TimeLeft(r)
-    local left = GetLootRollTimeLeft and GetLootRollTimeLeft(r.id) or 0
+    local left = api.Left(r.id) or 0
     return left / 1000, r.total and r.total > 0 and math.max(0, math.min(1, left / r.total)) or 0
 end
 
@@ -966,8 +978,7 @@ end
 
 local function Owe(id, total)
     for _, r in ipairs(owed) do if r.id == id then return end end
-    if not GetLootRollItemInfo then return end
-    local info = { GetLootRollItemInfo(id) }
+    local info = { api.Info(id) }
     local texture, name, quality = info[1], info[2], info[4]
     if not texture and not name then return end
     local can, why = {}, {}
@@ -975,8 +986,8 @@ local function Owe(id, total)
         if c.can then can[c.type] = info[c.can] and true or false end
         if c.why then why[c.type] = info[c.why] end
     end
-    table.insert(owed, { id = id, total = total or (GetLootRollTimeLeft and GetLootRollTimeLeft(id)) or 0,
-        link = GetLootRollItemLink and GetLootRollItemLink(id), name = name, icon = texture, quality = quality,
+    table.insert(owed, { id = id, total = total or api.Left(id) or 0,
+        link = api.Link(id), name = name, icon = texture, quality = quality,
         bop = info[5] and true or false, can = can, why = why })
 end
 
@@ -993,7 +1004,7 @@ end
 -- until the game ends the roll
 local function Choose(r, kind)
     if not r then return end
-    RollOnLoot(r.id, kind)
+    api.Roll(r.id, kind)
     Drop(r.id)
     if kind ~= 0 then table.insert(chosen, { roll = r, kind = kind }) end
     Draw()
@@ -1094,8 +1105,38 @@ local function Start()
     end
 end
 
+-- The simulation's door: Use(source) puts its API in the game's place (it
+-- answers the game's rolls through to the game), nil gives the game's back;
+-- either way the simulated rolls (ids below 0) are forgotten, the real ones
+-- kept. Start and Cancel act out START_LOOT_ROLL and CANCEL_LOOT_ROLL;
+-- Redraw after the history moved.
+local function Use(source)
+    api = source or GAME
+    for i = #owed, 1, -1 do if owed[i].id < 0 then table.remove(owed, i) end end
+    for i = #chosen, 1, -1 do if chosen[i].roll.id < 0 then table.remove(chosen, i) end end
+    if pick and pick < 0 then pick = nil end
+    if frame and frame:IsShown() then
+        if #owed == 0 and #chosen == 0 and not source then frame:Hide() else Draw() end
+    end
+end
+
+local function SimStart(id, total)
+    Owe(id, total)
+    Show()
+end
+
+local function SimCancel(id)
+    Drop(id)
+    if frame and frame:IsShown() then Draw() end
+end
+
+local function Redraw()
+    if frame and frame:IsShown() then Draw() end
+end
+
 ns.rolls = { chips = chips, stamps = stamps, rows = rows, owed = function() return owed end,
-    chosen = function() return chosen end, Draw = Draw, Close = Close, Choose = Choose, Dropped = Dropped }
+    chosen = function() return chosen end, Draw = Draw, Close = Close, Choose = Choose, Dropped = Dropped,
+    GAME = GAME, Use = Use, Start = SimStart, Cancel = SimCancel, Redraw = Redraw }
 ns.On("PLAYER_LOGIN", function()
     Start()
     ns.rolls.frame, ns.rolls.top, ns.rolls.card, ns.rolls.head = frame, top, card, logHead

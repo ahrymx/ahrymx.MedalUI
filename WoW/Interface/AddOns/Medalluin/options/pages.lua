@@ -895,7 +895,10 @@ function ns.OptionPages()
                     Check("simCdm", Tr["Simulate cooldowns"],
                         Tr["Show each Cooldown Manager viewer's icons as its options (Cooldowns) draw them, "
                         .. "without a fight: your own spells or a random full set, cooling down, with charges "
-                        .. "and stacks, buffs coming and going. A small panel on the right sets what they show."])),
+                        .. "and stacks, buffs coming and going. A small panel on the right sets what they show."]),
+                    Check("simRolls", Tr["Simulate rolls"], Tr["Drop simulated items to roll on: the Roll window "
+                        .. "pops up as for a real roll, its choices work, and a simulated group rolls too. A small "
+                        .. "panel on the right sets what drops. Nothing is sent to the game."])),
                 Group(Tr["Editor"],
                     Editor(nil, Tr["Edit unit frames"])),
                 Group(Tr["Key bindings"],
@@ -1417,7 +1420,10 @@ function ns.OptionPages()
                                 Tr["A small window of Medalluin's own pops up for each item to roll on: the item, "
                                     .. "its level against what you wear, need, greed or pass, and under it everyone's "
                                     .. "choice and roll on it. The die button shows and hides it. Untick it to keep "
-                                    .. "the game's roll frames."])),
+                                    .. "the game's roll frames."]),
+                            Check("simRolls", Tr["Simulate rolls"], Tr["Drop simulated items to roll on: the Roll "
+                                .. "window pops up as for a real roll, its choices work, and a simulated group rolls "
+                                .. "too. A small panel on the right sets what drops. Nothing is sent to the game."])),
                     }),
                 Switched(Check("sideImmersion", Tr["Faded when idle"],
                         Tr["Left alone, the panel's background fades to its faded opacity, whole again on what "

@@ -8326,6 +8326,82 @@ if sidePass then
         GroupLootFrame1:Show()
         print("rolls option on, the game's dialog shown anyway", game())
         loot.rolls = {}
+        -- Simulate rolls (strips/rolls_sim.lua): items drop on their own,
+        -- the group answers one by one, the choices made go nowhere
+        do
+            local Sim = ns.rollsSim
+            local clock = now          -- put back after: later passes read the time
+            local spb = ns.simButtons
+            win:Hide()
+            local function press(id) spb[id].scripts.OnClick(spb[id]) end
+            local function tick(sec)
+                for _ = 1, math.floor(sec / 0.1 + 0.5) do now = now + 0.1; Sim.Tick() end
+            end
+            local function simState(tag)
+                local p = Sim.panel()
+                local list = {}
+                for i = -1, -4, -1 do
+                    local r = Sim.rolls()[i]
+                    if r then
+                        local d = r.drop
+                        local n = 0
+                        for _, m in ipairs(d.rollInfos) do if m.state ~= 4 then n = n + 1 end end
+                        table.insert(list, string.format("%d:%s %d/%d%s", i, r.item.name, n, #d.rollInfos,
+                            d.winner and (" won by " .. tostring(d.winner.playerName)) or d.allPassed and " all passed"
+                            or ""))
+                    end
+                end
+                print(tag, "panel=" .. tostring(p and p:IsShown()), "sim=" .. tostring(ns.db.simRolls),
+                    table.concat(list, "; "))
+            end
+            ns.SetOption("simRolls", true)
+            simState("rolls sim on")
+            rolls("rolls sim on: two items owed")
+            tick(2)
+            rolls("rolls sim two seconds on: the group answering")
+            choose("Need")
+            rolls("rolls sim needed the first")
+            print("rolls sim sent to the game", "rolled=" .. table.concat(loot.rolled, ","))
+            tick(4)
+            simState("rolls sim all answered")
+            rolls("rolls sim the first decided")
+            -- the panel: more items, a refused need, transmog, a raid
+            press("rolls.count.more")
+            press("rolls.refused")
+            press("rolls.mog")
+            simState("rolls sim three items, need refused, transmog")
+            rolls("rolls sim three items, need refused, transmog")
+            hover("Need")
+            press("rolls.raid")
+            tick(8)
+            rolls("rolls sim a raid, eight seconds on")
+            -- a real roll meanwhile: the game's, kept when the simulation ends
+            loot.rolls[11] = { link = blade, left = 30000,
+                info = { "iconBlade", "Supremus Blade", 1, 4, true, true, true, false, nil, nil, nil, nil, false } }
+            fire("START_LOOT_ROLL", 11, 30000)
+            print("rolls sim a real roll too", "owed=" .. #R.owed())
+            -- the time runs out: unanswered ones pass, you among them
+            tick(61)
+            simState("rolls sim timed out")
+            rolls("rolls sim timed out")
+            press("rolls.again")
+            simState("rolls sim new rolls")
+            press("rolls.end")
+            simState("rolls sim ended")
+            local ids = {}
+            for _, r in ipairs(R.owed()) do table.insert(ids, r.id) end
+            print("rolls sim ended: owed", table.concat(ids, ","), win:IsShown() and "shown" or "hidden")
+            -- off with the Roll window
+            ns.SetOption("simRolls", true)
+            page.settings.rollFrame:Set(false)
+            simState("rolls sim, roll window off")
+            page.settings.rollFrame:Set(true)
+            simState("rolls sim, roll window back")
+            ns.SetOption("simRolls", false)
+            print("rolls sim ended, nothing real owed", win:IsShown() and "shown" or "hidden", "owed=" .. #R.owed())
+            win:Hide()
+            now = clock
+        end
         C_Item.GetItemInfoInstant, GetDetailedItemLevelInfo, GetInventoryItemLink, ItemLocation,
             C_Item.GetCurrentItemLevel, GameTooltip.SetText, GameTooltip.AddLine, INVTYPE_WEAPON, INVTYPE_FINGER,
             INVTYPE_HEAD, LOOT_ROLL_INELIGIBLE_REASON1, INVTYPE_RANGED = unpack(was, 1, 12)

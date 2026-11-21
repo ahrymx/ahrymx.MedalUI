@@ -62,6 +62,7 @@ strips\chat.lua
 strips\side.lua
 strips\loot.lua
 strips\rolls.lua
+strips\rolls_sim.lua
 strips\meter.lua
 strips\auras.lua
 strips\zone.lua

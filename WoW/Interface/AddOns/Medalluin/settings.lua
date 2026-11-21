@@ -191,6 +191,7 @@ local DEFAULTS = {
     xpCast = false,         -- the player's casts over the experience bar
     repCast = false,        -- the target's casts over the reputation bar
     simParty = false,       -- simulate party frames and show the group art layer
+    simRolls = false,       -- simulate rolls in the Roll window (strips/rolls_sim.lua)
     simCdm = false,         -- simulate the Cooldown Manager's viewers in their options (cooldowns/simulate.lua)
     partyPets = true,       -- show pet frames directly below party members with pets
     partyLayout = "console", -- "console": on the console, Arena's medallion wings or the Reticule's row
