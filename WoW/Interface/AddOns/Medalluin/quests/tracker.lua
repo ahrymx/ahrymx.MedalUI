@@ -34,8 +34,9 @@
 -- chevron folds or opens every zone, the last switches the view.
 --
 -- A zone heading folds (remembered), and counts its quests. The sort orders
--- the quests inside each zone, and the zones by their first quest: Level or
--- Zone (the one you are in first). A quest's colour is its difficulty.
+-- the quests inside each zone, and the zones by their first quest: Level,
+-- Zone (the one you are in first) or Distance (the game's objective markers
+-- on the map, nearest first, looked at every two seconds out of combat). A quest's colour is its difficulty.
 --
 -- A quest's mark, before its level: ? once it can be handed in, else its
 -- kind's: a dungeon's, a group's (or elite), or the plain !. A daily's !
@@ -90,8 +91,16 @@ local SHADE, FADE = 0.6, 6              -- the shade's darkest, and how fast it 
 local RULE = 6                          -- the gap each side of a rule
 local HEIGHT, LEAST = 400, { 320, 160 } -- the minimal view's first height, and its least size
 local SCALES = { 0.6, 1.5, 0.05 }       -- its scale: least, most, a step of the wheel
-local SORTS = { level = Tr["Sorted by level. Click: by level, by zone (yours first)."],
-    zone = Tr["Sorted by zone. Click: by level, by zone (yours first)."] }
+-- the sort button's dialog's choices (ns.window.Choices, the quest log's look)
+local ORDERS = {
+    { "level", Tr["Level"], Tr["The lowest quests first, and the zones by their lowest quest."] },
+    { "zone", Tr["Zone"], Tr["The zone you are in first, then the rest by name."] },
+    { "distance", Tr["Distance"], Tr["The nearest quests first, by the game's objective markers on the map; the "
+        .. "zones by their nearest quest."] },
+}
+local SORTS = {}
+for _, o in ipairs(ORDERS) do SORTS[o[1]] = o end
+local RESORT = 2                        -- seconds between looks at the distances (sorted by them)
 local BLUE, RED = { 0.35, 0.65, 1 }, { 1, 0.45, 0.25 }
 local GOSSIP = "Interface\\GossipFrame\\"
 local MARKS = {
@@ -151,17 +160,23 @@ local function Key(q)
     return q.level
 end
 
--- The zones in order, each with its quests in order.
+-- The zones in order, each with its quests in order. By distance
+-- (Q.ByDistance): the quests nearest first, each zone where its nearest
+-- one falls; in combat the last order stands (the rows keep their places).
+local rank = {}                         -- the distance sort's last order
 local function Zones()
     local sort = Sort()
+    local source = quests
+    if sort == "distance" then source, rank = Q.ByDistance(quests, rank, InCombatLockdown()) end
     local byZone, zones = {}, {}
-    for _, q in ipairs(quests) do
+    for _, q in ipairs(source) do
         if not byZone[q.zone] then
             byZone[q.zone] = { name = q.zone, quests = {} }
             table.insert(zones, byZone[q.zone])
         end
         table.insert(byZone[q.zone].quests, q)
     end
+    if sort == "distance" then return zones end
     for _, z in ipairs(zones) do
         table.sort(z.quests, function(a, b)
             local ka, kb = Key(a), Key(b)
@@ -712,16 +727,27 @@ local function Build()
         Refresh()
     end, function() return AnyOpen() and Tr["Fold every zone."] or Tr["Open every zone."] end)
     foldAll:SetPoint("RIGHT", viewButton, "LEFT", -4, 0)
+    -- its dialog over it: a pick sorts (out of combat: the rows keep their
+    -- places in it) and the dialog stays
+    local orders = ns.window.Choices({
+        name = "MedalluinQuestsOrders", title = Tr["Sort the quests"], width = 240, choices = ORDERS,
+        Get = Sort,
+        Set = function(v)
+            if InCombatLockdown() then return end
+            ns.db.questsSort = v
+            Refresh()
+        end,
+        Anchor = function() return sortButton end,
+    })
     sortButton = Control(function()
         if InCombatLockdown() then return end
-        local order = { "level", "zone" }
-        local at = 1
-        for i, k in ipairs(order) do if k == Sort() then at = i end end
-        ns.db.questsSort = order[at % #order + 1]
-        Refresh()
+        orders.Toggle()
     end, function()
-        return SORTS[Sort()]
+        local o = SORTS[Sort()]
+        return format(Tr["Sorted: %s."], o[2]) .. " " .. o[3] .. " " .. Tr["Click: choose another."]
     end)
+    sortButton.orders = orders
+    frame:HookScript("OnHide", function() orders.Close() end)
     Glyph(sortButton, "sort")
     sortButton:SetPoint("RIGHT", foldAll, "LEFT", -4, 0)
 
@@ -779,8 +805,18 @@ local function Build()
     -- one refresh a frame, however many events; a change held in combat
     -- stays dirty until the first frame after it (and a tracker hidden in
     -- combat sends its items away then, through OnHide)
+    local resortIn = RESORT
     frame:SetScript("OnUpdate", function(_, elapsed)
         if dirty and not InCombatLockdown() then Refresh() end
+        -- sorted by distance: a look every RESORT seconds, out of combat,
+        -- drawn again only when the order moved
+        resortIn = resortIn - elapsed
+        if resortIn <= 0 then
+            resortIn = RESORT
+            if Sort() == "distance" and not InCombatLockdown() and select(3, Q.ByDistance(quests, rank)) then
+                Refresh()
+            end
+        end
         -- the minimal view's shade eases toward the pointer's answer
         local want, now = not Full() and shade:IsMouseOver() and 1 or 0, shade:GetAlpha()
         if now ~= want then shade:SetAlpha(Ease(now, want, elapsed)) end

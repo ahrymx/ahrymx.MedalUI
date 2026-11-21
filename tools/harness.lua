@@ -3196,7 +3196,16 @@ if questPass then
         IsSuperTrackingQuest = function() return W.super ~= 0 end,
     }
     C_Navigation = { GetDistance = function() return W.super ~= 0 and W.far or 0 end }
-    C_QuestLog.GetDistanceSqToQuest = function() return 250 * 250, true end
+    -- yards to each quest's nearest marker (W.dist): a number, false (no
+    -- marker), "far" (another continent), "secret"; unlisted 250
+    C_QuestLog.GetDistanceSqToQuest = function(id)
+        local d = W.dist and W.dist[id]
+        if d == nil then return 250 * 250, true end
+        if d == false then return nil end
+        if d == "far" then return 9000 * 9000, false end
+        if d == "secret" then return secret(), true end
+        return d * d, true
+    end
     if questLogPass then
         -- what each quest gives: xp, copper, items given and to choose from
         W.rewards = {
@@ -7385,6 +7394,7 @@ if sidePass then
         C_Item.GetItemNameByID = function(id) return id == 5555 and "Night Lantern" or nil end
         C_Item.GetItemCount = function(id) return id == 5555 and 3 or 0 end
         C_Item.GetItemIconByID = function(id) return "icon" .. id end
+        local zoneDist = {}
         local super = 0
         C_SuperTrack = {
             GetSuperTrackedQuestID = function() return super end,
@@ -7411,6 +7421,13 @@ if sidePass then
                 return n
             end,
             GetQuestsOnMap = function() return { { questID = 102 } } end,
+            -- yards to each quest's nearest marker: none listed, none known
+            GetDistanceSqToQuest = function(id)
+                local d = zoneDist[id]
+                if d == nil then return nil end
+                if d == "far" then return 9000 * 9000, false end
+                return d * d, true
+            end,
         }
         function GetRealZoneText() return "Duskwood" end
         function GetSubZoneText() return "Darkshire" end
@@ -7627,6 +7644,56 @@ if sidePass then
         C_SuperTrack.SetSuperTrackedQuestID(0)
         fire("SUPER_TRACKING_CHANGED")
         rows("waypoint gone")
+        -- the sort button: by distance, nearest first, the unmeasured after
+        -- by level; the waypoint's quest still first; again, the log's order
+        ;(function()
+            local sortB
+            for _, b in ipairs(z.paint) do
+                if b.spec and b.spec.glyph and b.spec.glyph() == "side-sort" then sortB = b end
+            end
+            print("zone sort button", sortB and "there" or "none", "zoneSort=" .. tostring(ns.db.zoneSort),
+                "lit=" .. tostring(sortB and sortB.spec.lit()), "tip=" .. tostring(sortB and sortB.spec.tip()))
+            zoneDist[102], zoneDist[201], zoneDist[202], zoneDist[203] = 400, "far", 60, nil
+            -- a click opens the dialog at the button's left (the panel is on
+            -- the right strip), lit while open; a key picks, the dialog stays
+            sortB.scripts.OnClick(sortB, "LeftButton")
+            local orders = views.zone.Orders()
+            local p = orders.frame.points.RIGHT
+            local function keys()
+                local o = {}
+                for _, k in ipairs(orders.keys) do o[#o + 1] = k.word.text .. (k.held and "*" or "") end
+                return table.concat(o, " ")
+            end
+            print("zone sort dialog", "open=" .. tostring(orders.IsOpen()), "keys=" .. keys(),
+                "at=" .. tostring(p and p[1] == sortB and p[2]) .. "," .. tostring(p and p[3]),
+                "lit=" .. tostring(sortB.spec.lit()), "marked=" .. tostring(sortB.mark.shown))
+            orders.keys[2].scripts.OnClick(orders.keys[2], "LeftButton")
+            print("zone sort picked", "zoneSort=" .. tostring(ns.db.zoneSort), "open=" .. tostring(orders.IsOpen()),
+                "keys=" .. keys(), "tip=" .. tostring(sortB.spec.tip()))
+            sortB.scripts.OnClick(sortB, "LeftButton")
+            print("zone sort closed", "open=" .. tostring(orders.IsOpen()), "lit=" .. tostring(sortB.spec.lit()))
+            rows("sort by distance")
+            -- walking: Marked Here comes nearest; a look every two seconds
+            zoneDist[102] = 20
+            z.body.scripts.OnUpdate(z.body, 2.1)
+            rows("sort by distance, walked")
+            C_SuperTrack.SetSuperTrackedQuestID(203)
+            fire("SUPER_TRACKING_CHANGED")
+            rows("sort by distance, waypoint")
+            C_SuperTrack.SetSuperTrackedQuestID(0)
+            fire("SUPER_TRACKING_CHANGED")
+            sortB.scripts.OnClick(sortB, "LeftButton")
+            orders.keys[1].scripts.OnClick(orders.keys[1], "LeftButton")
+            sortB.scripts.OnClick(sortB, "LeftButton")
+            print("zone sort picked log", "zoneSort=" .. tostring(ns.db.zoneSort), "open=" .. tostring(orders.IsOpen()),
+                "lit=" .. tostring(sortB.spec.lit()), "marked=" .. tostring(sortB.mark.shown))
+            -- a click anywhere else shuts it, and the button's mark goes
+            sortB.scripts.OnClick(sortB, "LeftButton")
+            orders.catcher.scripts.OnClick(orders.catcher, "LeftButton")
+            print("zone sort shut elsewhere", "open=" .. tostring(orders.IsOpen()), "marked=" .. tostring(sortB.mark.shown))
+            rows("sort by log")
+            for k in pairs(zoneDist) do zoneDist[k] = nil end
+        end)()
         -- a kill's line: a sword for "slain"; too long, the name's first word
         -- an initial (a short one keeps its words)
         fold(2)
@@ -21789,15 +21856,80 @@ if questPass and not questLogPass then
         items("quests.questie items")
     end
 
-    -- 3. the sorts: each click the next
-    for _ = 1, 2 do
-        T.sort.scripts.OnClick(T.sort, "LeftButton")
+    -- 3. the sorts: the button opens a dialog over it (the quest log's), a
+    -- key for each; a pick sorts and the dialog stays; the button again shuts it
+    do
+    local orders = T.sort.orders
+    local function held()
+        local o = {}
+        for _, k in ipairs(orders.keys or {}) do o[#o + 1] = k.word.text .. (k.held and "*" or "") end
+        return table.concat(o, " ")
+    end
+    T.sort.scripts.OnClick(T.sort, "LeftButton")
+    local p = orders.frame.points.BOTTOM
+    print("quests.orders", "open=" .. tostring(orders.IsOpen()), "keys=" .. held(),
+        "at=" .. tostring(p and p[1] == T.sort and p[2]) .. "," .. tostring(p and p[4]))
+    for i = 2, 3 do
+        orders.keys[i].scripts.OnClick(orders.keys[i], "LeftButton")
         frame()
+        print("quests.orders picked", "open=" .. tostring(orders.IsOpen()), "keys=" .. held())
         state("quests.sorted")
         rows("quests.sorted")
     end
+    T.sort.scripts.OnClick(T.sort, "LeftButton")
+    print("quests.orders again", "open=" .. tostring(orders.IsOpen()))
+    end
     print("quests.saved sort", ns.db.questsSort)
+    -- 3b. by distance (the third click): the zones by their nearest quest,
+    -- those without a marker after, by level; a look every two seconds
+    -- redraws only when the order moved, and never in combat
+    ;(function()
+        local set, drawnN = list.Set, 0
+        list.Set = function(...) drawnN = drawnN + 1 return set(...) end
+        local function tick(tag)
+            drawnN = 0
+            f.scripts.OnUpdate(f, 2.1)
+            print("quests.distance " .. tag, "drawn=" .. drawnN)
+            rows("quests.distance " .. tag)
+        end
+        W.dist = { [101] = 300, [102] = false, [103] = 40, [201] = 120, [202] = 125, [203] = 128, [301] = "far" }
+        T.Refresh()
+        rows("quests.distance")
+        tick("still")
+        W.dist[202] = 85                        -- Westfall Stew comes nearest
+        tick("stew nearer")
+        W.dist[201] = 89                        -- the same ten yards as the stew: the order it had stands
+        tick("same step")
+        W.dist[101] = 60                        -- Elwynn's nearest now nearer than Westfall's
+        tick("elwynn nearer")
+        inCombat = true
+        W.dist[101] = 300
+        tick("in combat")
+        -- a count changing in combat draws in place: the order frozen, so the
+        -- rows' shape stands
+        drawnN = 0
+        T.Refresh()
+        print("quests.distance in combat, a count changed", "drawn=" .. drawnN)
+        local Q_ = ns.questSource
+        print("quests.distance in combat, frozen", (function()
+            local out = {}
+            for _, q in ipairs((Q_.ByDistance({ { id = 9, title = "b", level = 1 }, { id = 8, title = "a", level = 2 } },
+                { [9] = 1 }, true))) do table.insert(out, q.id) end
+            return table.concat(out, ",")
+        end)())
+        inCombat = false
+        tick("after combat")
+        W.dist[202] = "secret"
+        tick("a secret distance")
+        -- Westfall's all unmeasured (none, none, another continent): by level
+        W.dist[201], W.dist[202], W.dist[203] = false, false, "far"
+        tick("westfall unmeasured")
+        W.dist = nil
+        list.Set = set
+    end)()
     if ns.db.questsSort ~= "level" then        -- back to level, where every quest shows
+        T.sort.scripts.OnClick(T.sort, "LeftButton")
+        T.sort.orders.keys[1].scripts.OnClick(T.sort.orders.keys[1], "LeftButton")
         T.sort.scripts.OnClick(T.sort, "LeftButton")
         frame()
     end
@@ -21913,6 +22045,7 @@ if questPass and not questLogPass then
     frame()
     rows("quests.combat removed")
     T.sort.scripts.OnClick(T.sort, "LeftButton")
+    print("quests.combat orders", "open=" .. tostring(T.sort.orders.IsOpen()))
     T.head.scripts.OnClick(T.head, "LeftButton")
     T.foldAll.scripts.OnClick(T.foldAll, "LeftButton")
     list:Scroll(2)

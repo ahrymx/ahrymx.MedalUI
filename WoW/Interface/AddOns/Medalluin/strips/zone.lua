@@ -10,7 +10,9 @@
 -- Over the list, the zone's name, and the subzone with where in it you
 -- stand. Then a row a quest: those the log files under this zone, and on
 -- retail those the game marks on this map too; the waypoint's quest heads
--- the list always, from whatever zone. A row is the quest's title,
+-- the list always, from whatever zone. The rest in the log's order, or by
+-- the tab's sort button nearest first (zoneSort, quests/source.lua's
+-- Q.ByDistance: the game's objective markers on the map). A row is the quest's title,
 -- its progress over all its objectives ("13/30", the counts read from
 -- them) and a tick once it is complete; one not tracked is striped, as the
 -- quest log stripes it (quests/log.lua), and a gold hairline above each
@@ -74,6 +76,10 @@ end
 
 -- The log's quests here: its heading is this zone (or the map's name for
 -- it), or the game marks it on this map.
+local rank = {}                 -- the distance sort's last order
+local RESORT = 2                -- seconds between looks at the distances (sorted by them)
+local function Distance() return ns.db.zoneSort == "distance" end
+
 local function Here()
     if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries) then return {} end
     local names, marked = { [ZoneName()] = true }, {}
@@ -85,16 +91,19 @@ local function Here()
             if e.questID then marked[e.questID] = true end
         end
     end
-    -- the waypoint's quest first, always, wherever it is
+    -- the waypoint's quest first, always, wherever it is; the rest in the
+    -- log's order, or nearest first (zoneSort; in combat the last order)
     local way = ns.waypoint and ns.waypoint.Quest()
-    local out = {}
+    local out, lead = {}, nil
     for _, q in ipairs(ns.questSource.Log()) do
         if q.id == way then
-            table.insert(out, 1, q)
+            lead = q
         elseif names[q.zone] or marked[q.id] then
             table.insert(out, q)
         end
     end
+    if Distance() then out, rank = ns.questSource.ByDistance(out, rank, InCombatLockdown()) end
+    if lead then table.insert(out, 1, lead) end
     return out
 end
 
@@ -226,7 +235,7 @@ local function Tip(r)
     ns.Tip(r, ns.side.Beside, spec)
 end
 
-local Refresh
+local Refresh, Moved, SORT
 
 -- Under the pointer, a quest's rows all lit together (its title, its
 -- objectives, its item), and the row itself glowing over that, as the
@@ -563,8 +572,15 @@ function view.Build(f)
         PlaceItems()                -- the items' buttons away (in combat: hidden already)
     end)
     -- where you stand, twice a second while the tab is up
-    local wait = 0
+    -- and, sorted by distance, a look every RESORT seconds out of combat,
+    -- drawn again only when the order moved
+    local wait, resortIn = 0, RESORT
     f:HookScript("OnUpdate", function(_, elapsed)
+        resortIn = resortIn - elapsed
+        if resortIn <= 0 then
+            resortIn = RESORT
+            if Distance() and not InCombatLockdown() and Moved() then Refresh() end
+        end
         wait = wait - elapsed
         if wait > 0 then return end
         wait = 0.5
@@ -574,6 +590,7 @@ function view.Build(f)
         if ns.side.IsCurrent(view) then Refresh() end
     end
     ns.questSource.Listen(Update)
+    ns.OnSetting("zoneSort", Update)
     -- the waypoint: its wash moves; its distance, in place
     ns.waypoint.OnChange(Update)
     ns.waypoint.OnTick(function()
@@ -605,6 +622,48 @@ function view.Thumb()
     return first, shown, #lines
 end
 
+-- whether the distance order moved since the list was drawn (the waypoint's
+-- quest aside: it heads the list whatever)
+-- The sort button, its dialog at its left (ns.window.Choices, the quest
+-- log's look): lit while open, or sorted by distance
+local ORDERS = {
+    { "log", Tr["Quest log"], Tr["As your quest log orders them."] },
+    { "distance", Tr["Distance"], Tr["The nearest quests first, by the game's objective markers on the map."] },
+}
+local orders                    -- built at its first use: the window kit loads after this file
+local function Orders()
+    orders = orders or ns.window.Choices({
+        name = "MedalluinZoneOrders", title = Tr["Sort the quests"], width = 220, choices = ORDERS, side = "left",
+        Get = function() return Distance() and "distance" or "log" end,
+        Set = function(v) ns.SetOption("zoneSort", v) end,
+        Anchor = function()
+            for _, b in ipairs(view.paint or {}) do
+                if b.spec == SORT then return b end
+            end
+        end,
+        Opened = function() ns.side.Changed() end,
+    })
+    return orders
+end
+view.Orders = Orders
+SORT = {
+    glyph = function() return "side-sort" end,
+    lit = function() return Distance() or (orders ~= nil and orders.IsOpen()) end,
+    click = function() Orders().Toggle() end,
+    tip = function()
+        local o = Distance() and ORDERS[2] or ORDERS[1]
+        return format(Tr["Sorted: %s."], o[2]), o[3] .. " " .. Tr["Click: choose another."]
+    end,
+}
+
+function Moved()
+    local rest = {}
+    for _, q in ipairs(quests) do
+        if not (ns.waypoint and ns.waypoint.Is(q.id)) then table.insert(rest, q) end
+    end
+    return select(3, ns.questSource.ByDistance(rest, rank))
+end
+
 view.buttons = {
     {
         glyph = function() return "side-zoom-in" end,
@@ -634,6 +693,7 @@ view.buttons = {
         click = function() if ToggleWorldMap then ToggleWorldMap() end end,
         tip = function() return Tr["World map"], Tr["Open or close the world map."] end,
     },
+    SORT,
 }
 view.foot = {
     glyph = function() return "side-trackall" end,

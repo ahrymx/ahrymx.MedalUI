@@ -373,6 +373,58 @@ function Q.ShowOnMap(quest)
     return true
 end
 
+-- ------------------------------------------------------------ distance
+-- From you to the quest's nearest objective marker on the game's map, in
+-- yards: the game's own measure (as the waypoint's, quests/waypoint.lua,
+-- less its navigation's). nil: no marker, another continent, or secret.
+function Q.Distance(id)
+    local sq = C_QuestLog and C_QuestLog.GetDistanceSqToQuest
+    if not sq or type(id) ~= "number" then return nil end
+    local ok, d2, near = pcall(sq, id)
+    if not ok or d2 == nil or ns.IsSecret(d2) or ns.IsSecret(near) or not near then return nil end
+    if type(d2) ~= "number" or d2 < 0 then return nil end
+    return math.sqrt(d2)
+end
+
+-- The quests nearest first, for the tracker and the Zone tab. A distance
+-- counts in steps of STEP yards, and quests in one step keep the order they
+-- had (rank: id -> place, the last call's), so walking does not swap two
+-- quests about each tick; then by title. Those without a distance come
+-- after, by level. frozen (in combat): the last order only, no distances;
+-- a quest new to it goes last.
+-- Gives the list, its ranks (for the next call), and whether it moved.
+local STEP = 10
+Q.DISTANCE_STEP = STEP
+function Q.ByDistance(list, rank, frozen)
+    rank = rank or {}
+    local key = {}
+    for _, q in ipairs(list) do
+        local d = not frozen and Q.Distance(q.id)
+        key[q] = d and math.floor(d / STEP) or false
+    end
+    local out = {}
+    for i, q in ipairs(list) do out[i] = q end
+    local huge = math.huge
+    table.sort(out, function(a, b)
+        local ka, kb = key[a], key[b]
+        if (ka == false) ~= (kb == false) then return kb == false end
+        if ka and ka ~= kb then return ka < kb end
+        if not ka and not frozen and (a.level or 0) ~= (b.level or 0) then return (a.level or 0) < (b.level or 0) end
+        local ra, rb = rank[a.id] or huge, rank[b.id] or huge
+        if ra ~= rb then return ra < rb end
+        if a.title ~= b.title then return tostring(a.title) < tostring(b.title) end
+        return a.id < b.id
+    end)
+    local now, moved, n = {}, false, 0
+    for i, q in ipairs(out) do
+        now[q.id] = i
+        if rank[q.id] ~= i then moved = true end
+    end
+    for _ in pairs(rank) do n = n + 1 end
+    if n ~= #out then moved = true end
+    return out, now, moved
+end
+
 -- A right click on a quest on the world map opens its page (Q.Show): the
 -- game's quest pins and Questie's icons both let right clicks through to
 -- the map (where they zoom out), so the map's own click handlers are where

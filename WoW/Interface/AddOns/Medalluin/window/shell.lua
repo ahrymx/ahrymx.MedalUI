@@ -688,7 +688,10 @@ end
 --
 --   local pop = ns.window.Choices{ name (global, for Escape), title, width,
 --                   choices = { { value, label, tip } }, Get(), Set(value),
---                   Anchor() -> the button, Opened(open) (the button marked) }
+--                   Anchor() -> the button, Opened(open) (the button marked),
+--                   side = "left" (beside the button, at its left, the notch
+--                   pointing right: the side panel's column, on the right
+--                   strip; else over it) }
 --   pop.Open(), pop.Close(), pop.Toggle(), pop.IsOpen(), pop.Mark() (after
 --   a change elsewhere); pop.frame, pop.catcher, pop.keys (each .word, .held)
 local POP_INK = { 0.078, 0.067, 0.047 }
@@ -725,11 +728,12 @@ function ns.window.Choices(spec)
         -- half the dialog's ink
         local notch = f:CreateTexture(nil, "BACKGROUND", nil, 2)
         notch:SetSize(9, 9)
-        notch:SetPoint("CENTER", f, "BOTTOM", 0, 0)
+        local left = spec.side == "left"
+        notch:SetPoint("CENTER", f, left and "RIGHT" or "BOTTOM", 0, 0)
         notch:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
         local fill = f:CreateTexture(nil, "BACKGROUND", nil, 4)
         fill:SetSize(7, 7)
-        fill:SetPoint("CENTER", f, "BOTTOM", 0, 1)
+        fill:SetPoint("CENTER", f, left and "RIGHT" or "BOTTOM", left and -1 or 0, left and 0 or 1)
         fill:SetColorTexture(POP_INK[1], POP_INK[2], POP_INK[3], 1)
         if notch.SetRotation then
             notch:SetRotation(math.pi / 4)
@@ -787,7 +791,8 @@ function ns.window.Choices(spec)
         pop.Mark()
         local b = spec.Anchor and spec.Anchor()
         f:ClearAllPoints()
-        if b then f:SetPoint("BOTTOM", b, "TOP", 0, 8) else f:SetPoint("CENTER") end
+        if b and spec.side == "left" then f:SetPoint("RIGHT", b, "LEFT", -8, 0)
+        elseif b then f:SetPoint("BOTTOM", b, "TOP", 0, 8) else f:SetPoint("CENTER") end
         pop.catcher:Show()
         f:Show()
         if spec.Opened then spec.Opened(true) end

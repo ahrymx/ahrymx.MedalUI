@@ -231,6 +231,16 @@ def g_trackall(cx, cy):       # zone: every quest here tracked, an open eye
             f'M7,10 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0 Z" fill="url(#gold)" stroke="#2a1e08" stroke-width="0.75"/>')
 
 
+def g_sort(cx, cy):           # zone: the quests' order (2026-11-21), three bars longest first, a pin by them
+    bars = "".join(f'<rect x="{cx - 8}" y="{cy - 6 + i * 4.6}" width="{9 - i * 2.6}" height="2.4" rx="0.6" '
+                   f'fill="url(#gold)" stroke="#2a1e08" stroke-width="0.6"/>' for i in range(3))
+    pin = (f'<path d="M{cx + 5},{cy + 7} C{cx + 2.4},{cy + 2.6} {cx + 1.6},{cy + 1.2} {cx + 1.6},{cy - 0.6} '
+           f'a3.4,3.4 0 1,1 6.8,0 C{cx + 8.4},{cy + 1.2} {cx + 7.6},{cy + 2.6} {cx + 5},{cy + 7} Z" '
+           f'fill="url(#gold)" stroke="#2a1e08" stroke-width="0.75"/>'
+           f'<circle cx="{cx + 5}" cy="{cy - 0.6}" r="1.2" fill="#2a1e08"/>')
+    return bars + pin
+
+
 def column(side, glyphs):
     """The column's buttons, top down; the last one sits at the foot."""
     cx = column_x(side)
@@ -601,6 +611,7 @@ def parts():
         "side-tracking": g_tracking(c, c),
         "side-worldmap": g_worldmap(c, c),
         "side-trackall": g_trackall(c, c),
+        "side-sort": g_sort(c, c),
     }
     for name, inner in pieces.items():
         doc = S.svg(inner).replace(f'width="{W}" height="{H}"', 'width="32" height="32"')

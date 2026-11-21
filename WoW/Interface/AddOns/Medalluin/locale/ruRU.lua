@@ -659,10 +659,16 @@ L["Click again to abandon it."] = "Нажмите ещё раз, чтобы от
 L["Abandon it. It asks once more first."] = "Отказаться. С подтверждением."
 
 -- the tracker (quests/tracker.lua)
-L["Sorted by level. Click: by level, by zone (yours first)."] =
-    "По уровню. Нажмите: по уровню или по зоне (ваша первой)."
-L["Sorted by zone. Click: by level, by zone (yours first)."] =
-    "По зоне. Нажмите: по уровню или по зоне (ваша первой)."
+L["Distance"] = "Расстояние"
+L["Sort the quests"] = "Порядок заданий"
+L["The nearest quests first, by the game's objective markers on the map; the zones by their nearest quest."] =
+    "Сначала ближайшие задания, по меткам целей на карте игры; зоны по ближайшему заданию."
+-- the Zone tab's sort (strips/zone.lua)
+L["The nearest quests first, by the game's objective markers on the map."] =
+    "Сначала ближайшие задания, по меткам целей на карте игры."
+L["As your quest log orders them."] = "Как в вашем журнале заданий."
+L["How the zone's quests are ordered; the waypoint's quest stays first. The tab's own button changes it too."] =
+    "Порядок заданий зоны; задание с путевой точкой всегда первое. Кнопка вкладки тоже его меняет."
 L["Click: show the quests."] = "Нажмите: показать задания."
 L["Click: fold the tracker to this heading."] = "Нажмите: свернуть список до заголовка."
 L["Drag: move it.  Ctrl-wheel: its size.  The corner's grip: its shape."] =

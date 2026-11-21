@@ -1351,7 +1351,15 @@ function ns.OptionPages()
                     Needs("side", Check("sideZone", Tr["Zone tab"],
                         Tr["The minimap, moved into the panel while the tab is up, and the quests of the zone you "
                         .. "are in beside it. Its place on the console stands empty meanwhile."])),
-                    nil),
+                    {
+                        Group(Tr["Quests"],
+                            Choice("zoneSort", Tr["Sort"], {
+                                { "log", Tr["Quest log"], Tr["As your quest log orders them."] },
+                                { "distance", Tr["Distance"], Tr["The nearest quests first, by the game's objective "
+                                    .. "markers on the map."] },
+                            }, Tr["How the zone's quests are ordered; the waypoint's quest stays first. The tab's "
+                                .. "own button changes it too."])),
+                    }),
                 Part("side/auras", Tr["Auras tab"], false,
                     Needs("side", Check("sideAuras", Tr["Auras tab"],
                         Tr["Your buffs and debuffs, each with the time it has left, the longest first."])),
@@ -1606,6 +1614,8 @@ function ns.OptionPages()
                     Choice("questsSort", Tr["Sort"], {
                         { "level", Tr["Level"], Tr["The lowest quests first, and the zones by their lowest quest."] },
                         { "zone", Tr["Zone"], Tr["The zone you are in first, then the rest by name."] },
+                        { "distance", Tr["Distance"], Tr["The nearest quests first, by the game's objective markers "
+                            .. "on the map; the zones by their nearest quest."] },
                     }, Tr["How the quests are ordered. The tracker's own button changes it too."]),
                     Button(Tr["Reset the minimal view"], function() ns.SetOption("questsPlace", false) end,
                         Tr["The minimal view back to the top left, at its first size and scale."]))),
