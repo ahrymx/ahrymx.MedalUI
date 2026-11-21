@@ -18,21 +18,25 @@ local _, ns = ...
 local Tr = ns.L
 
 local KIT = ns.simKit
-local BOSS = -1                 -- the simulated boss's encounter id
 local LENGTH = 60               -- seconds a roll lasts
 local MAX = 4                   -- items at once
 local WAIT, PASS = 4, 5         -- Enum.EncounterLootDropRollState: not chosen, passed
 -- a choice made (RollOnLoot's type) as the history's state
 local STATE = { [0] = PASS, [1] = 0, [2] = 3, [3] = 3, [4] = 2 }
--- the items, Prince Malchezaar's: the game's own name, icon and link once it
--- has them; ours until then
+-- the items, Molten Core's (Forever is Classic+: an item of a later expansion
+-- is unknown to it, its icon and details blank): the game's own name, icon
+-- and link once it has them; ours until then
 local ITEMS = {
-    { 28773, "Gorehowl", "INV_Axe_43" },
-    { 28770, "Nathrezim Mindblade", "INV_Weapon_ShortBlade_37" },
-    { 28762, "Adornment of Stolen Souls", "INV_Jewelry_Necklace_31" },
-    { 28757, "Ring of a Thousand Marks", "INV_Jewelry_Ring_57" },
-    { 28772, "Sunfury Bow of the Phoenix", "INV_Weapon_Bow_19" },
+    { 17076, "Bonereaver's Edge" },
+    { 17104, "Spinal Reaper" },
+    { 18814, "Choker of the Fire Lord" },
+    { 17063, "Band of Accuria" },
+    { 18815, "Essence of the Pure Flame" },
 }
+-- the bosses, one a deal, in turn (their encounter ids below 0)
+local BOSSES = { Tr["Lucifron"], Tr["Magmadar"], Tr["Gehennas"], Tr["Garr"], Tr["Baron Geddon"],
+    Tr["Shazzrah"], Tr["Sulfuron Harbinger"], Tr["Golemagg the Incinerator"], Tr["Majordomo Executus"],
+    Tr["Ragnaros"] }
 local NAMES = { "Alfa", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliett",
     "Kilo", "Lima", "Mike", "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra" }
 local CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
@@ -41,6 +45,8 @@ local CLASSES = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "
 local S = { count = 2, mog = false, shard = false, refused = false, raid = false }
 local panel, ticker, running
 local rolls = {}                -- by id: { item, start, drop, queue, next, cancelled }
+local boss                      -- this deal's boss: the history's encounter
+local past = {}                 -- earlier deals, newest first: { info, drops }
 local deal = 0                  -- deals so far: each starts one item further on the list
 
 -- ------------------------------------------------------------- the items
@@ -49,8 +55,9 @@ local function ItemOf(i)
     local get = (C_Item and C_Item.GetItemInfo) or GetItemInfo
     local info = get and { get(it[1]) } or {}
     local name, link, quality, icon = info[1], info[2], info[3], info[10]
-    return { id = it[1], name = name or it[2], quality = quality or 4, icon = icon or ("Interface\\Icons\\" .. it[3]),
-        link = link or string.format("|cffa335ee|Hitem:%d::::::::70:::::|h[%s]|h|r", it[1], name or it[2]) }
+    return { id = it[1], name = name or it[2], quality = quality or 4,
+        icon = icon or "Interface\\Icons\\INV_Misc_QuestionMark",
+        link = link or string.format("|cffa335ee|Hitem:%d::::::::60:::::|h[%s]|h|r", it[1], name or it[2]) }
 end
 
 -- the history's leader: the best choice, then the highest roll
@@ -165,9 +172,10 @@ function SIM.Roll(id, kind)
     ns.rolls.Redraw()
 end
 
-local encounter = { encounterID = BOSS, encounterName = Tr["Prince Malchezaar"], startTime = math.huge }
 function SIM.Encounters()
-    local list = { encounter }
+    local list = {}
+    if boss then table.insert(list, boss) end
+    for _, p in ipairs(past) do table.insert(list, p.info) end
     if G.history then
         for _, info in ipairs(G.Encounters() or {}) do table.insert(list, info) end
     end
@@ -175,17 +183,36 @@ function SIM.Encounters()
 end
 
 function SIM.Drops(id)
-    if id ~= BOSS then return G.history and G.Drops(id) or {} end
-    local list = {}
-    for k = -1, -MAX, -1 do if rolls[k] then table.insert(list, rolls[k].drop) end end
-    return list
+    if id >= 0 then return G.history and G.Drops(id) or {} end
+    if boss and id == boss.encounterID then
+        local list = {}
+        for k = -1, -MAX, -1 do if rolls[k] then table.insert(list, rolls[k].drop) end end
+        return list
+    end
+    for _, p in ipairs(past) do if p.info.encounterID == id then return p.drops end end
+    return {}
 end
 
 -- ----------------------------------------------------------------- deal
 -- the rolls dropped again: S.count items, the group choosing from scratch
 local function Deal()
+    -- this deal's boss joins the past (its rolls decided now, if not yet)
+    if boss then
+        local drops = {}
+        for k = -1, -MAX, -1 do
+            local roll = rolls[k]
+            if roll then
+                if not roll.cancelled then Decide(k, roll) end
+                table.insert(drops, roll.drop)
+            end
+        end
+        table.insert(past, 1, { info = boss, drops = drops })
+        while #past > 8 do table.remove(past) end
+    end
     rolls = {}
     deal = deal + 1
+    -- above the game's bosses: the newest
+    boss = { encounterID = -deal, encounterName = BOSSES[(deal - 1) % #BOSSES + 1], startTime = 1e12 + deal }
     ns.rolls.Use(SIM)
     local now = GetTime()
     for i = 1, S.count do
@@ -223,7 +250,7 @@ end
 local function Stop()
     running = false
     if ticker then ticker:Hide() end
-    rolls = {}
+    rolls, past, boss = {}, {}, nil
     ns.rolls.Use(nil)
 end
 

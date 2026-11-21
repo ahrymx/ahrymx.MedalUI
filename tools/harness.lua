@@ -2309,7 +2309,10 @@ if modern then
         return { iconFileID = "currency" .. link:match("currency:(%d+)") }
     end }
     C_Item = { GetItemQualityByID = function(link) return loot.quality[tonumber(link:match("item:(%d+)"))] end,
-        GetItemIconByID = function(link) return "icon" .. link:match("item:(%d+)") end }
+        -- the game's takes an item id or a link
+        GetItemIconByID = function(link)
+            return "icon" .. (type(link) == "number" and link or tostring(link):match("item:(%d+)"))
+        end }
     function UnitCastingInfo(u)
         if casting and u == castUnit then return "Sinister Strike", nil, nil, secret(), secret(), false, secret() end
     end
@@ -8070,7 +8073,17 @@ if sidePass then
             if win:IsShown() then update() end
             print(tag, win:IsShown() and "shown" or "hidden", string.format("h=%.0f", win:GetHeight()),
                 "owed=" .. #R.owed(), "chosen=" .. #R.chosen(), "rolled=" .. table.concat(loot.rolled, ","))
-            print("", "top", plain(R.top.title.text))
+            if R.top.title:IsShown() then print("", "top", plain(R.top.title.text)) end
+            for _, b in ipairs(R.sources) do
+                if b:IsShown() and b.id then
+                    local p = b.points.TOPLEFT
+                    print("", string.format("src@%.0f,%.0f", p and p[3] or 0, p and -(p[4] or 0) or 0),
+                        plain(b.text.text), b.count.text ~= "" and ("owes " .. b.count.text) or "",
+                        b.line:IsShown() and "lit" or "", b.close:IsShown() and "x" or "",
+                        string.format("w=%.0f name=%.0f", b:GetWidth(), b.text:GetWidth()))
+                end
+            end
+            print("", "top h=" .. string.format("%.0f", R.top:GetHeight()))
             local c = R.card
             if c:IsShown() then
                 local bs = {}
@@ -8085,10 +8098,16 @@ if sidePass then
                 print("", "", table.concat(bs, " "), c.sec.text, red(c.sec), string.format("bar=%.0f", c.bar:GetWidth()),
                     c.bar.color and c.bar.color[1] > 0.75 and c.bar.color[2] < 0.3 and "red bar" or "")
             end
-            for _, ch in ipairs(R.chips) do
-                if ch:IsShown() and ch.roll then
-                    print("", "chip" .. y(ch), ch.roll.name, ch.ring.shown ~= false and ch.ring:IsShown() and "ringed" or "",
-                        string.format("bar=%.1f", ch.bar:GetWidth()))
+            for _, tb in ipairs(R.tabs) do
+                if tb:IsShown() and tb.item then
+                    local it = tb.item
+                    local p = tb.points.TOPLEFT
+                    print("", string.format("tab@%.0f,%.0f", p and p[3] or 0, p and -(p[4] or 0) or 0),
+                        it.roll and it.roll.name or tostring(it.link):match("%[(.-)%]") or "?",
+                        it.roll and (it.chosen and "chosen" or "owed") or it.done and "decided" or "rolling",
+                        tb.ring.shown ~= false and tb.ring:IsShown() and "lit" or "",
+                        tb.bar:IsShown() and string.format("bar=%.1f", tb.bar:GetWidth()) or "",
+                        "icon=" .. tostring(tb.icon.texture))
                 end
             end
             for _, s in ipairs(R.stamps) do
@@ -8097,10 +8116,9 @@ if sidePass then
                 end
             end
             local h = R.head
-            print("", "log" .. y(h), h.label:IsShown() and ("[" .. h.label.text .. "]") or h.link.text,
-                plain(h.state.text),
+            print("", "head" .. y(h), string.format("h=%.0f", h:GetHeight()),
                 h.chevron:IsShown() and string.format("rot=%.2f", h.chevron.rotation or 0) or "-",
-                R.empty:IsShown() and "empty" or "")
+                R.empty:IsShown() and "empty" or "", h.drop and tostring(h.drop.itemHyperlink):match("%[(.-)%]") or "")
             for _, r in ipairs(R.rows) do
                 if r:IsShown() then
                     print("", "row" .. y(r), r.who.text, "roll>" .. tostring(r.roll.points.RIGHT
@@ -8112,6 +8130,9 @@ if sidePass then
                 end
             end
             if R.more:IsShown() then print("", "more" .. y(R.more), R.more.text) end
+            if R.foot:IsShown() then
+                print("", "foot" .. y(R.foot), plain(R.foot.text.text), "|", plain(R.foot.state.text))
+            end
             if R.linger:IsShown() then print("", "linger" .. y(R.linger), string.format("w=%.0f", R.linger:GetWidth())) end
         end
         -- a choice button on the card
@@ -8138,6 +8159,17 @@ if sidePass then
         click(L, rollDie())
         column(L)
         rolls("rolls opened by hand")
+        -- every decided boss cleared, nothing rolling: no cleared drop comes
+        -- back to the log; then the clears undone for the cases below
+        for _ = 1, 20 do
+            local x
+            for _, b in ipairs(R.sources) do if b:IsShown() and b.close:IsShown() then x = b; break end end
+            if not x then break end
+            x.close.scripts.OnClick(x.close)
+        end
+        rolls("rolls opened by hand, every boss cleared")
+        for k in pairs(R.cleared) do R.cleared[k] = nil end
+        ns.rolls.Redraw()
         click(L, rollDie())
         column(L)
         -- a boss's item to roll on: the box pops up on a card (need / greed /
@@ -8163,6 +8195,13 @@ if sidePass then
         fire("START_LOOT_ROLL", 11, 30000)
         column(L)
         rolls("rolls a roll owed, its level not cached")
+        -- a client without the loot history: tabs for the rolls owed, no log,
+        -- and no "No rolls yet." over the tabs
+        ns.rolls.GAME.history = false
+        ns.rolls.Redraw()
+        rolls("rolls a roll owed, no loot history")
+        ns.rolls.GAME.history = true
+        ns.rolls.Redraw()
         -- its level arrives: 489 against the 476 sword in the main hand (the
         -- empty off hand passed over)
         cached[30002], cached[30003], cached[30005], cached[30004], cached[30007] = true, true, true, true, true
@@ -8179,7 +8218,7 @@ if sidePass then
         now = now + 15
         rolls("rolls two owed, 15s on")
         -- its chip brings the signet to the card; the refused need says why
-        if R.chips[2] then R.chips[2].scripts.OnClick(R.chips[2]) else print("rolls no second chip") end
+        if R.tabs[2] then R.tabs[2].scripts.OnClick(R.tabs[2]) else print("rolls no second tab") end
         rolls("rolls the signet's chip clicked")
         hover("Need")
         hover("Greed")
@@ -8190,7 +8229,7 @@ if sidePass then
         print("rolls a ring slot empty", R.card.way, R.card.up.text)
         worn[12] = ring
         -- the blade's chip back; greed on it: a stamp, the card the signet's
-        R.chips[1].scripts.OnClick(R.chips[1])
+        R.tabs[1].scripts.OnClick(R.tabs[1])
         choose("Greed")
         -- the history's timer in milliseconds, as the client may give it
         loot.drops[603][1].startTime, loot.drops[603][1].duration = now * 1000, 12000
@@ -8288,14 +8327,14 @@ if sidePass then
         fire("START_LOOT_ROLL", 14, 30000)
         fire("START_LOOT_ROLL", 15, 30000)
         rolls("rolls a raid: a helm under yours, twelve members")
-        R.chips[2].scripts.OnClick(R.chips[2])
+        R.tabs[2].scripts.OnClick(R.tabs[2])
         rolls("rolls the bar on the card: not worn")
         -- a bow against the ranged slot, not the main hand
         local bow = itemLink(30007, "Bow of the Black Temple", 4)
         loot.rolls[16] = { link = bow, left = 30000,
             info = { "iconBow", "Bow of the Black Temple", 1, 4, true, true, true, false, nil, nil, nil, nil, false } }
         fire("START_LOOT_ROLL", 16, 30000)
-        R.chips[3].scripts.OnClick(R.chips[3])
+        R.tabs[3].scripts.OnClick(R.tabs[3])
         print("rolls a bow", R.card.meta.text, R.card.way, R.card.up.text)
         fire("CANCEL_ALL_LOOT_ROLLS")
         loot.rolls[14], loot.rolls[15], loot.rolls[16] = nil, nil, nil
@@ -8339,7 +8378,7 @@ if sidePass then
                 end
                 table.sort(at)
                 print(tag, string.format("scale=%.2f", win:GetScale()), table.concat(at, " "),
-                    "title=" .. size(R.top.title), "card link=" .. size(R.card.link), "log=" .. size(R.head.link),
+                    "title=" .. size(R.top.title), "card link=" .. size(R.card.link), "foot=" .. size(R.foot.state),
                     "row=" .. (R.rows[1] and size(R.rows[1].who) or "-"), "empty=" .. size(R.empty))
             end
             local place = ns.db.rollsPlace
@@ -8424,6 +8463,68 @@ if sidePass then
             rolls("rolls sim timed out")
             press("rolls.again")
             simState("rolls sim new rolls")
+            -- the history: a boss a deal, the decided ones kept as title
+            -- tabs, five at most, each with a cross; the tabs wrap when full
+            press("rolls.count.more")
+            tick(61)
+            press("rolls.again")
+            tick(61)
+            press("rolls.again")
+            rolls("rolls sim four owed, six bosses kept, a grid of three by two")
+            do
+                local b = R.sources[3]
+                tip = {}
+                b.scripts.OnEnter(b)
+                print("rolls sim a boss's tip", table.concat(tip, " / "))
+                b.scripts.OnLeave(b)
+            end
+            local function tabOf(kind, n)
+                local k = 0
+                for _, tb in ipairs(R.tabs) do
+                    local it = tb:IsShown() and tb.item
+                    if it and ((kind == "decided" and it.done) or (kind == "owed" and it.roll and not it.chosen)) then
+                        k = k + 1
+                        if k == n then return tb end
+                    end
+                end
+            end
+            local function srcOf(n)
+                local k = 0
+                for _, b in ipairs(R.sources) do
+                    if b:IsShown() and b.id and b.close:IsShown() then
+                        k = k + 1
+                        if k == n then return b end
+                    end
+                end
+            end
+            -- (a missing tab is said, not crashed on: a mutant must show)
+            local function click(b, what)
+                if b then b.scripts.OnClick(b) else print("rolls sim no " .. what) end
+                return b
+            end
+            local sb = click(srcOf(2), "second decided boss")
+            rolls("rolls sim the second decided boss clicked: its items, its last listed")
+            click(tabOf("decided", 2), "second decided item")
+            rolls("rolls sim its second item clicked: its rolls listed")
+            if sb then click(sb.close, "cross") end
+            rolls("rolls sim the boss's cross: cleared, the newest boss back, an older one in")
+            -- an old boss up when new rolls come: theirs comes up instead
+            click(srcOf(3), "third decided boss")
+            press("rolls.again")
+            rolls("rolls sim new rolls over an old boss: the new boss up")
+            click(tabOf("owed", 3), "third owed tab")
+            rolls("rolls sim the third owed tab: on the card")
+            -- the card's item needed: its tab listed, the foot's clock runs
+            -- with the time, no redraw between
+            choose("Need")
+            local ch
+            for _, b in ipairs(R.tabs) do if b:IsShown() and b.item and b.item.chosen then ch = b end end
+            click(ch, "chosen tab")
+            rolls("rolls sim a needed item's tab: its log, the clock in the foot")
+            now = now + 7
+            win.scripts.OnUpdate(win, 0.2)
+            print("rolls sim 7s on, no redraw: foot", plain(R.foot.state.text))
+            press("rolls.count.less")
             press("rolls.end")
             simState("rolls sim ended")
             local ids = {}

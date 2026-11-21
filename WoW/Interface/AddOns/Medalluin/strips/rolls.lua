@@ -40,7 +40,9 @@ local GAME = {
 local api = GAME
 local WIDTH, PAD = 270, 6
 local TOP, ICON, BUTTON, BAR = 20, 40, 20, 4    -- the title band, the card's icon, a choice, the time bar
-local CHIP, STAMP = 22, 26                      -- a queued roll's chip, a chosen roll's stamp
+local TAB, XW, CHIP, STAMP = 20, 8, 22, 26                -- an item's tab (its icon), its cross; a chosen roll's stamp
+local SHOWN, COLS = 6, 3                        -- bosses in the title row, as a grid: columns
+local SRC_H = 16                                -- a boss's tab in the title row
 local HEAD, ROW = 18, 15                        -- the log's head, a member's row
 local INDENT, ROLL_W, HOW_W, MARK_W = 14, 26, 70, 40
 local CARD = 6 + ICON + 6 + BUTTON + 16         -- the card: its item, its buttons, its time row
@@ -88,11 +90,15 @@ local EQUIP = {
 }
 local ARMOR, WEAPON = 4, 2                      -- item classes; armour subclasses 1-4: cloth to plate
 
-local frame, top, card, logHead, empty, more, linger
-local chips, stamps, rows = {}, {}, {}
+local frame, top, card, logHead, empty, more, foot, linger
+local tabs, stamps, rows, sources = {}, {}, {}, {}
 local owed = {}                                 -- the rolls not yet chosen (Owe)
 local chosen = {}                               -- the rolls chosen, still running: { roll, kind }
-local pick                                      -- the roll id a chip brought to the card
+local pick                                      -- the roll id a tab brought to the card
+local view                                      -- the item a tab brought to the log: { key } or { link }
+local source                                    -- the boss a title tab brought up: its encounter id
+local cleared = {}                              -- decided bosses cleared from the title, by encounter id
+local icons = {}                                -- an item's icon by its link, kept from its roll
 local latest                                    -- the drop last updated: encounter id, lootListKey
 local byHand, decidedAt = false, nil
 
@@ -220,23 +226,81 @@ local function Tally(d)
     return table.concat(out, "  ")
 end
 
+-- The history's bosses, newest first: every one with a drop still rolling,
+-- then decided ones not cleared, SHOWN in all. The second list marks the decided.
 local function Encounters()
     local infos = {}
     for _, info in ipairs(api.Encounters() or {}) do
         table.insert(infos, info)
     end
     table.sort(infos, function(a, b) return (a.startTime or 0) > (b.startTime or 0) end)
-    return infos
+    local list, decided, kept = {}, {}, {}
+    for _, info in ipairs(infos) do
+        local live = false
+        for _, d in ipairs(api.Drops(info.encounterID) or {}) do
+            if Rolling(d) then live = true; break end
+        end
+        if live then
+            table.insert(list, info)
+        elseif not cleared[tostring(info.encounterID)] then
+            table.insert(kept, info)
+        end
+    end
+    for _, info in ipairs(kept) do
+        table.insert(list, info)
+        decided[info] = true
+    end
+    while #list > SHOWN do table.remove(list) end
+    return list, decided
 end
 
--- the history's drop of an item, still rolling
+-- the history's drop of an item, still rolling, and its boss
 local function DropFor(link)
     if not api.history or not link or Secret(link) then return nil end
     for _, info in ipairs(Encounters()) do
         for _, d in ipairs(api.Drops(info.encounterID) or {}) do
-            if d.itemHyperlink == link and Rolling(d) then return d end
+            if d.itemHyperlink == link and Rolling(d) then return d, info end
         end
     end
+end
+
+-- a drop's own name: its boss and its place in the boss's loot
+local function Key(info, d)
+    local k = d.lootListKey
+    if k == nil or Secret(k) then k = d.itemHyperlink end
+    if k == nil or Secret(k) then return nil end
+    return tostring(info.encounterID) .. ":" .. tostring(k)
+end
+
+-- The item tabs of one boss (src: its encounter id), in order: the rolls
+-- owed (the card's choices), the rolls chosen and still running, then the
+-- boss's other drops. A roll's own drop (by its link, while rolling) is its
+-- tab, not another; a roll whose boss the history lacks shows under any.
+local function Items(src)
+    local list, mine = {}, {}
+    local function Mine(r, chose)
+        local _, inf = DropFor(r.link)
+        if inf and inf.encounterID ~= src then return end
+        table.insert(list, { roll = r, link = r.link, chosen = chose })
+        if r.link and not Secret(r.link) then mine[r.link] = (mine[r.link] or 0) + 1 end
+    end
+    for _, r in ipairs(owed) do Mine(r) end
+    for _, c in ipairs(chosen) do Mine(c.roll, true) end
+    if not api.history or src == nil then return list end
+    for _, info in ipairs(Encounters()) do
+        if info.encounterID == src then
+            for _, d in ipairs(api.Drops(info.encounterID) or {}) do
+                local link, rolling = d.itemHyperlink, Rolling(d)
+                if rolling and link and not Secret(link) and (mine[link] or 0) > 0 then
+                    mine[link] = mine[link] - 1
+                else
+                    table.insert(list, { drop = d, info = info, key = Key(info, d), link = link,
+                        done = not rolling })
+                end
+            end
+        end
+    end
+    return list
 end
 
 -- the roll on the card: the one a chip brought forward, else the first owed
@@ -254,10 +318,29 @@ end
 -- newest boss's last drop.
 local function Logged()
     if not api.history then return nil end
+    if view then
+        if view.key then
+            for _, info in ipairs(Encounters()) do
+                for _, d in ipairs(api.Drops(info.encounterID) or {}) do
+                    if Key(info, d) == view.key then return d, info end
+                end
+            end
+        else
+            local d, info = DropFor(view.link)
+            if d then return d, info end
+        end
+        view = nil
+    end
     local want = Current() or (chosen[#chosen] and chosen[#chosen].roll)
     want = want and want.link
+    local list = Encounters()
+    if source then
+        local only
+        for _, info in ipairs(list) do if info.encounterID == source then only = info end end
+        if only then list = { only } end
+    end
     local updated, live, last
-    for n, info in ipairs(Encounters()) do
+    for n, info in ipairs(list) do
         for _, d in ipairs(api.Drops(info.encounterID) or {}) do
             local link, rolling = d.itemHyperlink, Rolling(d)
             if want and link == want and not Secret(link) and rolling then return d, info end
@@ -525,33 +608,64 @@ local function FillCard(r)
     SetBar(card.bar, BAR_W, r, card.sec)
 end
 
--- a chip: a roll owed, small, its own time under it; a click puts it on the card
-local function Chip(i)
-    if chips[i] then return chips[i] end
+-- A tab: an item, its icon in its quality's edge, lit while its rolls
+-- are listed. A roll owed: a click puts it on the card (its rolls listed
+-- with it), its time under it. Any other: a click lists its rolls; a
+-- decided one has a cross beside it that clears it from the tabs.
+local function Tab(i)
+    if tabs[i] then return tabs[i] end
     local c = CreateFrame("Button", nil, frame)
-    c:SetSize(CHIP, CHIP + 4)
+    c:SetSize(TAB, TAB + 3)
+    c:SetFrameLevel(logHead:GetFrameLevel() + 2)
     c.ring = c:CreateTexture(nil, "ARTWORK", nil, 0)
-    c.edge, c.icon = MakeIcon(c, CHIP)
-    c.edge:SetPoint("TOP")
+    c.edge, c.icon = MakeIcon(c, TAB)
+    c.edge:SetPoint("TOPLEFT")
     c.ring:SetPoint("TOPLEFT", c.edge, -1, 1)
     c.ring:SetPoint("BOTTOMRIGHT", c.edge, 1, -1)
     Fill(c.ring, GOLD_B)
     c.track = c:CreateTexture(nil, "ARTWORK")
     c.track:SetPoint("BOTTOMLEFT")
-    c.track:SetPoint("BOTTOMRIGHT")
+    c.track:SetWidth(TAB)
     c.track:SetHeight(2)
     c.track:SetColorTexture(0, 0, 0, 1)
     c.bar = c:CreateTexture(nil, "ARTWORK", nil, 1)
     c.bar:SetPoint("BOTTOMLEFT")
     c.bar:SetHeight(2)
     c:SetScript("OnClick", function(self)
-        pick = self.roll and self.roll.id
+        local item = self.item
+        if not item then return end
+        if item.roll and not item.chosen then
+            pick, view = item.roll.id, nil
+        elseif item.roll then
+            view = { link = item.link }
+        else
+            view = item.key and { key = item.key } or nil
+        end
         ns.rolls.Draw()
     end)
-    c:SetScript("OnEnter", function(self) Tip(self, self.roll and self.roll.link) end)
+    c:SetScript("OnEnter", function(self) Tip(self, self.item and self.item.link) end)
     c:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    chips[i] = c
+    tabs[i] = c
     return c
+end
+
+-- a tab's item drawn: its icon (a roll's own, else the item's), its time
+local function FillTab(c, item)
+    c.item = item
+    if item.roll then
+        SetIcon(c.edge, c.icon, item.roll)
+    else
+        local link = item.link
+        local icon = link and not Secret(link) and icons[link]
+        local id = not icon and link and not Secret(link) and tonumber(link:match("item:(%d+)"))
+        if id and C_Item and C_Item.GetItemIconByID then icon = C_Item.GetItemIconByID(id) end
+        if not icon then icon = select(5, Instant(link)) end
+        SetIcon(c.edge, c.icon, { link = link, icon = icon })
+    end
+    c.track:SetShown(item.roll ~= nil)
+    c.bar:SetShown(item.roll ~= nil)
+    if item.roll then SetBar(c.bar, TAB, item.roll) end
+    c:SetAlpha(item.done and 0.75 or 1)
 end
 
 -- a stamp: a roll chosen, still running: what you chose, how many are
@@ -610,7 +724,7 @@ local function MakeTop()
     rule:SetColorTexture(0.173, 0.153, 0.114, 1)
     t.close = CreateFrame("Button", nil, t)
     t.close:SetSize(12, 12)
-    t.close:SetPoint("RIGHT", -4, 0)
+    t.close:SetPoint("TOPRIGHT", -4, -4)
     t.close.icon = t.close:CreateTexture(nil, "ARTWORK")
     t.close.icon:SetAllPoints()
     t.close.icon:SetTexture(ns.media .. "strips\\close")
@@ -619,7 +733,7 @@ local function MakeTop()
     t.close:SetScript("OnLeave", function(self) self.icon:SetVertexColor(DIM[1], DIM[2], DIM[3]) end)
     t.close:SetScript("OnClick", function() ns.rolls.Close() end)
     t.title = Text(t, 11)
-    t.title:SetPoint("LEFT", PAD + 1, 0)
+    t.title:SetPoint("TOPLEFT", PAD + 1, -4)
     t.title:SetPoint("RIGHT", t.close, "LEFT", -6, 0)
     t.title:SetJustifyH("LEFT")
     t.title:SetWordWrap(false)
@@ -629,6 +743,131 @@ local function MakeTop()
     t:SetScript("OnDragStart", function() frame:StartMoving() end)
     t:SetScript("OnDragStop", function() ns.rolls.Dropped() end)
     return t
+end
+
+-- A boss's tab in the title row: its name, how many of its rolls are
+-- yours to make, and once all its rolls are decided a cross that clears it
+local function SourceTab(i)
+    if sources[i] then return sources[i] end
+    local b = CreateFrame("Button", nil, top)
+    b:SetHeight(SRC_H)
+    b.fill = b:CreateTexture(nil, "BACKGROUND", nil, 3)
+    b.fill:SetAllPoints()
+    b.fill:SetColorTexture(0.173, 0.153, 0.114, 1)
+    b.line = b:CreateTexture(nil, "BORDER")
+    b.line:SetPoint("BOTTOMLEFT")
+    b.line:SetPoint("BOTTOMRIGHT")
+    b.line:SetHeight(2)
+    Fill(b.line, GOLD_B)
+    b.text = Text(b, 10)
+    b.text:SetPoint("LEFT", 6, 0)
+    b.text:SetJustifyH("LEFT")
+    b.text:SetWordWrap(false)
+    b.count = Text(b, 10)
+    Paint(b.count, GOLD)
+    b.close = CreateFrame("Button", nil, b)
+    b.close:SetSize(XW + 4, XW + 4)
+    b.close:SetPoint("RIGHT", -2, 0)
+    b.close.icon = b.close:CreateTexture(nil, "ARTWORK")
+    b.close.icon:SetSize(XW, XW)
+    b.close.icon:SetPoint("CENTER")
+    b.close.icon:SetTexture(ns.media .. "strips\\close")
+    b.close.icon:SetVertexColor(DIM[1], DIM[2], DIM[3])
+    b.close:SetScript("OnEnter", function(self)
+        self.icon:SetVertexColor(0.9, 0.3, 0.25)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(Tr["Clear this boss's rolls from the list."])
+        GameTooltip:Show()
+    end)
+    b.close:SetScript("OnLeave", function(self)
+        self.icon:SetVertexColor(DIM[1], DIM[2], DIM[3])
+        GameTooltip:Hide()
+    end)
+    b.close:SetScript("OnClick", function(self)
+        local id = self:GetParent().id
+        if id == nil then return end
+        cleared[tostring(id)] = true
+        view = nil
+        GameTooltip:Hide()
+        ns.rolls.Draw()
+    end)
+    b:SetScript("OnClick", function(self)
+        if self.id == nil then return end
+        source, view = self.id, nil
+        ns.rolls.Draw()
+    end)
+    -- the whole name, which the cell may cut
+    b:SetScript("OnEnter", function(self)
+        if not self.name then return end
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText(self.name)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:RegisterForDrag("LeftButton")
+    b:SetScript("OnDragStart", function() frame:StartMoving() end)
+    b:SetScript("OnDragStop", function() ns.rolls.Dropped() end)
+    sources[i] = b
+    return b
+end
+
+-- a grid cell's tab: the name cut to what is left of the cell's width
+-- after your rolls owed (right) and the cross
+local function FillSource(b, info, n, decided, lit, w)
+    b.id = info.encounterID
+    local name = info.encounterName
+    if name == nil or Secret(name) then name = Tr["Rolls"] end
+    b.name = name
+    b:SetWidth(w)
+    b.close:SetShown(decided)
+    local right = decided and (XW + 8) or 6
+    b.count:SetText(n > 0 and tostring(n) or "")
+    b.count:ClearAllPoints()
+    b.count:SetPoint("RIGHT", -right, 0)
+    local cw = n > 0 and (b.count:GetStringWidth() + 4) or 0
+    b.text:SetText(name)
+    b.text:SetWidth(math.max(1, w - 6 - right - cw))
+    Paint(b.text, lit and GOLD or DIM)
+    b.fill:SetShown(lit)
+    b.line:SetShown(lit)
+    b:SetAlpha((decided and not lit) and 0.75 or 1)
+end
+
+-- The title row: a tab per boss, a grid of COLS by two rows; with
+-- no history, the title alone. Its height.
+local function Sources(info)
+    local list, decided = Encounters()
+    if not api.history or #list == 0 then
+        for _, b in ipairs(sources) do b:Hide(); b.id = nil end
+        top.title:Show()
+        top:SetHeight(TOP)
+        return TOP
+    end
+    top.title:Hide()
+    -- your rolls owed, by boss
+    local owes = {}
+    for _, r in ipairs(owed) do
+        local _, inf = DropFor(r.link)
+        if inf then owes[inf.encounterID] = (owes[inf.encounterID] or 0) + 1 end
+    end
+    -- a grid of COLS, beside the window's cross
+    local shown = info and info.encounterID
+    local x0, gap = PAD - 2, 3
+    local w = math.floor((WIDTH - 2 - 22 - x0 - gap * (COLS - 1)) / COLS)
+    local at = 2
+    for i, inf in ipairs(list) do
+        local b = SourceTab(i)
+        local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
+        FillSource(b, inf, owes[inf.encounterID] or 0, decided[inf] == true, inf.encounterID == shown, w)
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", x0 + col * (w + gap), -(2 + row * (SRC_H + 2)))
+        b:Show()
+        at = 2 + row * (SRC_H + 2)
+    end
+    for i = #list + 1, #sources do sources[i]:Hide(); sources[i].id = nil end
+    local h = at + SRC_H + 2
+    top:SetHeight(h)
+    return h
 end
 
 local function Title(d, info)
@@ -654,21 +893,7 @@ local function MakeHead()
     rule:SetColorTexture(0.173, 0.153, 0.114, 1)
     h.chevron = h:CreateTexture(nil, "ARTWORK")
     h.chevron:SetSize(10, 10)
-    h.chevron:SetPoint("LEFT", PAD - 1, 0)
     h.chevron:SetTexture(ns.media .. "strips\\chevron-down")
-    h.state = Text(h, 10)
-    h.state:SetPoint("RIGHT", -PAD, 0)
-    h.link = Plain(h, 10)
-    h.link:SetPoint("LEFT", INDENT + 4, 0)
-    h.link:SetPoint("RIGHT", h.state, "LEFT", -6, 0)
-    h.link:SetJustifyH("LEFT")
-    h.link:SetWordWrap(false)
-    -- in the link's place while the log follows the card's item
-    h.label = Text(h, 10)
-    h.label:SetPoint("LEFT", INDENT + 4, 0)
-    h.label:SetText(Tr["Everyone's rolls"])
-    Paint(h.label, DIM)
-    h.label:Hide()
     h:RegisterForClicks("LeftButtonUp")
     h:SetScript("OnClick", function(self)
         local link = self.drop and self.drop.itemHyperlink
@@ -679,24 +904,18 @@ local function MakeHead()
         ns.SetOption("rollsFolded", not ns.db.rollsFolded)
         ns.rolls.Draw()
     end)
-    h:SetScript("OnEnter", function(self) Tip(self, self.drop and self.drop.itemHyperlink) end)
-    h:SetScript("OnLeave", function() GameTooltip:Hide() end)
     h:RegisterForDrag("LeftButton")
     h:SetScript("OnDragStart", function() frame:StartMoving() end)
     h:SetScript("OnDragStop", function() ns.rolls.Dropped() end)
     return h
 end
 
--- the head's right end: the tally and the clock while rolling, then the
--- winner and their roll, or passed
--- (no clock while the card above shows the same item's)
+-- the foot's right end: the clock while rolling (none while the card above
+-- shows the same item's), then the winner and their roll, or passed
 local function State(h, d, info)
     if Rolling(d) then
         local left = Left(d, info)
-        local tally = Tally(d)
-        local clock = "|cffc4a557" .. (left and Clock(left) or Tr["rolling"]) .. "|r"
-        if h.same then clock = "" end
-        h.state:SetText(tally ~= "" and (clock ~= "" and (tally .. "   " .. clock) or tally) or clock)
+        h.state:SetText(h.same and "" or ("|cffc4a557" .. (left and Clock(left) or Tr["rolling"]) .. "|r"))
         Paint(h.state, DIM)
         return
     end
@@ -804,7 +1023,7 @@ local function Draw()
     top:ClearAllPoints()
     top:SetPoint("TOPLEFT", 1, -y)
     Title(d, info)
-    y = y + TOP
+    y = y + Sources(info)
     local r = Current()
     if r then
         card:ClearAllPoints()
@@ -816,19 +1035,6 @@ local function Draw()
         card:Hide()
         card.roll = nil
     end
-    local nChips = #owed >= 2 and #owed or 0
-    for i = 1, nChips do
-        local c = Chip(i)
-        c.roll = owed[i]
-        c:ClearAllPoints()
-        c:SetPoint("TOPLEFT", PAD + 1 + (i - 1) * (CHIP + 5), -y - 2)
-        SetIcon(c.edge, c.icon, owed[i])
-        c.ring:SetShown(owed[i] == r)
-        SetBar(c.bar, CHIP, owed[i])
-        c:Show()
-    end
-    for i = nChips + 1, #chips do chips[i]:Hide(); chips[i].roll = nil end
-    if nChips > 0 then y = y + CHIP + 4 + 4 end
     for i, c in ipairs(chosen) do
         local s = Stamp(i)
         s:ClearAllPoints()
@@ -838,22 +1044,43 @@ local function Draw()
         y = y + STAMP
     end
     for i = #chosen + 1, #stamps do stamps[i]:Hide(); stamps[i].roll = nil end
+    -- the head: the fold chevron, then a tab per item, wrapping to another
+    -- row when full; lit: the item listed below
+    local items = Items(info and info.encounterID)
+    local open = not ns.db.rollsFolded
     logHead.drop, logHead.info = d, info
     logHead:ClearAllPoints()
     logHead:SetPoint("TOPLEFT", 1, -y)
-    local open = not ns.db.rollsFolded
+    local x0 = INDENT + 4
+    local x, at = x0, 4
+    for i, item in ipairs(items) do
+        local c = Tab(i)
+        FillTab(c, item)
+        local w = c:GetWidth()
+        if x + w > WIDTH - PAD and x > x0 then x, at = x0, at + TAB + 7 end
+        c:ClearAllPoints()
+        c:SetPoint("TOPLEFT", x, -y - at)
+        local lit = (item.drop ~= nil and item.drop == d)
+            or (item.roll ~= nil and d ~= nil and item.link ~= nil and item.link == d.itemHyperlink and Rolling(d))
+            or (item.roll ~= nil and d == nil and item.roll == r)
+        c.ring:SetShown(lit and true or false)
+        c:Show()
+        x = x + w + 5
+    end
+    for i = #items + 1, #tabs do tabs[i]:Hide(); tabs[i].item = nil end
+    local headH = #items > 0 and (at + TAB + 3 + 4) or HEAD
+    logHead:SetHeight(headH)
+    logHead.chevron:ClearAllPoints()
+    logHead.chevron:SetPoint("TOPLEFT", PAD - 1, #items > 0 and -(4 + (TAB - 10) / 2) or -(HEAD - 10) / 2)
+    y = y + headH
     local n, hidden = 0, 0
-    y = y + HEAD
     logHead.same = d ~= nil and r ~= nil and d.itemHyperlink ~= nil and not Secret(d.itemHyperlink)
         and d.itemHyperlink == r.link
-    logHead.link:SetShown(not logHead.same)
-    logHead.label:SetShown(logHead.same)
+    foot.same = logHead.same
+    empty:SetShown(d == nil and #items == 0)
     if d then
-        logHead.link:SetText(d.itemHyperlink or "")
-        State(logHead, d, info)
         if logHead.chevron.SetRotation then logHead.chevron:SetRotation(open and 0 or math.pi / 2) end
         logHead.chevron:Show()
-        empty:Hide()
         if open then
             y = y + 2
             -- under a card a long list stops short, the rest counted
@@ -874,10 +1101,7 @@ local function Draw()
             end
         end
     else
-        logHead.link:SetText("")
-        logHead.state:SetText("")
         logHead.chevron:Hide()
-        empty:Show()
     end
     for i = n + 1, #rows do rows[i]:Hide() end
     more:SetShown(hidden > 0)
@@ -886,6 +1110,15 @@ local function Draw()
         more:ClearAllPoints()
         more:SetPoint("TOPLEFT", INDENT + 1, -y - 2)
         y = y + ROW
+    end
+    -- the foot: the tally of choices; the clock, or the winner
+    foot:SetShown(d ~= nil)
+    if d then
+        foot.text:SetText(Tally(d))
+        State(foot, d, info)
+        foot:ClearAllPoints()
+        foot:SetPoint("TOPLEFT", 1, -y - 2)
+        y = y + 2 + HEAD
     end
     -- decided: nothing owed and the logged item settled
     if #owed == 0 and not (d and Rolling(d)) then
@@ -906,14 +1139,16 @@ end
 -- the time bars and clocks, the stamps of rolls run out, the linger
 local function Tick()
     if card:IsShown() and card.roll then SetBar(card.bar, BAR_W, card.roll, card.sec) end
-    for _, c in ipairs(chips) do if c:IsShown() and c.roll then SetBar(c.bar, CHIP, c.roll) end end
+    for _, c in ipairs(tabs) do
+        if c:IsShown() and c.item and c.item.roll then SetBar(c.bar, TAB, c.item.roll) end
+    end
     local ran = false
     for i = #chosen, 1, -1 do
         if TimeLeft(chosen[i].roll) <= 0 then table.remove(chosen, i); ran = true end
     end
     if ran then Draw() end
     for i, s in ipairs(stamps) do if s:IsShown() and chosen[i] then FillStamp(s, chosen[i]) end end
-    if logHead.drop and Rolling(logHead.drop) then State(logHead, logHead.drop, logHead.info) end
+    if logHead.drop and Rolling(logHead.drop) then State(foot, logHead.drop, logHead.info) end
     if decidedAt and not byHand then
         local share = 1 - (GetTime() - decidedAt) / LINGER
         linger:SetWidth(math.max(0.01, (WIDTH - 2 * PAD) * math.max(0, share)))
@@ -1020,8 +1255,11 @@ local function Owe(id, total)
         if c.can then can[c.type] = info[c.can] and true or false end
         if c.why then why[c.type] = info[c.why] end
     end
+    local link = api.Link(id)
+    if link and texture and not Secret(link) and not Secret(texture) then icons[link] = texture end
+    source = nil
     table.insert(owed, { id = id, total = total or api.Left(id) or 0,
-        link = api.Link(id), name = name, icon = texture, quality = quality,
+        link = link, name = name, icon = texture, quality = quality,
         bop = info[5] and true or false, can = can, why = why })
 end
 
@@ -1066,6 +1304,20 @@ local function Start()
     card = MakeCard()
     card:Hide()
     logHead = MakeHead()
+    -- the foot: a rule, the tally
+    foot = CreateFrame("Frame", nil, frame)
+    foot:SetSize(WIDTH - 2, HEAD)
+    local footRule = foot:CreateTexture(nil, "BORDER")
+    footRule:SetPoint("TOPLEFT", PAD, 0)
+    footRule:SetPoint("TOPRIGHT", -PAD, 0)
+    footRule:SetHeight(1)
+    footRule:SetColorTexture(0.173, 0.153, 0.114, 1)
+    foot.text = Text(foot, 10)
+    foot.text:SetPoint("LEFT", INDENT + 4, -1)
+    Paint(foot.text, DIM)
+    foot.state = Text(foot, 10)
+    foot.state:SetPoint("RIGHT", -PAD, -1)
+    foot:Hide()
     empty = Text(logHead, 10)
     empty:SetPoint("LEFT", INDENT + 4, 0)
     Paint(empty, DIM)
@@ -1109,7 +1361,7 @@ local function Start()
         if frame:IsShown() then Draw() end
     end)
     ns.On("CANCEL_ALL_LOOT_ROLLS", function()
-        owed, chosen, pick = {}, {}, nil
+        owed, chosen, pick, view, source = {}, {}, nil, nil, nil
         if frame:IsShown() then Draw() end
     end)
     -- an item's level arrives late the first time it is seen
@@ -1149,13 +1401,13 @@ end
 -- either way the simulated rolls (ids below 0) are forgotten, the real ones
 -- kept. Start and Cancel act out START_LOOT_ROLL and CANCEL_LOOT_ROLL;
 -- Redraw after the history moved.
-local function Use(source)
-    api = source or GAME
+local function Use(feed)
+    api = feed or GAME
     for i = #owed, 1, -1 do if owed[i].id < 0 then table.remove(owed, i) end end
     for i = #chosen, 1, -1 do if chosen[i].roll.id < 0 then table.remove(chosen, i) end end
     if pick and pick < 0 then pick = nil end
     if frame and frame:IsShown() then
-        if #owed == 0 and #chosen == 0 and not source then frame:Hide() else Draw() end
+        if #owed == 0 and #chosen == 0 and not feed then frame:Hide() else Draw() end
     end
 end
 
@@ -1173,13 +1425,14 @@ local function Redraw()
     if frame and frame:IsShown() then Draw() end
 end
 
-ns.rolls = { chips = chips, stamps = stamps, rows = rows, owed = function() return owed end,
+ns.rolls = { tabs = tabs, stamps = stamps, rows = rows, owed = function() return owed end,
     chosen = function() return chosen end, Draw = Draw, Close = Close, Choose = Choose, Dropped = Dropped,
     GAME = GAME, Use = Use, Start = SimStart, Cancel = SimCancel, Redraw = Redraw }
 ns.On("PLAYER_LOGIN", function()
     Start()
     ns.rolls.frame, ns.rolls.top, ns.rolls.card, ns.rolls.head = frame, top, card, logHead
     ns.rolls.empty, ns.rolls.more, ns.rolls.linger = empty, more, linger
+    ns.rolls.foot, ns.rolls.cleared, ns.rolls.sources = foot, cleared, sources
 end)
 
 function ns.RollsShown() return frame ~= nil and frame:IsShown() end
