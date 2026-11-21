@@ -227,6 +227,19 @@ local function Tip(r)
         ItemTip(r, r.line.item, Tr["Usable here after combat."])
         return
     end
+    -- (2026-11-21) the quest's own tooltip, as the tracker's (quests/tracker.lua):
+    -- the game's link, which the tooltips companion draws as the quest's
+    -- full panel, an item objective's drops, and the clicks under it
+    local link = GetQuestLink and GetQuestLink(q.id)
+    if link then
+        ns.side.Beside(r)
+        GameTooltip:SetHyperlink(link)
+        if r.line.objective and ns.questDrops then ns.questDrops.AddTooltip(GameTooltip, q.id, r.line.objective) end
+        ns.TipKeys(ns.questSource.Keys(q, r.line.objective))
+        GameTooltip:Show()
+        return
+    end
+    -- no link (a client without them): what the row knows
     local state = q.state == 1 and Tr["Complete."] or q.state == -1 and Tr["Failed."] or nil
     local spec = { title = q.title,
         { "body", format(Tr["Level %d"], q.level) .. (state and ("  \194\183  " .. state) or "") },

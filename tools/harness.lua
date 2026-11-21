@@ -7561,7 +7561,19 @@ if sidePass then
         f1.scripts.OnLeave(f1)
         fold(1)
         -- the quest's tooltip: its clicks, a mouse glyph each, as the log's and the tracker's
+        -- (2026-11-21) where the game gives the quest's link, the tooltip
+        -- is the link's (the companion draws it as the quest's panel), the
+        -- clicks written under it, beside the side panel
         local function keys(r)
+            local set, double, linked, cells = GameTooltip.SetHyperlink, GameTooltip.AddDoubleLine, nil, {}
+            GameTooltip.SetHyperlink = function(_, l) linked = l end
+            GameTooltip.AddDoubleLine = function(_, a, b)
+                for _, c in ipairs({ a, b }) do
+                    if c ~= "" then
+                        table.insert(cells, (tostring(c):gsub("|T.-mouse%-(%a+).-|t ", "%1="):gsub(" %+ ", "+")))
+                    end
+                end
+            end
             r.scripts.OnEnter(r)
             local spec, out = MedalUI_TooltipSpec and MedalUI_TooltipSpec(GameTooltip), {}
             for _, k in ipairs(spec or {}) do
@@ -7569,7 +7581,14 @@ if sidePass then
                     table.insert(out, k[2] and k[2] .. (k[3] and "+" .. k[3] or "") .. "=" .. k[4] or "_")
                 end
             end
+            local owner, beside = GameTooltip:GetOwner(), GameTooltip.points and next(GameTooltip.points)
+            GameTooltip.SetHyperlink, GameTooltip.AddDoubleLine = set, double
             r.scripts.OnLeave(r)
+            if linked then
+                return "link=" .. tostring(linked) .. " owner=" .. tostring(owner == r) .. " placed="
+                    .. tostring(beside ~= nil) .. " spec=" .. tostring(spec ~= nil) .. " keys: "
+                    .. table.concat(cells, ", ")
+            end
             return table.concat(out, ", ")
         end
         print("zone keys", keys(row(2)))
@@ -7590,6 +7609,7 @@ if sidePass then
             modsDown.SHIFT = true
             row(2).scripts.OnClick(row(2), "LeftButton")
             modsDown.SHIFT = false
+            print("zone keys, linked", keys(row(2)))
             print("zone shift-click", "linked=" .. table.concat(linked, ","),
                 "page=" .. tostring(ns.questPage and ns.questPage.Current()))
             -- no box typed in (the game's insert says so): the chat opened
