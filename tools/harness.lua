@@ -17278,6 +17278,11 @@ if characterPass then
                 "shown=" .. tostring(h.medal.shown), "step=" .. pt(h.step) .. " " .. h.step.w .. "x" .. h.step.h,
                 "count=" .. pt(h.count), "name=" .. pt(h.label, 1) .. " / " .. pt(h.label, 2)
                 .. " " .. tostring(h.label.justifyH))
+            do  -- (2026-11-21) docked, no shadow under it: a floating window's alone
+                local on = 0
+                for _, s in ipairs(w.chrome.shadow) do if s.shown then on = on + 1 end end
+                print("char.shadow docked", "parts=" .. #w.chrome.shadow, "shown=" .. on)
+            end
             do  -- the margin: the metal down the screen's edge, docked only
                 local mt = w.metal
                 local bg = w.chrome.bg

@@ -2305,6 +2305,10 @@ function ns.Window(spec)
         edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
         chrome.edge = edge
         chrome.shadow = Shadow()
+        -- docked first: the shadow is a floating window's (Chrome shows it),
+        -- and a window with no place never reaches Chrome (2026-11-21: it lay
+        -- black under every docked window, as if floating)
+        for _, p in ipairs(chrome.shadow) do p:Hide() end
         local bg = window:CreateTexture(nil, "BACKGROUND", nil, 2)
         bg:SetPoint("TOPLEFT", side > 0 and 1 or 0, 0)          -- (docked first: Chrome)
         bg:SetPoint("BOTTOMRIGHT", side < 0 and -1 or 0, 1)
