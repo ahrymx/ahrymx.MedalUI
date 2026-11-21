@@ -2282,6 +2282,29 @@ if modern then
     function UIParent:UnregisterEvent(e)
         if self.gameRolls[e] ~= nil then self.gameRolls[e] = false end
     end
+    -- any frame can stop hearing an event, as in WoW (our own included: the
+    -- roll window must not take the roll events from itself)
+    if not Region.UnregisterEvent then
+        function Region:UnregisterEvent(e)
+            local list = events[e] or {}
+            for i = #list, 1, -1 do if list[i] == self then table.remove(list, i) end end
+        end
+    end
+    -- the client's own loot container, a listener of its own for the roll
+    -- events (retail), and a roll frame of it; who hears an event
+    GroupLootContainer = new("Frame", UIParent, "GroupLootContainer")
+    GroupLootContainer.rolls = { START_LOOT_ROLL = true, CANCEL_LOOT_ROLL = true }
+    function GroupLootContainer:RegisterEvent(e) self.rolls[e] = true end
+    function GroupLootContainer:UnregisterEvent(e) self.rolls[e] = false end
+    GroupLootFrame1 = new("Frame", GroupLootContainer, "GroupLootFrame1")
+    NUM_GROUP_LOOT_FRAMES = 4
+    function GetFramesRegisteredForEvent(e)
+        local list = {}
+        for _, f in ipairs(events[e] or {}) do table.insert(list, f) end
+        if UIParent.gameRolls[e] then table.insert(list, UIParent) end
+        if GroupLootContainer.rolls[e] then table.insert(list, GroupLootContainer) end
+        return unpack(list)
+    end
     C_CurrencyInfo = { GetCurrencyInfoFromLink = function(link)
         return { iconFileID = "currency" .. link:match("currency:(%d+)") }
     end }
@@ -3261,6 +3284,11 @@ if questPass then
             WorldMapFrame.shown = false
             QuestMapFrame = new("Frame", WorldMapFrame, "QuestMapFrame")
             WorldMapFrame.SidePanelToggle = new("Button", WorldMapFrame)
+            -- the map's click handlers: kept, with their priority
+            W.mapClicks = {}
+            function WorldMapFrame:AddCanvasClickHandler(fn, priority)
+                table.insert(W.mapClicks, { fn = fn, priority = priority })
+            end
             function QuestMapFrame_Hide() QuestMapFrame:Hide(); called("map panel folded") end
             W.cvars = {}
             function SetCVar(k, v) W.cvars[k] = v end
@@ -7867,13 +7895,51 @@ if sidePass then
     page.settings.lootMoney:Set(true)
 
     -- ---------------------------------------------------------- rolls
-    -- The Rolls window (strips/rolls.lua): the game's roll frames, minimal,
-    -- and the log of the item rolled on; the Loot tab's die shows it by hand
+    -- The Rolls window (strips/rolls.lua): the game's roll frames as a card
+    -- (the item at length, its choices, its time), the other rolls owed as
+    -- chips, the ones chosen as stamps, and the log of the item rolled on;
+    -- the Loot tab's die shows it by hand
     if not (ns.rolls and ns.rolls.frame) then
         print("rolls none")
     else
         local R = ns.rolls
         local win = R.frame
+        -- the items: their kind (instant), their level (once cached), and
+        -- what the player wears
+        local ITEMS = {
+            [30002] = { "Weapon", "One-Handed Swords", "INVTYPE_WEAPON", 2, 7, 489 },
+            [30003] = { "Armor", "Miscellaneous", "INVTYPE_FINGER", 4, 0, 476 },
+            [30004] = { "Trade Goods", "Metal & Stone", "", 7, 7, 1 },
+            [30005] = { "Armor", "Plate", "INVTYPE_HEAD", 4, 4, 470 },
+            [30007] = { "Weapon", "Bows", "INVTYPE_RANGED", 2, 2, 480 },
+        }
+        local cached = {}
+        local worn = { [1] = { "Warbringer Greathelm", 476 }, [11] = { "Ring of Arathi Warlords", 480 },
+            [12] = { "Band of the Eternal", 476 }, [16] = { "Felsteel Edge", 476 }, [18] = { "Sunfury Bow", 478 } }
+        local was = { C_Item.GetItemInfoInstant, GetDetailedItemLevelInfo, GetInventoryItemLink, ItemLocation,
+            C_Item.GetCurrentItemLevel, GameTooltip.SetText, GameTooltip.AddLine, INVTYPE_WEAPON, INVTYPE_FINGER,
+            INVTYPE_HEAD, LOOT_ROLL_INELIGIBLE_REASON1, INVTYPE_RANGED }
+        local function id(link) return tonumber(tostring(link):match("item:(%d+)")) end
+        C_Item.GetItemInfoInstant = function(link)
+            local i = ITEMS[id(link)]
+            if i then return id(link), i[1], i[2], i[3], "icon", i[4], i[5] end
+        end
+        C_Item.GetDetailedItemLevelInfo = nil
+        function GetDetailedItemLevelInfo(link)
+            local n = id(link)
+            if cached[n] and ITEMS[n] then return ITEMS[n][6] end
+            local w = n and n > 900000 and worn[n - 900000]
+            return w and w[2]
+        end
+        function GetInventoryItemLink(_, slot)
+            if worn[slot] then return string.format("|Hitem:%d::|h[%s]|h", 900000 + slot, worn[slot][1]) end
+        end
+        ItemLocation = nil
+        INVTYPE_WEAPON, INVTYPE_FINGER, INVTYPE_HEAD, INVTYPE_RANGED = "One-Hand", "Finger", "Head", "Ranged"
+        LOOT_ROLL_INELIGIBLE_REASON1 = "Your class may not roll need on this item."
+        local tip = {}
+        GameTooltip.SetText = function(_, t) tip = { tostring(t) } end
+        GameTooltip.AddLine = function(_, t) table.insert(tip, tostring(t)) end
         local function rollDie()
             for i, b in ipairs(L.paint) do
                 if b.glyph and tostring(b.glyph.texture):match("side%-roll") then return i end
@@ -7881,40 +7947,81 @@ if sidePass then
         end
         local function update(dt) win.scripts.OnUpdate(win, dt or 0.2) end
         local function game()
-            return string.format("game frames start=%s cancel=%s", tostring(UIParent.gameRolls.START_LOOT_ROLL),
-                tostring(UIParent.gameRolls.CANCEL_LOOT_ROLL))
+            return string.format("game frames start=%s cancel=%s container start=%s cancel=%s dialog=%s",
+                tostring(UIParent.gameRolls.START_LOOT_ROLL), tostring(UIParent.gameRolls.CANCEL_LOOT_ROLL),
+                tostring(GroupLootContainer.rolls.START_LOOT_ROLL), tostring(GroupLootContainer.rolls.CANCEL_LOOT_ROLL),
+                GroupLootFrame1:IsShown() and "shown" or "hidden")
+        end
+        local function y(f) return f.points.TOPLEFT and string.format("@%.0f", -f.points.TOPLEFT[4]) or "@-" end
+        local function red(t) return t.textColor and t.textColor[1] > 0.75 and t.textColor[2] < 0.3 and "red" or "" end
+        -- a glyph in a text, by its file's last word
+        local function plain(t)
+            return (tostring(t or ""):gsub("|T[^|]-([%w%-]+):%d+:%d+|t", "<%1>"):gsub("|c%x%x%x%x%x%x%x%x", "")
+                :gsub("|r", ""))
         end
         local function rolls(tag)
             if win:IsShown() then update() end
             print(tag, win:IsShown() and "shown" or "hidden", string.format("h=%.0f", win:GetHeight()),
-                "owed=" .. #R.owed(), "rolled=" .. table.concat(loot.rolled, ","))
-            for _, l in ipairs(R.lines) do
-                if l:IsShown() and l.roll then
-                    local picks = {}
-                    for _, b in ipairs(l.buttons) do if b:IsShown() then table.insert(picks, b.choice.word) end end
-                    print("", string.format("line@%.0f", -l.points.TOPLEFT[4]), l.link.text,
-                        table.concat(picks, "/"), string.format("bar=%.0f", l.bar:GetWidth()))
+                "owed=" .. #R.owed(), "chosen=" .. #R.chosen(), "rolled=" .. table.concat(loot.rolled, ","))
+            print("", "top", plain(R.top.title.text))
+            local c = R.card
+            if c:IsShown() then
+                local bs = {}
+                for _, b in ipairs(c.buttons) do
+                    if b:IsShown() then
+                        table.insert(bs, string.format("%s%s(%.0f)", b.choice.word, b:IsEnabled() and "+" or "-",
+                            b:GetWidth()))
+                    end
+                end
+                print("", "card" .. y(c), c.link.text, "|", c.meta.text, "|", tostring(c.way), c.up.text,
+                    c.arrow:IsShown() and tostring(c.arrow.texture):match("[^\\]+$") or "-")
+                print("", "", table.concat(bs, " "), c.sec.text, red(c.sec), string.format("bar=%.0f", c.bar:GetWidth()),
+                    c.bar.color and c.bar.color[1] > 0.75 and c.bar.color[2] < 0.3 and "red bar" or "")
+            end
+            for _, ch in ipairs(R.chips) do
+                if ch:IsShown() and ch.roll then
+                    print("", "chip" .. y(ch), ch.roll.name, ch.ring.shown ~= false and ch.ring:IsShown() and "ringed" or "",
+                        string.format("bar=%.1f", ch.bar:GetWidth()))
+                end
+            end
+            for _, s in ipairs(R.stamps) do
+                if s:IsShown() and s.roll then
+                    print("", "stamp" .. y(s), s.link.text, plain(s.line.text), s.sec.text, red(s.sec))
                 end
             end
             local h = R.head
-            print("", h.points.TOPLEFT and string.format("log@%.0f", -h.points.TOPLEFT[4]) or "log@-",
-                h.link.text, h.state.text,
+            print("", "log" .. y(h), h.link.text, plain(h.state.text),
                 h.chevron:IsShown() and string.format("rot=%.2f", h.chevron.rotation or 0) or "-",
                 R.empty:IsShown() and "empty" or "")
             for _, r in ipairs(R.rows) do
                 if r:IsShown() then
-                    print("", string.format("row@%.0f", -r.points.TOPLEFT[4]), r.who.text,
+                    print("", "row" .. y(r), r.who.text,
                         r.who.textColor and string.format("(%.2f,%.2f,%.2f)", unpack(r.who.textColor)) or "",
-                        r.how.text, r.die.shown and tostring(r.die.texture):match("[^\\]+$") or "-", r.roll.text)
+                        r.how.text, r.die:IsShown() and tostring(r.die.texture):match("[^\\]+$") or "-", r.roll.text,
+                        r.mark.text, r.lit:IsShown() and "lit" or "", r.me:IsShown() and "me" or "",
+                        string.format("a=%.1f", r:GetAlpha()))
                 end
             end
+            if R.more:IsShown() then print("", "more" .. y(R.more), R.more.text) end
+            if R.linger:IsShown() then print("", "linger" .. y(R.linger), string.format("w=%.0f", R.linger:GetWidth())) end
         end
-        -- a choice button on roll line n
-        local function choose(n, word)
-            for _, b in ipairs(R.lines[n].buttons) do
+        -- a choice button on the card
+        local function choose(word)
+            for _, b in ipairs(R.card.buttons) do
                 if b.choice.word == word and b:IsShown() then return b.scripts.OnClick(b) end
             end
-            print("no " .. word .. " on line " .. n)
+            print("no " .. word .. " on the card")
+        end
+        local function hover(word)
+            for _, b in ipairs(R.card.buttons) do
+                if b.choice.word == word and b:IsShown() then
+                    b.scripts.OnEnter(b)
+                    print("rolls tip " .. word, table.concat(tip, " / "),
+                        string.format("edge=(%.2f,%.2f,%.2f)", b.edge.color[1], b.edge.color[2], b.edge.color[3]))
+                    b.scripts.OnLeave(b)
+                    return
+                end
+            end
         end
         print("rolls at load", game())
         rolls("rolls at load")
@@ -7924,9 +8031,10 @@ if sidePass then
         rolls("rolls opened by hand")
         click(L, rollDie())
         column(L)
-        -- a boss's item to roll on: the box pops up, need / greed / pass
-        -- (no transmog, no disenchant); the history has it rolling: a need,
-        -- a greed, one not chosen, one passed, Alfa leading
+        -- a boss's item to roll on: the box pops up on a card (need / greed /
+        -- pass; no transmog, no disenchant), its level not cached yet; the
+        -- history has it rolling: a need, a greed, one not chosen, one
+        -- passed, Alfa leading, you still choosing
         local t0 = now
         table.insert(loot.encounters, { encounterID = 603, encounterName = "Supremus", startTime = 900 })
         local blade = itemLink(30002, "Supremus Blade", 4)
@@ -7945,59 +8053,80 @@ if sidePass then
         fire("LOOT_HISTORY_UPDATE_ENCOUNTER", 603)
         fire("START_LOOT_ROLL", 11, 30000)
         column(L)
-        rolls("rolls a roll owed")
-        -- a second at once, every choice allowed: two lines, the log on the
-        -- newer one (the history has no rolling drop for it yet: the drop
-        -- last updated stays)
+        rolls("rolls a roll owed, its level not cached")
+        -- its level arrives: 489 against the 476 sword in the main hand (the
+        -- empty off hand passed over)
+        cached[30002], cached[30003], cached[30005], cached[30004], cached[30007] = true, true, true, true, true
+        fire("GET_ITEM_INFO_RECEIVED", 30002)
+        rolls("rolls its level arrived")
+        -- a second at once: transmog and disenchant offered, need refused
+        -- for a reason the game names; two chips, the blade's ringed. The
+        -- ring against the lower of two worn: the same
         local signet = itemLink(30003, "Ashtongue Signet", 3)
         loot.rolls[12] = { link = signet, left = 20000,
-            info = { "iconSignet", "Ashtongue Signet", 1, 3, false, true, true, true, nil, nil, nil, nil, true } }
+            info = { "iconSignet", "Ashtongue Signet", 1, 3, false, false, true, true, 1, nil, nil, nil, true } }
         fire("START_LOOT_ROLL", 12, 20000)
         loot.rolls[11].left = 15000
         now = now + 15
         rolls("rolls two owed, 15s on")
-        -- greed on the first: its line goes, the game told
-        choose(1, "greed")
+        -- its chip brings the signet to the card; the refused need says why
+        if R.chips[2] then R.chips[2].scripts.OnClick(R.chips[2]) else print("rolls no second chip") end
+        rolls("rolls the signet's chip clicked")
+        hover("Need")
+        hover("Greed")
+        -- one ring slot empty: a ring fills it
+        local ring = worn[12]
+        worn[12] = nil
+        R.Draw()
+        print("rolls a ring slot empty", R.card.way, R.card.up.text)
+        worn[12] = ring
+        -- the blade's chip back; greed on it: a stamp, the card the signet's
+        R.chips[1].scripts.OnClick(R.chips[1])
+        choose("Greed")
         -- the history's timer in milliseconds, as the client may give it
         loot.drops[603][1].startTime, loot.drops[603][1].duration = now * 1000, 12000
         fire("LOOT_HISTORY_UPDATE_DROP", 603, 1)
         rolls("rolls greed on the blade, a timer in ms")
-        -- the second passed by its button
-        choose(1, "pass")
+        -- the signet passed by its button: no stamp for a pass
+        choose("Pass")
         rolls("rolls passed the signet")
-        -- the blade won; nothing owed: the box lingers, then goes
+        -- the blade won, its roll over (no time left): the stamp goes; the
+        -- box lingers, its rule running out, then goes
         local d1 = loot.drops[603][1]
         d1.winner = { playerName = "Alfa-Realm", playerClass = "WARRIOR", state = 0, roll = 87 }
         d1.rollInfos[4].isWinner = true
         d1.rollInfos[6].state, d1.rollInfos[6].roll = 3, 12
+        loot.rolls[11].left = 0
         fire("LOOT_HISTORY_UPDATE_DROP", 603, 1)
         rolls("rolls the blade won")
         now = now + 5
         update()
-        print("rolls 5s after", win:IsShown() and "shown" or "hidden")
+        print("rolls 5s after", win:IsShown() and "shown" or "hidden", string.format("linger=%.0f", R.linger:GetWidth()))
         now = now + 4
         update()
         print("rolls 9s after", win:IsShown() and "shown" or "hidden")
         column(L)
-        -- shown by hand, it stays
+        -- shown by hand, it stays, no linger rule
         ns.ToggleRolls()
         now = now + 30
         update()
-        print("rolls by hand, 30s on", win:IsShown() and "shown" or "hidden")
+        print("rolls by hand, 30s on", win:IsShown() and "shown" or "hidden", R.linger:IsShown() and "linger" or "")
         -- the log folds by its head, and stays folded
         R.head.scripts.OnClick(R.head, "LeftButton")
         rolls("rolls log folded")
         print("rollsFolded", tostring(ns.db.rollsFolded))
         R.head.scripts.OnClick(R.head, "LeftButton")
-        -- its cross closes it; the die goes out
-        R.head.close.scripts.OnClick(R.head.close)
+        -- the title band's cross closes it; the die goes out
+        R.top.close.scripts.OnClick(R.top.close)
         print("rolls closed by its cross", win:IsShown() and "shown" or "hidden")
         column(L)
-        -- a roll cancelled by the game (time out): its line goes
-        loot.rolls[13] = { link = blade, left = 5000,
+        -- a greed-only roll, no reason given: need greyed, the game's
+        -- sentence missing, ours; 8 s left: red. Cancelled by the game: gone
+        loot.rolls[13] = { link = blade, left = 8000,
             info = { "iconBlade", "Supremus Blade", 1, 4, true, false, true, false, nil, nil, nil, nil, false } }
-        fire("START_LOOT_ROLL", 13, 5000)
-        rolls("rolls a greed-only roll")
+        fire("START_LOOT_ROLL", 13, 30000)
+        rolls("rolls a greed-only roll, 8s left")
+        hover("Need")
         fire("CANCEL_LOOT_ROLL", 13)
         rolls("rolls cancelled")
         -- two drops rolling at once: the log follows the one last updated
@@ -8012,31 +8141,87 @@ if sidePass then
             rollInfos = { { playerName = "Echo-Realm", playerClass = "DRUID", state = 3, roll = 7 } } })
         fire("LOOT_HISTORY_UPDATE_DROP", 603, 3)
         rolls("rolls two rolling, the bar updated")
-        -- a secret roll and choice in the log; the leader's roll secret,
-        -- still above a need of 30
+        -- a secret roll and choice in the log, counted apart in the tally;
+        -- the leader's roll secret, still above a need of 30
         fire("LOOT_HISTORY_UPDATE_DROP", 603, 2)
         rolls("rolls secrets in the log")
+        -- greed on the signet: its stamp keeps the log on it, whatever drop
+        -- was updated last; the game ends its roll: the stamp goes. All
+        -- rolls cancelled: the stamps go too
+        fire("START_LOOT_ROLL", 12, 20000)
+        choose("Greed")
         fire("LOOT_HISTORY_UPDATE_DROP", 603, 3)
-        -- opened in combat; dragged: its place kept
+        rolls("rolls a stamp keeps the log")
+        fire("CANCEL_LOOT_ROLL", 12)
+        rolls("rolls the signet's roll ended")
+        fire("START_LOOT_ROLL", 12, 20000)
+        choose("Greed")
+        fire("CANCEL_ALL_LOOT_ROLLS")
+        print("rolls all cancelled", "owed=" .. #R.owed(), "chosen=" .. #R.chosen())
         win:Hide()
+        -- a raid's boss: a helm under what you wear and a bar not worn at
+        -- all; twelve members: under the card the list stops at nine
+        table.insert(loot.encounters, { encounterID = 604, encounterName = "Illidan Stormrage", startTime = 950 })
+        local helm, bar = itemLink(30005, "Crown of the Shadow Council", 4), itemLink(30004, "Felsteel Bar", 2)
+        local many = {}
+        for i = 1, 12 do
+            table.insert(many, { playerName = "Raider" .. i .. "-Realm", playerClass = "WARRIOR",
+                state = i <= 3 and 0 or 4, roll = i <= 3 and 50 + i or nil })
+        end
+        loot.drops[604] = { { lootListKey = 1, itemHyperlink = helm, startTime = now, duration = 30,
+            allPassed = false, rollInfos = many } }
+        loot.rolls[14] = { link = helm, left = 30000,
+            info = { "iconHelm", "Crown of the Shadow Council", 1, 4, true, true, true, false, nil, nil, nil, nil,
+                false } }
+        loot.rolls[15] = { link = bar, left = 30000,
+            info = { "iconBar", "Felsteel Bar", 1, 2, false, true, true, true, nil, nil, nil, nil, false } }
+        fire("LOOT_HISTORY_UPDATE_ENCOUNTER", 604)
+        fire("START_LOOT_ROLL", 14, 30000)
+        fire("START_LOOT_ROLL", 15, 30000)
+        rolls("rolls a raid: a helm under yours, twelve members")
+        R.chips[2].scripts.OnClick(R.chips[2])
+        rolls("rolls the bar on the card: not worn")
+        -- a bow against the ranged slot, not the main hand
+        local bow = itemLink(30007, "Bow of the Black Temple", 4)
+        loot.rolls[16] = { link = bow, left = 30000,
+            info = { "iconBow", "Bow of the Black Temple", 1, 4, true, true, true, false, nil, nil, nil, nil, false } }
+        fire("START_LOOT_ROLL", 16, 30000)
+        R.chips[3].scripts.OnClick(R.chips[3])
+        print("rolls a bow", R.card.meta.text, R.card.way, R.card.up.text)
+        fire("CANCEL_ALL_LOOT_ROLLS")
+        loot.rolls[14], loot.rolls[15], loot.rolls[16] = nil, nil, nil
+        -- no card: the raid's whole list
+        fire("LOOT_HISTORY_UPDATE_DROP", 604, 1)
+        rolls("rolls the raid's log, no card")
+        loot.drops[604] = nil
+        table.remove(loot.encounters)
+        win:Hide()
+        -- opened in combat; dragged by its title band: its place kept
         inCombat = true
         fire("START_LOOT_ROLL", 12, 20000)
         rolls("rolls popped in combat: the owed signet logged, not the bar")
         inCombat = false
         harnessDropAt = { "TOPLEFT", "TOPLEFT", 300, -200 }
-        win.scripts.OnDragStart(win)
-        win.scripts.OnDragStop(win)
+        R.top.scripts.OnDragStart(R.top)
+        R.top.scripts.OnDragStop(R.top)
         local at = ns.db.rollsPlace
         print("rolls dragged", type(at) == "table" and string.format("%s %s %s %s", tostring(at.point),
             tostring(at.relative), tostring(at.x), tostring(at.y)) or tostring(at))
         -- the option off: the game's frames back, ours shut and deaf
         page.settings.rollFrame:Set(false)
-        print("rolls option off", win:IsShown() and "shown" or "hidden", game())
+        print("rolls option off", win:IsShown() and "shown" or "hidden", game(), "chosen=" .. #R.chosen())
         fire("START_LOOT_ROLL", 12, 20000)
         print("rolls option off, a roll", win:IsShown() and "shown" or "hidden", "owed=" .. #R.owed())
+        GroupLootFrame1:Show()
+        print("rolls option off, the game's dialog", game())
         page.settings.rollFrame:Set(true)
         print("rolls option on", game())
+        GroupLootFrame1:Show()
+        print("rolls option on, the game's dialog shown anyway", game())
         loot.rolls = {}
+        C_Item.GetItemInfoInstant, GetDetailedItemLevelInfo, GetInventoryItemLink, ItemLocation,
+            C_Item.GetCurrentItemLevel, GameTooltip.SetText, GameTooltip.AddLine, INVTYPE_WEAPON, INVTYPE_FINGER,
+            INVTYPE_HEAD, LOOT_ROLL_INELIGIBLE_REASON1, INVTYPE_RANGED = unpack(was, 1, 12)
     end
 
     -- --------------------------------------------------------- meter
@@ -22667,6 +22852,39 @@ if questLogPass then (function()
     end
     pageText("questlog page")
     rows("questlog page open")
+    -- a right click on a quest on the world map: its page, when the quest is in
+    -- the log (the game's pin, a Questie icon's texture); anything else is the map's
+    if W.mapClicks then
+        local was = QP.Current()
+        print("questlog map handlers", #W.mapClicks, W.mapClicks[1] and W.mapClicks[1].priority)
+        local focus
+        local fociWas = GetMouseFoci
+        GetMouseFoci = function() return { focus } end
+        local function click(tag, f, button)
+            focus = f
+            local took = W.mapClicks[1] and W.mapClicks[1].fn(WorldMapFrame, button or "RightButton", 0.5, 0.5)
+            print("questlog map " .. tag, "took=" .. tostring(took), "current=" .. tostring(QP.Current()))
+        end
+        local pin = new("Button", WorldMapFrame)
+        local pinQuest = 201
+        function pin:GetQuestID() return pinQuest end
+        click("game pin", pin)
+        local icon = new("Button", WorldMapFrame)
+        icon.data = { Id = 202, Type = "monster", QuestData = {} }
+        local tex = new("Frame", icon)
+        click("questie icon's texture", tex)
+        icon.data = { Id = 203, Type = "monster" }
+        click("icon without quest data", icon)
+        pinQuest = 999
+        click("quest not in the log", pin)
+        pinQuest = secret(201)
+        click("secret quest id", pin)
+        pinQuest = 201
+        click("left button", pin, "LeftButton")
+        click("bare map", WorldMapFrame)
+        GetMouseFoci = fociWas
+        if was then QP.Open(was) else QP.Close() end
+    end
     -- the facts' tiles under the head: level, zone, giver, chain, status
     ;(function()
         local function facts(tag)
@@ -22691,6 +22909,10 @@ if questLogPass then (function()
                     table.insert(out, string.format("(%s%s) %s [%s] %s%s%s", ((c.num.text or ""):gsub("|T.-\\(%a+):.-|t", "<%1>")), lit and "*" or "",
                         tostring(c.name.text), c3(c.name.textColor), c.lvl.text ~= "" and ("lvl " .. c.lvl.text) or "-",
                         c.rail.shown and " |" or "", c.go and " >" or ""))
+                    if (c.xp.text or "") ~= "" then
+                        out[#out] = out[#out] .. string.format(" {%s a=%.1f name-right=%s}", c.xp.text, c.xp.alpha or 1,
+                            tostring(c.name.points.RIGHT and c.name.points.RIGHT[3]))
+                    end
                     out[#out] = { y_, out[#out] }
                 elseif c.shown and c.kind == "FontString" and c.text and c.text:find("^\226\128\166") then
                     table.insert(out, { y_, c.text })
@@ -22764,7 +22986,15 @@ if questLogPass then (function()
                 [555] = { name = "Druids only", requiredClasses = 1024 },
             }
             local contract = true
-            LibQuestieDB = { RequireContract = function(n) return contract and n == 4 end }
+            -- its quest xp table: { level, xp }; the player (30) five levels or
+            -- less over the first, six over the second (a fifth off, rounded)
+            -- (this quest's own, 102, is the game's: QuestieDB's 2000 is not read;
+            -- and with the game saying none, none is shown)
+            local xpdb = { [96264] = { 28, 1050 }, [79358] = { 24, 1050 }, [102] = { 30, 2000 } }
+            local levelAt = UnitLevel
+            UnitLevel = function() return 30 end
+            LibQuestieDB = { RequireContract = function(n) return contract and n == 4 end,
+                Support = { Get = function(name) return name == "QuestXP" and { db = xpdb } or nil end } }
             QuestDB = {
                 Exists = function(id) return rows[id] ~= nil end,
                 Get = function(id, key) return rows[id] and rows[id][key] end,
@@ -22787,6 +23017,29 @@ if questLogPass then (function()
             show("questiedb")
             pageText("questlog page questiedb")
             steps("questlog page questiedb steps")
+            -- a step done: its xp dimmed; at the top level, none
+            done[96264] = true
+            QP.Refresh()
+            steps("questlog page questiedb steps, one done")
+            done[96264] = nil
+            print("questlog chain xp scaled", ns.questChains.Scale(1050, 24, 30), ns.questChains.Scale(1050, 20, 30),
+                ns.questChains.Scale(1050, 10, 30), ns.questChains.Scale(88, 10, 9), ns.questChains.Scale(4400, 48, 60, 60))
+            local levelWas = UnitLevel
+            UnitLevel = function() return 60 end
+            QP.Refresh()
+            steps("questlog page questiedb steps, top level")
+            UnitLevel = levelWas
+            local xpWas = W.rewards[102].xp
+            W.rewards[102].xp = 0
+            fire("PLAYER_LEVEL_UP", 30)                     -- (drops the rewards kept)
+            QP.Refresh()
+            steps("questlog page questiedb steps, this one gives none")
+            W.rewards[102].xp = xpWas
+            fire("PLAYER_LEVEL_UP", 30)
+            xpdb[79358] = { 24 }
+            QP.Refresh()
+            steps("questlog page questiedb steps, a broken xp row")
+            xpdb[79358] = { 24, 1050 }
             -- a step, Questie there or not: a click opens it in Questie's Journey, at the quest
             ;(function()
                 local function step(id)
@@ -22896,6 +23149,7 @@ if questLogPass then (function()
             show("questiedb game first")
             C_QuestLine.GetQuestLineInfo = function() return nil end
             LibQuestieDB, QuestDB, UnitRace, UnitClass = nil, nil, raceWas, classWas
+            UnitLevel = levelAt
             show("questiedb gone")
         end)()
         -- a quest item's drop rates from QuestieDB (quests/drops.lua): a

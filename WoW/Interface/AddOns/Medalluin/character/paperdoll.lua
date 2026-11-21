@@ -55,6 +55,22 @@ local VIEWS = { { "stats", Tr["Stats"], Tr["Your stats."] }, { "titles", Tr["Tit
 local page, doll
 local views, view = {}, "stats"                 -- the details' parts, and the one shown
 
+-- The level of what a unit wears in a slot, nil for an empty one: the
+-- item's own place reads it as worn (the player's only), else its link.
+-- The paperdoll's plates and the Rolls window's upgrade line (strips/rolls.lua).
+function ns.WornItemLevel(slot, unit)
+    unit = unit or "player"
+    local link = GetInventoryItemLink(unit, slot)
+    if not link then return end
+    if unit == "player" and C_Item and C_Item.GetCurrentItemLevel and ItemLocation
+        and ItemLocation.CreateFromEquipmentSlot then
+        local loc = ItemLocation:CreateFromEquipmentSlot(slot)
+        if loc and loc:IsValid() then return C_Item.GetCurrentItemLevel(loc) end
+    end
+    local detailed = GetDetailedItemLevelInfo or (C_Item and C_Item.GetDetailedItemLevelInfo)
+    if detailed then return (detailed(link)) end
+end
+
 -- ------------------------------------------------------------------ doll
 -- The name, the class line, the gear round the model and the weapons
 -- under it, fitted to the height there is: the character page's, and the
@@ -85,19 +101,7 @@ function ns.character.Doll(spec)
         return GOLD_D[1], GOLD_D[2], GOLD_D[3]
     end
 
-    local function ItemLevel(slot)
-        local unit = Unit()
-        local link = GetInventoryItemLink(unit, slot)
-        if not link then return end
-        -- the item's own place reads its level as worn: the player's only
-        if unit == "player" and C_Item and C_Item.GetCurrentItemLevel and ItemLocation
-            and ItemLocation.CreateFromEquipmentSlot then
-            local loc = ItemLocation:CreateFromEquipmentSlot(slot)
-            if loc and loc:IsValid() then return C_Item.GetCurrentItemLevel(loc) end
-        end
-        local detailed = GetDetailedItemLevelInfo or (C_Item and C_Item.GetDetailedItemLevelInfo)
-        if detailed then return (detailed(link)) end
-    end
+    local function ItemLevel(slot) return ns.WornItemLevel(slot, Unit()) end
     d.ItemLevel = ItemLevel
 
     -- The edge in the item's quality, its level on a plate at the slot's inner foot; an empty slot's

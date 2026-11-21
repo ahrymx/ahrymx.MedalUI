@@ -65,6 +65,7 @@ ns.mute = 0.8
 
 -- One event frame for the whole addon: ns.On("EVENT", fn).
 local handlers, events = {}, CreateFrame("Frame")
+ns.eventFrame = events                          -- told apart from the game's listeners (strips/rolls.lua)
 events:SetScript("OnEvent", function(_, event, ...)
     for _, fn in ipairs(handlers[event]) do fn(event, ...) end
 end)

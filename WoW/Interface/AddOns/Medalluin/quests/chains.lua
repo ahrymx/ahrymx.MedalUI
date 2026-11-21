@@ -11,6 +11,8 @@
 --   ns.questChains.Of(id)     { ids, at }; false: known, alone; nil: unknown
 --   ns.questChains.Title(id)  its name in QuestieDB, or nil
 --   ns.questChains.Level(id)  its level in QuestieDB, or nil
+--   ns.questChains.XP(id)     its xp at the player's level (QuestieDB's quest
+--                             xp table, scaled as the game scales it), or nil
 local _, ns = ...
 
 local qc = {}
@@ -121,6 +123,37 @@ function qc.Level(id)
     if not db then return nil end
     local level = Get(db, id, "questLevel")
     return type(level) == "number" and level > 0 and level or nil
+end
+
+-- QuestieDB's quest xp table: id -> { level, xp at that level or below }
+local function XPTable()
+    if not DB() then return nil end
+    local support = _G.LibQuestieDB.Support
+    local ok, mod = pcall(function() return support and support.Get("QuestXP") end)
+    return ok and type(mod) == "table" and type(mod.db) == "table" and mod.db or nil
+end
+
+-- As the game gives it: whole up to five levels over the quest's, a fifth
+-- less each level past that, a tenth at least; none at the top level.
+-- Rounded as the game rounds it: to 5, 10, 25 or 50 as it grows.
+function qc.Scale(xp, questLevel, level, top)
+    if top and level >= top then return 0 end
+    local factor = math.max(1, math.min(10, 2 * (questLevel - level) + 20))
+    xp = xp * factor / 10
+    if xp <= 100 then return 5 * floor((xp + 2) / 5)
+    elseif xp <= 500 then return 10 * floor((xp + 5) / 10)
+    elseif xp <= 1000 then return 25 * floor((xp + 12) / 25) end
+    return 50 * floor((xp + 25) / 50)
+end
+
+function qc.XP(id)
+    local db = XPTable()
+    local row = db and db[id]
+    if type(row) ~= "table" or type(row[1]) ~= "number" or type(row[2]) ~= "number" or row[2] <= 0 then return nil end
+    local level = UnitLevel and UnitLevel("player")
+    if type(level) ~= "number" or ns.IsSecret(level) then return nil end
+    local xp = qc.Scale(row[2], row[1], level, GetMaxPlayerLevel and GetMaxPlayerLevel())
+    return xp > 0 and xp or nil
 end
 
 -- a quest handed in can change which of several the walk takes

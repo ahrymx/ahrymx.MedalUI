@@ -373,6 +373,57 @@ function Q.ShowOnMap(quest)
     return true
 end
 
+-- A right click on a quest on the world map opens its page (Q.Show): the
+-- game's quest pins and Questie's icons both let right clicks through to
+-- the map (where they zoom out), so the map's own click handlers are where
+-- it is caught, the quest found among the frames under the mouse. Only a
+-- quest in the log is taken; any other right click zooms out as before.
+local MAP_PRIORITY = 100                        -- over the game's own (the waypoint's is 90)
+
+-- the quest of a frame under the mouse, or of its parents (a pin's parts)
+local function QuestOf(f)
+    for _ = 1, 3 do
+        if type(f) ~= "table" then return nil end
+        local data = rawget(f, "data")
+        if type(data) == "table" and type(data.Id) == "number" and data.QuestData then return data.Id end
+        local get = f.GetQuestID
+        if type(get) == "function" then
+            local ok, id = pcall(get, f)
+            if ok and type(id) == "number" and not ns.IsSecret(id) and id > 0 then return id end
+        end
+        f = f.GetParent and f:GetParent()
+    end
+end
+
+function Q.MapQuestAtMouse()
+    local foci = GetMouseFoci and GetMouseFoci() or { GetMouseFocus and GetMouseFocus() }
+    for _, f in ipairs(foci or {}) do
+        local id = QuestOf(f)
+        if id then
+            for _, q in ipairs(Q.All()) do
+                if q.id == id then return q end
+            end
+        end
+    end
+end
+
+local mapHooked
+local function MapClicks()
+    local map = WorldMapFrame
+    if mapHooked or not (map and map.AddCanvasClickHandler) then return end
+    mapHooked = true
+    map:AddCanvasClickHandler(function(_, button)
+        if button ~= "RightButton" then return false end
+        local ok, q = pcall(Q.MapQuestAtMouse)
+        if not (ok and q) then return false end
+        Q.Show(q)
+        return true
+    end, MAP_PRIORITY)
+end
+Q.MapClicks = MapClicks
+ns.On("PLAYER_LOGIN", MapClicks)
+ns.On("ADDON_LOADED", MapClicks)
+
 -- How many quests the game lets be watched at once (none known: no limit).
 function Q.WatchLimit()
     if C_QuestLog.GetMaxNumQuestsCanWatch then return C_QuestLog.GetMaxNumQuestsCanWatch() end

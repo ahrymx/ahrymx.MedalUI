@@ -1404,9 +1404,10 @@ function ns.OptionPages()
                                     .. "lines."])),
                         Group(Tr["Rolls"],
                             Check("rollFrame", Tr["Roll window"],
-                                Tr["A small window of Medalluin's own pops up for each item to roll on: need, "
-                                    .. "greed or pass in one line, and under it everyone's choice and roll on it. The "
-                                    .. "die button shows and hides it. Untick it to keep the game's roll frames."])),
+                                Tr["A small window of Medalluin's own pops up for each item to roll on: the item, "
+                                    .. "its level against what you wear, need, greed or pass, and under it everyone's "
+                                    .. "choice and roll on it. The die button shows and hides it. Untick it to keep "
+                                    .. "the game's roll frames."])),
                     }),
                 Switched(Check("sideImmersion", Tr["Faded when idle"],
                         Tr["Left alone, the panel's background fades to its faded opacity, whole again on what "
