@@ -145,7 +145,7 @@ local function Button(view, spec, y, from)
     b.glyph:SetPoint("CENTER")
     b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     b:SetScript("OnClick", function(self, mouse)
-        self.spec.click(mouse)
+        self.spec.click(mouse, self)
         ns.side.Changed()
         if GameTooltip:IsOwned(self) then Tip(self) end
     end)
@@ -317,6 +317,10 @@ local function Build()
     panel:SetWidth(width)
     panel:SetHeight(foot + tall + PAD)
     panel:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", 0, L.stripHeight)
+    -- whatever the mouse finds on the strip or the panel (its row, the
+    -- backpack, the game's own buttons): its tooltips and menus just outside
+    -- the panel, towards the screen's middle (ns.window.Outside)
+    ns.window.Mark(strip, 1, panel, true)
     local breakAt = ns.stripWell.x + L.ringRadius + 5
     local dress = ns.window.Dress(panel, margin, true)
     dress.rule:SetPoint("BOTTOMLEFT", 0, margin)

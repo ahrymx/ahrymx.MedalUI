@@ -78,7 +78,7 @@ read_globals = {
     "date", "LibStub", "C_Timer", "C_Spell", "GetSpellCharges", "GetSpellCooldown", "UnitInVehicle", "HasVehicleActionBar", "HasOverrideActionBar", "C_PlayerInfo", "IsMounted",
     "QueueStatusButton", "QueueStatusMinimapButton", "MiniMapLFGFrame", "MainMenuBarVehicleLeaveButton", "MainMenuBarVehicleLeaveButton_Update", "CanExitVehicle", "IsMouseButtonDown", "IsPossessBarVisible", "CancelPetPossess", "UnitOnTaxi", "PossessActionBar",
     -- the side panel's Zone tab (strips/zone.lua)
-    "C_Minimap", "Menu", "MenuUtil", "MiniMapTrackingDropDown", "ToggleDropDownMenu", "ToggleWorldMap", "GetSubZoneText",
+    "C_Minimap", "Menu", "MenuUtil", "MiniMapTrackingDropDown", "ToggleDropDownMenu", "DropDownList1", "ToggleWorldMap", "GetSubZoneText",
     -- the spells that dispel (console/auras.lua)
     "IsPlayerSpell", "IsSpellKnown", "ITEM_STARTS_QUEST",
     -- the player's role, the editor's canvas shows (options/canvas.lua)

@@ -732,7 +732,7 @@ function Region:Edge(i, up)
     local ok, r = pcall(resolve, self)
     -- a rect that rests on a secret size is secret
     if not ok and tostring(r):find("secret") then return secret() end
-    if not (ok and r) then return nil end
+    if not (ok and r and r[i]) then return nil end    -- unplaced: nil, as in the game
     local v = up and 1080 - r[i] or r[i]
     return v / scaleOf(self)
 end
@@ -7691,6 +7691,33 @@ if sidePass then
             sortB.scripts.OnClick(sortB, "LeftButton")
             orders.catcher.scripts.OnClick(orders.catcher, "LeftButton")
             print("zone sort shut elsewhere", "open=" .. tostring(orders.IsOpen()), "marked=" .. tostring(sortB.mark.shown))
+            -- the tracking menu: just outside the panel at its left, its top
+            -- level with the button (as the column's tooltips), not at the pointer
+            local mm, mu = C_Minimap, MenuUtil
+            local made
+            C_Minimap = { GetNumTrackingTypes = function() return 2 end,
+                GetTrackingInfo = function(i) return { name = i == 1 and "Find Herbs" or "Banker", active = i == 1 } end,
+                SetTracking = function() end }
+            MenuUtil = { CreateContextMenu = function(owner, gen)
+                local rows = {}
+                gen(owner, { CreateTitle = function(_, s) rows[#rows + 1] = "[" .. s .. "]" end,
+                    CreateCheckbox = function(_, s, on) rows[#rows + 1] = s .. (on() and "*" or "") end })
+                made = CreateFrame("Frame", nil, UIParent)
+                made:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -100)      -- at the pointer, as the game's
+                made.rows = rows
+                return made
+            end }
+            local trackB
+            for _, b in ipairs(z.paint) do
+                if b.spec and b.spec.glyph and b.spec.glyph() == "side-tracking" then trackB = b end
+            end
+            trackB.scripts.OnClick(trackB, "LeftButton")
+            local pt, mp = next(made.points)
+            local k = side.panel:GetEffectiveScale() / made:GetEffectiveScale()
+            print("zone tracking menu", table.concat(made.rows, " "), "at=" .. tostring(pt) .. ">"
+                .. tostring(mp[1] == side.panel and "panel" or "?") .. "." .. tostring(mp[2]) .. " " .. tostring(mp[3]),
+                "level=" .. tostring(math.abs(mp[4] - (trackB:GetTop() - side.panel:GetTop()) * k) < 0.01))
+            C_Minimap, MenuUtil = mm, mu
             rows("sort by log")
             for k in pairs(zoneDist) do zoneDist[k] = nil end
         end)()
@@ -8530,6 +8557,84 @@ if sidePass then
         tick()
         aurasState("auras timeless")
         sideTips("side tips")
+        -- the corner strips' own (their row, the clock, the medallions, the
+        -- game's buttons on them): outside the panel above, towards the
+        -- middle; under it, their feet level with the owner's
+        ;(function()
+            local hide, link = GameTooltip_Hide, GetInventoryItemLink
+            GameTooltip_Hide = GameTooltip_Hide or function() GameTooltip:Hide() end
+            GetInventoryItemLink = link or function() return nil end
+            for _, s in ipairs({ 1, -1 }) do
+                local strip, at = ns.strips[s], s > 0 and side.panel or ns.chat.box
+                local k = at:GetEffectiveScale() / GameTooltip:GetEffectiveScale()
+                local beside, other, seen = 0, {}, {}
+                local function word(c)
+                    return c.name or (c.shortcut and c.shortcut[2]) or (c.label and c.label.text) or "?"
+                end
+                local function walk(f)
+                    for _, c in ipairs(f.all_ or {}) do
+                        if c ~= at and not (c.name and c.name:match("^Medalluin")) then
+                            if c.scripts and c.scripts.OnEnter then
+                                GameTooltip.owner, GameTooltip.points = nil, {}
+                                c.scripts.OnEnter(c)
+                                if GameTooltip.owner == c and not c:GetBottom() then
+                                    other[#other + 1] = word(c) .. " (unplaced)"
+                                elseif GameTooltip.owner == c then
+                                    local under = c:GetBottom() < at:GetBottom()
+                                    local pt = under and (s > 0 and "BOTTOMRIGHT" or "BOTTOMLEFT")
+                                        or (s > 0 and "TOPRIGHT" or "TOPLEFT")
+                                    local rel = (s > 0 and "LEFT" or "RIGHT")
+                                    rel = (under and "BOTTOM" or "TOP") .. rel
+                                    local p = GameTooltip.points[pt]
+                                    local want = under and (c:GetBottom() - at:GetBottom()) * k
+                                        or (c:GetTop() - at:GetTop()) * k
+                                    if p and p[1] == at and p[2] == rel and p[3] == -s * 4
+                                        and math.abs(p[4] - want) < 0.01 then
+                                        beside = beside + 1
+                                        if under then seen[#seen + 1] = word(c) end
+                                    else
+                                        other[#other + 1] = word(c)
+                                    end
+                                end
+                                if c.scripts.OnLeave then c.scripts.OnLeave(c) end
+                            end
+                            walk(c)
+                        end
+                    end
+                end
+                walk(strip)
+                table.sort(seen)
+                print("strip tips", s > 0 and "right" or "left", "beside=" .. beside,
+                    "rising: " .. table.concat(seen, ", "),
+                    "elsewhere: " .. (#other > 0 and table.concat(other, ", ") or "none"))
+            end
+            -- the screenshots' three: the backpack, the portrait, a key
+            for _, b in ipairs({ MainMenuBarBackpackButton, CharacterMicroButton,
+                ns.stripShortcuts.keys[1], ns.stripShortcuts.clock }) do
+                GameTooltip.owner, GameTooltip.points = nil, {}
+                if b.scripts.OnEnter then b.scripts.OnEnter(b) end
+                local pt, p = next(GameTooltip.points)
+                local rel = p and (p[1] == side.panel and "panel" or p[1] == ns.chat.box and "chat"
+                    or p[1] == b and "itself" or tostring(p[1] and p[1].name))
+                print("strip tip", b.name or (b.shortcut and b.shortcut[2]) or "clock",
+                    "parent=" .. tostring(b:GetParent() == ns.strips[1] and "right" or b:GetParent() == ns.strips[-1]
+                        and "left" or "other"), "owned=" .. tostring(GameTooltip.owner == b),
+                    "at=" .. tostring(pt) .. ">" .. tostring(rel) .. "." .. tostring(p and p[2]) .. " "
+                        .. (p and string.format("%.1f,%.1f", p[3] or 0, p[4] or 0) or "-"),
+                    "foot=" .. string.format("%.1f/%.1f", b:GetBottom() or -1,
+                        (b:GetParent() == ns.strips[-1] and ns.chat.box or side.panel):GetBottom()))
+                if b.scripts.OnLeave then b.scripts.OnLeave(b) end
+            end
+            -- the game's own (its OnEnter's SetOwner, by an anchor of its own):
+            -- placed the same, by the SetOwner hook
+            GameTooltip.points = {}
+            GameTooltip:SetOwner(MainMenuBarBackpackButton, "ANCHOR_LEFT")
+            local pt, p = next(GameTooltip.points)
+            print("strip tip, the game's own", "at=" .. tostring(pt) .. ">"
+                .. tostring(p and p[1] == side.panel and "panel" or "?") .. "." .. tostring(p and p[2]))
+            GameTooltip:Hide()
+            GameTooltip_Hide, GetInventoryItemLink = hide, link
+        end)()
         -- the wheel: more auras than rows; a list passes it on
         local scroll1
         for _, ch in ipairs(A.body.all_[1].all_) do if ch.kind == "ScrollFrame" then scroll1 = ch end end

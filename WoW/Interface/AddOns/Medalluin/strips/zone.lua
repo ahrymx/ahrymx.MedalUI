@@ -487,17 +487,18 @@ local function Zoom(by)
     Minimap:SetZoom(math.max(0, math.min(Minimap:GetZoomLevels() - 1, z)))
 end
 
--- The game's tracking types, as a menu of ticks at the pointer: retail's
--- menus, or the older clients' own tracking drop-down.
+-- The game's tracking types, as a menu of ticks just outside the panel,
+-- level with the button: retail's menus, or the older clients' own
+-- tracking drop-down.
 local function TrackingInfo(i)
     local a, _, c = C_Minimap.GetTrackingInfo(i)
     if type(a) == "table" then return a.name, a.active end
     return a, c
 end
 
-local function Tracking()
+local function Tracking(owner)
     if MenuUtil and MenuUtil.CreateContextMenu and C_Minimap and C_Minimap.GetNumTrackingTypes then
-        MenuUtil.CreateContextMenu(ns.side.panel, function(_, root)
+        local menu = MenuUtil.CreateContextMenu(ns.side.panel, function(_, root)
             root:CreateTitle(Tr["Tracking"])
             for i = 1, C_Minimap.GetNumTrackingTypes() do
                 local name = TrackingInfo(i)
@@ -507,10 +508,15 @@ local function Tracking()
                 end
             end
         end)
+        -- just outside the panel, level with the button, as its tooltips
+        if menu and owner then ns.window.PlaceOutside(menu, owner, true) end
         return true
     end
     if ToggleDropDownMenu and MiniMapTrackingDropDown then
         ToggleDropDownMenu(1, nil, MiniMapTrackingDropDown, "cursor", 0, 0)
+        if owner and DropDownList1 and DropDownList1:IsShown() then
+            ns.window.PlaceOutside(DropDownList1, owner, true)
+        end
         return true
     end
     return false
@@ -680,8 +686,8 @@ view.buttons = {
     {
         glyph = function() return "side-tracking" end,
         lit = function() return false end,
-        click = function()
-            if not Tracking() and UIErrorsFrame then
+        click = function(_, owner)
+            if not Tracking(owner) and UIErrorsFrame then
                 UIErrorsFrame:AddMessage("Medalluin: " .. Tr["this client has no tracking menu."], 1, 0.82, 0)
             end
         end,

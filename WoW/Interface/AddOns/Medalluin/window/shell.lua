@@ -657,7 +657,7 @@ ns.window.scrollers = scrollers
 -- SetOwner, and an anchor ns.Tip takes. The windows' (w.Beside,
 -- ns.window.Outside), the side panel's (ns.side.Beside).
 local placing                                  -- PlaceTip's own SetPoint (the hook below)
-local function PlaceTip(frame, owner, side, tip)
+local function PlaceTip(frame, owner, side, tip, rise)
     tip = tip or GameTooltip                   -- or another: the chat's clicked links (ItemRefTooltip)
     placing = true
     tip:ClearAllPoints()
@@ -667,6 +667,20 @@ local function PlaceTip(frame, owner, side, tip)
         local l, r, fl, fr = owner:GetLeft(), owner:GetRight(), frame:GetLeft(), frame:GetRight()
         local dx = l and r and fl and fr and ((l + r) - (fl + fr)) / 2 * k or 0
         tip:SetPoint("TOP", frame, "BOTTOM", dx, -BESIDE)
+        placing = false
+        return
+    end
+    -- rise (a corner strip's mark): an owner under the frame (the strip's
+    -- row, its medallion, under the side panel it stands for) has the foot
+    -- level with its own, rising from the row rather than off the screen
+    local foot, base = owner:GetBottom(), frame:GetBottom()
+    if rise and owner ~= frame and foot and base and foot < base then
+        local dy = (foot - base) * k
+        if side > 0 then
+            tip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMLEFT", -BESIDE, dy)
+        else
+            tip:SetPoint("BOTTOMLEFT", frame, "BOTTOMRIGHT", BESIDE, dy)
+        end
         placing = false
         return
     end
@@ -810,9 +824,9 @@ function ns.window.Choices(spec)
     return pop
 end
 
-function ns.window.Beside(frame, owner, side)
+function ns.window.Beside(frame, owner, side, rise)
     GameTooltip:SetOwner(owner, "ANCHOR_NONE")
-    PlaceTip(frame, owner, side)
+    PlaceTip(frame, owner, side, nil, rise)
 end
 
 -- A frame tooltips stand outside: side its default (1: it stands on the
@@ -820,14 +834,16 @@ end
 -- dragged across); "down": under it always, below the owner (the
 -- overhead); a function: asked each time for either, and kept to (an
 -- option's: the overhead's flyouts); at: the frame they stand beside instead (a cast layer
--- marks its window). ns.window.Outside(owner, fallback) is GameTooltip for
+-- marks its window); rise: an owner under the frame it stands beside has
+-- the tooltip's foot level with its own (a corner strip, under its panel).
+-- ns.window.Outside(owner, fallback) is GameTooltip for
 -- an owner inside one, beside the nearest such frame up its parents, on the
 -- side towards the screen's middle; outside any, SetOwner by fallback
 -- ("ANCHOR_RIGHT" when not given). An anchor ns.Tip takes, as is.
 -- The marks are kept here, not on the frame: Blizzard's may be marked too
 -- (the Cooldown Manager's window), and nothing is written onto those.
-local marks = setmetatable({}, { __mode = "k" })    -- frame: { side, at }
-function ns.window.Mark(frame, side, at) marks[frame] = { side = side, at = at } end
+local marks = setmetatable({}, { __mode = "k" })    -- frame: { side, at, rise }
+function ns.window.Mark(frame, side, at, rise) marks[frame] = { side = side, at = at, rise = rise } end
 
 local function Facing(frame, m)
     m = m or marks[frame]                       -- the mark of the frame it stands beside for (at)
@@ -845,20 +861,20 @@ local function Marked(owner)
     if f then return marks[f].at or f, marks[f] end
 end
 
--- tip (a tooltip of its own, not GameTooltip: ItemRefTooltip) beside the
--- marked frame owner is inside, its top level with the frame's; false when
--- owner is in none
-function ns.window.PlaceOutside(tip, owner)
+-- tip (a tooltip of its own, not GameTooltip: ItemRefTooltip; or a menu)
+-- beside the marked frame owner is inside, its top level with the frame's
+-- (level: with owner's, as GameTooltip's); false when owner is in none
+function ns.window.PlaceOutside(tip, owner, level)
     local f, m = Marked(owner)
     if not f then return false end
-    PlaceTip(f, f, Facing(f, m), tip)
+    PlaceTip(f, level and owner or f, Facing(f, m), tip, m.rise)
     return true
 end
 function ns.window.Unmark(frame) marks[frame] = nil end
 
 function ns.window.Outside(owner, fallback)
     local f, m = Marked(owner)
-    if f then return ns.window.Beside(f, owner, Facing(f, m)) end
+    if f then return ns.window.Beside(f, owner, Facing(f, m), m.rise) end
     GameTooltip:SetOwner(owner, type(fallback) == "string" and fallback or "ANCHOR_RIGHT")
 end
 
@@ -874,7 +890,7 @@ local function Own(owner)
     local f, m = Marked(owner)
     if not f then return end
     if GameTooltip.SetAnchorType then GameTooltip:SetAnchorType("ANCHOR_NONE") end
-    PlaceTip(f, owner, Facing(f, m))
+    PlaceTip(f, owner, Facing(f, m), nil, m.rise)
 end
 hooksecurefunc(GameTooltip, "SetOwner", function(_, owner) Own(owner) end)
 hooksecurefunc(GameTooltip, "SetPoint", function(self)

@@ -16,6 +16,10 @@ local GetFree = C_Container and C_Container.GetContainerNumFreeSlots or GetConta
 
 local strip = ns.strips[1]
 
+-- tooltips just outside the side panel, towards the screen's middle (the
+-- strip is marked, strips/side.lua); over the row with no panel built
+local function Outside(owner) ns.window.Outside(owner, "ANCHOR_TOP") end
+
 -- ------------------------------------------------------------------- bags
 local function BagCount()
     local used, total = 0, 0
@@ -41,7 +45,7 @@ end
 
 MainMenuBarBackpackButton:HookScript("OnEnter", function(self)
     local used, total = BagCount()
-    ns.Tip(self, "ANCHOR_TOP", { title = BACKPACK_TOOLTIP or "Backpack",
+    ns.Tip(self, Outside, { title = BACKPACK_TOOLTIP or "Backpack",
         { "bar", used, total, format(Tr["%d / %d slots used (%d%%)"], used, total,
             total > 0 and math.floor(used / total * 100 + 0.5) or 0) } })
 end)
@@ -67,7 +71,7 @@ end
 
 CharacterMicroButton:HookScript("OnEnter", function(self)
     local low, slot = Lowest()
-    ns.Tip(self, "ANCHOR_TOP", { title = CHARACTER_BUTTON or "Character Info",
+    ns.Tip(self, Outside, { title = CHARACTER_BUTTON or "Character Info",
         { "row", DURABILITY or "Durability", format("%d%%", math.floor(low * 100)) },
         slot and { "item", GetInventoryItemTexture and GetInventoryItemTexture("player", slot),
             GetInventoryItemLink("player", slot) or "", format("%d%%", math.floor(low * 100)) } or false })
@@ -123,7 +127,7 @@ local function Key(sc)
     end)
     b:SetScript("OnEnter", function(self)
         self.glow:Show()
-        ns.Tip(self, "ANCHOR_TOP", { title = sc[2], sc[1] and { "body", sc[1] } or nil })
+        ns.Tip(self, Outside, { title = sc[2], sc[1] and { "body", sc[1] } or nil })
     end)
     b:SetScript("OnLeave", function(self)
         self.glow:Hide()
@@ -157,7 +161,7 @@ clock:SetScript("OnEnter", function(self)
         spec[1] = { "row", TIMEMANAGER_TOOLTIP_LOCALTIME or "Local time", GameTime_GetLocalTime(true) }
         spec[2] = { "row", TIMEMANAGER_TOOLTIP_REALMTIME or "Realm time", GameTime_GetGameTime(true) }
     end
-    ns.Tip(self, "ANCHOR_TOP", spec)
+    ns.Tip(self, Outside, spec)
 end)
 clock:SetScript("OnLeave", GameTooltip_Hide)
 

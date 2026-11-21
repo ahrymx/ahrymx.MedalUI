@@ -43,6 +43,9 @@ local Tr = ns.L
 
 local L = ns.stripLayout
 local PARTS = ns.media .. "strips\\"
+-- tooltips just outside the chat, towards the screen's middle (the strip
+-- is marked, below); over their owner before the chat is built
+local function Outside(owner) ns.window.Outside(owner, "ANCHOR_TOP") end
 local PAD, RULE, TABS = 8, 6, 28    -- the box's edge, the gap over the margin's rule, the tabs' height
 local BOX = TABS                    -- the head's height: the tabs, the cog and its drawer, flush to the box's top
 local GAP = 4                       -- either side of the divider between the tabs and the cog
@@ -582,7 +585,7 @@ local function Cog()
         Row()
     end)
     cog:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_TOP", { title = Tr["Chat buttons"],
+        ns.Tip(self, Outside, { title = Tr["Chat buttons"],
             { "body", Tr["The chat menu, friends, channels and the log."] } })
     end)
     cog:SetScript("OnLeave", GameTooltip_Hide)
@@ -601,7 +604,7 @@ local function Cog()
     local log = CreateFrame("Button", "MedalluinChatLogButton", tray)
     log:SetScript("OnClick", function() ns.ToggleChatLog() end)
     log:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_TOP", { title = Tr["Log"],
+        ns.Tip(self, Outside, { title = Tr["Log"],
             { "body", Tr["The chat's history in a box of its own, to scroll and to copy from."] } })
     end)
     log:SetScript("OnLeave", GameTooltip_Hide)
@@ -641,6 +644,9 @@ local function Build()
     chatBox = CreateFrame("Frame", "MedalluinChat", strip)
     chatBox:SetFrameStrata("BACKGROUND")
     chatBox:SetWidth(L.chatLeft + L.chatWidth)
+    -- the left strip's: its tooltips and menus just outside the chat, towards
+    -- the screen's middle, as the side panel's (strips/side.lua)
+    ns.window.Mark(strip, -1, chatBox, true)
     local dress = ns.window.Dress(chatBox, margin)
     dress.rule:SetPoint("BOTTOMLEFT", 0, margin)
     dress.rule:SetPoint("BOTTOMRIGHT", 0, margin)
