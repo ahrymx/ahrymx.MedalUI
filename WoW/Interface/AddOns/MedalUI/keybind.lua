@@ -403,8 +403,37 @@ function ns.SwitchKeys(from, to)
     end)
 end
 
+-- MedalUI's own commands' default keys (Bindings.xml says them too, for
+-- Reset to Default): each bound once per binding set, at the first login
+-- that has it, and only to a command with no key, on a key nothing holds; a
+-- key the player removes later stays removed. (2026-11-21) Ctrl+M for the
+-- minimap key.
+local DEFAULT_KEYS = { MEDALUI_MINIMAP = "CTRL-M" }
+local function DefaultKeys()
+    local account = GetCurrentBindingSet and GetCurrentBindingSet() == 1
+    local db = account and MedalUIDB or MedalUICharDB
+    if not db then return end
+    db.keyDefaults = db.keyDefaults or {}
+    local changed = false
+    for command, key in pairs(DEFAULT_KEYS) do
+        if not db.keyDefaults[command] then
+            db.keyDefaults[command] = true
+            local now = GetBindingAction(key)
+            if #Keys(command) == 0 and (not now or now == "") then
+                SetBinding(key, command)
+                changed = true
+            end
+        end
+    end
+    if changed then Save() end
+end
+ns.DefaultKeys = DefaultKeys   -- the harness's
+
 ns.On("PLAYER_LOGIN", function()
-    ns.OutOfCombat(function() RestoreKeys(ns.db.consoleProfile) end)
+    ns.OutOfCombat(function()
+        RestoreKeys(ns.db.consoleProfile)
+        DefaultKeys()
+    end)
 end)
 ns.On("PLAYER_LOGOUT", function()
     if ns.db and ns.db.consoleProfile then SnapshotKeys(keysWaiting or ns.db.consoleProfile) end

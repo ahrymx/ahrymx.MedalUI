@@ -13678,6 +13678,31 @@ function MinimapPass()
         mouseOver = false
         ns.ToggleMinimap()
 
+        -- (2026-11-21) its default key, Ctrl+M, bound at login: once per
+        -- binding set, to a command with no key, on a key nothing holds
+        ;(function()
+            local db = MedalUICharDB   -- the harness's set is the character's
+            local function bound(tag)
+                print("minimap default key " .. tag, "binding=" .. tostring((GetBindingKey("MEDALUI_MINIMAP"))),
+                    "ctrl-m=" .. tostring(GetBindingAction("CTRL-M")), "once=" .. tostring(db.keyDefaults
+                    and db.keyDefaults.MEDALUI_MINIMAP))
+            end
+            local function again(tag) db.keyDefaults = nil; ns.DefaultKeys(); bound(tag) end
+            bound("at login")
+            SetBinding("CTRL-M")
+            ns.DefaultKeys()
+            bound("removed, then a login: stays removed")
+            again("a fresh set, the key free")
+            SetBinding("CTRL-M")
+            SetBinding("CTRL-M", "TOGGLEWORLDMAP")
+            again("a fresh set, the key taken")
+            SetBinding("CTRL-M")
+            SetBinding("N", "MEDALUI_MINIMAP")
+            again("a fresh set, the command keyed")
+            SetBinding("N")
+            again("back")
+        end)()
+
         -- the page's key control binds the key, and unbinds it
         ns.OpenOptions("console/minimap")
         local key = ns.optionControls.MEDALUI_MINIMAP

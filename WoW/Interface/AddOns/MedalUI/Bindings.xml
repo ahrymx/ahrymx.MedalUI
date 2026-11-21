@@ -1,7 +1,8 @@
 <Bindings>
 	<!-- Options > Keybindings > AddOns > MedalUI; Console > Minimap sets it too.
-	     The names are in console/minimap.lua. -->
-	<Binding name="MEDALUI_MINIMAP" header="MEDALUI" category="ADDONS">
+	     The names are in console/minimap.lua. Its default key, Ctrl+M, is also
+	     bound once at login where it is free (keybind.lua: DEFAULT_KEYS). -->
+	<Binding name="MEDALUI_MINIMAP" header="MEDALUI" category="ADDONS" default="CTRL-M">
 		MedalUIToggleMinimap()
 	</Binding>
 	<!-- quests/log.lua: the quest log key's own keys are bound to it while the
