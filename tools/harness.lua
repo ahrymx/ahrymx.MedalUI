@@ -8097,12 +8097,14 @@ if sidePass then
                 end
             end
             local h = R.head
-            print("", "log" .. y(h), h.link.text, plain(h.state.text),
+            print("", "log" .. y(h), h.label:IsShown() and ("[" .. h.label.text .. "]") or h.link.text,
+                plain(h.state.text),
                 h.chevron:IsShown() and string.format("rot=%.2f", h.chevron.rotation or 0) or "-",
                 R.empty:IsShown() and "empty" or "")
             for _, r in ipairs(R.rows) do
                 if r:IsShown() then
-                    print("", "row" .. y(r), r.who.text,
+                    print("", "row" .. y(r), r.who.text, "roll>" .. tostring(r.roll.points.RIGHT
+                        and r.roll.points.RIGHT[3]) .. " w=" .. tostring(r.roll.w),
                         r.who.textColor and string.format("(%.2f,%.2f,%.2f)", unpack(r.who.textColor)) or "",
                         r.how.text, r.die:IsShown() and tostring(r.die.texture):match("[^\\]+$") or "-", r.roll.text,
                         r.mark.text, r.lit:IsShown() and "lit" or "", r.me:IsShown() and "me" or "",

@@ -42,7 +42,7 @@ local WIDTH, PAD = 270, 6
 local TOP, ICON, BUTTON, BAR = 20, 40, 20, 4    -- the title band, the card's icon, a choice, the time bar
 local CHIP, STAMP = 22, 26                      -- a queued roll's chip, a chosen roll's stamp
 local HEAD, ROW = 18, 15                        -- the log's head, a member's row
-local INDENT, ROLL_W, HOW_W, MARK_W = 14, 26, 70, 34
+local INDENT, ROLL_W, HOW_W, MARK_W = 14, 26, 70, 40
 local CARD = 6 + ICON + 6 + BUTTON + 16         -- the card: its item, its buttons, its time row
 local CLOCK_W = 32                              -- the card's countdown, right of its bar
 local MAX_ROWS = 10                             -- members listed while a card is up; the rest counted
@@ -663,6 +663,12 @@ local function MakeHead()
     h.link:SetPoint("RIGHT", h.state, "LEFT", -6, 0)
     h.link:SetJustifyH("LEFT")
     h.link:SetWordWrap(false)
+    -- in the link's place while the log follows the card's item
+    h.label = Text(h, 10)
+    h.label:SetPoint("LEFT", INDENT + 4, 0)
+    h.label:SetText(Tr["Everyone's rolls"])
+    Paint(h.label, DIM)
+    h.label:Hide()
     h:RegisterForClicks("LeftButtonUp")
     h:SetScript("OnClick", function(self)
         local link = self.drop and self.drop.itemHyperlink
@@ -683,12 +689,14 @@ end
 
 -- the head's right end: the tally and the clock while rolling, then the
 -- winner and their roll, or passed
+-- (no clock while the card above shows the same item's)
 local function State(h, d, info)
     if Rolling(d) then
         local left = Left(d, info)
         local tally = Tally(d)
         local clock = "|cffc4a557" .. (left and Clock(left) or Tr["rolling"]) .. "|r"
-        h.state:SetText(tally ~= "" and (tally .. "   " .. clock) or clock)
+        if h.same then clock = "" end
+        h.state:SetText(tally ~= "" and (clock ~= "" and (tally .. "   " .. clock) or tally) or clock)
         Paint(h.state, DIM)
         return
     end
@@ -723,14 +731,14 @@ local function Row(i)
     r.me:SetPoint("BOTTOMLEFT")
     r.me:SetWidth(2)
     Fill(r.me, GOLD_D)
+    -- the mark and the roll as wide as their words, each by its right edge:
+    -- a fixed width let a wider text sit off the column (2026-11-21)
     r.mark = Text(r, 9)
     r.mark:SetPoint("RIGHT", -PAD, 0)
-    r.mark:SetWidth(MARK_W)
     r.mark:SetJustifyH("RIGHT")
     Paint(r.mark, GOLD)
     r.roll = Text(r, 10)
     r.roll:SetPoint("RIGHT", -PAD - MARK_W, 0)
-    r.roll:SetWidth(ROLL_W)
     r.roll:SetJustifyH("RIGHT")
     local right = PAD + MARK_W + ROLL_W
     r.how = Text(r, 10)
@@ -820,7 +828,7 @@ local function Draw()
         c:Show()
     end
     for i = nChips + 1, #chips do chips[i]:Hide(); chips[i].roll = nil end
-    if nChips > 0 then y = y + CHIP + 4 + 8 end
+    if nChips > 0 then y = y + CHIP + 4 + 4 end
     for i, c in ipairs(chosen) do
         local s = Stamp(i)
         s:ClearAllPoints()
@@ -836,6 +844,10 @@ local function Draw()
     local open = not ns.db.rollsFolded
     local n, hidden = 0, 0
     y = y + HEAD
+    logHead.same = d ~= nil and r ~= nil and d.itemHyperlink ~= nil and not Secret(d.itemHyperlink)
+        and d.itemHyperlink == r.link
+    logHead.link:SetShown(not logHead.same)
+    logHead.label:SetShown(logHead.same)
     if d then
         logHead.link:SetText(d.itemHyperlink or "")
         State(logHead, d, info)
