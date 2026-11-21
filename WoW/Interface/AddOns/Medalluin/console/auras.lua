@@ -918,16 +918,41 @@ end
 -- hid, so the 45-degree cut goes only where the frame's own glow traces it
 -- (ns.ShapeDispelGlows): handed to it on a Reticule's or the party widget's
 -- rectangle, it drew the medallion's cut there (2026-11-16).
+--
+-- What this addon made on the client's aura frame is the client's in combat
+-- too: forbidden to this addon, a Hide on it raising ("calling 'Hide' on bad
+-- self", 2026-11-21: the health's tint redressed as a spell was learned
+-- mid-fight). The client is still handed the colours at once; showing and
+-- hiding the pieces waits for combat's end, and the glow is dressed again
+-- then.
+local RedressLiveGlows
+local redressWaits
+local function Kept(r) return r.IsForbidden and r:IsForbidden() or false end
+local function ShowPiece(r, on)
+    if not Kept(r) then
+        r:SetShown(on and true or false)
+        return
+    end
+    if redressWaits or not InCombatLockdown() then return end
+    redressWaits = true
+    ns.OutOfCombat(function()
+        redressWaits = nil
+        RedressLiveGlows()
+    end)
+end
+
 local function DressLiveGlow(lg)
     local btn = lg.btn
     if not btn then return end
     local STYLE = Enum and Enum.CustomAuraButtonDispelTypeTextureStyle
     if btn.ClearDispelTypeTextures then pcall(btn.ClearDispelTypeTextures, btn) end
+    -- the cut only where the frame's own glow traces it (ShapeDispelGlows)
+    if lg.cut then ShowPiece(lg.cut, lg.cutShown) end
     -- the health's tint instead: one texture over the bar's fill, the client
     -- colouring it; above the bar (the client's frame is), so lighter
-    if lg.tint then lg.tint:Hide() end
+    if lg.tint then ShowPiece(lg.tint, false) end
     if lg.tint and Tinted() then
-        for _, e in ipairs(lg.edges) do e:Hide() end
+        for _, e in ipairs(lg.edges) do ShowPiece(e, false) end
         pcall(btn.AddDispelTypeTexture, btn, lg.tint, { style = STYLE and STYLE.PreserveAsset,
             showWhenHarmful = true, customDispelColorMap = GlowColours(LIVE_TINT_ALPHA) })
         return
@@ -1486,7 +1511,6 @@ function ns.ShapeDispelGlows()
             local on = b.dispelGlow.cut and b.dispelGlow.cut:IsShown() or false
             if lg.cutShown ~= on then
                 lg.cutShown = on
-                lg.cut:SetShown(on)
                 DressLiveGlow(lg)
             end
         end
@@ -1557,7 +1581,7 @@ ns.On("ADDON_LOADED", UpdateAllAuras)
 ns.On("PLAYER_REGEN_DISABLED", UpdateAllAuras)
 ns.On("PLAYER_REGEN_ENABLED", UpdateAllAuras)
 -- a live glow's colours are handed to the client once: again as they change
-local function RedressLiveGlows()
+function RedressLiveGlows()
     for _, lg in ipairs(liveGlows) do DressLiveGlow(lg) end
 end
 ns.On("SPELLS_CHANGED", RedressLiveGlows)

@@ -17212,6 +17212,26 @@ if dispelPass then
             inCombat = true
             fire("PLAYER_REGEN_DISABLED")
             live("poison, combat")
+            -- (what this addon made on the client's aura frame is forbidden
+            -- to it in combat, as in the game: a Hide raised there,
+            -- 2026-11-21)
+            local lgMade = b.liveGlow
+            local made = {}
+            for _, e in ipairs(lgMade and lgMade.edges or {}) do made[#made + 1] = e end
+            if lgMade and lgMade.tint then made[#made + 1] = lgMade.tint end
+            for _, r in ipairs(made) do
+                r.IsForbidden = function() return inCombat end
+                for _, m in ipairs({ "Hide", "Show", "SetShown" }) do
+                    local f = r[m]
+                    r[m] = function(self, ...)
+                        if inCombat then
+                            error("calling '" .. m .. "' on bad self (Attempt to access forbidden object from "
+                                .. "code tainted by an AddOn)")
+                        end
+                        return f(self, ...)
+                    end
+                end
+            end
             -- a rectangle (the Reticule's windows, the party widget's) has
             -- no cut: the client is not handed it, so it cannot light it
             do
@@ -17242,6 +17262,30 @@ if dispelPass then
             live("glow option off, combat")
             ns.SetOption("auraGlow", true)
             live("glow option on, combat")
+            -- the health's tint chosen mid-fight, then a spell learned: the
+            -- tint handed to the client at once; its pieces shown or hidden
+            -- only once combat ends
+            local function pieces(tag)
+                local lg = b.liveGlow
+                local tinted, edges = false, 0
+                for _, el in ipairs(lg.btn.dispelEls) do
+                    if el[1] == lg.tint then tinted = true else edges = edges + 1 end
+                end
+                local hidden = 0
+                for _, e in ipairs(lg.edges) do if e.shown == false then hidden = hidden + 1 end end
+                print("dispel live " .. tag, "tint handed=" .. tostring(tinted), "edges handed=" .. edges,
+                    "tint shown=" .. tostring(lg.tint.shown), "edges hidden=" .. hidden .. "/" .. #lg.edges)
+            end
+            ns.SetOption("dispelStyle", "health")
+            fire("SPELLS_CHANGED")
+            pieces("tint, combat")
+            inCombat = false
+            fire("PLAYER_REGEN_ENABLED")
+            pieces("tint, combat over")
+            inCombat = true
+            fire("PLAYER_REGEN_DISABLED")
+            ns.SetOption("dispelStyle", "glow")
+            pieces("glow again, combat")
             -- a ready check hides the frame's auras, the client's glow too
             b.isChecking = true
             ns.UpdateUnitAuras(b)
