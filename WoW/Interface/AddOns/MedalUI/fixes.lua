@@ -73,6 +73,45 @@ ns.KnownIssue({
     end,
 })
 
+-- ------------------------------------------------------- Medalluin beside it
+-- (2026-11-21) MedalUI was Medalluin until 0.63.1, a clean break: the old
+-- folder is not replaced by the new one, and both load if both are there,
+-- each drawing its own console over the other's. Found while Medalluin is
+-- installed and on (or running); the fix turns it off, for every
+-- character, and the reload leaves MedalUI alone. Deleting the folder, and
+-- carrying the old settings over, are the player's (the README says how).
+local OLD = "Medalluin"
+local function Installed(name)
+    if C_AddOns and C_AddOns.DoesAddOnExist then return C_AddOns.DoesAddOnExist(name) end
+    local info = C_AddOns and C_AddOns.GetAddOnInfo or GetAddOnInfo
+    if not info then return false end
+    local found, _, _, _, reason = info(name)
+    return found ~= nil and reason ~= "MISSING"
+end
+local function On(name)
+    local me = UnitName("player")
+    local state
+    if C_AddOns and C_AddOns.GetAddOnEnableState then
+        state = C_AddOns.GetAddOnEnableState(name, me)
+    elseif GetAddOnEnableState then
+        state = GetAddOnEnableState(me, name)    -- the older order: character first
+    end
+    local loaded = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    return (tonumber(state) or 0) > 0 or (loaded ~= nil and loaded(name) and true or false)
+end
+
+ns.KnownIssue({
+    id = "medalluinBeside",
+    chat = Tr["Medalluin, MedalUI's old name, is still installed and on: both run at once and draw over each "
+        .. "other. Fixing turns Medalluin off; remove its folder from Interface/AddOns when the game is closed."],
+    Find = function() return Installed(OLD) and On(OLD) end,
+    Fix = function()
+        local disable = C_AddOns and C_AddOns.DisableAddOn or DisableAddOn
+        disable(OLD)                            -- every character
+        disable(OLD, UnitName("player"))        -- and this one, should the first be this one's only
+    end,
+})
+
 -- -------------------------------------------------------------- the finding
 local function Found()
     local found = {}

@@ -13,6 +13,8 @@ exclude_files = {
 unused_args = false
 
 read_globals = {
+    -- the addon list's older globals, where C_AddOns lacks them (fixes.lua)
+    "GetAddOnInfo", "GetAddOnEnableState", "IsAddOnLoaded", "DisableAddOn",
     -- the professions book's toggle (its key, the micro button), hooked
     "ToggleProfessionsBook",
     "GetInspectSpecialization", "GetSpecializationInfoByID", "InspectFrame", "InspectUnit", "GetInspectHonorData",

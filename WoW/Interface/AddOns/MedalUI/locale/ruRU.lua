@@ -3025,6 +3025,10 @@ L["a problem"] = "1 проблема"
 L["could not fix it (%s). Try again with %s."] = "не удалось исправить (%s). Попробуйте снова: %s."
 L["key bindings cannot change in combat."] = "клавиши нельзя менять в бою."
 L["no known issues found."] = "известных проблем не найдено."
+L["Medalluin, MedalUI's old name, is still installed and on: both run at once and draw over each other. Fixing "
+    .. "turns Medalluin off; remove its folder from Interface/AddOns when the game is closed."] =
+    "Medalluin, старое имя MedalUI, всё ещё установлен и включён: оба работают сразу и рисуют друг поверх "
+    .. "друга. Исправление отключает Medalluin; удалите его папку из Interface/AddOns, когда игра закрыта."
 L["your saved Edit Mode layout still pins game frames (the Cooldown Manager) to MedalUI's frames, left by an "
     .. "older version. It makes the game's cooldown bars report errors \"tainted by MedalUI\"."] =
     "сохранённая раскладка режима редактирования всё ещё крепит рамки игры (менеджер восстановлений) к рамкам "

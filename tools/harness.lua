@@ -28545,6 +28545,79 @@ if fixesPass then (function()
     SlashCmdList.MEDALUI("fix-issues")
     ns.CheckIssues()
     state("no Edit Mode")
+
+    -- (2026-11-21) Medalluin, the old name, installed beside it: told while
+    -- it is on, its dialog offered once; the fix turns it off and reloads
+    local A, me = C_AddOns, UnitName("player")
+    local old = { exists = false, state = 0, loaded = false }
+    local disables = {}
+    local function addons(legacy)
+        C_AddOns = legacy and {} or setmetatable({
+            DoesAddOnExist = function(n) return n == "Medalluin" and old.exists end,
+            GetAddOnEnableState = function(n, who)
+                return n == "Medalluin" and who == me and old.state or 0
+            end,
+            IsAddOnLoaded = function(n) return n == "Medalluin" and old.loaded end,
+            DisableAddOn = function(n, who)
+                table.insert(disables, n .. "@" .. tostring(who))
+                if n == "Medalluin" then old.state, old.loaded = 0, old.loaded end
+            end,
+        }, { __index = A })
+    end
+    local function medalluin(tag)
+        print("fixes medalluin " .. tag, "offered=" .. tostring(MedalUIDB.issuesOffered
+            and MedalUIDB.issuesOffered.medalluinBeside), "disabled=" .. table.concat(disables, ","))
+        state(tag)
+        disables = {}
+    end
+    addons()
+    -- (an enable state left for a folder that is gone)
+    old.state = 2
+    ns.CheckIssues()
+    medalluin("not installed")
+    old.exists, old.state, old.loaded = true, 2, true
+    ns.CheckIssues()
+    medalluin("installed and running")
+    ns.CheckIssues()
+    medalluin("a later login")
+    d.OnAccept()
+    -- the reload: it is off and no longer loads
+    old.loaded = false
+    medalluin("fixed")
+    ns.CheckIssues()
+    medalluin("after the reload")
+    -- on, though not loaded this session (ticked in the addon list)
+    old.state = 1
+    ns.CheckIssues()
+    medalluin("ticked on again")
+    -- turned off in the addon list, still running until the reload
+    old.state, old.loaded = 0, true
+    ns.CheckIssues()
+    medalluin("off, still running")
+    old.loaded = false
+    ns.CheckIssues()
+    medalluin("off, after the reload")
+    -- a client with only the older globals: GetAddOnEnableState takes the
+    -- character first
+    old.state = 2
+    addons(true)
+    local g = { GetAddOnInfo, GetAddOnEnableState, IsAddOnLoaded, DisableAddOn }
+    GetAddOnInfo = function(n)
+        if n == "Medalluin" and old.exists then return n, n, "", false, "DISABLED" end
+        return n, nil, nil, false, "MISSING"     -- (a name the client does not know: given back)
+    end
+    GetAddOnEnableState = function(who, n) return n == "Medalluin" and who == me and old.state or 0 end
+    IsAddOnLoaded = function() return false end
+    DisableAddOn = function(n, who) table.insert(disables, n .. "@" .. tostring(who)); old.state = 0 end
+    ns.CheckIssues()
+    medalluin("older client, on")
+    d.OnAccept()
+    medalluin("older client, fixed")
+    old.exists, old.state = false, 2
+    ns.CheckIssues()
+    medalluin("older client, not installed")
+    GetAddOnInfo, GetAddOnEnableState, IsAddOnLoaded, DisableAddOn = g[1], g[2], g[3], g[4]
+    C_AddOns = A
 end)() end
 
 if radialPass then
