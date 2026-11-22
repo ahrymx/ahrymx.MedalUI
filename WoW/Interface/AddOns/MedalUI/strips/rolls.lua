@@ -97,7 +97,8 @@ local chosen = {}                               -- the rolls chosen, still runni
 local pick                                      -- the roll id a tab brought to the card
 local view                                      -- the item a tab brought to the log: { key } or { link }
 local source                                    -- the boss a title tab brought up: its encounter id
-local cleared = {}                              -- decided bosses cleared from the title, by encounter id
+local cleared = {}                              -- decided bosses cleared from the title, by encounter id;
+                                                -- decided drops cleared from the tabs, by Key ("id:key")
 local icons = {}                                -- an item's icon by its link, kept from its roll
 local latest                                    -- the drop last updated: encounter id, lootListKey
 local byHand, decidedAt = false, nil
@@ -293,7 +294,8 @@ local function Items(src)
                 local link, rolling = d.itemHyperlink, Rolling(d)
                 if rolling and link and not Secret(link) and (mine[link] or 0) > 0 then
                     mine[link] = mine[link] - 1
-                else
+                -- (2026-11-22) not a decided drop right-clicked away
+                elseif rolling or not cleared[Key(info, d) or ""] then
                     table.insert(list, { drop = d, info = info, key = Key(info, d), link = link,
                         done = not rolling })
                 end
@@ -344,10 +346,13 @@ local function Logged()
         for _, d in ipairs(api.Drops(info.encounterID) or {}) do
             local link, rolling = d.itemHyperlink, Rolling(d)
             if want and link == want and not Secret(link) and rolling then return d, info end
-            local isLatest = latest and latest[1] == info.encounterID and latest[2] == d.lootListKey
-            if isLatest then updated = { d, info } end
-            if rolling and (isLatest or not live) then live = { d, info } end
-            if n == 1 then last = { d, info } end
+            -- (2026-11-22) a decided drop cleared from the tabs is not followed
+            if rolling or not cleared[Key(info, d) or ""] then
+                local isLatest = latest and latest[1] == info.encounterID and latest[2] == d.lootListKey
+                if isLatest then updated = { d, info } end
+                if rolling and (isLatest or not live) then live = { d, info } end
+                if n == 1 then last = { d, info } end
+            end
         end
     end
     local found = live or updated or last
@@ -440,6 +445,7 @@ local function Tip(owner, link)
     GameTooltip:SetOwner(owner, "ANCHOR_TOP")
     GameTooltip:SetHyperlink(link)
     GameTooltip:Show()
+    return true
 end
 
 -- an item's icon in its quality's edge
@@ -631,9 +637,27 @@ local function Tab(i)
     c.bar = c:CreateTexture(nil, "ARTWORK", nil, 1)
     c.bar:SetPoint("BOTTOMLEFT")
     c.bar:SetHeight(2)
-    c:SetScript("OnClick", function(self)
+    c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    c:SetScript("OnClick", function(self, button)
         local item = self.item
         if not item then return end
+        if button == "RightButton" then
+            -- (2026-11-22) a decided drop cleared from the tabs; its boss
+            -- too once none of its drops is left (one still rolling is
+            -- never cleared, so it keeps the boss)
+            if item.done and item.key then
+                cleared[item.key] = true
+                if view and view.key == item.key then view = nil end
+                local left = false
+                for _, d in ipairs(api.Drops(item.info.encounterID) or {}) do
+                    if not cleared[Key(item.info, d) or ""] then left = true; break end
+                end
+                if not left then cleared[tostring(item.info.encounterID)] = true end
+                GameTooltip:Hide()
+                ns.rolls.Draw()
+            end
+            return
+        end
         if item.roll and not item.chosen then
             pick, view = item.roll.id, nil
         elseif item.roll then
@@ -643,7 +667,13 @@ local function Tab(i)
         end
         ns.rolls.Draw()
     end)
-    c:SetScript("OnEnter", function(self) Tip(self, self.item and self.item.link) end)
+    c:SetScript("OnEnter", function(self)
+        local item = self.item
+        if Tip(self, item and item.link) and item.done and item.key then
+            GameTooltip:AddLine(Tr["Right-click to clear it from the list."], DIM[1], DIM[2], DIM[3])
+            GameTooltip:Show()
+        end
+    end)
     c:SetScript("OnLeave", function() GameTooltip:Hide() end)
     tabs[i] = c
     return c

@@ -8387,6 +8387,19 @@ if sidePass then
             rollInfos = { { playerName = "Echo-Realm", playerClass = "DRUID", state = 3, roll = 7 } } })
         fire("LOOT_HISTORY_UPDATE_DROP", 603, 3)
         rolls("rolls two rolling, the bar updated")
+        -- (2026-11-22) a drop still rolling is not cleared by a right-click
+        do
+            local n = 0
+            for _, tb in ipairs(R.tabs) do
+                if tb:IsShown() and tb.item and not tb.item.roll and not tb.item.done then
+                    n = n + 1
+                    tb.scripts.OnClick(tb, "RightButton")
+                end
+            end
+            local keys = {}
+            for k in pairs(R.cleared) do keys[#keys + 1] = k end
+            print("rolls rolling tabs right-clicked", n, "cleared=" .. table.concat(keys, ","))
+        end
         -- a secret roll and choice in the log, counted apart in the tally;
         -- the leader's roll secret, still above a need of 30
         fire("LOOT_HISTORY_UPDATE_DROP", 603, 2)
@@ -8604,6 +8617,46 @@ if sidePass then
             rolls("rolls sim the second decided boss clicked: its items, its last listed")
             click(tabOf("decided", 2), "second decided item")
             rolls("rolls sim its second item clicked: its rolls listed")
+            -- (2026-11-22) right-click: a decided item tab cleared (its tip
+            -- says so; the one listed goes, the log moves on); an owed one
+            -- stays; every one of a boss's items cleared, the boss goes too.
+            -- The clears undone after, for the cases below
+            do
+                local was = {}
+                for k, v in pairs(R.cleared) do was[k] = v end
+                local function right(b, what)
+                    if b then b.scripts.OnClick(b, "RightButton") else print("rolls sim no " .. what) end
+                end
+                local function tipOf(b, what)
+                    if not b then print("rolls sim no " .. what) return end
+                    tip = {}
+                    b.scripts.OnEnter(b)
+                    print("rolls sim tip " .. what, table.concat(tip, " / "), "clicks=" .. table.concat(b.clicks or {}, ","))
+                    b.scripts.OnLeave(b)
+                end
+                tipOf(tabOf("decided", 2), "decided tab")
+                tipOf(tabOf("owed", 1), "owed tab")
+                right(tabOf("decided", 2), "second decided item")
+                rolls("rolls sim the second decided item right-clicked: gone, the log on another")
+                local lastTab
+                for k = 1, 10 do lastTab = tabOf("decided", k) or lastTab end
+                click(lastTab, "last decided item")
+                right(lastTab, "last decided item")
+                rolls("rolls sim the last decided item right-clicked while listed: the log not back on it")
+                right(tabOf("owed", 1), "owed tab")
+                rolls("rolls sim an owed tab right-clicked: it stays")
+                for _ = 1, 10 do
+                    local tb = tabOf("decided", 1)
+                    if not tb then break end
+                    right(tb, "decided item")
+                end
+                rolls("rolls sim every item of the boss right-clicked: the boss gone too")
+                for k in pairs(R.cleared) do R.cleared[k] = nil end
+                for k, v in pairs(was) do R.cleared[k] = v end
+                ns.rolls.Redraw()
+                sb = click(srcOf(2), "second decided boss again")
+                click(tabOf("decided", 2), "second decided item again")
+            end
             if sb then click(sb.close, "cross") end
             rolls("rolls sim the boss's cross: cleared, the newest boss back, an older one in")
             -- an old boss up when new rolls come: theirs comes up instead

@@ -1933,6 +1933,7 @@ L["Drop the items again, the group choosing from scratch."] = "Выбросит�
 L["Turn off Simulate rolls."] = "Выключить имитацию бросков."
 L["Window scale"] = "Масштаб окна"
 L["Clear this boss's rolls from the list."] = "Убрать броски этого босса из списка."
+L["Right-click to clear it from the list."] = "Правый клик — убрать из списка."
 L["The Roll window's size, all of it."] = "Размер окна бросков целиком."
 L["Text size"] = "Размер текста"
 L["The Roll window's text, its box kept as it is."] = "Текст окна бросков; само окно не меняется."
