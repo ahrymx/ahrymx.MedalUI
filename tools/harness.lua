@@ -23566,6 +23566,32 @@ if questLogPass then (function()
         pinQuest = 201
         click("left button", pin, "LeftButton")
         click("bare map", WorldMapFrame)
+        -- (2026-11-22) with OpenMap, whose handler (1000) zooms out on every
+        -- right click: the game's order, the highest priority asked first
+        -- until one takes it; a quest's page first, the zoom for the rest
+        local zooms = 0
+        table.insert(W.mapClicks, { priority = 1000, fn = function(_, button)
+            if button == "RightButton" then zooms = zooms + 1 end
+            return true
+        end })
+        local function chain(tag, f)
+            focus = f
+            local order = {}
+            for i, h in ipairs(W.mapClicks) do order[i] = h end
+            table.sort(order, function(a, b) return a.priority > b.priority end)
+            for _, h in ipairs(order) do
+                if h.fn(WorldMapFrame, "RightButton", 0.5, 0.5) then break end
+            end
+            print("questlog map with OpenMap " .. tag, "zooms=" .. zooms, "current=" .. tostring(QP.Current()))
+        end
+        QP.Close()
+        chain("game pin", pin)
+        QP.Close()
+        icon.data = { Id = 202, Type = "monster", QuestData = {} }
+        chain("questie icon's texture", tex)
+        QP.Close()
+        chain("bare map", WorldMapFrame)
+        table.remove(W.mapClicks)
         GetMouseFoci = fociWas
         if was then QP.Open(was) else QP.Close() end
     end

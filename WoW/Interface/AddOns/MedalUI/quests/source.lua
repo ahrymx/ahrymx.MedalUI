@@ -430,7 +430,10 @@ end
 -- the map (where they zoom out), so the map's own click handlers are where
 -- it is caught, the quest found among the frames under the mouse. Only a
 -- quest in the log is taken; any other right click zooms out as before.
-local MAP_PRIORITY = 100                        -- over the game's own (the waypoint's is 90)
+-- Over the game's own (the waypoint's is 90) and OpenMap's (1000, every
+-- right click a zoom out, 2026-11-22): a handler of a higher priority is
+-- asked first, and this one takes only a right click on a quest in the log.
+local MAP_PRIORITY = 1100
 
 -- the quest of a frame under the mouse, or of its parents (a pin's parts)
 local function QuestOf(f)
