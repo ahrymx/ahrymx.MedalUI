@@ -436,6 +436,25 @@ function game.onQuest(questID)
     if C_QuestLog then return call(C_QuestLog.IsOnQuest, questID) == true end
 end
 
+-- A quest in the quest log: its objectives ({ text, finished }, as the log
+-- words them) and whether it is ready to turn in; nil when it is not there.
+function game.questProgress(questID)
+    if isSecret(questID) or not (C_QuestLog and C_QuestLog.GetQuestObjectives) then return end
+    if call(C_QuestLog.IsOnQuest, questID) ~= true then return end
+    local objectives = {}
+    local list = call(C_QuestLog.GetQuestObjectives, questID)
+    if type(list) == "table" then
+        for _, objective in ipairs(list) do
+            local text = type(objective) == "table" and not isSecret(objective) and objective.text
+            if type(text) == "string" and not isSecret(text) and text ~= "" and not isSecret(objective.finished) then
+                objectives[#objectives + 1] = { text = text, finished = objective.finished == true }
+            end
+        end
+    end
+    local ready = call(C_QuestLog.ReadyForTurnIn or C_QuestLog.IsComplete, questID) == true
+    return { objectives = objectives, ready = ready }
+end
+
 -- A quest's level while it is in the quest log; nil otherwise.
 function game.questLevel(questID)
     if not (C_QuestLog and C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetInfo) then return end

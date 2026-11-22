@@ -647,6 +647,96 @@ do
     for _, sample in ipairs(byKey.quest.samples) do
         if sample.label == "New" then card("sample New", sample.build()) end
     end
+    -- (2026-11-22) a quest's marker on the world map (the game's quest pin):
+    -- the game's lines (the title, what is left to do), every objective from
+    -- the quest log ticked as it stands, Questie's WHERE and CHAIN under them
+    db.GetQuest = function(id) return quests[id] end
+    do
+        local QP = ns.QuestPin
+        local holder = CreateFrame("Frame", nil, UIParent)
+        local map = WorldMapFrame or CreateFrame("Frame", nil, UIParent)
+        local mapWas = WorldMapFrame
+        WorldMapFrame = map
+        local pin = { GetQuestID = function() return 253 end, GetMap = function() return map end,
+            IsForbidden = function() return false end, GetWidth = function() return 20 end }
+        local function tip(owner, list)
+            local tt = { lefts = {}, rights = {} }
+            for i, text in ipairs(list) do
+                local left, right = holder:CreateFontString(), holder:CreateFontString()
+                left:SetText(text); left:SetTextColor(1, 1, 1); right:SetText(""); right:Hide()
+                left.IsForbidden = function() return false end
+                right.IsForbidden = left.IsForbidden
+                tt.lefts[i], tt.rights[i] = left, right
+            end
+            function tt:NumLines() return #self.lefts end
+            function tt:GetLeftLine(i) return self.lefts[i] end
+            function tt:GetRightLine(i) return self.rights[i] end
+            function tt:GetName() return nil end
+            function tt:GetOwner() return owner end
+            return tt
+        end
+        local log = { on = true, ready = false, objectives = {
+            { text = "6/15 Beast Entrails", finished = false }, { text = "8/8 Rotflesh Mushroom", finished = true } } }
+        local CQ = C_QuestLog
+        C_QuestLog = setmetatable({
+            IsOnQuest = function() return log.on end,
+            ReadyForTurnIn = function() return log.ready end,
+            GetQuestObjectives = function() return log.objectives end,
+            IsQuestFlaggedCompleted = function() return false end,
+        }, { __index = CQ })
+        local function pinCard(label, owner, list)
+            local model = QP.read(tip(owner, list), 253)
+            if not model then print("tooltips questie pin " .. label, "none") return end
+            local ticks = {}
+            for _, o in ipairs(model.objectives) do ticks[#ticks + 1] = o.left .. "=" .. tostring(o.completed) end
+            print("tooltips questie pin " .. label, "ticks=" .. table.concat(ticks, ","), "ready=" .. tostring(model.ready),
+                "active=" .. tostring(model.active))
+            card("pin " .. label, model)
+        end
+        -- in progress: the game lists only the one left; the log gives both
+        pinCard("in progress", pin, { "[30+] Bride of the Embalmer", "- 6/15 Beast Entrails" })
+        -- the log's word for done, where no count says it: "Ghostmaw slain"
+        table.insert(log.objectives, { text = "Ghostmaw slain", finished = true })
+        pinCard("done without a count", pin, { "[30+] Bride of the Embalmer", "- 6/15 Beast Entrails" })
+        table.remove(log.objectives)
+        -- the log names none (not yet loaded): the game's lines stay
+        local kept = log.objectives
+        log.objectives = {}
+        pinCard("log names none", pin, { "[30+] Bride of the Embalmer", "- 6/15 Beast Entrails" })
+        log.objectives = kept
+        -- not in the log (no longer): the game's lines alone, not ready
+        log.on, log.ready = false, true
+        pinCard("not in the log", pin, { "[30+] Bride of the Embalmer", "- 6/15 Beast Entrails" })
+        log.on, log.ready = true, false
+        -- ready to turn in: the game lists none; the log's, all ticked
+        log.ready, log.objectives[1] = true, { text = "15/15 Beast Entrails", finished = true }
+        pinCard("ready", pin, { "[30+] Bride of the Embalmer" })
+        -- ready, with no objectives in the log: Questie's, ticked
+        log.objectives = {}
+        pinCard("ready, none in the log", pin, { "[30+] Bride of the Embalmer" })
+        -- the same lines with another owner (not on the map): as a quest link's
+        local other = { GetQuestID = pin.GetQuestID, GetMap = function() return nil end,
+            IsForbidden = pin.IsForbidden, GetWidth = pin.GetWidth }
+        pinCard("not a map pin", other, { "[30+] Bride of the Embalmer" })
+        print("tooltips questie pin owner", "pin=" .. tostring((QP.quest(pin))), "other=" .. tostring((QP.quest(other))),
+            "no id=" .. tostring((QP.quest({ GetQuestID = function() return 0 end, GetMap = pin.GetMap,
+                IsForbidden = pin.IsForbidden, GetWidth = pin.GetWidth }))))
+        -- the game's tooltip shown over the marker: drawn as that quest
+        local drawn = {}
+        local renderLines = ns.Hooks.renderLines
+        ns.Hooks.renderLines = function(_, kind, id) drawn[#drawn + 1] = tostring(kind) .. ":" .. tostring(id) end
+        GameTooltip.IsForbidden = function() return false end
+        GameTooltip.NumLines = function() return 1 end
+        GameTooltip.GetOwner = function() return pin end
+        GameTooltip.shown = true
+        GameTooltip:Show()
+        GameTooltip.GetOwner = function() return other end
+        GameTooltip:Show()
+        print("tooltips questie pin hook", "drawn=" .. table.concat(drawn, ","))
+        GameTooltip.IsForbidden, GameTooltip.NumLines, GameTooltip.GetOwner = nil, nil, nil
+        ns.Hooks.renderLines = renderLines
+        C_QuestLog, WorldMapFrame = CQ, mapWas
+    end
     QuestieLoader, C_Map.GetAreaInfo, C_Reputation.GetFactionDataByID = nil, area, faction
 end
 

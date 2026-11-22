@@ -84,6 +84,19 @@ local function objectiveDone(row)
     return have ~= nil and tonumber(have) >= tonumber(need)
 end
 
+-- An objective's line: its goal and its count, done or not.
+local function objectiveOf(text, right, completed)
+    local name = text:gsub("^%-%s*", "")
+    local goal, progress = name:match("^(.-):%s*(%d+%s*/%s*%d+)$")
+    -- The quest log puts the count first: "0/1 Head of Deepfury".
+    if not goal then progress, goal = name:match("^(%d+%s*/%s*%d+)%s+(.+)$") end
+    -- A quest not in the log names how many: "15 x Dark Iron Dwarf".
+    if not goal then progress, goal = name:match("^(%d+) x (.+)$") end
+    local objective = { left = goal or name, right = progress or right or "", completed = completed }
+    objective.completed = objectiveDone(objective)
+    return objective
+end
+
 local function isRed(color)
     return type(color) == "table" and color[1] > .9 and color[2] < .4 and color[3] < .4
 end
@@ -186,7 +199,8 @@ function fromQuestie(model, id, game, words)
         for _, objective in ipairs(quest.ObjectiveData) do
             local text = objectiveText(game, objective)
             if text then
-                model.objectives[#model.objectives + 1] = { left = text, right = "", completed = model.completed and true or false }
+                model.objectives[#model.objectives + 1] = { left = text, right = "",
+                    completed = (model.completed or model.ready) and true or false }
             end
         end
     end
@@ -262,15 +276,7 @@ local function readRow(model, row, state)
     elseif afterLabel(text, words.Instance .. colon) then
         model.zone = afterLabel(text, words.Instance .. colon)
     elseif row.objective or text:match("^%-") or text:match("%d+%s*/%s*%d+%s*$") then
-        local name = text:gsub("^%-%s*", "")
-        local goal, progress = name:match("^(.-):%s*(%d+%s*/%s*%d+)$")
-        -- The quest log puts the count first: "0/1 Head of Deepfury".
-        if not goal then progress, goal = name:match("^(%d+%s*/%s*%d+)%s+(.+)$") end
-        -- A quest not in the log names how many: "15 x Dark Iron Dwarf".
-        if not goal then progress, goal = name:match("^(%d+) x (.+)$") end
-        local objective = { left = goal or name, right = progress or right, completed = row.completed }
-        objective.completed = objectiveDone(objective)
-        model.objectives[#model.objectives + 1] = objective
+        model.objectives[#model.objectives + 1] = objectiveOf(text, right, row.completed)
     elseif label then
         if value ~= "" then
             model.extras[#model.extras + 1] = { left = label, right = value }
@@ -289,6 +295,31 @@ local function readRow(model, row, state)
         local code = codeColor(row.left)
         local color = code and { code[1] * .85, code[2] * .85, code[3] * .85 } or row.color
         model.extras[#model.extras + 1] = { left = text, right = right, color = color, rightColor = row.rightColor }
+    end
+end
+
+-- A quest's marker on the world map (the game's quest pin): its quest.
+local function mapPinQuest(owner)
+    if not util.canModify(owner) or type(owner.GetQuestID) ~= "function" or type(owner.GetMap) ~= "function" then
+        return
+    end
+    local map = util.call(owner.GetMap, owner)
+    if map == nil or map ~= WorldMapFrame then return end
+    local id = util.number((util.call(owner.GetQuestID, owner)))
+    return id and id > 0 and id or nil
+end
+
+-- The marker's tooltip names only what is left to do (nothing, once the
+-- quest is ready): every objective from the quest log, ticked as it stands.
+local function fromLog(model, questID, game)
+    local progress = game.questProgress(questID)
+    if not progress then return end
+    model.active, model.ready = true, progress.ready
+    if #progress.objectives == 0 then return end
+    model.objectives = {}
+    for _, objective in ipairs(progress.objectives) do
+        model.objectives[#model.objectives + 1] = objectiveOf(trim(util.uncolored(objective.text)), "",
+            objective.finished)
     end
 end
 
@@ -320,7 +351,9 @@ local function readQuest(tooltip, data, game)
     if not appended then return end
     for _, row in ipairs(appended) do readRow(model, row, state) end
     if not model.name or model.name == "" then return end
-    return completeModel(model, readable(data.id), game)
+    local id = readable(data.id)
+    if id and mapPinQuest(util.call(tooltip.GetOwner, tooltip)) == id then fromLog(model, id, game) end
+    return completeModel(model, id, game)
 end
 
 local function badges(model)
@@ -460,6 +493,9 @@ ui.questModel = function(fields, questID)
     end
     return completeModel(fields, questID, ns.Game)
 end
+ns.QuestPin = { quest = mapPinQuest, read = function(tooltip, id)
+    return readQuest(tooltip, { id = id, lines = {}, fromLines = true }, ns.Game)
+end }
 ui.defineTooltipType(QUEST, { read = readQuest, render = renderQuest, key = questKey, option = "questPanels" })
 
 local function linkedQuest(link)
@@ -504,6 +540,9 @@ hooksecurefunc(GameTooltip, "Show", function(tooltip)
         id = hovered.id
     elseif questLogButton(owner) then
         id = readable(owner.questID)
+    elseif mapPinQuest(owner) then
+        -- (2026-11-22) a quest's marker on the world map: the game's lines
+        id = mapPinQuest(owner)
     else
         return
     end
