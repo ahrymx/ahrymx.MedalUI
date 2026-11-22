@@ -667,6 +667,31 @@ local function AdoptTotems()
     if ChangeMultiCastActionPage then hooksecurefunc("ChangeMultiCastActionPage", UpdateOverhead) end
 end
 
+-- An element's colour, polled. Blizzard greys a totem it cannot cast now
+-- (UpdateUsable: Ghost Wolf, dead, out of mana) and colours it back on
+-- ACTION_USABLE_CHANGED, which a button hears only once registered in the
+-- mixin's OnShow. The totem template's own OnShow replaces that one, so an
+-- element that has hidden and shown again never hears it: it stayed grey
+-- until a reload (2026-11-22). Polled here, as the bars' ticker does
+-- (bars/buttons.lua), in Blizzard's colours.
+local USABLE, NO_MANA, UNUSABLE = { 1, 1, 1 }, { 0.5, 0.5, 1 }, { 0.4, 0.4, 0.4 }
+local function TintTotem(btn)
+    local action, icon = btn.action, btn.medaluiIcon or btn.icon
+    if not (action and icon and btn:IsVisible() and ns.HasAction(action)) then return end
+    local usable, noMana = ns.IsUsableAction(action)
+    local c = (ns.IsSecret(usable) or ns.IsSecret(noMana) or usable) and USABLE or noMana and NO_MANA or UNUSABLE
+    icon:SetVertexColor(c[1], c[2], c[3])
+end
+local totemWatch = CreateFrame("Frame", nil, overhead)
+ns.overheadTotemWatch = totemWatch
+local totemElapsed = 0
+totemWatch:SetScript("OnUpdate", function(_, dt)
+    totemElapsed = totemElapsed + dt
+    if totemElapsed < 0.2 then return end
+    totemElapsed = 0
+    for btn in pairs(totems) do pcall(TintTotem, btn) end
+end)
+
 -- The totem bar's row: the summon, the current page's elements, the recall,
 -- as Blizzard's bar has them. None while the bar has no element (not a
 -- shaman, or none learned yet).

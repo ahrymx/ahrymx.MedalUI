@@ -15629,6 +15629,30 @@ if savedSimParty then
             "inPage=" .. tostring(MultiCastActionButton5.parent == MultiCastActionPage2),
             "rings=" .. tostring(MultiCastSummonSpellButtonHighlight.alpha) .. ","
                 .. tostring(MultiCastRecallSpellButtonHighlight.alpha))
+        -- an element greyed by Blizzard and never coloured back (its OnShow
+        -- does not re-register the usable event): the poll colours it from
+        -- the action as it is now; short of mana, blue; unusable, grey
+        do
+            local el, watch = MultiCastActionButton2, ns.overheadTotemWatch
+            local function col() local v = el.icon.vertex or {} return table.concat(v, ",", 1, 3) end
+            el.icon:SetVertexColor(0.4, 0.4, 0.4)
+            watch.scripts.OnUpdate(watch, 0.1)
+            local early = col()
+            watch.scripts.OnUpdate(watch, 0.1)
+            local fixed = col()
+            manaShort[el.action] = true
+            watch.scripts.OnUpdate(watch, 1)
+            local mana = col()
+            manaShort[el.action] = nil
+            local was = ns.IsUsableAction
+            ns.IsUsableAction = function() return false, false end
+            watch.scripts.OnUpdate(watch, 1)
+            local grey = col()
+            ns.IsUsableAction = was
+            watch.scripts.OnUpdate(watch, 1)
+            print("overhead.shaman.usable", "stuck=" .. early, "polled=" .. fixed, "mana=" .. mana,
+                "unusable=" .. grey, "back=" .. col())
+        end
         -- an element not learned yet, and no summon spell: the row closes up
         MultiCastActionButton4:Hide()
         MultiCastSummonSpellButton:Hide()
