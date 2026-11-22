@@ -10791,7 +10791,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
         local saved = C_UnitAuras.GetAuraDataByIndex
         local function data(a)
             return a and { auraInstanceID = a.id, icon = a.icon, spellId = a.spellId, isHarmful = a.isHarmful,
-                applications = 0, duration = 0, expirationTime = 0 }
+                applications = 0, duration = a.duration or 0, expirationTime = a.expirationTime or 0 }
         end
         -- in combat the client may refuse a filter's read (held[unit].refuse)
         -- or hand back a secret for the aura (held[unit].secret); its whole
@@ -11401,6 +11401,72 @@ if args[2] == "widgets" or args[3] == "widgets" then
         unitFire("UNIT_AURA", "target")
         print("console auras an enemy's", "from=" .. from, "enemy buffs=" .. enemy,
             "friend buffs=" .. first(T.buffWidgets))
+        -- (2026-11-22) a right click on one of the player's buffs takes it
+        -- off: the client's row, told to (the player's only, not the
+        -- target's); the older client's icons, out of combat
+        ;(function()
+            local mark = { id = 910, icon = "mark", spellId = 1126, duration = 60, expirationTime = 100 }
+            held.player = { HELPFUL = { mark }, ["HELPFUL|PLAYER"] = { mark } }
+            held.target = { HELPFUL = { mark }, ["HELPFUL|PLAYER"] = { mark } }
+            targetHostile = false
+            unitFire("UNIT_AURA", "player")
+            unitFire("UNIT_AURA", "target")
+            local took = {}
+            local cancelWas = C_UnitAuras.CancelAuraByInstanceID
+            C_UnitAuras.CancelAuraByInstanceID = function(unit, id) took[#took + 1] = tostring(unit) .. ":" .. tostring(id) end
+            local function live(tag, b)
+                local c = b.buffWidgets.live
+                local g = c and c.groups.row
+                local btn = g and g.frames[1]
+                if btn then c:Click(btn, "RightButton") end
+                print("console auras cancel live " .. tag, "cancel=" .. tostring(btn and btn.cancel),
+                    "took=" .. table.concat(took, ","))
+                took = {}
+            end
+            live("player", P)
+            live("target", T)
+            -- (2026-11-22) turned off on the Player · Target buffs (the
+            -- editor's Right-click to cancel): the made buttons let go, out
+            -- of combat; in combat they wait for it
+            local keepEdit = ns.db.editUnit
+            ns.SetOption("editUnit", { buffs = { cancel = false } })
+            live("player, turned off", P)
+            inCombat = true
+            ns.SetOption("editUnit", keepEdit)
+            live("player, turned on in combat", P)
+            inCombat = false
+            ns.UpdateAllAuras()
+            live("player, after combat", P)
+            local mineC = P.mineWidgets.live
+            print("console auras cancel live player debuffs", "cancel=" .. tostring(mineC and mineC.groups.row.frames[1]
+                and mineC.groups.row.frames[1].cancel))
+            -- the icons: what each one holds, as the row's own read leaves it
+            local icon = P.buffWidgets[1]
+            local function click(tag, unit, id, filter, button, combat)
+                icon.unit, icon.auraInstanceID, icon.filter = unit, id, filter
+                inCombat = combat or false
+                icon.scripts.OnClick(icon, button or "RightButton")
+                inCombat = false
+                print("console auras cancel icon " .. tag, "took=" .. table.concat(took, ","))
+                took = {}
+            end
+            print("console auras cancel icon clicks", tostring(icon.clicks and table.concat(icon.clicks, ",")))
+            click("player buff", "player", 910, "HELPFUL|PLAYER")
+            click("left button", "player", 910, "HELPFUL|PLAYER", "LeftButton")
+            click("in combat", "player", 910, "HELPFUL|PLAYER", nil, true)
+            click("target's", "target", 910, "HELPFUL")
+            click("a debuff", "player", 910, "HARMFUL")
+            click("no aura", "player", nil, "HELPFUL")
+            click("secret aura", "player", secret(), "HELPFUL")
+            ns.SetOption("editUnit", { buffs = { cancel = false } })
+            click("turned off", "player", 910, "HELPFUL|PLAYER")
+            ns.SetOption("editUnit", keepEdit)
+            icon.unit, icon.auraInstanceID, icon.filter = nil, nil, nil
+            C_UnitAuras.CancelAuraByInstanceID = cancelWas
+            held.player, held.target = {}, {}
+            unitFire("UNIT_AURA", "player")
+            unitFire("UNIT_AURA", "target")
+        end)()
         targetHostile = true
         held.target, held.player, exists.target = nil, nil, nil
     end
@@ -12375,6 +12441,25 @@ local function EditorPass()
         tabs("text level", "unit", "level")
         tabs("icon role", "party", "role")
         tabs("row buffs", "party", "mine")
+        -- (2026-11-22) the player's buffs: Right-click to cancel on its Auras tab
+        tabs("row unit buffs", "unit", "buffs")
+        tabs("row unit debuffs", "unit", "mine")
+        do
+            local keep = ns.db.editUnit
+            choose("unit", "buffs")
+            pickTab("auras")
+            local function cancel(tag)
+                local e = E.Edits(E.byId.unit, "buffs")
+                print("  cancel " .. tag, "get=" .. tostring(get("cancel")), "stored=" .. tostring(e and e.cancel),
+                    "BuffsCancel=" .. tostring(ns.BuffsCancel()))
+            end
+            cancel("default")
+            set("cancel", false)
+            cancel("off")
+            set("cancel", true)
+            cancel("on again")
+            ns.SetOption("editUnit", keep)
+        end
         tabs("row widget", "partyWidget", "buffs")
         tabs("bar", "party", "power")
         tabs("cell", "raid", "cell")

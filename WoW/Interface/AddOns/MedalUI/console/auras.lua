@@ -453,11 +453,27 @@ local function RowIcon(health, size)
     return btn
 end
 
+-- (2026-11-22) a right click on one of the player's buffs takes it off,
+-- out of combat (where the client has no container, so the row is these
+-- icons): the aura it holds, by its instance
+local function CancelOnRightClick(btn)
+    btn:RegisterForClicks("RightButtonUp")
+    btn:SetScript("OnClick", function(self, button)
+        if button ~= "RightButton" or InCombatLockdown() or not ns.BuffsCancel() then return end
+        if self.unit ~= "player" or not self.auraInstanceID or ns.IsSecret(self.auraInstanceID) then return end
+        if self.filter and not self.filter:find("HELPFUL", 1, true) then return end
+        if Auras and Auras.CancelAuraByInstanceID then
+            pcall(Auras.CancelAuraByInstanceID, "player", self.auraInstanceID)
+        end
+    end)
+end
+
 local function CreateBuffWidgets(health, side, isParty)
     local buttons = { default = isParty and 3 or 4, isParty = isParty, from = "mine" }
 
     for _ = 1, POOL do
         local btn = RowIcon(health, ICON)
+        CancelOnRightClick(btn)
         btn:SetFrameLevel(ns.levels.text + 1)
         table.insert(buttons, btn)
     end
@@ -753,6 +769,9 @@ local function LiveIcon(row)
         count:SetPoint("BOTTOMRIGHT", -1, 1)
         count:SetTextColor(1, 1, 1)
         btn:SetApplicationCount(count)
+        -- (2026-11-22) your own buffs: a right click takes it off, as the
+        -- side panel's Auras tab does (the client's, so in combat too)
+        if row.cancels then pcall(btn.SetCancelAuraButtons, btn, "RightButtonUp") end
     end
 end
 
@@ -853,7 +872,23 @@ end
 -- at most max, the timeless left out (timeless). false where the row has
 -- no container, so reads them itself.
 local function Live(b, row, on, filter, max, timeless)
-    if row.live == nil then row.live = MakeLive(row) end
+    -- (2026-11-22) the player's buffs cancel on a right click (the
+    -- Player · Target buffs' Right-click to cancel): a row whose frame is
+    -- the player's for good (the console's, the Party widget's own). Set
+    -- before its icons are made; a change, on those made, out of combat
+    -- (the client's buttons take their clicks then), else at the next pass
+    local cancels = b.unit == "player" and row == b.buffWidgets and ns.BuffsCancel()
+    if row.live == nil then
+        row.cancels = cancels
+        row.live = MakeLive(row)
+    elseif row.live and row.cancels ~= cancels and not InCombatLockdown() then
+        row.cancels = cancels
+        local okN, n = pcall(row.live.GetAuraGroupFrameCount, row.live, "row")
+        for i = 1, (okN and not ns.IsSecret(n) and n) or 0 do
+            local okF, btn = pcall(row.live.GetAuraGroupFrame, row.live, "row", i)
+            if okF and btn then pcall(btn.SetCancelAuraButtons, btn, cancels and "RightButtonUp" or nil) end
+        end
+    end
     local c = row.live
     if not c then return false end
     for _, btn in ipairs(row) do btn:Hide() end

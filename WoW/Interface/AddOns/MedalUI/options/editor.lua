@@ -211,6 +211,13 @@ local function Specs()
             set = function(v) SetField("from", v) end,
             tip = Tr["Whose auras the row shows: only the ones you cast, or all of them."]
                 .. (piece == "buffs" and " " .. Tr["An enemy's buffs all show either way."] or "") },
+        -- (2026-11-22) the player's buffs: a right click takes one off
+        cancel = { kind = "check", label = Tr["Right-click to cancel"],
+            get = function() return Edits().cancel ~= false end,
+            -- (off is stored as false; on, the default, as nothing)
+            set = function(v) if v then SetField("cancel", E.NIL) else SetField("cancel", false) end end,
+            tip = Tr["A right click on one of your buffs takes it off, in combat too. Your own frame only, "
+                .. "and the Party widget's row of yours."] },
         max = { kind = "slider", label = Tr["Most icons"], min = 1, max = 10,
             get = function() return Edits().max or select(2, E.RowOwn(frame, piece)) end,
             set = function(v) SetField("max", v) end,
@@ -267,8 +274,10 @@ local function Tabs()
     else
         place = { out, "on", "x", "y", "grow", "cols" }
     end
+    local auras = { "from", "max" }
+    if frame.id == "unit" and piece == "buffs" then auras[#auras + 1] = "cancel" end
     return { { id = "place", fields = place }, { id = "look", fields = look },
-        { id = "auras", fields = { "from", "max" } } }
+        { id = "auras", fields = auras } }
 end
 
 -- The chosen tab of the piece's: the one kept, else its first.

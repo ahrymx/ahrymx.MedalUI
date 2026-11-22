@@ -565,6 +565,15 @@ E.FROM = {
     { "all", Tr["All"], Tr["Every aura on the unit, whoever cast it."] },
 }
 
+-- (2026-11-22) Whether a right click on one of the player's buffs takes it
+-- off: the Player · Target frame's buffs row says (its Auras tab), on
+-- unless turned off; the Party widget's own row of yours follows it.
+function ns.BuffsCancel()
+    local all = ns.db.editUnit
+    local e = type(all) == "table" and all.buffs
+    return not (type(e) == "table" and e.cancel == false)
+end
+
 -- Whose auras a row of button b shows: its frame's From, else its own
 -- (buttons.from, console/auras.lua).
 function ns.RowFrom(b, piece)
