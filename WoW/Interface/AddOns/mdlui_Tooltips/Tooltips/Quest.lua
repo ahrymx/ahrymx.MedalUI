@@ -26,6 +26,15 @@ local EXTRAS_RULE = { .50, .50, .54 }
 local REPEAT_COLOR = { .45, .70, 1 }
 local REQUIRES_COLOR = { .62, .60, .56 }
 local CHAIN_COLOR = { .62, .60, .56 }
+-- (2026-11-22) each section's heading band in a colour of its own, so the
+-- sections are told apart at a glance
+local SECTION_HUES = {
+    objectives = { .88, .71, .31 },
+    where = { .44, .71, .81 },
+    chain = { .71, .61, .89 },
+    reputation = { .49, .77, .48 },
+}
+local BAND_BEFORE = 8
 local QUEST_ICON = "Interface\\Icons\\INV_Misc_Book_08"
 local TAGS = ns.Locale.questTags
 -- Questie writes the tag as a suffix on the level: "[27D] The Fury Runs Deep".
@@ -136,6 +145,7 @@ end
 -- What its lines leave out (a quest link's tooltip has little), from Questie's
 -- database when it is loaded: never over what the lines said.
 local PLACE = "|cff9a9282"                  -- where an NPC stands, after their name
+local REP_GAIN = { .91, .78, .31 }          -- the reputation a quest gives
 
 -- The first ID in a list of Questie's (or the ID itself).
 local function firstId(list)
@@ -224,8 +234,9 @@ function fromQuestie(model, id, game, words)
             local faction, amount = type(pair) == "table" and pair[1], type(pair) == "table" and pair[2]
             local name = game.factionName(faction)
             if name then
-                if type(amount) == "number" and amount ~= 0 then name = name .. "  " .. PLACE .. string.format("%+d", amount) .. "|r" end
-                rows[#rows + 1] = { left = REPUTATION or L["Reputation"], right = name }
+                -- the faction, and what it gives: under the Reputation heading
+                local gain = type(amount) == "number" and amount ~= 0 and string.format("%+d", amount) or ""
+                rows[#rows + 1] = { left = name, right = gain, rep = true, rightColor = REP_GAIN }
             end
         end
         for index = #rows, 1, -1 do table.insert(model.extras, 1, rows[index]) end
@@ -288,6 +299,10 @@ local function readRow(model, row, state)
         model.extras[#model.extras + 1] = { left = text, right = right, color = FAILED_COLOR }
     -- The description comes before the objectives; long lines after them are
     -- other addons'.
+    -- MedalUI's clicks ("Shift + (mouse) Link"), two to a line: the key band
+    elseif ui.isKeyRow(row) then
+        model.keys = model.keys or {}
+        model.keys[#model.keys + 1] = { left = row.left or "", right = row.right or "" }
     elseif right == "" and util.width(text) >= 30 and #model.objectives == 0 and #model.extras == 0 then
         model.description[#model.description + 1] = text
     else
@@ -422,7 +437,8 @@ local function objectivesSection(model, styles, after)
             return need
         end,
         draw = function(panel, y)
-            y = ui.caption(panel, y + (after and 4 or 0), OBJECTIVES_LABEL, styles.questCaption, colors.caption)
+            y = ui.band(panel, y, OBJECTIVES_LABEL, styles.questCaption, SECTION_HUES.objectives,
+                after and BAND_BEFORE or 0)
             for _, row in ipairs(model.objectives) do
                 checkbox(panel, y, row.completed, style.size)
                 y = ui.drawRow(panel, row, y, style, row.completed and DONE_COLOR or colors.objective,
@@ -434,7 +450,20 @@ local function objectivesSection(model, styles, after)
 end
 
 -- What the panel shows, for Panel/Render.lua to draw.
-local function questView(model)
+-- (2026-11-22) The hint to hold the details key for the rest of the quest
+-- (where, chain, reputation), in Questie's own words when it is there, as its
+-- tooltips say it. (Asked only when something is held back, so the key is
+-- Shift: the options offer it or Always.)
+local function holdHint()
+    local word = ns.Game and ns.Game.questieText and ns.Game.questieText("Hold Shift")
+    -- (questieText hands the phrase back without Questie: ours, translated)
+    if type(word) == "string" and word ~= "" and word ~= "Hold Shift" then return word end
+    return L["Hold Shift"]
+end
+
+-- details: the rest of the quest shows (the key held, or always); without it,
+-- the hint to hold the key in its place
+local function questView(model, details)
     local styles = {}
     for _, key in ipairs(PARTS) do styles[key] = ui.styleOf(key) end
     local header = { { text = model.name, style = styles.questTitle, color = colors.title, gap = 3 } }
@@ -451,26 +480,50 @@ local function questView(model)
         sections[#sections + 1] = objectivesSection(model, styles, #sections > 0)
     end
     -- where it is, and the quests either side of it, each under its caption
-    local function captioned(label)
-        return { caption = label, style = styles.questCaption, color = colors.caption, before = #sections > 0 and 4 or 0 }
+    local function captioned(label, hue)
+        return { band = label, style = styles.questCaption, color = hue, before = #sections > 0 and BAND_BEFORE or 0 }
     end
-    if model.where and #model.where > 0 then
-        sections[#sections + 1] = { separator = captioned(L["Where"]), kind = "rows", rows = model.where,
+    -- where, the chain and the reputation only with the details key held
+    local held = 0
+    local function shown(count)
+        if count == 0 then return false end
+        if details then return true end
+        held = held + 1
+        return false
+    end
+    if model.where and shown(#model.where) then
+        sections[#sections + 1] = { separator = captioned(L["Where"], SECTION_HUES.where), kind = "rows", rows = model.where,
             style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
     end
     local chain = model.chain
-    if chain and (chain.before or chain.after) then
+    if chain and shown((chain.before or chain.after) and 1 or 0) then
         local rows = {}
         if chain.before then rows[#rows + 1] = { left = "\194\171  " .. chain.before, color = CHAIN_COLOR } end
         rows[#rows + 1] = { left = "\226\128\162  " .. model.name, color = QUEST_GOLD }
         if chain.after then rows[#rows + 1] = { left = "\194\187  " .. chain.after, color = CHAIN_COLOR } end
-        sections[#sections + 1] = { separator = captioned(L["Chain"]), kind = "rows", rows = rows,
+        sections[#sections + 1] = { separator = captioned(L["Chain"], SECTION_HUES.chain), kind = "rows", rows = rows,
             style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
     end
-    if #model.extras > 0 then
-        sections[#sections + 1] = { separator = #sections > 0 and { rule = EXTRAS_RULE } or { space = 4 },
-            kind = "rows", rows = model.extras, style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
+    -- the reputation it gives under its own heading; the other rows after it
+    local reputation, others = {}, {}
+    for _, row in ipairs(model.extras) do
+        if row.rep then reputation[#reputation + 1] = row else others[#others + 1] = row end
     end
+    if shown(#reputation) then
+        sections[#sections + 1] = { separator = captioned(REPUTATION or L["Reputation"], SECTION_HUES.reputation),
+            kind = "rows", rows = reputation, style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
+    end
+    if #others > 0 then
+        sections[#sections + 1] = { separator = #sections > 0 and { rule = EXTRAS_RULE } or { space = 4 },
+            kind = "rows", rows = others, style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
+    end
+    -- the hint to hold the key, then MedalUI's clicks
+    local foot = {}
+    local hint = held > 0 and holdHint()
+    if hint then foot[1] = { left = hint, right = "" } end
+    for _, row in ipairs(model.keys or {}) do foot[#foot + 1] = row end
+    local footer = #foot > 0 and { rows = foot, style = ui.styleOf("objectPrices"), color = colors.caption,
+        gap = 3 } or nil
     return {
         tooltipType = "quest",
         color = PARCHMENT,
@@ -480,11 +533,13 @@ local function questView(model)
         iconSize = ICON_SIZE,
         header = header,
         sections = sections,
+        footer = footer,
     }
 end
 
 local function renderQuest(panel, tooltip, model)
-    ui.renderView(panel, tooltip, questView(model))
+    local details = panel.isPreview or panel.allDetails or ns.detailsKeyDown()
+    ui.renderView(panel, tooltip, questView(model, details and true or false))
 end
 
 ui.questModel = function(fields, questID)

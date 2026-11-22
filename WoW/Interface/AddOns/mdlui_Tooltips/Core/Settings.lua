@@ -239,7 +239,7 @@ ns.ELEMENTS = {
     { key = "questBadges", label = "Badges", size = 12, color = { .9, .9, .9 }, tooltipType = "quest",
         note = "The level in its difficulty color, tags, and where the quest stands." },
     { key = "questText", label = "Description", size = 12, color = colors.flavor, tooltipType = "quest" },
-    { key = "questCaption", label = "Section caption", size = 9, color = colors.caption,
+    { key = "questCaption", label = "Section caption", size = 11, color = colors.caption,
         tooltipType = "quest", caps = true },
     { key = "questObjectives", label = "Objectives", size = 12, color = colors.objective,
         tooltipType = "quest", note = "Finished objectives green unless set." },

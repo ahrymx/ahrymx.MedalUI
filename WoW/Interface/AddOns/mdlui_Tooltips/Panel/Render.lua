@@ -21,6 +21,8 @@
 --         { separator = { divider = GOLD } | { rule = color } | { space = 4 }  before = 8 sets the space
 --               above a divider or rule; left out, it shows as much as below
 --               | { caption = "Reagents", style, before = 4 },
+--               | { band = "Where", style, color, before = 8 }, a heading on
+--               a band of its colour (the quest's sections)
 --           kind = "prose", sentences = { ... }, style, color, numbers = "FFF6E4", gap = 5 },
 --         { kind = "rows", rows = { { left, right, color, rightColor, indent } }, style, color, gap = 2,
 --           wrap = true },             rows with nothing on the right wrap at prose width
@@ -186,6 +188,9 @@ local function drawSeparator(panel, y, separator, after)
     end
     if separator.divider then return ui.divider(panel, y, separator.divider, before) end
     if separator.rule then return ui.rule(panel, y, separator.rule, before) end
+    if separator.band then
+        return ui.band(panel, y, separator.band, separator.style, separator.color, separator.before)
+    end
     if separator.caption then
         return ui.caption(panel, y + (separator.before or 0), separator.caption, separator.style, separator.color)
     end

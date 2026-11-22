@@ -737,6 +737,131 @@ do
         ns.Hooks.renderLines = renderLines
         C_QuestLog, WorldMapFrame = CQ, mapWas
     end
+    -- (2026-11-22) the sections told apart: each heading on a band of its
+    -- colour, the reputation under a heading of its own (faction, then what
+    -- it gives), MedalUI's clicks in the key band at the foot
+    do
+        local holder = CreateFrame("Frame", nil, UIParent)
+        local MOUSE = "|TInterface\\AddOns\\MedalUI\\media\\strips\\mouse-left:16:16:0:0:32:32:5:27:5:27|t "
+        local owner = { IsForbidden = function() return false end, GetWidth = function() return 20 end }
+        local function lines(list)
+            local tt = { lefts = {}, rights = {} }
+            for i, pair in ipairs(list) do
+                local left, right = holder:CreateFontString(), holder:CreateFontString()
+                left:SetText(pair[1]); left:SetTextColor(.6, .6, .6); right:SetText(pair[2] or "")
+                if (pair[2] or "") == "" then right:Hide() else right:Show() end
+                left.IsForbidden = function() return false end
+                right.IsForbidden = left.IsForbidden
+                -- (the stub has no GetTextColor)
+                left.GetTextColor = function() return .6, .6, .6, 1 end
+                right.GetTextColor = left.GetTextColor
+                tt.lefts[i], tt.rights[i] = left, right
+            end
+            function tt:NumLines() return #self.lefts end
+            function tt:GetLeftLine(i) return self.lefts[i] end
+            function tt:GetRightLine(i) return self.rights[i] end
+            function tt:GetName() return nil end
+            function tt:GetOwner() return owner end
+            return tt
+        end
+        local function r2(c) return string.format("%.2f,%.2f,%.2f", c[1], c[2], c[3]) end
+        -- the bands drawn: each fill's colour and whether it spans the panel,
+        -- and the bars at their left edges
+        local function bands(label, panel)
+            local fills, bars = {}, 0
+            local left = math.max(2, ui.pad() - 8)
+            for i = 1, panel.texturesUsed do
+                local tex = panel.texturePool[i]
+                local g = tex.gradient
+                if g and g[1] == "HORIZONTAL" and g[2][4] == .22 and g[3][4] == .04 then
+                    fills[#fills + 1] = r2(g[2]) .. (math.abs(tex.w - (panel.width - 2 * left)) < 1 and " full" or " short")
+                -- (a pooled texture keeps an old width: a bar is on its own layer too)
+                elseif tex.w == 3 and tex.layer == "ARTWORK" and tex.sub == 7 then
+                    bars = bars + 1
+                end
+            end
+            print("tooltips quest bands " .. label, "fills=" .. table.concat(fills, " | "), "bars=" .. bars)
+        end
+        local game = {
+            { "[30+] Bride of the Embalmer" }, { "- 0/1 Embalmer's Heart" },
+            { "Some addon's line", "its value" },
+            { MOUSE .. "Page", "Shift + " .. MOUSE .. "Link" }, { "Ctrl + " .. MOUSE .. "Waypoint", "" },
+        }
+        local model = ns.QuestPin.read(lines(game), 253)
+        local extras, keys = {}, {}
+        for _, row in ipairs(model.extras) do extras[#extras + 1] = row.left .. "=" .. tostring(row.right) end
+        for _, row in ipairs(model.keys or {}) do keys[#keys + 1] = plain(row.left) .. "/" .. plain(row.right) end
+        print("tooltips quest sections read", "extras=" .. table.concat(extras, ","), "keys=" .. table.concat(keys, ","))
+        local panel = ui.renderPreview(anchor, model, byKey.quest.dataType)
+        local out = {}
+        for _, t in ipairs(texts(panel)) do
+            if t.text and t.text ~= "" then out[#out + 1] = plain(t.text) end
+        end
+        print("tooltips quest sections", table.concat(out, " | "))
+        bands("default", panel)
+        -- two reputations, neither row the word "Reputation"
+        quests[254] = { name = "A Taste of the Sea", level = 40, requiredLevel = 36, zoneOrSort = 10,
+            Starts = { NPC = { 264 } }, Finisher = { NPC = { 264 } }, reputationReward = { { 72, 50 }, { 72, -25 } } }
+        local sea = ui.questModel({ name = "A Taste of the Sea" }, 254)
+        local reps = {}
+        for _, row in ipairs(sea.extras) do
+            reps[#reps + 1] = row.left .. "=" .. plain(row.right) .. (row.rep and "(rep)" or "")
+        end
+        print("tooltips quest reputation", table.concat(reps, ","))
+        panel = ui.renderPreview(anchor, sea, byKey.quest.dataType)
+        bands("reputation", panel)
+        quests[254] = nil
+        -- the player's own colour for the captions: every band in it
+        local styles = mdlui_TooltipsDB.styles
+        local own = ns.elementSetting("questCaption", "color")
+        ns.setElementSetting("questCaption", "color", { .2, .4, .6 })
+        panel = ui.renderPreview(anchor, model, byKey.quest.dataType)
+        bands("own colour", panel)
+        ns.setElementSetting("questCaption", "color", own)
+        if styles == nil then mdlui_TooltipsDB.styles = nil end
+        -- (2026-11-22) where, the chain and the reputation only with Shift
+        -- held, as Questie's tooltips; "Hold Shift" at the foot in their
+        -- place. (The editor's sample has them all.)
+        local function game(label, m)
+            local preview = anchor.prettyTooltipPreview
+            preview.isPreview = false
+            local p = ui.renderPreview(anchor, m or model, byKey.quest.dataType)
+            preview.isPreview = true
+            local words = {}
+            for _, t in ipairs(texts(p)) do
+                if t.text and t.text ~= "" then words[#words + 1] = plain(t.text) end
+            end
+            print("tooltips quest held " .. label, table.concat(words, " | "))
+        end
+        local shift = IsShiftKeyDown
+        IsShiftKeyDown = function() return false end
+        game("up")
+        IsShiftKeyDown = function() return true end
+        game("down")
+        IsShiftKeyDown = function() return false end
+        local key = mdlui_TooltipsDB.detailsKey
+        mdlui_TooltipsDB.detailsKey = "ALWAYS"
+        game("always")
+        mdlui_TooltipsDB.detailsKey = key
+        local modules = QuestieLoader._modules
+        modules.l10n = function(phrase) return phrase == "Hold Shift" and "Shift halten" or phrase end
+        game("questie's words")
+        modules.l10n = nil
+        -- nothing to hide: no hint
+        game("nothing held", ui.questModel({ name = "Plain Quest", objectives = { { left = "A thing", right = "0/1" } } }))
+        IsShiftKeyDown = shift
+        -- separators off: the names alone
+        local seps = mdlui_TooltipsDB.separators
+        mdlui_TooltipsDB.separators = false
+        panel = ui.renderPreview(anchor, model, byKey.quest.dataType)
+        bands("no separators", panel)
+        out = {}
+        for _, t in ipairs(texts(panel)) do
+            if t.text and t.text ~= "" then out[#out + 1] = plain(t.text) end
+        end
+        print("tooltips quest sections no separators", table.concat(out, " | "))
+        mdlui_TooltipsDB.separators = seps
+    end
     QuestieLoader, C_Map.GetAreaInfo, C_Reputation.GetFactionDataByID = nil, area, faction
 end
 

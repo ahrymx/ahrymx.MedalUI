@@ -1029,6 +1029,39 @@ local function caption(panel, y, text, style, color)
     return y + style.size + 9
 end
 
+-- (2026-11-22) A section's name on a band of its colour: the panel's inner
+-- width, fading from left to right, a bar at its left edge, the name left in
+-- it. Without separators, the name alone. A custom color is the name's and
+-- the band's.
+local BAND_BAR, BAND_INSET, BAND_PAD = 3, 8, 4
+local function band(panel, y, text, style, color, before)
+    y = y + (before or 0)
+    color = style.color or color or colors.caption
+    local tint = panel.parchment and inkColor(color) or color
+    local height = style.size + 2 * BAND_PAD
+    -- the band reaches a little into the padding, so the name lines up
+    -- with the rows under it
+    local left = math.max(2, pad() - BAND_INSET)
+    if ns.option("separators") then
+        local width = panel.width - 2 * left
+        -- under the name's font string, which shares the OVERLAY layer
+        local fill = acquireTexture(panel)
+        fill:SetDrawLayer("ARTWORK", 6)
+        fill:SetPoint("TOPLEFT", panel, "TOPLEFT", snap(panel, left), -snap(panel, y))
+        fill:SetSize(snap(panel, width), snap(panel, height))
+        local r, g, b = tint[1], tint[2], tint[3]
+        fill:SetGradient("HORIZONTAL", CreateColor(r, g, b, .22), CreateColor(r, g, b, .04))
+        local bar = acquireTexture(panel)
+        bar:SetDrawLayer("ARTWORK", 7)
+        bar:SetPoint("TOPLEFT", fill, "TOPLEFT")
+        bar:SetSize(snap(panel, BAND_BAR), snap(panel, height))
+        bar:SetVertexColor(r, g, b, 1)
+    end
+    local width = measureStyled(panel, text, style) + 2
+    styledAt(panel, text, pad(), y + BAND_PAD, width, style, color)
+    return y + height + 7
+end
+
 local function drawGroup(panel, list, y, style, color, indent, gap, rightIndent)
     for _, row in ipairs(list) do
         y = drawRow(panel, row, y, style, color, indent, gap, rightIndent)
@@ -1420,6 +1453,8 @@ ns.ui = {
     clampInsets = clampInsets,
     finishPanel = finishPanel,
     caption = caption,
+    band = band,
+    isKeyRow = isKeyRow,
     pad = pad,
     pixel = pixel,
     snap = snap,

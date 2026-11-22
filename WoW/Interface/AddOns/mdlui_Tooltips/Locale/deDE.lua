@@ -126,6 +126,7 @@ L["Your skill %s"] = "Eure Fertigkeit %s"
 -- Quests and units.
 L["Legendary"] = "Legendär"
 L["Heroic"] = "Heroisch"
+L["Hold Shift"] = "Umschalt halten"
 L["Group"] = "Gruppe"
 L["Scenario"] = "Szenario"
 L["World event"] = "Weltereignis"
