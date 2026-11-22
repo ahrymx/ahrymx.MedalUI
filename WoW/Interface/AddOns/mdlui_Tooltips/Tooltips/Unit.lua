@@ -595,12 +595,6 @@ local function showHealthText(panel, unit, dead, sample)
     writeHealthText(panel)
     left:Show()
     right:Show()
-    -- gone with the bar, when the panel draws again or draws anything else
-    local give = panel.release
-    panel.release = function(released)
-        hideHealthText(released)
-        if give then give(released) end
-    end
 end
 
 -- The game's own health bar, which it fills from values the addon may not
@@ -638,8 +632,12 @@ local function placeHealthBar()
     lent.placing = false
 end
 
+-- (2026-11-22) the words go with the bar, however it goes back: the panel
+-- hiding hands it back without the release, and a quest panel drawn next
+-- showed the last unit's health over its own rows
 local function returnHealthBar(panel)
     panel.release = nil
+    hideHealthText(panel)
     if not (lent and lent.panel == panel) then return end
     if not util.canModify(lent.bar) or not util.canModify(lent.parent) then
         lent.returnPending = true
@@ -705,6 +703,7 @@ local SAMPLE_BAR = "Interface\\TargetingFrame\\UI-StatusBar"
 
 local function hideSampleHealth(panel)
     panel.release = nil
+    hideHealthText(panel)
     if panel.sampleHealth then panel.sampleHealth:Hide() end
 end
 

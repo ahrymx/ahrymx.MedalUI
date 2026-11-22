@@ -3,7 +3,7 @@
 ## Notes: Hold a key, sweep, release: radial menus of spells, items, mounts, markers and more (MedalUI companion).
 ## Author: Malkkav, AhryMX
 ## X-License: MIT
-## Version: 0.66.0
+## Version: 0.66.1
 ## X-Upstream-Version: 6.8.2
 ## Category: MedalUI
 ## Category-enUS: MedalUI

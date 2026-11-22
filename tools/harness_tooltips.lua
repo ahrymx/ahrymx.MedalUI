@@ -440,6 +440,15 @@ for _, sample in ipairs(byKey.unit.samples) do
     end
 end
 
+-- the editor's preview going from a unit to a quest: the sample's words go
+do
+    local unit = render("unit", "Enemy")
+    local before = unit.healthLeft.shown
+    local quest = render("quest", byKey.quest.samples[1].label)
+    print("tooltips health preview then a quest", "same=" .. tostring(unit == quest), "before=" .. tostring(before),
+        "after=" .. tostring(quest.healthLeft and quest.healthLeft.shown))
+end
+
 -- (2026-11-22) a unit's health in numbers over the game's bar, lent to the
 -- panel: the unit's own, again as the bar moves, hidden values passed on
 -- unread, and the word Dead
@@ -489,6 +498,16 @@ do
     render("item", "Weapon")
     ns.TooltipTypes[byKey.item.dataType].render(panel, GameTooltip, byKey.item.samples[1].build())
     show("then an item")
+    -- the panel hidden with the unit's bar, then a quest drawn: the hiding
+    -- gave the bar back, and the words stayed over the quest's rows
+    now, most = 2164, 2164
+    draw("again")
+    show("again")
+    panel:Hide()
+    show("hidden with the panel")
+    panel:Show()
+    ns.TooltipTypes[byKey.quest.dataType].render(panel, GameTooltip, byKey.quest.samples[1].build())
+    show("then a quest")
     UnitHealth, UnitHealthMax, AbbreviateLargeNumbers, GameTooltipStatusBar = was[1], was[2], was[3], was[4]
     GameTooltip.IsForbidden, GameTooltip.IsProtected = forbidden[1], forbidden[2]
 end
