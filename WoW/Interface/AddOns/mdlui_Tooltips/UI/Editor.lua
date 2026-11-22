@@ -1122,8 +1122,8 @@ local DETAILS = {
         .. "(instants as the 1.5 sec global cooldown) and what comes over time over its duration. Crits and "
         .. "talents do not count.", { spell = true }, coefficients },
     { "Health bar", "unitHealthBar", "The game's bar at the foot", "The game's own health bar at the bottom of "
-        .. "player and NPC panels. The game fills it, so it stays live without the addon reading health, which "
-        .. "WoW Forever keeps from addons.", { unit = true } },
+        .. "player and NPC panels, with the health above it: current and most on the left, the percentage on the "
+        .. "right. The game fills the bar, so it stays live in combat too.", { unit = true } },
     { "Gathering", "gatheringLoot", "What a node or a skinning holds", "What a herb or ore node holds: its "
         .. "yield over all the times it can be gathered, then the stone, gems, and other herbs it may give and "
         .. "the chance each time. On a dead creature that can be skinned, the Skinning it needs and the leather, "

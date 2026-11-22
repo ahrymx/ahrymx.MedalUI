@@ -260,7 +260,7 @@ local TYPES = {
                     name = "Somniferie", iconPath = "Interface\\Icons\\INV_Misc_Head_Human_02",
                     isPlayer = true, level = 60, race = L["Human"],
                     className = LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE.WARRIOR or "Warrior",
-                    classFile = "WARRIOR", guild = "Dawnbreakers", faction = "Alliance", pvp = true, healthShare = 1,
+                    classFile = "WARRIOR", guild = "Dawnbreakers", faction = "Alliance", pvp = true, healthShare = 1, healthMax = 4120,
                     target = L["Ragnaros"], targetColor = { 1, .27, .22 },
                     extras = { { left = fill(ITEM_LEVEL, 61), right = "", color = { .60, .60, .63 } } },
                 },
@@ -269,7 +269,7 @@ local TYPES = {
                 label = "Enemy",
                 fields = {
                     name = L["Defias Pillager"], iconPath = "Interface\\Icons\\INV_Misc_Head_Human_01",
-                    level = 15, creature = L["Humanoid"], classification = "elite", reaction = 2, healthShare = .64,
+                    level = 15, creature = L["Humanoid"], classification = "elite", reaction = 2, healthShare = .64, healthMax = 1240,
                     target = "Somniferie", targetIsYou = true,
                     quests = {
                         { left = L["The Defias Brotherhood"], right = "", title = true },
@@ -281,28 +281,28 @@ local TYPES = {
                 label = "Vendor",
                 fields = {
                     name = L["Innkeeper Farley"], iconPath = "Interface\\Icons\\INV_Misc_Head_Dwarf_01",
-                    tag = "<" .. L["Innkeeper"] .. ">", level = 30, creature = L["Humanoid"], reaction = 5, healthShare = 1,
+                    tag = "<" .. L["Innkeeper"] .. ">", level = 30, creature = L["Humanoid"], reaction = 5, healthShare = 1, healthMax = 4800,
                 },
             },
             {
                 label = "Rare",
                 fields = {
                     name = L["Mother Fang"], iconPath = "Interface\\Icons\\Ability_Hunter_Pet_Spider",
-                    level = 10, creature = L["Beast"], classification = "rare", reaction = 2, healthShare = .38,
+                    level = 10, creature = L["Beast"], classification = "rare", reaction = 2, healthShare = .38, healthMax = 870,
                 },
             },
             {
                 label = "Rare elite",
                 fields = {
                     name = L["Foe Reaper 4000"], iconPath = "Interface\\Icons\\INV_Misc_Gear_01",
-                    level = 20, creature = L["Mechanical"], classification = "rareelite", reaction = 2, healthShare = .82,
+                    level = 20, creature = L["Mechanical"], classification = "rareelite", reaction = 2, healthShare = .82, healthMax = 3900,
                 },
             },
             {
                 label = "Boss",
                 fields = {
                     name = L["Azuregos"], iconPath = "Interface\\Icons\\INV_Misc_Head_Dragon_01",
-                    level = -1, creature = L["Dragonkin"], classification = "worldboss", reaction = 2, healthShare = .91,
+                    level = -1, creature = L["Dragonkin"], classification = "worldboss", reaction = 2, healthShare = .91, healthMax = 855000,
                 },
             },
         },

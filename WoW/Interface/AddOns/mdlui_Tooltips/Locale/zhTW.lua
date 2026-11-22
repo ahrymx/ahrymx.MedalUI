@@ -295,8 +295,8 @@ L["Rates"] = "效率"
 L["Under the spell power breakdown, the average a cast deals or heals per second and per mana. Per second, what lands at once counts over the cast time (instants as the 1.5 sec global cooldown) and what comes over time over its duration. Crits and talents do not count."] =
     "在法術能量分析下方顯示每次施法的平均每秒及每點法力傷害或治療量。直接效果依施法時間計算，瞬發法術依1.5秒共用冷卻計算，持續效果依持續時間計算。不計入致命一擊和天賦。"
 L["Health bar"] = "生命條"
-L["The game's own health bar at the bottom of player and NPC panels. The game fills it, so it stays live without the addon reading health, which WoW Forever keeps from addons."] =
-    "在玩家和NPC面板底部顯示遊戲內建的生命條。由遊戲即時更新，無需插件讀取WoW Forever限制存取的生命力。"
+L["The game's own health bar at the bottom of player and NPC panels, with the health above it: current and most on the left, the percentage on the right. The game fills the bar, so it stays live in combat too."] =
+    "玩家與NPC面板底部的遊戲內建生命條，上方顯示生命值：左側為目前/最大值，右側為百分比。生命條由遊戲填充，因此戰鬥中也會即時更新。"
 L["Gathering"] = "採集"
 L["What a herb or ore node holds: its yield over all the times it can be gathered, then the stone, gems, and other herbs it may give and the chance each time. On a dead creature that can be skinned, the Skinning it needs and the leather, hides, and scales it may give. From Classic's loot tables."] =
     "顯示草藥或礦脈所有採集次數的總產量，以及可能額外獲得的石頭、寶石、草藥和單次機率。可剝皮的屍體顯示所需技能和可能獲得的皮革、毛皮、鱗片。資料來自經典版掉落表。"

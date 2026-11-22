@@ -317,8 +317,8 @@ L["Rates"] = "Taxas"
 L["Under the spell power breakdown, the average a cast deals or heals per second and per mana. Per second, what lands at once counts over the cast time (instants as the 1.5 sec global cooldown) and what comes over time over its duration. Crits and talents do not count."] =
     "Abaixo da divisão de poder mágico, a média que um lançamento causa ou cura por segundo e por ponto de mana. Por segundo, o que chega de uma vez conta sobre o tempo de lançamento (os instantâneos como a recarga global de 1,5 s) e o que chega ao longo do tempo, sobre sua duração. Críticos e talentos não contam."
 L["Health bar"] = "Barra de vida"
-L["The game's own health bar at the bottom of player and NPC panels. The game fills it, so it stays live without the addon reading health, which WoW Forever keeps from addons."] =
-    "A barra de vida do jogo na parte de baixo dos painéis de jogadores e PNJs. O jogo a preenche, então ela fica atualizada sem que o addon leia a vida, que o WoW Forever esconde dos addons."
+L["The game's own health bar at the bottom of player and NPC panels, with the health above it: current and most on the left, the percentage on the right. The game fills the bar, so it stays live in combat too."] =
+    "A barra de vida do jogo na parte de baixo dos painéis de jogadores e PNJs, com a vida acima dela: atual e máxima à esquerda, a porcentagem à direita. O jogo preenche a barra, então ela continua atualizada também em combate."
 L["Gathering"] = "Coleta"
 L["What a herb or ore node holds: its yield over all the times it can be gathered, then the stone, gems, and other herbs it may give and the chance each time. On a dead creature that can be skinned, the Skinning it needs and the leather, hides, and scales it may give. From Classic's loot tables."] =
     "O que uma planta ou veio de minério contém: o rendimento em todas as vezes que pode ser coletado, depois as pedras, gemas e outras plantas que pode dar e a chance a cada vez. Em uma criatura morta que pode ser esfolada, o Esfolamento necessário e o couro, as peles e as escamas que pode dar. Das tabelas de saque do Classic."

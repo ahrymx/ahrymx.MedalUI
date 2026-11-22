@@ -296,8 +296,8 @@ L["Rates"] = "효율"
 L["Under the spell power breakdown, the average a cast deals or heals per second and per mana. Per second, what lands at once counts over the cast time (instants as the 1.5 sec global cooldown) and what comes over time over its duration. Crits and talents do not count."] =
     "주문력 분석 아래에 시전당 평균 초당 및 마나당 피해량이나 치유량을 표시합니다. 즉발 효과는 시전 시간으로 나누고 즉시 시전 주문은 전역 재사용 대기시간 1.5초로 계산합니다. 지속 효과는 지속 시간으로 나눕니다. 치명타 및 극대화와 특성은 반영하지 않습니다."
 L["Health bar"] = "생명력 막대"
-L["The game's own health bar at the bottom of player and NPC panels. The game fills it, so it stays live without the addon reading health, which WoW Forever keeps from addons."] =
-    "플레이어와 NPC 패널 아래에 게임의 생명력 막대를 표시합니다. 게임이 직접 갱신하므로 애드온이 생명력을 읽을 수 없는 WoW Forever에서도 실시간으로 표시됩니다."
+L["The game's own health bar at the bottom of player and NPC panels, with the health above it: current and most on the left, the percentage on the right. The game fills the bar, so it stays live in combat too."] =
+    "플레이어와 NPC 패널 아래쪽에 있는 게임 자체 생명력 바이며, 그 위에 생명력이 표시됩니다: 왼쪽에 현재/최대, 오른쪽에 백분율. 바는 게임이 채우므로 전투 중에도 실시간으로 갱신됩니다."
 L["Gathering"] = "채집"
 L["What a herb or ore node holds: its yield over all the times it can be gathered, then the stone, gems, and other herbs it may give and the chance each time. On a dead creature that can be skinned, the Skinning it needs and the leather, hides, and scales it may give. From Classic's loot tables."] =
     "약초나 광맥에서 채집 가능한 전체 수량과 추가로 얻을 수 있는 돌, 보석, 약초 및 회당 확률을 표시합니다. 무두질 가능한 시체에는 필요한 숙련도와 얻을 수 있는 가죽, 통가죽, 비늘을 표시합니다. 클래식 전리품 표를 사용합니다."

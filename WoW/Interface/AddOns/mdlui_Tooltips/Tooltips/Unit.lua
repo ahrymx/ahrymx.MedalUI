@@ -86,6 +86,7 @@ local NO_TINT = { 1, 1, 1 }
 -- The game's health bar at the bottom of the panel: the space above it, and
 -- its height.
 local HEALTH_BEFORE = 6
+local HEALTH_TEXT_GAP = 2       -- between the health's numbers and the bar
 local PARTS = { "unitName", "unitInfo", "unitBadges", "unitGuild", "unitSkinning", "unitDetails",
     "unitQuests", "extras" }
 
@@ -461,6 +462,11 @@ local function unitView(panel, model, healthBar)
     -- once it is drawn.
     if healthBar then
         sections[#sections + 1] = { separator = { space = HEALTH_BEFORE }, kind = "custom", draw = function(p, y)
+            -- (2026-11-22) the health in numbers, a line over the bar: room
+            -- kept here, its words set once the bar is placed (renderUnit)
+            local words = ui.styleOf("unitDetails")
+            p.healthTextTop, p.healthTextStyle = y, words
+            y = y + words.size + 2 + HEALTH_TEXT_GAP
             -- The bar's track or sunken well, its fill left empty: the bar
             -- is the game's, placed inside it.
             local height, inset = ui.barHeight(), ui.barInset(p)
@@ -482,6 +488,119 @@ local function unitView(panel, model, healthBar)
         header = header,
         sections = sections,
     }
+end
+
+-- (2026-11-22) The health in numbers over the bar: the current and the most
+-- on the left, the share on the right. In combat WoW Forever may hand the
+-- addon secrets for both: they are only ever passed on, to the game's own
+-- abbreviation and to font strings that are never read or measured, and the
+-- share comes from the game's percent through a 0 to 100 curve, so no
+-- arithmetic touches one (as MedalUI's unit frames do).
+local percentCurve
+if UnitHealthPercent and C_CurveUtil and C_CurveUtil.CreateCurve then
+    percentCurve = CurveConstants and CurveConstants.ScaleTo100
+    if not percentCurve then
+        percentCurve = C_CurveUtil.CreateCurve()
+        percentCurve:SetType(Enum.LuaCurveType.Linear)
+        percentCurve:AddPoint(0, 0)
+        percentCurve:AddPoint(1, 100)
+    end
+end
+
+local function shortNumber(value)
+    if AbbreviateLargeNumbers then
+        local ok, text = pcall(AbbreviateLargeNumbers, value)
+        if ok then return text end
+    end
+    return value
+end
+
+-- A unit's current health, its most, and its share in percent (each may be
+-- a secret); nothing when the game gives no health for it.
+local function healthOf(unit)
+    if type(unit) ~= "string" or not (UnitHealth and UnitHealthMax) then return end
+    local ok, current, most = pcall(function() return UnitHealth(unit), UnitHealthMax(unit) end)
+    if not ok then return end
+    local hidden = isSecret(current) or isSecret(most)
+    if not isSecret(most) and (type(most) ~= "number" or most <= 0) then return end
+    if not isSecret(current) and type(current) ~= "number" then return end
+    local share
+    if not hidden then
+        share = math.floor(current / most * 100 + .5)
+    elseif percentCurve then
+        local fine, value = pcall(UnitHealthPercent, unit, false, percentCurve)
+        if fine then share = value end
+    end
+    return current, most, share
+end
+
+local function healthTexts(panel)
+    if not panel.healthLeft then
+        panel.healthLeft = panel:CreateFontString(nil, "OVERLAY")
+        panel.healthLeft:SetJustifyH("LEFT")
+        panel.healthRight = panel:CreateFontString(nil, "OVERLAY")
+        panel.healthRight:SetJustifyH("RIGHT")
+        for _, font in ipairs({ panel.healthLeft, panel.healthRight }) do
+            if font.SetWordWrap then font:SetWordWrap(false) end
+        end
+    end
+    return panel.healthLeft, panel.healthRight
+end
+
+local function hideHealthText(panel)
+    panel.healthUnit, panel.healthSample = nil, nil
+    if panel.healthLeft then
+        panel.healthLeft:Hide()
+        panel.healthRight:Hide()
+    end
+end
+
+-- The words as they stand now: the unit's (again as its bar moves), or the
+-- editor's sample's.
+local function writeHealthText(panel)
+    local left, right = panel.healthLeft, panel.healthRight
+    if not left then return end
+    local current, most, share
+    local sample = panel.healthSample
+    if sample then
+        share = math.floor(sample.share * 100 + .5)
+        if sample.most then current, most = math.floor(sample.share * sample.most + .5), sample.most end
+    elseif panel.healthDead then
+        left:SetText(DEAD)
+        right:SetText("")
+        return
+    else
+        current, most, share = healthOf(panel.healthUnit)
+    end
+    if current == nil or not pcall(left.SetFormattedText, left, "%s / %s", shortNumber(current), shortNumber(most)) then
+        left:SetText("")
+    end
+    if share == nil or not pcall(right.SetFormattedText, right, "%.0f%%", share) then right:SetText("") end
+end
+
+local function showHealthText(panel, unit, dead, sample)
+    local top, style = panel.healthTextTop, panel.healthTextStyle
+    if not (top and style) then return end
+    local left, right = healthTexts(panel)
+    local color = panel.parchment and not style.color and ui.inkColor(DETAIL_COLOR) or style.color or DETAIL_COLOR
+    local x, y = ui.snap(panel, ui.pad()), -ui.snap(panel, top)
+    for _, font in ipairs({ left, right }) do
+        if not pcall(font.SetFont, font, style.font, style.size, style.flags or "") then return end
+        font:SetTextColor(color[1], color[2], color[3])
+        font:ClearAllPoints()
+    end
+    left:SetPoint("TOPLEFT", panel, "TOPLEFT", x, y)
+    right:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -x, y)
+    panel.healthUnit, panel.healthDead, panel.healthSample = unit, dead, sample
+    writeHealthText(panel)
+    left:Show()
+    right:Show()
+    -- gone with the bar, when the panel draws again or draws anything else
+    local give = panel.release
+    panel.release = function(released)
+        hideHealthText(released)
+        if give then give(released) end
+    end
 end
 
 -- The game's own health bar, which it fills from values the addon may not
@@ -558,6 +677,10 @@ local function lendHealthBar(panel, bar)
             hooksecurefunc(bar, "SetPoint", function()
                 if lent and lent.bar == bar and not lent.placing then placeHealthBar() end
             end)
+            -- the game moving its bar as health changes: the numbers with it
+            bar:HookScript("OnValueChanged", function()
+                if lent and lent.bar == bar and lent.panel.healthUnit then writeHealthText(lent.panel) end
+            end)
             hookedHealthBars[bar] = true
         end
         if not panel.returnsHealthBar then
@@ -608,7 +731,7 @@ local function renderUnit(panel, tooltip, model)
     local bar = shown and tooltip == GameTooltip and GameTooltipStatusBar
     if not (bar and util.canModify(bar) and bar:IsShown()) then bar = nil end
     local sample = shown and panel.isPreview and model.healthShare
-    panel.healthTop = nil
+    panel.healthTop, panel.healthTextTop = nil, nil
     ui.renderView(panel, tooltip, unitView(panel, model, bar ~= nil or sample ~= nil))
     local art
     if model.isPlayer then
@@ -620,8 +743,10 @@ local function renderUnit(panel, tooltip, model)
     if panel.healthTop then
         if bar then
             lendHealthBar(panel, bar)
+            showHealthText(panel, model.unit, model.dead)
         elseif sample then
             showSampleHealth(panel, sample)
+            showHealthText(panel, nil, false, { share = sample, most = model.healthMax })
         end
     end
 end

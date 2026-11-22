@@ -316,8 +316,8 @@ L["Rates"] = "Raten"
 L["Under the spell power breakdown, the average a cast deals or heals per second and per mana. Per second, what lands at once counts over the cast time (instants as the 1.5 sec global cooldown) and what comes over time over its duration. Crits and talents do not count."] =
     "Unter der Zaubermacht-Aufteilung der durchschnittliche Schaden oder die Heilung eines Zaubers pro Sekunde und pro Mana. Pro Sekunde zählt, was sofort wirkt, über die Zauberzeit (Spontanzauber als globale Abklingzeit von 1,5 Sek.) und was über Zeit wirkt, über seine Dauer. Kritische Treffer und Talente zählen nicht."
 L["Health bar"] = "Gesundheitsleiste"
-L["The game's own health bar at the bottom of player and NPC panels. The game fills it, so it stays live without the addon reading health, which WoW Forever keeps from addons."] =
-    "Die Gesundheitsleiste des Spiels am unteren Rand von Spieler- und NSC-Rahmen. Das Spiel füllt sie, sodass sie aktuell bleibt, ohne dass das Addon die Gesundheit liest, die WoW Forever Addons vorenthält."
+L["The game's own health bar at the bottom of player and NPC panels, with the health above it: current and most on the left, the percentage on the right. The game fills the bar, so it stays live in combat too."] =
+    "Die Gesundheitsleiste des Spiels am unteren Rand von Spieler- und NSC-Rahmen, darüber die Gesundheit: aktuell und maximal links, der Prozentwert rechts. Das Spiel füllt die Leiste, sodass sie auch im Kampf aktuell bleibt."
 L["Gathering"] = "Sammeln"
 L["What a herb or ore node holds: its yield over all the times it can be gathered, then the stone, gems, and other herbs it may give and the chance each time. On a dead creature that can be skinned, the Skinning it needs and the leather, hides, and scales it may give. From Classic's loot tables."] =
     "Was ein Kräuter- oder Erzvorkommen enthält: seinen Ertrag über alle Male, die es gesammelt werden kann, dann Steine, Edelsteine und weitere Kräuter, die es geben kann, mit der Chance pro Mal. Bei einer toten, häutbaren Kreatur die nötige Kürschnerei und das Leder, die Bälge und Schuppen, die sie geben kann. Aus den Beutetabellen von Classic."

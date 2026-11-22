@@ -314,8 +314,8 @@ L["Rates"] = "Débits"
 L["Under the spell power breakdown, the average a cast deals or heals per second and per mana. Per second, what lands at once counts over the cast time (instants as the 1.5 sec global cooldown) and what comes over time over its duration. Crits and talents do not count."] =
     "Sous la répartition de puissance des sorts, la moyenne de dégâts ou de soins d'un sort par seconde et par point de mana. Par seconde, ce qui arrive d'un coup compte sur le temps d'incantation (les sorts instantanés comme le temps de recharge global de 1,5 s) et ce qui arrive sur la durée compte sur cette durée. Les critiques et les talents ne comptent pas."
 L["Health bar"] = "Barre de vie"
-L["The game's own health bar at the bottom of player and NPC panels. The game fills it, so it stays live without the addon reading health, which WoW Forever keeps from addons."] =
-    "La barre de vie du jeu en bas des cadres des joueurs et des PNJ. Le jeu la remplit, elle reste donc à jour sans que l'addon lise la vie, que WoW Forever cache aux addons."
+L["The game's own health bar at the bottom of player and NPC panels, with the health above it: current and most on the left, the percentage on the right. The game fills the bar, so it stays live in combat too."] =
+    "La barre de vie du jeu en bas des cadres de joueurs et de PNJ, avec la vie au-dessus : actuelle et maximale à gauche, le pourcentage à droite. Le jeu remplit la barre, elle reste donc à jour même en combat."
 L["Gathering"] = "Récolte"
 L["What a herb or ore node holds: its yield over all the times it can be gathered, then the stone, gems, and other herbs it may give and the chance each time. On a dead creature that can be skinned, the Skinning it needs and the leather, hides, and scales it may give. From Classic's loot tables."] =
     "Ce que contient une herbe ou un gisement : son rendement sur toutes les récoltes possibles, puis les pierres, gemmes et autres herbes qu'il peut donner, avec la chance à chaque fois. Sur une créature morte qui peut être dépecée, le Dépeçage requis et le cuir, les peaux et les écailles qu'elle peut donner. D'après les tables de butin de Classic."

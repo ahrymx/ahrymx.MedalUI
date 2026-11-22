@@ -116,6 +116,14 @@ do
         if add then return add(kind, fn) end
     end
 end
+-- values the tests hand over as secrets (the unit's health): the companion
+-- keeps the game's issecretvalue as it loads, so it is wrapped before
+local HIDDEN = {}
+do
+    local was = issecretvalue
+    issecretvalue = function(v) return getmetatable(v) == HIDDEN or (was ~= nil and was(v)) or false end
+end
+local function hidden() return setmetatable({}, HIDDEN) end
 local ns = {}
 for line in io.lines(ADDON .. "mdlui_Tooltips.toc") do
     local file = line:match("^([^#][^%[]-%.lua)")
@@ -426,7 +434,63 @@ for _, sample in ipairs(byKey.unit.samples) do
         local bar = panel.sampleHealth
         print("tooltips health " .. sample.label, "top=" .. n(panel.healthTop), point(bar, "TOPLEFT"), point(bar, "TOPRIGHT"),
             "h=" .. n(bar.h))
+        local left, right = panel.healthLeft, panel.healthRight
+        print("tooltips health text " .. sample.label, "[" .. tostring(left.text) .. "]", point(left, "TOPLEFT"),
+            "[" .. tostring(right.text) .. "]", point(right, "TOPRIGHT"), "shown=" .. tostring(left.shown and right.shown))
     end
+end
+
+-- (2026-11-22) a unit's health in numbers over the game's bar, lent to the
+-- panel: the unit's own, again as the bar moves, hidden values passed on
+-- unread, and the word Dead
+do
+    local was = { UnitHealth, UnitHealthMax, AbbreviateLargeNumbers, GameTooltipStatusBar }
+    local now, most = 2400, 6800
+    UnitHealth = function() return now end
+    UnitHealthMax = function() return most end
+    AbbreviateLargeNumbers = function(v)
+        if getmetatable(v) == HIDDEN then return "(hidden)" end
+        return v >= 1000 and string.format("%.1fK", v / 1000) or tostring(v)
+    end
+    local bar = CreateFrame("StatusBar", nil, GameTooltip)
+    bar:SetPoint("BOTTOMLEFT", GameTooltip, "BOTTOMLEFT", 2, 2)
+    bar:SetHeight(8)
+    bar:Show()
+    GameTooltipStatusBar = bar
+    -- as in the game: plain answers (the stub's are not booleans)
+    local function no() return false end
+    local forbidden = { GameTooltip.IsForbidden, GameTooltip.IsProtected }
+    bar.IsForbidden, bar.IsProtected = no, no
+    GameTooltip.IsForbidden, GameTooltip.IsProtected = no, no
+    local panel = ui.getPanel(GameTooltip)
+    local model = ui.unitModel({ name = "Kurzen Medicine Man", unit = "mouseover", level = 38, reaction = 2 })
+    local function draw(label, dead)
+        model.dead = dead
+        ns.TooltipTypes[byKey.unit.dataType].render(panel, GameTooltip, model)
+    end
+    local function show(label)
+        local left, right = panel.healthLeft, panel.healthRight
+        print("tooltips health live " .. label, "[" .. tostring(left and left.text) .. "]",
+            "[" .. tostring(right and right.text) .. "]", "shown=" .. tostring(left and left.shown),
+            left and point(left, "TOPLEFT") or "", "bar=" .. (bar:GetParent() == panel and "lent" or "home"))
+    end
+    draw("hurt")
+    show("hurt")
+    now = 6800
+    bar.scripts.OnValueChanged(bar, 6800)
+    show("healed, bar moved")
+    now, most = hidden(), hidden()
+    bar.scripts.OnValueChanged(bar, now)
+    show("hidden")
+    now, most = 0, 6800
+    draw("dead", true)
+    show("dead")
+    -- drawn as something else: the words go with the bar
+    render("item", "Weapon")
+    ns.TooltipTypes[byKey.item.dataType].render(panel, GameTooltip, byKey.item.samples[1].build())
+    show("then an item")
+    UnitHealth, UnitHealthMax, AbbreviateLargeNumbers, GameTooltipStatusBar = was[1], was[2], was[3], was[4]
+    GameTooltip.IsForbidden, GameTooltip.IsProtected = forbidden[1], forbidden[2]
 end
 
 -- the shared bar options: style, height, texture
