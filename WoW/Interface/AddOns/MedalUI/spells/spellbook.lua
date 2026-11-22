@@ -1044,9 +1044,10 @@ function Tabs(p)
         t.gem.stone:SetColorTexture(col[1], col[2], col[3], 1)
         local c = held and GOLD or ns.colors.dim
         t.name:SetTextColor(c[1], c[2], c[3])
-        local words = p.trainer and format(Tr["%d to learn"], sec.count)
+        -- (2026-11-22) a trainer's tab: what can be learned now of all
+        -- still to learn, as "2/7" (the words were cramped)
+        local words = p.trainer and format("%d/%d", sec.now or 0, sec.count)
             or ns.Plural(sec.count, format(Tr["%d |4spell:spells;"], sec.count))
-        if p.trainer and (sec.now or 0) > 0 then words = words .. "  \194\183  " .. format(Tr["%d now"], sec.now) end
         t.count:SetText(words)
         local cc = held and ns.colors.dim or OFF
         t.count:SetTextColor(cc[1], cc[2], cc[3])

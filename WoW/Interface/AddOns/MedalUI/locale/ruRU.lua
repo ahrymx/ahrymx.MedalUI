@@ -380,9 +380,7 @@ L["Shift+Right-click to unmark it."] = "Shift+правый щелчок сним
 L["Shift+Right-click to keep it on its top rank."] = "Shift+правый щелчок держит его на высшем ранге."
 L["%s is on your bars."] = "На панелях: %s."
 L["Not on your action bars."] = "Нет на панелях команд."
-L["%d to learn"] = "Изучить: %d"
 L["%d |4spell:spells;"] = "%d |4заклинание:заклинания:заклинаний;"
-L["%d now"] = "сейчас: %d"
 L["Every spell"] = "Все заклинания"
 L["Every spell on your bars rises to its highest rank as you learn it."] =
     "Каждое заклинание на панелях повышается до высшего ранга, как только вы его изучаете."
