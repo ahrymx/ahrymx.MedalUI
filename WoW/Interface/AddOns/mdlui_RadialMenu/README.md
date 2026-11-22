@@ -29,7 +29,7 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
 - **The sidebar** lists your radials under their groups, with a search above them.
   - Right-click a radial to group it, and drag to reorder.
   - Radials this character doesn't get sit under **Not on This Character**.
-  - **Presets** come next: **Markers**, **Emotes**, **Voice Emotes** and **Camping** (a slice for each camp kit you carry, and Sit), ready-made and read-only. Class presets show only for their class: a shaman also gets **Totem Bars** (a ring for each Call: the Call, and the four totems on its page of the totem bar, read live). **Add to my radials** makes a copy you can change however you like.
+  - **Presets** come next: **Markers**, **Emotes**, **Voice Emotes** and **Camping** (a slice for each camp kit you carry, and Sit) and **Consumables** (the best health potion or stone, mana potion or gem, food and drink in your bags; turn the wheel on one for the rest), ready-made and read-only. Class presets show only for their class: a shaman also gets **Totem Bars** (a ring for each Call: the Call, and the four totems on its page of the totem bar, read live). **Add to my radials** makes a copy you can change however you like.
   - **Options > Every radial** sits at the bottom of the list.
 - **The Wheel sheet** holds the radial's wheel, the chosen slot, and the **Catalog**.
   - Click a slot to choose it, drag it onto another to move it, and right-click to remove it.

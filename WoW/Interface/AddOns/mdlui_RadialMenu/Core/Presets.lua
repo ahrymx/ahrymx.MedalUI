@@ -7,7 +7,8 @@ local L = ns.L
 -- and can put it back as it comes (RM:ResetToPreset): the copy keeps the preset's key in
 -- radial.preset. The emote presets are rings of categories, grouped by feeling; each category opens
 -- a ring of its emotes (ACTIONS.category in Radial/Radial.lua). Camping: a slice for each camp kit
--- you carry (ACTIONS.campkits), and Sit (by the fire a minute: the camp's full buff).
+-- you carry (ACTIONS.campkits), and Sit (by the fire a minute: the camp's full buff). Consumables:
+-- the best health and mana potions or stones, food and drink in your bags (ACTIONS.consumable).
 -- A preset with a class (class = "SHAMAN") is shown to that class only, and its copy is for every
 -- character of it. Totem Bars: a category for each of the shaman's Calls, standing for its spell
 -- (gone until it is learned), its ring the Call and the four totems on its page of the totem bar,
@@ -64,10 +65,16 @@ ns.PRESETS = {
         { kind = "campkits" },
         { kind = "emote", emote = "SIT" },
     } },
+    -- the best potion or stone for health and for mana, the best food and drink, from your bags
+    -- (ACTIONS.consumable); each one's ring the rest of its kind you carry
+    consumables = { name = L["Consumables"], icon = { texture = "Interface\\Icons\\INV_Potion_54" }, buttons = {
+        { kind = "consumable", want = "health" }, { kind = "consumable", want = "mana" },
+        { kind = "consumable", want = "food" }, { kind = "consumable", want = "drink" },
+    } },
     -- the shaman's: Call of the Elements, of the Ancestors, of the Spirits
     totems = { name = L["Totem Bars"], class = "SHAMAN", icon = { texture = CALLS_ICON }, buttons = {
         TotemBar(1, 66842), TotemBar(2, 66843), TotemBar(3, 66844),
     } },
 }
 -- the sidebar's order
-ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping", "totems" }
+ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping", "consumables", "totems" }

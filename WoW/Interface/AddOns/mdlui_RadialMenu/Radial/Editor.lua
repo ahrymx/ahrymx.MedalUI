@@ -196,6 +196,13 @@ local function EntryDisplay(entry)
     if entry and entry.kind == "campkits" then
         return L["Camp Kits"] .. " |cff9d8462(" .. #RM().CampKits() .. ")|r", { texture = RM().CAMP_KITS_ICON }
     end
+    -- a consumable: its kind, with how many of it you carry now
+    if entry and entry.kind == "consumable" then
+        local kind = RM().CONSUMABLE_KINDS[entry.want]
+        if kind then
+            return kind.name .. " |cff9d8462(" .. #RM().Consumables(entry.want) .. ")|r", { texture = kind.icon }
+        end
+    end
     -- Quest Items keeps its own name and mark, with how many items it holds now
     if entry and entry.kind == "questitems" then
         local info = RM():ResolveEntry(entry)
@@ -405,8 +412,10 @@ AddCategory("party", L["Party"], function()
 end, L["A button for you and each party member: aim at a person to cast on them."], L["No helpful spells to cast on others yet."])
 
 AddCategory("items", L["Items"], function()
-    -- first: the buttons that fill themselves, with your quests' items and your camp kits
-    local out, seen = { { kind = "questitems" }, { kind = "campkits" } }, {}
+    -- first: the buttons that fill themselves: your quests' items, camp kits and the consumables
+    local out, seen = { { kind = "questitems" }, { kind = "campkits" }, { kind = "consumable", want = "health" },
+        { kind = "consumable", want = "mana" }, { kind = "consumable", want = "food" },
+        { kind = "consumable", want = "drink" } }, {}
     if not C_Container then return out end
     for bag = 0, 5 do
         for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
@@ -1019,7 +1028,7 @@ local KINDS = {
     spell = L["Spell"], item = L["Item"], mount = L["Mount"], macro = L["Macro"], emote = L["Emote"],
     targetmarker = L["Target marker"], worldmarker = L["World marker"], subradial = L["Radial"],
     micromenu = L["Panel"], partycast = L["Party spell"], questitems = L["Quest Items"], category = L["Category"],
-    campkits = L["Camp Kits"], totem = L["Totem"],
+    campkits = L["Camp Kits"], totem = L["Totem"], consumable = L["Consumable"],
 }
 
 -- a tooltip from the copy document: label, description, tip

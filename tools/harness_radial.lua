@@ -1173,6 +1173,74 @@ do
         was[1], was[2], was[3], was[4], was[5]
     C_Item.GetItemIconByID = was[6]
 end
+-- (2026-11-22) Consumables: for health and mana the potions, stones, gems and runes RM.CONSUMABLES
+-- knows, by what they restore; food and drink any item whose use is the Food or Drink spell, by the
+-- largest number on its Use: line; best first, a stack counted once, an item above you left out
+do
+    local bag = { { itemID = 929 }, { itemID = 3928 }, { itemID = 13446 }, { itemID = 5509 }, { itemID = 929 },
+        { itemID = 3827 }, { itemID = 8008 }, { itemID = 9101 }, { itemID = 9102 }, { itemID = 9103 },
+        { itemID = 9201 }, { itemID = 9301 }, { itemID = 9202 } }
+    local names = { [929] = "Healing Potion", [3928] = "Superior Healing Potion", [13446] = "Major Healing Potion",
+        [5509] = "Healthstone", [3827] = "Mana Potion", [8008] = "Mana Ruby", [9101] = "Roasted Boar",
+        [9102] = "Bread", [9103] = "Feast", [9201] = "Moonberry Juice", [9202] = "Sweet Nectar", [9301] = "Elixir of Fortitude" }
+    local spells = { [9101] = "Food", [9102] = "Food", [9103] = "Food", [9201] = "Drink", [9202] = "Drink", [9301] = "Elixir",
+        [929] = "Healing Potion" }
+    local uses = { [9101] = "Use: Restores 874.8 health over 27 sec. If you spend at least 10 seconds eating "
+        .. "you will become well fed and gain 12 Stamina for 15 min.", [9102] = "Use: Restores 243 health over 21 sec.",
+        [9103] = "Use: Restores 1,344 health over 30 sec.", [9201] = "Use: Restores 1344.6 mana over 30 sec.",
+        -- the time first, as German has it ("Stellt im Verlauf von 24 Sek. 835 Mana wieder her.")
+        [9202] = "Use: Over 24 sec. restores 835 mana.",
+        [9301] = "Use: Increases your maximum health by 120." }
+    local levels = { [929] = 12, [3928] = 35, [13446] = 45, [3827] = 22 }
+    local was = { C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemIconByID, C_Item.GetItemInfo,
+        C_TooltipInfo, C_Spell.GetSpellName, UnitLevel, ITEM_SPELL_TRIGGER_ONUSE }
+    C_Container = { GetContainerNumSlots = function(b) return b == 0 and #bag or 0 end,
+        GetContainerItemInfo = function(b, slot) return b == 0 and bag[slot] or nil end }
+    C_Item.GetItemNameByID = function(id) return names[id] end
+    C_Item.GetItemSpell = function(id) return spells[id] end
+    C_Item.GetItemIconByID = function(id) return "icon" .. id end
+    C_Item.GetItemInfo = function(id) return names[id], nil, 1, 1, levels[id] or 1 end
+    C_TooltipInfo = { GetItemByID = function(id)
+        return { lines = { { leftText = names[id] }, { leftText = uses[id] or "" } } }
+    end }
+    C_Spell.GetSpellName = function(id) return ({ [433] = "Food", [430] = "Drink" })[id] end
+    UnitLevel = function() return 40 end
+    ITEM_SPELL_TRIGGER_ONUSE = "Use:"
+    RM.useAmounts = {}
+    local function each(tag)
+        for _, b in ipairs(ns.PRESETS.consumables.buttons) do
+            local info = RM:ResolveEntry(b)
+            local out = {}
+            for _, one in ipairs(info and info.children or {}) do
+                out[#out + 1] = one.name .. "[" .. tostring(one.attributes.item) .. "]"
+            end
+            local _, amount = RM.Consumables(b.want)
+            local worth = {}
+            for _, id in ipairs((RM.Consumables(b.want))) do worth[#worth + 1] = tostring(amount[id]) end
+            print(tag .. " " .. b.want, "button=" .. tostring(info and info.name), table.concat(out, " "),
+                "worth=" .. table.concat(worth, ","))
+        end
+    end
+    each("radial consumables")
+    -- the Catalog's Items: the four after Quest Items and Camp Kits, each with how many it holds
+    local questLog = C_QuestLog
+    C_QuestLog = { GetNumQuestWatches = function() return 0 end, GetNumQuestLogEntries = function() return 0 end }
+    category("Items")
+    local out = {}
+    for i = 1, 6 do
+        local e, cell = host.browseList.data[i], host.browseList.cells[i]
+        out[#out + 1] = tostring(e and (e.want or e.kind)) .. "=" .. tostring(cell and cell.Text and cell.Text.text)
+    end
+    print("radial consumables catalog", table.concat(out, " | "))
+    category("Markers")
+    C_QuestLog = questLog
+    bag = {}
+    each("radial consumables none")
+    C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemIconByID, C_Item.GetItemInfo,
+        C_TooltipInfo, C_Spell.GetSpellName, UnitLevel, ITEM_SPELL_TRIGGER_ONUSE =
+        was[1], was[2], was[3], was[4], was[5], was[6], was[7], was[8], was[9]
+    RM.useAmounts = {}
+end
 -- Totem Bars (a shaman's): a category per Call, gone until it is learned, named and pictured as it;
 -- its ring the Call and the four totems on its page of the totem bar, read live (an empty slot none)
 do

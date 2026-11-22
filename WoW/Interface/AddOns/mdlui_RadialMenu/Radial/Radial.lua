@@ -807,6 +807,107 @@ ACTIONS.campkits = function()
     return L["Camp Kits"], { texture = RM.CAMP_KITS_ICON }, first.attributes, { spread = spread }
 end
 
+-- Consumables: { kind = "consumable", want = "health" | "mana" | "food" | "drink" }, the best of
+-- that kind in your bags as one button, the rest its choices (LB / RB or the mouse wheel step
+-- through them, best first). Gone while you carry none. Health and mana are the potions,
+-- healthstones, mana gems and runes of RM.CONSUMABLES, by the average they restore (Classic's
+-- figures: no client API says what an item restores, nor sorts a potion from an elixir). Food and
+-- drink are any item whose use is the Food or Drink spell (433, 430, by name, so every food counts),
+-- by the largest number on its Use: line. An item above your level is left out.
+RM.CONSUMABLES = {
+    health = {
+        [118] = 80, [858] = 160, [4596] = 160, [929] = 320, [1710] = 520, [3928] = 800, [13446] = 1400,
+        [17349] = 640, [17348] = 1120, [11951] = 800, [2456] = 120, [18253] = 1600, [11952] = 425,
+        -- healthstones, and the ones Improved Healthstone makes
+        [5512] = 100, [19004] = 110, [19005] = 120, [5511] = 250, [19006] = 275, [19007] = 300,
+        [5509] = 500, [19008] = 550, [19009] = 600, [5510] = 800, [19010] = 880, [19011] = 960,
+        [9421] = 1200, [19012] = 1320, [19013] = 1440,
+    },
+    mana = {
+        [2455] = 160, [3385] = 320, [3827] = 520, [6149] = 800, [13443] = 1200, [13444] = 1800,
+        [17352] = 640, [17351] = 1120, [2456] = 120, [18253] = 1600, [11952] = 425,
+        -- mana gems, then the runes
+        [5514] = 400, [5513] = 600, [8007] = 850, [8008] = 1100, [12662] = 1200, [20520] = 1200,
+    },
+}
+RM.CONSUMABLE_SPELLS = { food = 433, drink = 430 }
+RM.CONSUMABLE_KINDS = {
+    health = { name = L["Health"], icon = "Interface\\Icons\\INV_Potion_54" },
+    mana = { name = L["Mana"], icon = "Interface\\Icons\\INV_Potion_76" },
+    food = { name = L["Food"], icon = "Interface\\Icons\\INV_Misc_Food_14" },
+    drink = { name = L["Drink"], icon = "Interface\\Icons\\INV_Drink_07" },
+}
+RM.useAmounts = {}
+-- the largest number on an item's Use: line ("Restores 874.8 health over 27 sec."); German and
+-- others put the time first, so not the first; thousands marks dropped, a decimal comma read
+function RM.UseAmount(id)
+    if RM.useAmounts[id] then return RM.useAmounts[id] end
+    local data = C_TooltipInfo and C_TooltipInfo.GetItemByID and C_TooltipInfo.GetItemByID(id)
+    local trigger = ITEM_SPELL_TRIGGER_ONUSE
+    if not (data and data.lines and trigger) then return nil end
+    for _, line in ipairs(data.lines) do
+        local text = ns.CanAccess(line.leftText) and line.leftText
+        if type(text) == "string" and text:sub(1, #trigger) == trigger then
+            text = text:gsub("(%d)[,%.](%d%d%d)%f[%D]", "%1%2"):gsub("(%d),(%d)", "%1.%2")
+            local most = 0
+            for number in text:gmatch("%d+%.?%d*") do most = math.max(most, tonumber(number) or 0) end
+            RM.useAmounts[id] = most
+            return most
+        end
+    end
+end
+-- the item ids of a kind carried, best first
+function RM.Consumables(want)
+    local table_, spell = RM.CONSUMABLES[want], RM.CONSUMABLE_SPELLS[want]
+    if not (table_ or spell) or not C_Container then return {} end
+    local spellName = spell and C_Spell.GetSpellName(spell)
+    local level = UnitLevel("player") or 0
+    local amount, found = {}, {}
+    for bag = 0, 5 do
+        for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            local id = info and info.itemID
+            if id and not amount[id] then
+                local worth = table_ and table_[id]
+                if spellName and C_Item.GetItemSpell then
+                    local used = C_Item.GetItemSpell(id)
+                    if used and used == spellName then worth = RM.UseAmount(id) or 0 end
+                end
+                local minLevel = worth and C_Item.GetItemInfo and select(5, C_Item.GetItemInfo(id))
+                if worth and not (type(minLevel) == "number" and minLevel > level) then
+                    amount[id] = worth
+                    found[#found + 1] = id
+                end
+            end
+        end
+    end
+    table.sort(found, function(a, b)
+        if amount[a] ~= amount[b] then return amount[a] > amount[b] end
+        return a < b
+    end)
+    return found, amount
+end
+ACTIONS.consumable = function(entry)
+    local kind = RM.CONSUMABLE_KINDS[entry.want]
+    if not kind then return nil end
+    local children = {}
+    for _, id in ipairs(RM.Consumables(entry.want)) do
+        if #children >= MAX_BUTTONS then break end
+        local name = C_Item.GetItemNameByID(id)
+        if not name then
+            awaitedItems[id] = true
+            C_Item.RequestLoadItemDataByID(id)
+        end
+        local icon = C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
+        -- each child an item of its own, so it shows its cooldown and count like one
+        children[#children + 1] = { name = name or L["Item"], icon = { texture = icon or kind.icon },
+            entry = { kind = "item", id = id }, attributes = { type = "item", item = "item:" .. id } }
+    end
+    if #children == 0 then return nil end
+    local first = children[1]
+    return first.name, first.icon, first.attributes, { children = children, childIndex = 1 }
+end
+
 -- Party spell: one helpful spell spread over the group, a button for you and each party member
 -- (party1-4; in a raid, your own group), so you aim at a person and cast on them without changing
 -- your target. Units, not names, sit in the secure attributes; names are only drawn. The buttons

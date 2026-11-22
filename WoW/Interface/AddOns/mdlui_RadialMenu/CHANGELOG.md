@@ -1,3 +1,9 @@
+# mdlui_RadialMenu 0.67.0
+
+- **Consumables preset:** four buttons that fill themselves from your bags: **Health**, **Mana**, **Food** and **Drink**. Each shows the best one you carry; turn the mouse wheel on it to step through the rest, best first. Anything above your level is left out, and a button is gone while you carry none of its kind.
+- Health and mana count the potions, healthstones, mana gems and runes by what they restore (Classic's figures). Food and drink are any item eaten or drunk, by the amount on its tooltip.
+- The four are also in the Catalog's Items, after Camp Kits.
+
 # mdlui_RadialMenu 0.63.0
 
 - **Camping preset:** a slice for each camp kit you carry, campfires first (the best first), then the camp objects by profession and tier, and **Sit**: a minute sat by the fire gives the camp's full buff.
