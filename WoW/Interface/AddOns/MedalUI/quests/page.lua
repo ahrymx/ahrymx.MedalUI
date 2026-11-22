@@ -245,8 +245,7 @@ local function Take(kind)
         p:SetScript("OnClick", function(self)
             local link = self.item and self.item.link
             if not link then return end
-            if ns.Linking() then ns.LinkInChat(link)
-            elseif HandleModifiedItemClick then HandleModifiedItemClick(link) end
+            if not ns.ItemClick(link) and HandleModifiedItemClick then HandleModifiedItemClick(link) end
         end)
     end
     list[used[kind]] = p

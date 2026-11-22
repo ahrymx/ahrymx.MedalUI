@@ -13,6 +13,8 @@ exclude_files = {
 unused_args = false
 
 read_globals = {
+    -- an item's Ctrl-click (core.lua ns.ItemClick); a quest reward's link
+    "DressUpLink", "GetQuestItemLink",
     -- the addon list's older globals, where C_AddOns lacks them (fixes.lua)
     "GetAddOnInfo", "GetAddOnEnableState", "IsAddOnLoaded", "DisableAddOn",
     -- the trainer's kind (Forever: a hunter's pet trainer, npc/trainer.lua)

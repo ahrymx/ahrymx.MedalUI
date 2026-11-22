@@ -162,9 +162,8 @@ local function Guard(b)
             local info = C_Container.GetContainerItemInfo(bag, slot)
             ns.locks.Say(format(Tr["%s is locked and is not sold. Alt+click it to unlock it."],
                 info and info.itemName or Tr["That item"]))
-        elseif IsModifiedClick("CHATLINK") then
-            local link = C_Container.GetContainerItemLink(bag, slot)
-            ns.LinkInChat(link)
+        elseif ns.ItemClick(C_Container.GetContainerItemLink(bag, slot)) then
+            return
         else
             C_Container.PickupContainerItem(bag, slot)
         end

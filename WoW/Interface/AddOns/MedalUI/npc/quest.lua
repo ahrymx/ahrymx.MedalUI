@@ -44,6 +44,7 @@ local function Items(kind, n, pick)
         table.insert(tiles, { icon = texture, label = itemName, count = count,
             color = isUsable == false and { 1, 0.3, 0.25 } or c and { c.r, c.g, c.b },
             selected = pick and choice == i, enter = Tip(kind, i),
+            link = function() return GetQuestItemLink and GetQuestItemLink(kind, i) end,
             click = pick and function()
                 choice = i
                 ns.npc.Update("quest")

@@ -357,6 +357,7 @@ local function Letter(out, i)
         if name then
             table.insert(tiles, { icon = icon, crop = true, label = name, count = count,
                 selected = pending and pending.attachment == a,
+                link = function() return GetInboxItemLink and GetInboxItemLink(i, a) end,
                 click = function(button)
                     if button == "RightButton" then return end
                     if ns.Linking() then

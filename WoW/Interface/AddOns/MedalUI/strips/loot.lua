@@ -360,8 +360,7 @@ local function Row(parent)
     r:SetScript("OnClick", function(self)
         local link = self.item and self.item.link
         if not link then return end
-        if ns.Linking() then ns.LinkInChat(link)
-        elseif HandleModifiedItemClick then HandleModifiedItemClick(link) end
+        if not ns.ItemClick(link) and HandleModifiedItemClick then HandleModifiedItemClick(link) end
     end)
     ns.side.PassWheel(r)
     return r

@@ -75,7 +75,9 @@
 --                                        own square border cut off, as an
 --                                        item's or a letter's)
 --   { "tiles", { icon, crop, label, count, color, selected, dim,
---     click(button), enter(tile) } ... } items, two a row
+--     click(button), enter(tile), link } ... } items, two a row (link:
+--                                        the item's, or a function giving
+--                                        it: Shift / Ctrl clicks)
 --   { "tabs", { label, selected, click } ... }
 --                                        one a page: one joined row across
 --                                        it (ns.window.Segments), staying put
@@ -202,6 +204,10 @@ end
 local function Clicks(f)
     f:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     f:SetScript("OnClick", function(self, button)
+        -- (2026-11-22) an item's: Shift links it, Ctrl tries it on
+        local link = self.data.link
+        if type(link) == "function" then link = link() end
+        if link and ns.ItemClick(link, button) then return end
         if self.data.click then self.data.click(button) end
     end)
     f:SetScript("OnEnter", function(self)

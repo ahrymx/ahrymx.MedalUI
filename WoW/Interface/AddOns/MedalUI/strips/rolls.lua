@@ -537,6 +537,8 @@ local function MakeCard()
     c.hit:SetAllPoints(c.edge)
     c.hit:EnableMouse(true)
     c.hit:SetScript("OnEnter", function(self) Tip(self, c.roll and c.roll.link) end)
+    -- (2026-11-22) Shift links it, Ctrl tries it on
+    c.hit:SetScript("OnMouseUp", function(_, button) ns.ItemClick(c.roll and c.roll.link, button) end)
     c.hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
     c.link = Plain(c, 12)
     c.link:SetPoint("TOPLEFT", c.edge, "TOPRIGHT", 7, -1)
@@ -641,6 +643,7 @@ local function Tab(i)
     c:SetScript("OnClick", function(self, button)
         local item = self.item
         if not item then return end
+        if ns.ItemClick(item.link, button) then return end
         if button == "RightButton" then
             -- (2026-11-22) a decided drop cleared from the tabs; its boss
             -- too once none of its drops is left (one still rolling is
@@ -927,10 +930,7 @@ local function MakeHead()
     h:RegisterForClicks("LeftButtonUp")
     h:SetScript("OnClick", function(self)
         local link = self.drop and self.drop.itemHyperlink
-        if link and not Secret(link) and ns.Linking() then
-            ns.LinkInChat(link)
-            return
-        end
+        if ns.ItemClick(link) then return end
         ns.SetOption("rollsFolded", not ns.db.rollsFolded)
         ns.rolls.Draw()
     end)

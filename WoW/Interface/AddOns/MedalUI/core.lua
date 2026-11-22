@@ -697,6 +697,36 @@ function ns.Linking(button)
     if IsModifiedClick then return IsModifiedClick("CHATLINK") and true or false end
     return IsShiftKeyDown() and true or false
 end
+-- (2026-11-22) An item's modified clicks, as the game's own item buttons
+-- answer them: Shift (CHATLINK) links it in chat, Ctrl (DRESSUP) tries it on
+-- in the dressing room. True when the click was one of them (the caller's
+-- own click is then left undone). A link, or an item id (its link once the
+-- client knows it).
+function ns.ItemLink(item)
+    if type(item) == "number" then
+        local get = C_Item and C_Item.GetItemInfo or GetItemInfo
+        item = get and select(2, get(item))
+    end
+    if type(item) ~= "string" or item == "" or ns.IsSecret(item) then return nil end
+    return item
+end
+function ns.ItemClick(item, button)
+    if button and button ~= "LeftButton" and button ~= "LeftButtonUp" then return false end
+    local link = ns.ItemLink(item)
+    if not link then return false end
+    if ns.Linking() then
+        ns.LinkInChat(link)
+        return true
+    end
+    local dress
+    if IsModifiedClick then dress = IsModifiedClick("DRESSUP") else dress = IsControlKeyDown() end
+    if dress then
+        local try = DressUpLink or DressUpItemLink
+        if try then try(link) end
+        return true
+    end
+    return false
+end
 function ns.SpellLink(id)
     if not id then return end
     if C_Spell and C_Spell.GetSpellLink then return C_Spell.GetSpellLink(id) end

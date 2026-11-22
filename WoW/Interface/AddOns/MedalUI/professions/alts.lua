@@ -310,6 +310,8 @@ local function RecipeRow(page)
             GameTooltip:Show()
         end)
         r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        -- (2026-11-22) the item it makes: Shift links it, Ctrl tries it on
+        r:SetScript("OnClick", function(self) ns.ItemClick(self.recipe and self.recipe.item) end)
         return r
     end)
 end
@@ -535,6 +537,7 @@ local function ListRow(page)
         glow:SetColorTexture(1, 1, 1, 0.06)
         r:SetScript("OnEnter", ItemTip)
         r:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        r:SetScript("OnClick", function(self) ns.ItemClick(self.it and self.it.id) end)
         return r
     end)
 end
@@ -552,6 +555,7 @@ local function Slot(page)
         glow:SetColorTexture(1, 1, 1, 0.12)
         b:SetScript("OnEnter", ItemTip)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        b:SetScript("OnClick", function(self) ns.ItemClick(self.it and self.it.id) end)
         return b
     end)
 end

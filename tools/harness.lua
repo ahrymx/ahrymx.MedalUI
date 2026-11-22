@@ -1681,6 +1681,32 @@ harnessButtonsDown = {}
 function IsMouseButtonDown(b) return harnessButtonsDown[b or "LeftButton"] and true or false end
 function IsControlKeyDown() return modsDown.CTRL end
 function IsShiftKeyDown() return modsDown.SHIFT end
+-- (2026-11-22) An item's modified clicks (core.lua ns.ItemClick), one
+-- surface: click(button) is clicked plain, with Shift (CHATLINK) and with Ctrl
+-- (DRESSUP); what each linked in chat, tried on, or did of its own (own():
+-- a word for the state, said when the click changed it; reset() puts the
+-- state back before each) is printed under tag
+function harnessItemClicks(tag, click, own, reset)
+    local was = { IsModifiedClick, ChatEdit_InsertLink, DressUpLink, ChatEdit_GetActiveWindow }
+    local out, mode = {}, nil
+    local did
+    IsModifiedClick = function(action) return action == mode end
+    ChatEdit_InsertLink = function(l) did[#did + 1] = "chat " .. tostring(l) return true end
+    ChatEdit_GetActiveWindow = function() return {} end
+    DressUpLink = function(l) did[#did + 1] = "dress " .. tostring(l) return true end
+    for _, m in ipairs({ { "plain" }, { "shift", "CHATLINK" }, { "ctrl", "DRESSUP" } }) do
+        mode, did = nil, {}
+        if reset then reset() end
+        mode, did = m[2], {}
+        local before = own and own()
+        click("LeftButton")
+        local after = own and own()
+        if after ~= before then did[#did + 1] = tostring(after) end
+        out[#out + 1] = m[1] .. "=" .. (#did > 0 and table.concat(did, "+") or "-")
+    end
+    IsModifiedClick, ChatEdit_InsertLink, DressUpLink, ChatEdit_GetActiveWindow = was[1], was[2], was[3], was[4]
+    print("item clicks " .. tag, table.concat(out, "  "))
+end
 function hooksecurefunc(t, k, f)
     if type(t) == "string" then t, k, f = _G, t, k end
     local old = t[k]
@@ -8016,6 +8042,17 @@ if sidePass then
     chat("CHAT_MSG_CURRENCY", "You receive currency: |cffffffff|Hcurrency:1792|h[Honor]|h|r x15.")
     chat("CHAT_MSG_LOOT", "Ahrymx creates: something.")        -- not loot: left to the chat
     lootState("loot after trash")
+    -- (2026-11-22) a row's item: Shift links it, Ctrl tries it on; the
+    -- game's other modified clicks after them
+    do
+        local r
+        for _, f in ipairs(L.body.all_) do if f.shown and f.kind == "Button" and f.item then r = f; break end end
+        local hm, last = HandleModifiedItemClick, nil
+        HandleModifiedItemClick = function() last = "game's" end
+        harnessItemClicks("loot row", function(b) r.scripts.OnClick(r, b) end,
+            function() local o = last; last = nil; return o end)
+        HandleModifiedItemClick = hm
+    end
     -- a boss: its drop rolls, the chat tells the win first, then the history
     now = now + 300
     clock = "21:14"
@@ -8617,6 +8654,36 @@ if sidePass then
             rolls("rolls sim the second decided boss clicked: its items, its last listed")
             click(tabOf("decided", 2), "second decided item")
             rolls("rolls sim its second item clicked: its rolls listed")
+            -- (2026-11-22) the card's icon, an owed tab, a decided tab and
+            -- the log's head: Shift links the item, Ctrl tries it on; a
+            -- plain click does what it did (the card's icon nothing, a tab
+            -- lists, the head folds), and is put back after
+            do
+                local card = R.card
+                harnessItemClicks("rolls card icon", function(b) card.hit.scripts.OnMouseUp(card.hit, b) end)
+                -- a right click is not an item's, Ctrl held or not
+                harnessItemClicks("rolls card icon, right button",
+                    function() card.hit.scripts.OnMouseUp(card.hit, "RightButton") end)
+                local pickWas = card.roll and card.roll.id
+                local ot = tabOf("owed", 1)
+                harnessItemClicks("rolls owed tab", function(b) ot.scripts.OnClick(ot, b) end,
+                    function() return "card=" .. tostring(R.card.roll and R.card.roll.name) end)
+                local dt = tabOf("decided", 1)
+                harnessItemClicks("rolls decided tab", function(b) dt.scripts.OnClick(dt, b) end,
+                    function() return dt.ring:IsShown() and "listed" or nil end,
+                    function() click(tabOf("decided", 2), "second decided item") end)
+                local h = R.head
+                harnessItemClicks("rolls log head", function(b) h.scripts.OnClick(h, b) end,
+                    function() return "folded=" .. tostring(ns.db.rollsFolded) end,
+                    function() ns.SetOption("rollsFolded", false); ns.rolls.Draw() end)
+                ns.SetOption("rollsFolded", false)
+                if pickWas then
+                    for _, tb in ipairs(R.tabs) do
+                        if tb:IsShown() and tb.item and tb.item.roll and tb.item.roll.id == pickWas then click(tb, "first owed") end
+                    end
+                end
+                click(tabOf("decided", 2), "second decided item, back")
+            end
             -- (2026-11-22) right-click: a decided item tab cleared (its tip
             -- says so; the one listed goes, the log moves on); an owed one
             -- stays; every one of a boss's items cleared, the boss goes too.
@@ -16120,6 +16187,10 @@ if bagsPass then
         print("bags.guard clicks", "said=" .. table.concat(W.said, " / "), "picked=" .. table.concat(W.picked, ","),
             "linked=" .. table.concat(inserted, ","), "tip=" .. tostring(GameTooltip.item))
         g.scripts.OnLeave(g)
+        -- (2026-11-22) the guard's item: Shift links it, Ctrl tries it on,
+        -- a plain click picks it up
+        harnessItemClicks("bags guard", function(b) g.scripts.OnClick(g, b) end,
+            function() return "picked " .. #W.picked end)
         -- no chat box open (2026-11-16): the guard's Shift-click opens the
         -- chat with its link; a slot's, for a single item, does too, and a
         -- stack's keeps the game's split (nothing opened)
@@ -22010,6 +22081,17 @@ if profPass then
             print("prof.alt chrome items", tabs())
             AW.Select(P)
             end)()
+            -- (2026-11-22) a recipe's item: Shift links it, Ctrl tries it on (a function: the main
+            -- chunk is at Lua's 200 locals)
+            ;(function()
+                local info = C_Item.GetItemInfo
+                C_Item.GetItemInfo = function(id) return "item " .. id, "[item " .. id .. "]" end
+                local r
+                for _, x in ipairs(P.parts.recipe or {}) do if x.shown and x.recipe and x.recipe.item then r = r or x end end
+                if r then harnessItemClicks("prof.alt recipe", function(b) r.scripts.OnClick(r, b) end)
+                else print("item clicks prof.alt recipe", "no row") end
+                C_Item.GetItemInfo = info
+            end)()
             P.search:SetText("bag")
             P.search.scripts.OnTextChanged(P.search, true)
             dump("prof.alt professions search", P)
@@ -22036,12 +22118,32 @@ if profPass then
             ns.db.altItemsFilter, ns.db.altItemsView = "all", "list"
             I.Refresh()
             dump("prof.alt items", I)
+            -- (2026-11-22) an item's row, and below a slot of the grid:
+            -- Shift links it, Ctrl tries it on
+            ;(function()
+                local info = C_Item.GetItemInfo
+                C_Item.GetItemInfo = function(id) return "item " .. id, "[item " .. id .. "]" end
+                local x
+                for _, y in ipairs(I.parts.row or {}) do if y.shown and y.it then x = x or y end end
+                if x then harnessItemClicks("prof.alt items row", function(b) x.scripts.OnClick(x, b) end)
+                else print("item clicks prof.alt items row", "none") end
+                C_Item.GetItemInfo = info
+            end)()
             I.filters.byKey.trade.scripts.OnClick(I.filters.byKey.trade, "LeftButton")
             dump("prof.alt items trade", I)
             print("prof.alt items saved", ns.db.altItemsFilter)
             I.filters.byKey.all.scripts.OnClick(I.filters.byKey.all, "LeftButton")
             I.view.byKey.grid.scripts.OnClick(I.view.byKey.grid, "LeftButton")
             dump("prof.alt items grid", I)
+            ;(function()
+                local info = C_Item.GetItemInfo
+                C_Item.GetItemInfo = function(id) return "item " .. id, "[item " .. id .. "]" end
+                local x
+                for _, y in ipairs(I.parts.slot or {}) do if y.shown and y.it then x = x or y end end
+                if x then harnessItemClicks("prof.alt items slot", function(b) x.scripts.OnClick(x, b) end)
+                else print("item clicks prof.alt items slot", "none") end
+                C_Item.GetItemInfo = info
+            end)()
             print("prof.alt items view", ns.db.altItemsView)
             ns.db.altItemsView = "list"
             AW.Select(N)
@@ -23730,6 +23832,23 @@ if questLogPass then (function()
     end
     pageText("questlog page")
     rows("questlog page open")
+    -- (2026-11-22) a reward's item: Shift links it, Ctrl tries it on; the
+    -- game's other modified clicks after them
+    do
+        local it
+        for _, c in ipairs(QP.child.all_ or {}) do
+            if c.shown and c.kind == "Button" and c.item and c.item.link then it = it or c end
+        end
+        if it then
+            local hm, last = HandleModifiedItemClick, nil
+            HandleModifiedItemClick = function() last = "game's" end
+            harnessItemClicks("questlog page reward", function(b) it.scripts.OnClick(it, b) end,
+                function() local o = last; last = nil; return o end)
+            HandleModifiedItemClick = hm
+        else
+            print("item clicks questlog page reward", "no item")
+        end
+    end
     -- a right click on a quest on the world map: its page, when the quest is in
     -- the log (the game's pin, a Questie icon's texture); anything else is the map's
     if W.mapClicks then
@@ -24855,6 +24974,19 @@ if npcPass then
     rows = page("npc reward")
     press("npc reward", "Complete Quest")
     print("npc reward tip", tipOf("Complete Quest"))
+    -- (2026-11-22) a choice's item: Shift links it, Ctrl tries it on, a
+    -- plain click picks it
+    do
+        local function tile(label)
+            for _, r in ipairs(rows) do if r.c.data.label == label then return r.c end end
+        end
+        local was = GetQuestItemLink
+        GetQuestItemLink = function(kind, i) return "[" .. kind .. " " .. i .. "]" end
+        harnessItemClicks("npc reward choice", function(b) click(rows, "choice1", b) end,
+            function() local t = tile("choice1") return t and t.mark.shown and "picked" or nil end,
+            function() click(rows, "choice2") end)
+        GetQuestItemLink = was
+    end
     -- the second choice picked: marked, and Complete hands it over
     click(rows, "choice2")
     page("npc reward picked")
@@ -25468,6 +25600,19 @@ if npcPass then
     held[5] = { id = 901, quest = 51 }
     fire("BAG_UPDATE_DELAYED")
     qi("got one")
+    -- (2026-11-22) the item: Shift links it, Ctrl tries it on
+    do
+        local t
+        for _, r in ipairs(page("npc questitem item")) do if r.c.data and r.c.data.link then t = r.c end end
+        local was = C_Container.GetContainerItemLink
+        C_Container.GetContainerItemLink = function(bag, slot) return "[bag " .. bag .. " " .. slot .. "]" end
+        if t then
+            harnessItemClicks("npc questitem", function(b) t.scripts.OnClick(t, b) end)
+        else
+            print("item clicks npc questitem", "no tile")
+        end
+        C_Container.GetContainerItemLink = was
+    end
     harnessBeside("npc questitem tips", box)
     -- a second while the first waits; Later shows it
     held[4] = { id = 902, quest = 52 }
@@ -25743,6 +25888,25 @@ if mailPass then
     shown("mail read cloth")
     size("read")
     foot("mail read cloth")
+    -- (2026-11-22) an attachment's item: Shift links it, Ctrl tries it
+    -- on, a plain click takes it (here into full bags: refused, nothing
+    -- moves, the calls cleared after)
+    do
+        local t
+        for _, c in ipairs(scroll.scrollChild.all_ or {}) do
+            if c.shown and c.data and c.data.label == "Linen Cloth" then t = c end
+        end
+        local was, free = GetInboxItemLink, M.free
+        GetInboxItemLink = function(i, a_) return "[mail " .. i .. " " .. a_ .. "]" end
+        M.free = 0
+        if t then
+            harnessItemClicks("mail attachment", function(b) t.scripts.OnClick(t, b) end,
+                function() return #M.calls > 0 and M.calls[#M.calls] or nil end, function() M.calls = {} end)
+        else
+            print("item clicks mail attachment", "no tile")
+        end
+        GetInboxItemLink, M.free, M.calls = was, free, {}
+    end
     click("mail read cloth", "Linen Cloth")
     calls("mail take linen")
     M.Answer()

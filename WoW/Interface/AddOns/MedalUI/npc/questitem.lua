@@ -184,7 +184,9 @@ ns.npc.Page{
         if not item then return {} end
         local out = {
             { "text", Tr["This item begins a quest. Read it to accept it or not."], pin = true },
-            { "tiles", { icon = Icon(item), crop = true, label = Name(item), enter = function(tile)
+            { "tiles", { icon = Icon(item), crop = true, label = Name(item),
+                link = function() return C_Container.GetContainerItemLink(item.bag, item.slot) end,
+                enter = function(tile)
                 ns.window.Outside(tile)
                 GameTooltip:SetBagItem(item.bag, item.slot)
                 GameTooltip:Show()
