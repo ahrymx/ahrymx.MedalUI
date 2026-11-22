@@ -85,6 +85,12 @@ local function Here()
     local names, marked = { [ZoneName()] = true }, {}
     local map = MapID()
     local info = map and C_Map.GetMapInfo and C_Map.GetMapInfo(map)
+    -- (2026-11-22) in an instance with no map of its own (Forever's own
+    -- dungeons), the best map is the zone outside: its name and its marked
+    -- quests are not this place's, so only the log's heading counts. An
+    -- instance's own dungeon map (mapType 4) still does.
+    local inside = IsInInstance and IsInInstance()
+    if inside and not (info and info.mapType == 4) then map, info = nil, nil end
     if info and info.name then names[info.name] = true end
     if map and C_QuestLog.GetQuestsOnMap then
         for _, e in ipairs(C_QuestLog.GetQuestsOnMap(map) or {}) do

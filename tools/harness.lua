@@ -7548,6 +7548,27 @@ if sidePass then
         pick(z)
         where("tab picked")
         rows("tab picked")
+        -- (2026-11-22) in a dungeon of Elwynn's name whose best map is
+        -- Duskwood outside (no map of its own): Elwynn's quests only, none
+        -- of Duskwood's nor those marked on its map; a dungeon's own map
+        -- (mapType 4) still counts
+        do
+            local realZone, mapInfo = GetRealZoneText, C_Map.GetMapInfo
+            harnessInstance = "party"
+            function GetRealZoneText() return "Elwynn Forest" end
+            C_Map.GetMapInfo = function() return { name = "Duskwood", mapType = 3 } end
+            -- the outside map marks The Night Watch: not shown here either
+            local onMap = C_QuestLog.GetQuestsOnMap
+            C_QuestLog.GetQuestsOnMap = function() return { { questID = 201 } } end
+            fire("ZONE_CHANGED_NEW_AREA")
+            rows("in a dungeon")
+            C_QuestLog.GetQuestsOnMap = onMap
+            C_Map.GetMapInfo = function() return { name = "Duskwood", mapType = 4 } end
+            fire("ZONE_CHANGED_NEW_AREA")
+            rows("in a dungeon, its own map")
+            harnessInstance, GetRealZoneText, C_Map.GetMapInfo = "none", realZone, mapInfo
+            fire("ZONE_CHANGED_NEW_AREA")
+        end
         print("zone column", z.column.shown and "shown" or "hidden")
         -- the key does not take it back while it is lent; nor the corner's triggers
         ns.ToggleMinimap()
