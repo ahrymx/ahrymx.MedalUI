@@ -24,8 +24,8 @@ local DONE_COLOR = colors.done
 local FAILED_COLOR = { 1, .35, .30 }
 local EXTRAS_RULE = { .50, .50, .54 }
 local REPEAT_COLOR = { .45, .70, 1 }
-local REQUIRES_COLOR = { .62, .60, .56 }
 local CHAIN_COLOR = { .62, .60, .56 }
+local CHAIN_TAG = { .71, .61, .89 }        -- the chain's chip, in the Chain band's violet
 -- (2026-11-22) each section's heading band in a colour of its own, so the
 -- sections are told apart at a glance
 local SECTION_HUES = {
@@ -196,9 +196,6 @@ function fromQuestie(model, id, game, words)
     if not quest then return end
     if not model.level and type(quest.level) == "number" and quest.level > 0 then model.level = quest.level end
     if not model.zone and type(quest.zoneOrSort) == "number" then model.zone = game.areaName(quest.zoneOrSort) end
-    if not model.requires and type(quest.requiredLevel) == "number" and quest.requiredLevel > 1 then
-        model.requires = quest.requiredLevel
-    end
     if #model.description == 0 and type(quest.objectivesText) == "table" then
         for _, text in ipairs(quest.objectivesText) do
             if type(text) == "string" and trim(text) ~= "" then model.description[#model.description + 1] = trim(text) end
@@ -225,7 +222,19 @@ function fromQuestie(model, id, game, words)
     local before = firstId(quest.preQuestSingle)
     local after = type(quest.nextQuestInChain) == "number" and quest.nextQuestInChain > 0 and quest.nextQuestInChain
     local chain = { before = before and questName(game, before), after = after and questName(game, after) }
-    if chain.before or chain.after then model.chain = chain end
+    if chain.before or chain.after then
+        -- (2026-11-22) how many quests follow this one: Questie's next in
+        -- chain, each in turn (a loop, or a very long one, stops it)
+        local left, seen, on = 0, { [id] = true }, after
+        while on and not seen[on] and left < 50 do
+            seen[on], left = true, left + 1
+            local following = game.questieQuest(on)
+            local step = following and following.nextQuestInChain
+            on = type(step) == "number" and step > 0 and step or nil
+        end
+        chain.left = left
+        model.chain = chain
+    end
     if quest.IsRepeatable == true then model.repeatable = true end
     -- the reputation it gives, ahead of the other rows
     if type(quest.reputationReward) == "table" then
@@ -371,21 +380,33 @@ local function readQuest(tooltip, data, game)
     return completeModel(model, id, game)
 end
 
+-- (2026-11-22) The chips under the name, as few words as can be: "LvL" and
+-- the level (not the level it needs: Questie's figure, of no use on a quest
+-- already taken), a glyph for where the quest
+-- stands (with the objectives done while it is under way), a chain with the
+-- quests still to come after it. Its tags keep their words.
 local function badges(model)
     local list = {}
-    if model.level then list[#list + 1] = { util.fill(TOOLTIP_UNIT_LEVEL, model.level), model.color } end
-    if model.requires then list[#list + 1] = { util.fill(ITEM_MIN_LEVEL, model.requires), REQUIRES_COLOR } end
+    if model.level then list[#list + 1] = { "LvL " .. model.level, model.color, keepCase = true } end
     for _, tag in ipairs(model.tags) do list[#list + 1] = { tag, PARCHMENT } end
     if model.completed then
-        list[#list + 1] = { L["Completed"], DONE_COLOR }
+        list[#list + 1] = { "", DONE_COLOR, "completed" }
     elseif model.failed then
-        list[#list + 1] = { FAILED, FAILED_COLOR }
+        list[#list + 1] = { "", FAILED_COLOR, "failed" }
     elseif model.ready then
-        list[#list + 1] = { L["Ready to turn in"], DONE_COLOR }
+        list[#list + 1] = { "", DONE_COLOR, "ready" }
     elseif model.active then
-        list[#list + 1] = { L["In progress"], QUEST_GOLD }
+        local done, total = 0, #model.objectives
+        for _, objective in ipairs(model.objectives) do
+            if objective.completed then done = done + 1 end
+        end
+        list[#list + 1] = { total > 0 and (done .. "/" .. total) or "", QUEST_GOLD, "progress" }
     end
-    if model.repeatable then list[#list + 1] = { QUEST_CLASSIFICATION_RECURRING, REPEAT_COLOR } end
+    local chain = model.chain
+    if chain then
+        list[#list + 1] = { (chain.left or 0) > 0 and ("+" .. chain.left) or "", CHAIN_TAG, "chain" }
+    end
+    if model.repeatable then list[#list + 1] = { "", REPEAT_COLOR, "repeat" } end
     return list
 end
 

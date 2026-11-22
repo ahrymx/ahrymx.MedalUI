@@ -54,8 +54,30 @@ local function chipStyle(style)
     return chip
 end
 
+-- (2026-11-22) A chip may lead with a glyph (badge[3], a file in art\ named
+-- glyph-<name>), tinted as its word; its word may then be empty. A chip
+-- with keepCase keeps its word as written ("LvL 38"), not in capitals.
+local function chipText(badge)
+    local text = badge[1] or ""
+    return badge.keepCase and text or util.upper(text)
+end
+-- (and not in capitals where the player turned them on for the badges)
+local function caseStyle(badge, style)
+    if not (badge.keepCase and style.caps) then return style end
+    local own = {}
+    for field, value in pairs(style) do own[field] = value end
+    own.caps = false
+    return own
+end
+local GLYPHS = "Interface\\AddOns\\mdlui_Tooltips\\art\\glyph-"
+local GLYPH_GAP = 3
+local function glyphSize(style) return style.size + 1 end
+
 local function chipWidth(panel, badge, style)
-    return ui.measureStyled(panel, util.upper(badge[1]), style) + 2 * CHIP_PAD
+    local text = badge[1] or ""
+    local width = text ~= "" and ui.measureStyled(panel, chipText(badge), caseStyle(badge, style)) or 0
+    if badge[3] then width = width + glyphSize(style) + (text ~= "" and GLYPH_GAP or 0) end
+    return width + 2 * CHIP_PAD
 end
 
 local function badgesWidth(panel, list, style)
@@ -96,7 +118,24 @@ local function drawBadges(panel, list, x, y, style)
         inside:SetVertexColor(fill[1], fill[2], fill[3], 1)
         local word = { color[1] + (1 - color[1]) * .35, color[2] + (1 - color[2]) * .35,
             color[3] + (1 - color[3]) * .35 }
-        ui.styledAt(panel, util.upper(badge[1]), x, y + 3, width, style, word, "CENTER")
+        local text = badge[1] or ""
+        if badge[3] then
+            local size = glyphSize(style)
+            local glyph = ui.acquireTexture(panel, GLYPHS .. badge[3], 2)
+            glyph:SetPoint("TOPLEFT", panel, "TOPLEFT", ui.snap(panel, x + CHIP_PAD),
+                -ui.snap(panel, y + (height - size) / 2))
+            glyph:SetSize(ui.snap(panel, size), ui.snap(panel, size))
+            -- on parchment, inked as the word is (unless a colour of the player's own)
+            local tint = panel.parchment and not style.color and ui.inkColor(word) or style.color or word
+            glyph:SetVertexColor(tint[1], tint[2], tint[3], 1)
+            if text ~= "" then
+                local skip = CHIP_PAD + size + GLYPH_GAP
+                ui.styledAt(panel, chipText(badge), x + skip, y + 3, width - skip - CHIP_PAD + 1, caseStyle(badge, style),
+                    word, "LEFT")
+            end
+        else
+            ui.styledAt(panel, chipText(badge), x, y + 3, width, caseStyle(badge, style), word, "CENTER")
+        end
         x = x + width + CHIP_GAP
     end
     return y + height

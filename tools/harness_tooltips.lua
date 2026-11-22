@@ -599,7 +599,18 @@ do
         for _, t in ipairs(texts(panel)) do
             if t.text and t.text ~= "" then out[#out + 1] = plain(t.text) end
         end
-        print("tooltips questie " .. label, table.concat(out, " | "))
+        -- (2026-11-22) the chips' glyphs, left to right, each with its tint
+        local glyphs = {}
+        for i = 1, panel.texturesUsed do
+            local tex = panel.texturePool[i]
+            local name = tostring(tex.texture):match("glyph%-(%a+)$")
+            if name then
+                local at = tex.points and tex.points.TOPLEFT
+                glyphs[#glyphs + 1] = name .. string.format("(%.2f,%.2f,%.2f %dx%d @%d)", tex.vertex[1], tex.vertex[2],
+                    tex.vertex[3], tex.w, tex.h, at and at[3] or -1)
+            end
+        end
+        print("tooltips questie " .. label, table.concat(out, " | "), "glyphs=" .. table.concat(glyphs, " "))
     end
     -- the screenshot's link: a title, completed, and the date
     local function link()
@@ -736,6 +747,31 @@ do
         GameTooltip.IsForbidden, GameTooltip.NumLines, GameTooltip.GetOwner = nil, nil, nil
         ns.Hooks.renderLines = renderLines
         C_QuestLog, WorldMapFrame = CQ, mapWas
+    end
+    -- (2026-11-22) the chain's chip: the quests still to come after this
+    -- one, along Questie's next in chain; none after it, the glyph alone; a
+    -- loop in the data counted once round
+    do
+        local function chainLeft(label, id)
+            local model = ui.questModel({ name = quests[id].name }, id)
+            print("tooltips quest chain " .. label, "left=" .. tostring(model.chain and model.chain.left))
+            card("chain " .. label, model)
+        end
+        quests[67] = { name = "The Legend of Stalvan II", level = 26, preQuestSingle = { 66 }, nextQuestInChain = 68 }
+        quests[68] = { name = "The Legend of Stalvan III", level = 27, preQuestSingle = { 67 }, nextQuestInChain = 0 }
+        quests[69] = { name = "Round One", level = 10, preQuestSingle = {}, nextQuestInChain = 70 }
+        quests[70] = { name = "Round Two", level = 10, preQuestSingle = { 69 }, nextQuestInChain = 69 }
+        chainLeft("two to come", 66)
+        -- "LvL" as written, with capitals turned on for the badges too
+        local styles = mdlui_TooltipsDB.styles
+        local own = ns.elementSetting("questBadges", "caps")
+        ns.setElementSetting("questBadges", "caps", true)
+        chainLeft("in capitals", 66)
+        ns.setElementSetting("questBadges", "caps", own)
+        if styles == nil then mdlui_TooltipsDB.styles = nil end
+        chainLeft("the last", 68)
+        chainLeft("a loop", 69)
+        for _, id in ipairs({ 67, 68, 69, 70 }) do quests[id] = nil end
     end
     -- (2026-11-22) the sections told apart: each heading on a band of its
     -- colour, the reputation under a heading of its own (faction, then what

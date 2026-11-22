@@ -1426,6 +1426,7 @@ ns.ui = {
         if panel and panel:IsShown() then return panel end
     end,
     styledAt = styledAt,
+    inkColor = inkColor,
     hiddenTextAt = hiddenTextAt,
     measureStyled = measureStyled,
     enchantRows = enchantRows,
