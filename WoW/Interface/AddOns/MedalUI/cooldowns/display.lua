@@ -377,6 +377,17 @@ local function DressBar(item, key)
         d.sheen:SetColorTexture(1, 1, 1, 0.06)
         d.sheen:SetPoint("TOPLEFT")
         d.sheen:SetPoint("BOTTOMRIGHT", bar, "RIGHT")
+        -- (2026-11-22) the name ends short of the time, on one line, cut with
+        -- "…": the game's stops 25 in from the bar's end, where a three-figure
+        -- time at our size already stands ("Strength of Earth Totem III283")
+        local name, time = bar.Name, bar.Duration
+        if name and time and name.ClearAllPoints then
+            name:ClearAllPoints()
+            name:SetPoint("LEFT", bar, "LEFT", 5, 0)
+            name:SetPoint("RIGHT", time, "LEFT", -6, 0)
+            if name.SetWordWrap then name:SetWordWrap(false) end
+            if name.SetJustifyH then name:SetJustifyH("LEFT") end
+        end
     end
     if item.HookScript then
         item:HookScript("OnEnter", function(self)

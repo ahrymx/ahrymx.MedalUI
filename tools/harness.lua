@@ -5403,7 +5403,12 @@ if cdmPass or ccPass then (function()
         item.Bar.Pip = item.Bar:CreateTexture(nil, "OVERLAY")
         item.Bar.Name = item.Bar:CreateFontString()
         item.Bar.Name:SetText(spell or "Lightning Shield")
+        -- the game's places (CooldownViewerBuffBarItemTemplate): the name
+        -- between 5 and 25 in from the bar's ends, the time 8 in from its end
+        item.Bar.Name:SetPoint("TOPLEFT", 5, 0)
+        item.Bar.Name:SetPoint("BOTTOMRIGHT", -25, 0)
         item.Bar.Duration = item.Bar:CreateFontString()
+        item.Bar.Duration:SetPoint("RIGHT", -8, 0)
         function item:SetBarWidth(w) self:SetWidth(w) end
         function item:SetBarContent() self.Bar:SetPoint("LEFT", self.Icon, "RIGHT", 2, 0) end
         table.insert(self.items, item)
@@ -28197,6 +28202,22 @@ if cdmPass then (function()
     tb:SetBarWidth(220)
     tb:SetBarContent(1)
     bars("cdm bars game's width")
+    -- (2026-11-22) a bar's name ends short of its time, on one line: the
+    -- game's ran under a three-figure time ("Strength of Earth Totem III283")
+    do
+        local bar = tv.items[1].Bar
+        local name, time = bar.Name, bar.Duration
+        local out = {}
+        for _, p in ipairs({ "LEFT", "RIGHT", "TOPLEFT", "BOTTOMRIGHT" }) do
+            local at = name.points and name.points[p]
+            if at then
+                local to = at[1] == bar and "bar" or at[1] == time and "time" or tostring(at[1])
+                out[#out + 1] = string.format("%s>%s.%s(%d)", p, to, tostring(at[2]), at[3] or 0)
+            end
+        end
+        print("cdm bars name", table.concat(out, " "), "wrap=" .. tostring(name.wrap),
+            "justify=" .. tostring(name.justifyH))
+    end
     ns.SetOption("cdmTWidth", 220)
     ns.SetOption("cdmTSize", 24)
     ns.SetOption("cdmTSpacing", 4)
