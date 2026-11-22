@@ -404,6 +404,8 @@ function placement.moved(tooltip)
     if not ui.isComparison(tooltip) and not state.collecting and not state.drag then
         state.points, state.manual = util.framePoints(tooltip), nil
     end
+    -- follow cursor handing the tooltip back for a redraw: noted, not drawn
+    if ns.Cursor and ns.Cursor.restoring and ns.Cursor.restoring() then return end
     return placement.refresh(owner)
 end
 

@@ -7,6 +7,12 @@ local registered = false
 
 local OFFSET = 16
 local placing = false
+-- (2026-11-22) True while a redraw's clear puts the tooltip back on its own
+-- anchor: the panel stays where it stands (Placement only notes the anchor),
+-- or it is drawn a frame in the default corner while an item's comparison is
+-- still being gathered, before the cursor takes the tooltip back.
+local restoring = false
+function ns.Cursor.restoring() return restoring end
 local wasClamped
 -- A frame of the addon's that sits at the cursor; GameTooltip hangs from it
 -- while following, so the game moves both in the same frame. Anchored to,
@@ -122,13 +128,15 @@ function ns.Cursor.register()
         -- stands rather than following the tooltip back to its own anchor.
         local panel = ns.ui and ns.ui.shownPanel(GameTooltip)
         local hiding = not util.call(GameTooltip.IsShown, GameTooltip)
-        if panel and (hiding or keepPanel) then pcall(ns.ui.pinPanel, panel) end
+        local pinned = panel ~= nil and (hiding or keepPanel) and pcall(ns.ui.pinPanel, panel)
         -- Restore without SetOwner, which can clear the tooltip's content.
         local points = originalPoints
+        restoring = pinned == true
         local ok = pcall(function()
             GameTooltip:ClearAllPoints()
             for _, point in ipairs(points) do GameTooltip:SetPoint(unpack(point)) end
         end)
+        restoring = false
         if not ok then return end
         originalPoints = nil
         if panel and not hiding and not keepPanel then pcall(ns.ui.alignPanel, panel, GameTooltip) end
@@ -188,7 +196,9 @@ function ns.Cursor.register()
     GameTooltip:HookScript("OnTooltipCleared", function()
         -- A refresh can reuse the same owner and anchor. Restore before
         -- forgetting it, so its next handover cannot save our cursor position.
-        restoreAnchor()
+        -- The panel is kept where it stands: the redraw that follows puts it
+        -- back at the cursor, or on the tooltip's own anchor if it does not follow.
+        restoreAnchor(true)
         stop()
     end)
     GameTooltip:HookScript("OnHide", stop)

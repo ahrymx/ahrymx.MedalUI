@@ -105,6 +105,17 @@ setmetatable(_G, { __index = function(_, key)
 end })
 
 -- ------------------------------------------------------------ load + login
+-- (2026-11-22) the processor's post-calls kept, by data type, so a test can
+-- fill a tooltip as the game does
+local postCalls = {}
+do
+    local processorStub = TooltipDataProcessor
+    local add = processorStub.AddTooltipPostCall
+    processorStub.AddTooltipPostCall = function(kind, fn)
+        postCalls[kind] = fn
+        if add then return add(kind, fn) end
+    end
+end
 local ns = {}
 for line in io.lines(ADDON .. "mdlui_Tooltips.toc") do
     local file = line:match("^([^#][^%[]-%.lua)")
@@ -1033,3 +1044,59 @@ print("tooltips window undo", "saved=" .. table.concat(left, ","), "pill=" .. sh
 E.frame:Hide()
 ns.openSettings()
 print("tooltips window settings", "shown=" .. shown(E.frame), "page=" .. E.state.page)
+
+-- (2026-11-22) Follow cursor across a redraw. An action button redraws its
+-- tooltip every 0.2 s: the clear hands the tooltip back to its own anchor
+-- before the game sets it again, and the cursor takes it back once filled.
+-- An equipped item's comparison holds the panel's placement meanwhile, so the
+-- panel must stay where it stands through the clear, or it is drawn a frame
+-- in the default corner (the trace: frame 257 at 2531,461, then back).
+do
+    local placement, ui = ns.Placement, ns.ui
+    mdlui_TooltipsDB.cursorCurrencies, mdlui_TooltipsDB.cursorDisableInCombat = true, false
+    ns.Cursor.register()
+    local fill = postCalls[Enum.TooltipDataType.Currency]
+    -- Hooks' own SetPoint hook, as installed once a panel has drawn
+    local held = {}
+    hooksecurefunc(GameTooltip, "SetPoint", function(moved)
+        held[#held + 1] = tostring(ns.Cursor.restoring())
+        if placement.owns(moved) then placement.moved(moved) end
+    end)
+    local refreshes = 0
+    local realRefresh = placement.refresh
+    placement.refresh = function(...)
+        refreshes = refreshes + 1
+        return realRefresh(...)
+    end
+    local function anchorOf(frame)
+        local point = frame.points and (frame.points.TOPLEFT or frame.points.BOTTOMRIGHT)
+        if not point then return "-" end
+        local to = point[1] == UIParent and "UIParent" or point[1] == GameTooltip and "GameTooltip" or "other"
+        return (frame.points.TOPLEFT and "TOPLEFT>" or "BOTTOMRIGHT>") .. to
+    end
+    local button = CreateFrame("Button", nil, UIParent)          -- an action button
+    -- as in the game: a frame says plainly it is not forbidden
+    local forbidden = rawget(GameTooltip, "IsForbidden")
+    GameTooltip.IsForbidden = function() return false end
+    local function redraw(label)
+        GameTooltip_SetDefaultAnchor(GameTooltip, button)
+        GameTooltip:Show()
+        if fill then fill(GameTooltip, { lines = {} }) end
+        local panel = ui.getPanel(GameTooltip)
+        panel:Show()
+        panel:ClearAllPoints()
+        panel:SetPoint("TOPLEFT", GameTooltip, "TOPLEFT", 0, 0)
+        local before = anchorOf(GameTooltip)
+        refreshes, held = 0, {}
+        GameTooltip:ClearLines()        -- the redraw's clear
+        print("tooltips cursor redraw " .. label, "followed=" .. before, "tooltip=" .. anchorOf(GameTooltip),
+            "panel=" .. anchorOf(panel), "refreshes=" .. refreshes,
+            "held=" .. table.concat(held, ","), "after=" .. tostring(ns.Cursor.restoring()))
+        panel:Hide()
+        GameTooltip:Hide()
+    end
+    redraw("item on a bar")
+    placement.refresh = realRefresh
+    GameTooltip.IsForbidden = forbidden
+    mdlui_TooltipsDB.cursorCurrencies, mdlui_TooltipsDB.cursorDisableInCombat = nil, nil
+end
