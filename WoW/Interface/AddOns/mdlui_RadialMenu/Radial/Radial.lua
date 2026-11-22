@@ -2810,17 +2810,36 @@ end
 -- other in radialOrder, where its first one is, so the list order (and which radial a shared key
 -- opens) is the order seen. A group with no radial left is gone. Folded or open: per character
 -- (CharDB().radialGroupsClosed).
+-- (2026-11-22) The built-in categories: always in the list, first and in this order, empty until
+-- radials are put in them (radial.group = "combat", as a group's id). Nothing of them is stored, so
+-- their names follow the client's language; they cannot be renamed, moved or deleted. Each one's glyph
+-- (art/ui, the editor's tiles) is art.
+RM.CATEGORIES = {
+    { id = "combat", name = L["Combat"], art = "CatCombat" }, { id = "healing", name = L["Healing"], art = "CatHealing" },
+    { id = "social", name = L["Social"], art = "CatSocial" }, { id = "group", name = L["Group"], art = "CatGroup" },
+    { id = "items", name = L["Items"], art = "CatItems" }, { id = "travel", name = L["Travel & UI"], art = "CatTravel" },
+}
+RM.CATEGORY_BY_ID = {}
+for _, c in ipairs(RM.CATEGORIES) do RM.CATEGORY_BY_ID[c.id] = { name = c.name, builtin = true } end
+function RM.IsCategory(gid) return gid ~= nil and RM.CATEGORY_BY_ID[gid] ~= nil end
+
 local function NormalizeGroups(store)
     store.groups = store.groups or {}
     local order, radials = store.radialOrder, store.radials
     local used = {}
     for _, id in ipairs(order) do
         local r = radials[id]
-        if r and r.group and not store.groups[r.group] then r.group = nil end
+        if r and r.group and not (store.groups[r.group] or RM.IsCategory(r.group)) then r.group = nil end
         if r and r.group then used[r.group] = true end
     end
     for gid in pairs(store.groups) do if not used[gid] then store.groups[gid] = nil end end
     local out, done = {}, {}
+    -- the categories' radials first, in the categories' order
+    for _, c in ipairs(RM.CATEGORIES) do
+        for _, id in ipairs(order) do
+            if not done[id] and radials[id] and radials[id].group == c.id then out[#out + 1], done[id] = id, true end
+        end
+    end
     for _, id in ipairs(order) do
         if not done[id] then
             local gid = radials[id] and radials[id].group
@@ -2846,6 +2865,7 @@ local function GroupsChanged(self)
 end
 
 function RM:GetGroup(gid)
+    if gid and RM.CATEGORY_BY_ID[gid] then return RM.CATEGORY_BY_ID[gid] end
     local store = GetStore()
     return store and store.groups and store.groups[gid]
 end
@@ -2879,6 +2899,7 @@ function RM:CreateGroupWith(id, name)
 end
 
 function RM:RenameGroup(gid, name)
+    if RM.IsCategory(gid) then return end
     local group = self:GetGroup(gid)
     if group and name and name ~= "" then group.name = name; RM.MarkEdited() end
 end
@@ -2890,6 +2911,7 @@ function RM:Ungroup(gid)
     for _, data in pairs(store.radials) do
         if data.group == gid then data.group = nil end
     end
+    -- (a category, never stored, keeps its heading: only its radials come out)
     if store.groups then store.groups[gid] = nil end
     GroupsChanged(self)
 end
@@ -2934,6 +2956,9 @@ function RM:MoveGroup(gid, target)
     local order, radials = store.radialOrder, store.radials
     local targetGroup = target and target:match("^group:(.+)$")
     if targetGroup == gid then return false end
+    -- the categories stay first, in their order: none moves, and no group goes among them
+    if RM.IsCategory(gid) or RM.IsCategory(targetGroup) then return false end
+    if not targetGroup and radials[target] and RM.IsCategory(radials[target].group) then return false end
     -- dropped on one of its own radials: nowhere to go
     if not targetGroup and radials[target] and radials[target].group == gid then return false end
     -- the unit the target belongs to: its group, or the radial alone

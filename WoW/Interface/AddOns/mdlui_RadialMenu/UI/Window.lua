@@ -5,8 +5,9 @@ local L = ns.L
 -- WINDOW
 -- The editor window, laid out as MedalUI's Settings window (MedalUI/options/window.lua):
 --   the head      a bar across the top: the title, a faint subtitle, the x in its own cell
---   the sidebar   a search over the radials, then the radials under their groups' headings, the
---                 ones not on this character, and Options > Every radial (Radial/Editor.lua)
+--   the sidebar   a search over the radials, My radials | Presets, the six category tiles, then the
+--                 radials under their categories' and groups' headings and the ones not on this
+--                 character, or the presets; Every radial at its foot (Radial/Editor.lua)
 --   the page      a header (its title, where it sits, a (?)) over the page:
 --                   a radial: two sheets under the header, Wheel (the wheel, the chosen slot, the
 --                   Catalog) and Radial (who gets it, its key, Macro, Copy, Rename, Delete, the keys
@@ -409,11 +410,14 @@ local function Sidebar()
         if frame:IsShown() then ns.RadialEditorEmbed.Refresh() end
     end)
     frame.sideSearch:SetPoint("TOPLEFT", 11, -10)
+    -- (2026-11-22) under the search, the editor's My radials | Presets switch and its six category
+    -- tiles (SIDE_TILES_TOP down to SIDE_LIST_TOP); Every radial at the foot (SIDE_FOOT high)
+    frame.sideTilesTop, frame.sideListTop, frame.sideFoot = 83, 206, 32
     local nav = CreateFrame("Frame", nil, side)
-    nav:SetPoint("TOPLEFT", 0, -(10 + 26 + 4))
-    nav:SetPoint("BOTTOMRIGHT", -1, 4)
+    nav:SetPoint("TOPLEFT", 0, -frame.sideListTop)
+    nav:SetPoint("BOTTOMRIGHT", -1, frame.sideFoot)
     frame.nav = nav
-    frame.navRows = math.floor((H - 2 * EDGE - BAR_H - FOOT - (10 + 26 + 4) - 4) / 24)
+    frame.navRows = math.floor((H - 2 * EDGE - BAR_H - FOOT - frame.sideListTop - frame.sideFoot) / 24)
 end
 
 -- the page's header: its title, where it sits and a (?), a hairline under; the sheets' tabs and

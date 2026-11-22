@@ -1,3 +1,11 @@
+# mdlui_RadialMenu 0.68.0
+
+- **Categories:** six tiles at the top of the editor's sidebar: **Combat**, **Healing**, **Social**, **Group**, **Items** and **Travel & UI**, each with its glyph and count. They start empty and fill only as you choose: drag a radial onto a tile, or right-click a radial for **Move to …**. Click a tile to list only its radials (the rest under **Not filed**, ready to drag in); click it again for all of them. Right-click one to **Empty** it.
+- With no tile chosen, the categories with radials in them head the list and fold like your own groups. A shared key still opens the radial highest in the list, so radials in a category come first. Categories can't be renamed, moved or deleted.
+- **My radials | Presets:** a switch over the list. Presets are listed under the same category names (Markers under Group, the emotes under Social, Camping and Consumables under Items, Totem Bars under Combat), and the tiles narrow them too. A radial you add, make or import switches back to My radials.
+- A radial's key is in a small box at its row's right, and mouse buttons are short (**ALT-M3** for Alt and the middle button), so long keys no longer cut the name off.
+- **Every radial** moved to the sidebar's foot.
+
 # mdlui_RadialMenu 0.67.0
 
 - **Consumables preset:** four buttons that fill themselves from your bags: **Health**, **Mana**, **Food** and **Drink**. Each shows the best one you carry; turn the mouse wheel on it to step through the rest, best first. Anything above your level is left out, and a button is gone while you carry none of its kind.

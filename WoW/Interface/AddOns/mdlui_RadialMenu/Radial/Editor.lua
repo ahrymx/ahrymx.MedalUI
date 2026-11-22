@@ -27,6 +27,7 @@ local editor, editingID, selectedButton, dragging, activeCategory
 -- (Core/Presets.lua), read-only, instead of a radial
 local openSlot, viewPreset
 local RadialDrag, RadialRowMenu, GroupMenu   -- the radials list's drag and its group menus (before BuildRadialColumn)
+local BuildSideChrome   -- the sidebar's switch, tiles and Every radial (after BuildNav)
 local browseCache = {}   -- category -> its entries, built once per opening
 local snapshot, dirty
 
@@ -850,6 +851,13 @@ end
 local function KeyText(key)
     return ns.KeyText(key)
 end
+-- (2026-11-22) a key as the sidebar's chip says it, short, so a long one leaves the name its room:
+-- a mouse button as M3, M4, ... after its modifiers (ALT-BUTTON3: ALT-M3), in any language
+local function ShortKey(key)
+    local mods, button = key:match("^(.-)BUTTON(%d+)$")
+    if not button then return KeyText(key) end
+    return (mods ~= "" and (KeyText(mods:sub(1, -2)) .. "-") or "") .. "M" .. button
+end
 
 -- What the key does in the game's own key bindings (a radial key takes it over while this addon is on),
 -- or nil
@@ -1084,6 +1092,18 @@ function RadialDrag.Stop(list)
     if RadialDrag.ghost then RadialDrag.ghost:Hide() end
     if not (payload and list) then return end
     local gid = payload:match("^group:(.+)$")
+    -- (2026-11-22) a radial dropped on a category's tile is put in it (a group of your own, nowhere)
+    for _, tile in ipairs(editor.tiles or {}) do
+        if tile:IsShown() and tile:IsMouseOver() then
+            local data = not gid and RM():GetRadial(payload)
+            if data and data.group ~= tile.cat then
+                RM():SetRadialGroup(payload, tile.cat)
+                ns.ButtonSound()
+                Refresh()
+            end
+            return
+        end
+    end
     for _, cell in ipairs(list.cells) do
         local item = cell:IsShown() and cell:IsMouseOver() and cell.item
         if item and (item.id or item.group) then
@@ -1151,11 +1171,17 @@ function RadialRowMenu(owner, id)
     local rm = RM()
     local data = rm:GetRadial(id)
     if not data then return end
-    local entries = {
-        { text = L["Add to New Group..."], func = function()
-            ns.ShowDialog("MDLUI_RADIAL_GROUP", L["Name the group"], { id = id })
-        end },
-    }
+    -- (2026-11-22) the built-in categories first, in their order, then the groups of your own
+    local entries = {}
+    for _, c in ipairs(rm.CATEGORIES) do
+        if c.id ~= data.group then
+            entries[#entries + 1] = { text = L["Move to %s"]:format(c.name), func = function() rm:SetRadialGroup(id, c.id) Refresh() end }
+        end
+    end
+    entries[#entries + 1] = { divider = true }
+    entries[#entries + 1] = { text = L["Add to New Group..."], func = function()
+        ns.ShowDialog("MDLUI_RADIAL_GROUP", L["Name the group"], { id = id })
+    end }
     -- the other groups, by name
     local others = {}
     for gid, group in pairs(rm:GetGroups()) do
@@ -1174,6 +1200,19 @@ end
 function GroupMenu(owner, gid)
     local group = RM():GetGroup(gid)
     if not group then return end
+    -- a category: no rename; emptied, it stays (with nothing in it, no menu)
+    if RM().IsCategory(gid) then
+        local has = false
+        for _, id in ipairs(RM():GetRadialOrder()) do
+            local data = RM():GetRadial(id)
+            if data and data.group == gid then has = true break end
+        end
+        if not has then return end
+        ShowRowMenu(owner, group.name, {
+            { text = L["Empty"], func = function() RM():Ungroup(gid) Refresh() end },
+        })
+        return
+    end
     ShowRowMenu(owner, group.name, {
         { text = L["Rename..."], func = function()
             ns.ShowDialog("MDLUI_RADIAL_GROUP", L["Name the group"], { gid = gid })
@@ -1216,12 +1255,21 @@ local function BuildNav(win)
             cell.Bar:SetPoint("BOTTOMLEFT", -6, 0)
             Panel.Heading(cell.Text, 12, UI.dim)
             cell.Key = Panel.Plain(cell, 10, UI.faint)
-            cell.Key:SetPoint("RIGHT", -8, 0)
+            cell.Key:SetPoint("RIGHT", -12, 0)
             cell.Key:SetJustifyH("RIGHT")
+            -- (2026-11-22) the key in a chip: an edge, a well inside it
+            cell.KeyBg = { Panel.Fill(cell, "BORDER", UI.lineStrong, 0), Panel.Fill(cell, "BORDER", UI.well, 1) }
+            cell.KeyBg[1]:SetPoint("TOPLEFT", cell.Key, "TOPLEFT", -5, 4)
+            cell.KeyBg[1]:SetPoint("BOTTOMRIGHT", cell.Key, "BOTTOMRIGHT", 5, -4)
+            cell.KeyBg[2]:SetPoint("TOPLEFT", cell.Key, "TOPLEFT", -4, 3)
+            cell.KeyBg[2]:SetPoint("BOTTOMRIGHT", cell.Key, "BOTTOMRIGHT", 4, -3)
+            -- a sub-heading's rule, from its name to the row's end
+            cell.Rule = Panel.Fill(cell, "ARTWORK", UI.lineStrong)
+            cell.Rule:SetHeight(1)
             -- a narrowed radial's scope (a class, a faction, a character), small, before its key
             cell.Icon:SetSize(12, 12)
             cell.Icon:ClearAllPoints()
-            cell.Icon:SetPoint("RIGHT", cell.Key, "LEFT", -4, 0)
+            cell.Icon:SetPoint("RIGHT", cell.Key, "LEFT", -9, 0)
             cell.Glyph = Panel.Fill(cell, "ARTWORK", UI.faint)
             cell.Glyph:SetSize(6, 6)
             cell.Glyph:SetPoint("LEFT", 9, -4)
@@ -1282,7 +1330,11 @@ local function BuildNav(win)
                     ns.OwnGameTooltip(self, "ANCHOR_RIGHT")
                     local group = RM():GetGroup(item.group)
                     GameTooltip:AddLine(group and group.name or "", 1, 1, 1)
-                    GameTooltip:AddLine(L["Click to open or close. Right-click to rename or ungroup. Drag to move."], 0.8, 0.8, 0.8, true)
+                    if RM().IsCategory(item.group) then
+                        GameTooltip:AddLine(L["Click to open or close. Right-click to empty it."], 0.8, 0.8, 0.8, true)
+                    else
+                        GameTooltip:AddLine(L["Click to open or close. Right-click to rename or ungroup. Drag to move."], 0.8, 0.8, 0.8, true)
+                    end
                     GameTooltip:Show()
                     return
                 end
@@ -1316,6 +1368,8 @@ local function BuildNav(win)
             cell:SetScript("OnDragStart", function(self)
                 local item = self.item
                 if not (item and (item.id or item.group)) then return end
+                -- the categories stay where they are
+                if item.group and RM().IsCategory(item.group) then return end
                 GameTooltip:Hide()
                 RadialDrag.Start(item.id or ("group:" .. item.group))
             end)
@@ -1323,8 +1377,26 @@ local function BuildNav(win)
         end,
         function(cell, item)
             for _, r in ipairs({ cell.Head, cell.Pill, cell.Glyph, cell.Elbow[1], cell.Elbow[2], cell.Bar,
-                cell.Highlight, cell.Icon, cell.Text, cell.Key }) do r:Hide() end
-            -- a heading: a group's (it folds), "Not on this character" (it folds), Options
+                cell.Highlight, cell.Icon, cell.Text, cell.Key, cell.KeyBg[1], cell.KeyBg[2], cell.Rule }) do r:Hide() end
+            cell.Key:SetText("")
+            -- (2026-11-22) a sub-heading: a category's name (the lit tile's, or a preset's) in gold, or
+            -- Not filed in the body's colour, a rule to the row's end
+            cell.Head:ClearAllPoints()
+            if item.sub then
+                cell.Head:SetPoint("LEFT", 4, -3)
+                cell.Head:SetText(item.sub:upper())
+                Paint(cell.Head, item.quiet and UI.dim or UI.gold)
+                cell.Head:Show()
+                cell.Rule:ClearAllPoints()
+                cell.Rule:SetPoint("LEFT", cell.Head, "RIGHT", 6, 0)
+                cell.Rule:SetPoint("RIGHT", cell, "RIGHT", -8, -3)
+                cell.Rule:Show()
+                cell:EnableMouse(false)
+                return
+            end
+            cell.Head:SetPoint("LEFT", 25, -4)
+            -- a heading: a group's or a category's (it folds), "Not on this character" (it folds), a
+            -- faint word for an empty view
             if item.head or item.group then
                 local name = item.head
                 if item.group then
@@ -1332,12 +1404,13 @@ local function BuildNav(win)
                     name = group and group.name or ""
                 end
                 cell.Head:SetText(name:upper())
-                Paint(cell.Head, item.open and UI.gold or (item.faint and UI.faint or UI.dim))
+                local open = item.open
+                Paint(cell.Head, open and UI.gold or (item.faint and UI.faint or UI.dim))
                 cell.Head:Show()
-                local g = item.open and UI.goldBright or UI.faint
+                local g = open and UI.goldBright or UI.faint
                 cell.Glyph:SetColorTexture(g[1], g[2], g[3], 1)
                 cell.Glyph:Show()
-                if not item.open and item.count then
+                if (not open) and item.count then
                     cell.Pill.text:SetText(tostring(item.count))
                     cell.Pill:SetWidth(math.max(18, math.ceil(cell.Pill.text:GetStringWidth() or 0) + 10))
                     cell.Pill:Show()
@@ -1356,10 +1429,13 @@ local function BuildNav(win)
                 local data = RM():GetRadial(item.id)
                 name, available = data.name, item.available
                 lit = win.page == "radial" and item.id == editingID and not viewPreset
-                local key = item.key and KeyText(item.key) or ""
+                local key = item.key and ShortKey(item.key) or ""
                 cell.Key:SetText(key)
                 Paint(cell.Key, item.beaten and UI.clash or (lit and UI.gold or UI.faint))
                 cell.Key:Show()
+                cell.KeyBg[1]:SetShown(key ~= "")
+                cell.KeyBg[2]:SetShown(key ~= "")
+                Panel.Paint(cell.KeyBg[1], lit and UI.goldDark or UI.lineStrong)
                 local icon = ApplyScopeIcon(cell.Icon, data.scope)
                 cell.Icon:SetShown(icon)
                 cell.Icon:SetDesaturated(not available)
@@ -1372,7 +1448,7 @@ local function BuildNav(win)
             cell.Elbow[2]:SetShown(item.member == true)
             cell.Text:ClearAllPoints()
             cell.Text:SetPoint("LEFT", left, 0)
-            cell.Text:SetPoint("RIGHT", cell.Icon:IsShown() and cell.Icon or cell.Key, "LEFT", -4, 0)
+            cell.Text:SetPoint("RIGHT", cell.Icon:IsShown() and cell.Icon or cell.Key, "LEFT", cell.Icon:IsShown() and -4 or -9, 0)
             cell.Text:SetText(name)
             Paint(cell.Text, lit and UI.goldBright or (available and UI.dim or UI.faint))
             cell.Text:Show()
@@ -1381,6 +1457,182 @@ local function BuildNav(win)
         end)
     list:SetPoint("TOPLEFT", 6, 0)
     win.radialList = list
+    BuildSideChrome(win)
+end
+
+-- (2026-11-22, mockup C) above the list: My radials | Presets, then the six categories as tiles
+-- (2 x 3), each its glyph, name and count; one clicked shows only its radials (or presets), clicked
+-- again every one; a radial dragged onto one is put in it. At the sidebar's foot, Every radial.
+-- win.sideTab ("mine" or "presets") and win.sideCategory (nil: all) last the session.
+local TILE_H, TILE_GAP = 36, 4
+function BuildSideChrome(win)
+    local side = win.side
+    win.sideTab = "mine"
+    local seg = CreateFrame("Frame", nil, side)
+    seg:SetPoint("TOPLEFT", 11, -42)
+    seg:SetPoint("TOPRIGHT", -12, -42)
+    seg:SetHeight(24)
+    Panel.Fill(seg, "BACKGROUND", UI.well):SetAllPoints()
+    Panel.Outline(seg, "BORDER", UI.lineStrong, 0)
+    win.sideTabs = {}
+    for i, tab in ipairs({ { "mine", L["My radials"] }, { "presets", L["Presets"] } }) do
+        -- (one bar, its halves unboxed: the lit one underlined in gold)
+        local b = CreateFrame("Button", nil, seg)
+        b:SetPoint("TOP", 0, -1)
+        b:SetPoint("BOTTOM", 0, 1)
+        if i == 1 then
+            b:SetPoint("LEFT", 1, 0)
+            b:SetPoint("RIGHT", seg, "CENTER", 0, 0)
+        else
+            b:SetPoint("LEFT", seg, "CENTER", 0, 0)
+            b:SetPoint("RIGHT", -1, 0)
+        end
+        b.mark = Panel.Fill(b, "ARTWORK", UI.goldBright)
+        b.mark:SetHeight(2)
+        b.mark:SetPoint("BOTTOMLEFT", 0, 0)
+        b.mark:SetPoint("BOTTOMRIGHT", 0, 0)
+        b:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+        Panel.Rounded(b:GetHighlightTexture(), UI.lift[1], UI.lift[2], UI.lift[3], UI.lift[4])
+        b.label = b:CreateFontString(nil, "OVERLAY")
+        Panel.Heading(b.label, 11, UI.dim)
+        b.label:SetPoint("CENTER", -6, 1)
+        b.count = Panel.Plain(b, 10, UI.faint)
+        b.count:SetPoint("LEFT", b.label, "RIGHT", 5, 0)
+        b.label:SetText(tab[2])
+        b.key = tab[1]
+        b:SetScript("OnClick", function()
+            if win.sideTab == tab[1] then return end
+            ns.ButtonSound()
+            win.sideTab = tab[1]
+            Refresh()
+        end)
+        win.sideTabs[tab[1]] = b
+    end
+    -- a hairline between the switch and the tiles
+    local divider = Panel.Fill(side, "ARTWORK", UI.line)
+    divider:SetHeight(1)
+    divider:SetPoint("TOPLEFT", 11, -(win.sideTilesTop - 8))
+    divider:SetPoint("TOPRIGHT", -12, -(win.sideTilesTop - 8))
+    local tileW = (200 - 11 - 12 - TILE_GAP) / 2
+    win.tiles = {}
+    for i, c in ipairs(RM().CATEGORIES) do
+        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+        local t = CreateFrame("Button", nil, side)
+        t:SetSize(tileW, TILE_H)
+        t:SetPoint("TOPLEFT", 11 + col * (tileW + TILE_GAP), -(win.sideTilesTop + row * (TILE_H + TILE_GAP)))
+        t.bg = Panel.Fill(t, "BACKGROUND", UI.raised, 1)
+        t.bg:SetAllPoints()
+        t.edge = Panel.Outline(t, "BORDER", UI.line, 0)
+        t:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+        Panel.Rounded(t:GetHighlightTexture(), UI.lift[1], UI.lift[2], UI.lift[3], UI.lift[4])
+        t.glyph = t:CreateTexture(nil, "ARTWORK")
+        t.glyph:SetTexture(Panel.ART .. c.art)
+        -- two lines: the glyph and the count, the name under them with the tile's width to itself
+        t.glyph:SetSize(13, 13)
+        t.glyph:SetPoint("TOPLEFT", 7, -6)
+        t.count = Panel.Plain(t, 11, UI.faint)
+        t.count:SetPoint("TOPRIGHT", -7, -6)
+        t.count:SetJustifyH("RIGHT")
+        t.name = Panel.Plain(t, 11, UI.dim)
+        t.name:SetPoint("BOTTOMLEFT", 7, 5)
+        t.name:SetPoint("BOTTOMRIGHT", -5, 5)
+        t.name:SetWordWrap(false)
+        t.name:SetText(c.name)
+        t.cat = c.id
+        t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        t:SetScript("OnClick", function(self, mouseButton)
+            if mouseButton == "RightButton" then GroupMenu(self, c.id) return end
+            ns.ButtonSound()
+            win.sideCategory = win.sideCategory ~= c.id and c.id or nil
+            Refresh()
+        end)
+        t:SetScript("OnEnter", function(self)
+            ns.OwnGameTooltip(self, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(c.name, 1, 1, 1)
+            GameTooltip:AddLine(win.sideCategory == c.id and L["Click to show every one again."]
+                or L["Click to show only these."], 0.8, 0.8, 0.8, true)
+            GameTooltip:AddLine(L["Drag a radial here to put it in. Right-click to empty it."], 0.6, 0.6, 0.6, true)
+            GameTooltip:Show()
+        end)
+        t:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        win.tiles[i] = t
+    end
+    -- Every radial, at the foot
+    local every = CreateFrame("Button", nil, side)
+    every:SetPoint("BOTTOMLEFT", 11, 4)
+    every:SetPoint("BOTTOMRIGHT", -12, 4)
+    every:SetHeight(24)
+    every.lit = Panel.Fill(every, "BACKGROUND", UI.selected, 1)
+    every.lit:SetAllPoints()
+    every:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+    Panel.Rounded(every:GetHighlightTexture(), UI.lift[1], UI.lift[2], UI.lift[3], UI.lift[4])
+    local rule = Panel.Fill(side, "ARTWORK", UI.line)
+    rule:SetHeight(1)
+    rule:SetPoint("BOTTOMLEFT", every, "TOPLEFT", 0, 3)
+    rule:SetPoint("BOTTOMRIGHT", every, "TOPRIGHT", 0, 3)
+    every.glyph = every:CreateTexture(nil, "ARTWORK")
+    every.glyph:SetTexture(Panel.ART .. "Cog")
+    every.glyph:SetSize(13, 13)
+    every.glyph:SetPoint("LEFT", 6, 0)
+    every.label = every:CreateFontString(nil, "OVERLAY")
+    Panel.Heading(every.label, 12, UI.dim)
+    every.label:SetPoint("LEFT", 25, 0)
+    every.label:SetText(L["Every radial"])
+    every:SetScript("OnClick", function()
+        ns.ButtonSound()
+        win.ShowPage("options")
+    end)
+    every:SetScript("OnEnter", function(self)
+        ns.OwnGameTooltip(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(L["Every radial"], 1, 1, 1)
+        GameTooltip:AddLine(L["How every radial opens and looks, and its fonts."], nil, nil, nil, true)
+        GameTooltip:Show()
+    end)
+    every:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    win.everyButton = every
+end
+
+-- the switch, the tiles and Every radial, as things are: a tab or a tile lit, each tile's count
+-- (radials, or presets), one with none faint and unfilled
+local function RefreshSideChrome()
+    local win, rm = editor, RM()
+    local presets = win.sideTab == "presets"
+    local counts = {}
+    if presets then
+        for _, key in ipairs(rm.ShownPresets()) do
+            local c = ns.PRESETS[key].category
+            if c then counts[c] = (counts[c] or 0) + 1 end
+        end
+    else
+        for _, id in ipairs(rm:GetRadialOrder()) do
+            local data = rm:GetRadial(id)
+            if data and data.group and rm:IsRadialAvailable(id) then counts[data.group] = (counts[data.group] or 0) + 1 end
+        end
+    end
+    for key, b in pairs(win.sideTabs) do
+        local on = key == win.sideTab
+        b.mark:SetShown(on)
+        Paint(b.label, on and UI.goldBright or UI.dim)
+        b.count:SetText(tostring(key == "mine" and #RM():GetRadialOrder() or #RM().ShownPresets()))
+        Paint(b.count, on and UI.gold or UI.faint)
+    end
+    for _, t in ipairs(win.tiles) do
+        local n = counts[t.cat] or 0
+        local lit = win.sideCategory == t.cat
+        t.count:SetText(n > 0 and tostring(n) or "")
+        t.bg:SetShown(n > 0 or lit)
+        Panel.Paint(t.bg, lit and UI.selected or UI.raised)
+        Panel.Paint(t.edge, lit and UI.goldDark or (n > 0 and UI.lineStrong or UI.line))
+        local c = lit and UI.goldBright or (n > 0 and UI.dim or UI.faint)
+        Paint(t.name, c)
+        t.glyph:SetVertexColor(c[1], c[2], c[3], 1)
+        Paint(t.count, lit and UI.gold or UI.faint)
+    end
+    local on = win.page == "options"
+    win.everyButton.lit:SetShown(on)
+    local c = on and UI.goldBright or UI.dim
+    Paint(win.everyButton.label, c)
+    win.everyButton.glyph:SetVertexColor(c[1], c[2], c[3], 1)
 end
 
 --------------------------------------------------
@@ -1956,15 +2208,61 @@ local function NavItems(perRadial)
         if #out == 0 then out[1] = { head = L["Nothing matches"], faint = true } end
         return out
     end
+    local only = editor.sideCategory
+    -- (2026-11-22) Presets (the switch): under a sub-heading per category, in the categories' order,
+    -- one in none last, without; with a tile lit, its category's alone. Another class's not shown.
+    if editor.sideTab == "presets" then
+        local shown = rm.ShownPresets()
+        for _, c in ipairs(rm.CATEGORIES) do
+            if not only or only == c.id then
+                local headed = false
+                for _, key in ipairs(shown) do
+                    if ns.PRESETS[key].category == c.id then
+                        if not headed then out[#out + 1], headed = { sub = c.name }, true end
+                        out[#out + 1] = { preset = key }
+                    end
+                end
+            end
+        end
+        if not only then
+            for _, key in ipairs(shown) do
+                if not rm.CATEGORY_BY_ID[ns.PRESETS[key].category or ""] then out[#out + 1] = { preset = key } end
+            end
+        end
+        if #out == 0 then out[1] = { head = L["No presets here"], faint = true } end
+        return out
+    end
     local counts, placed = {}, {}
     for _, id in ipairs(rm:GetRadialOrder()) do
         local data = rm:GetRadial(id)
         if data and data.group and rm:IsRadialAvailable(id) then counts[data.group] = (counts[data.group] or 0) + 1 end
     end
+    -- My radials: the categories first (their radials lead radialOrder, so the loop below finds them
+    -- already placed). With a tile lit, its radials under its name, then the rest as "Not filed"
+    -- (what can be dragged onto a tile); else each category with radials as a heading that folds
+    -- (an empty one is only its tile).
+    for _, c in ipairs(rm.CATEGORIES) do
+        local n = counts[c.id] or 0
+        placed[c.id] = true
+        if only == c.id then
+            out[#out + 1] = { sub = c.name }
+            if n == 0 then out[#out + 1] = { head = L["Nothing in it yet"], faint = true } end
+        elseif not only and n > 0 then
+            out[#out + 1] = { group = c.id, count = n, open = rm:IsGroupOpen(c.id) }
+        end
+        if only == c.id or (not only and n > 0 and rm:IsGroupOpen(c.id)) then
+            for _, id in ipairs(rm:GetRadialOrder()) do
+                local data = rm:GetRadial(id)
+                if data and data.group == c.id and rm:IsRadialAvailable(id) then out[#out + 1] = Item(id, not only) end
+            end
+        end
+    end
+    local rest = #out + 1
     for _, id in ipairs(rm:GetRadialOrder()) do
         local data = rm:GetRadial(id)
-        if data then
-            local available = rm:IsRadialAvailable(id)
+        local available = data and rm:IsRadialAvailable(id)
+        -- (one in a category is listed under it, above)
+        if data and not (available and rm.IsCategory(data.group)) then
             local gid = available and data.group and rm:GetGroup(data.group) and data.group
             if gid then
                 local open = rm:IsGroupOpen(gid)
@@ -1980,15 +2278,12 @@ local function NavItems(perRadial)
             end
         end
     end
+    if only and #out >= rest then table.insert(out, rest, { sub = L["Not filed"], quiet = true }) end
     if #other > 0 then
         out[#out + 1] = { head = L["Not on This Character"], fold = true, open = otherOpen, count = #other, faint = true }
         if otherOpen then for _, item in ipairs(other) do out[#out + 1] = item end end
     end
-    out[#out + 1] = { head = L["Presets"], open = true }
-    -- (another class's presets are not shown)
-    for _, key in ipairs(rm.ShownPresets()) do out[#out + 1] = { preset = key } end
-    out[#out + 1] = { head = L["Options"], open = true }
-    out[#out + 1] = { options = true }
+    if #out == 0 then out[1] = { head = L["No radials yet"], faint = true } end
     return out
 end
 
@@ -2121,7 +2416,12 @@ function Refresh()
     if viewPreset and editor.sheet == "radial" then editor.ShowPage("radial", "wheel") return end
     local _, perRadial = rm:ResolveKeys()
 
+    -- (2026-11-22) a radial newly chosen (added from a preset, made, imported) is shown where it
+    -- is: My radials
+    if editingID and not viewPreset and editingID ~= editor.sideShown then editor.sideTab = "mine" end
+    editor.sideShown = not viewPreset and editingID or nil
     editor.radialList:SetData(NavItems(perRadial))
+    RefreshSideChrome()
     RefreshOverview(perRadial)
     RefreshHeader(viewPreset and ns.PRESETS[viewPreset] or radial)
 

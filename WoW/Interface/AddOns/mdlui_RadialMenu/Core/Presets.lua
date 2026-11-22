@@ -78,3 +78,9 @@ ns.PRESETS = {
 }
 -- the sidebar's order
 ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping", "consumables", "totems" }
+-- (2026-11-22) the built-in category each is listed under in the sidebar (RM.CATEGORIES); only
+-- the list's sub-headings: a copy is put in no category
+for key, category in pairs({ markers = "group", emotes = "social", voice = "social", camping = "items",
+    consumables = "items", totems = "combat" }) do
+    ns.PRESETS[key].category = category
+end

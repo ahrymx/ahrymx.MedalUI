@@ -605,13 +605,15 @@ print("radial editor window", "size=" .. win.w .. "x" .. win.h, "title=" .. tost
 print("radial editor footer", "new=" .. tostring(win.newButton.text) .. ":" .. win.newButton.style,
     "import=" .. tostring(win.importButton:IsShown()), "undo=" .. tostring(win.undoButton.text),
     "close=" .. tostring(win.closeButton.text) .. ":" .. win.closeButton.style, "changed=" .. tostring(win.changed:IsShown()))
--- the sidebar: [a heading], <a group>, -a radial in a group, a radial=its key, *Every radial
+-- the sidebar: [a heading], <a group> (<a category 0> while empty), (a sub-heading), -a radial in a
+-- group, a radial=its key, *Every radial
 local function listNames()
     local out = {}
     for _, item in ipairs(host.radialList.data) do
         local data = item.id and RM:GetRadial(item.id)
         out[#out + 1] = item.head and ("[" .. item.head .. (item.count and not item.open and (" " .. item.count) or "") .. "]")
-            or item.group and ("<" .. item.group .. ">") or item.options and "*Every radial"
+            or item.group and ("<" .. item.group .. (item.empty and " 0" or "") .. ">")
+            or item.sub and ("(" .. item.sub .. ")") or item.options and "*Every radial"
             or item.preset and ("~" .. ns.PRESETS[item.preset].name)
             or ((item.member and "-" or "") .. (data and data.name or "?") .. (item.key and ("=" .. item.key) or ""))
     end
@@ -924,19 +926,168 @@ RM:Ungroup(social)
 local markersCell = cellOf(function(item) return item.id == RM:GetRadialOrder()[1] end)
 markersCell.scripts.OnClick(markersCell, "LeftButton")
 
+-- ---- (2026-11-22) the built-in categories: six tiles over the list (mockup C), empty until radials
+-- are put in them (a radial's menu, or dragged onto a tile); a tile clicked shows its own; not
+-- renamed, moved, or deleted; Empty leaves the tile. The radials' order follows the list (which
+-- radial a shared key opens). My radials | Presets; Every radial at the sidebar's foot.
+do
+    local menu
+    local was = MenuUtil
+    MenuUtil = { CreateContextMenu = function(_, gen)
+        menu = {}
+        local root = {}
+        function root:CreateTitle(text) menu.title = text end
+        function root:CreateButton(text, func) menu[#menu + 1] = { text = text, func = func } end
+        function root:CreateDivider() menu[#menu + 1] = { text = "--" } end
+        gen(nil, root)
+    end }
+    local function menuText()
+        if not menu then return "none" end
+        local out = {}
+        for _, e in ipairs(menu) do out[#out + 1] = e.text end
+        return tostring(menu.title) .. ": " .. table.concat(out, ",")
+    end
+    local function pick(text)
+        for _, e in ipairs(menu or {}) do if e.text == text then e.func() return end end
+        error("no menu entry " .. text)
+    end
+    local function order()
+        local out = {}
+        for _, id in ipairs(RM:GetRadialOrder()) do
+            local data = RM:GetRadial(id)
+            out[#out + 1] = data.name .. (data.group and ("@" .. data.group) or "")
+        end
+        return table.concat(out, " ")
+    end
+    local function headOf(gid) return cellOf(function(item) return item.group == gid end) end
+    local function tip(cell)
+        local lines = {}
+        local add = GameTooltip.AddLine
+        GameTooltip.AddLine = function(_, text) lines[#lines + 1] = text end
+        cell.scripts.OnEnter(cell)
+        GameTooltip.AddLine = add
+        return table.concat(lines, " / ")
+    end
+    -- the tiles: name:count (* lit, ~ unfilled: none in it); the switch: its lit tab and counts
+    local function tiles()
+        local out = {}
+        for _, tl in ipairs(host.tiles) do
+            out[#out + 1] = tl.cat .. ":" .. tostring(tl.count.text) .. (host.sideCategory == tl.cat and "*" or "")
+                .. (tl.bg:IsShown() and "" or "~")
+        end
+        return table.concat(out, " ")
+    end
+    local function tabs()
+        local m, p = host.sideTabs.mine, host.sideTabs.presets
+        return host.sideTab .. " mine=" .. tostring(m.count.text) .. (m.mark:IsShown() and "*" or "")
+            .. " presets=" .. tostring(p.count.text) .. (p.mark:IsShown() and "*" or "")
+    end
+    local function tileOf(id) for _, tl in ipairs(host.tiles) do if tl.cat == id then return tl end end end
+    local faint, gold = ns.ui.faint, ns.ui.goldBright
+    local function colour(fs) local c = fs.textColor or {} return c[1] == faint[1] and "faint" or c[1] == gold[1] and "lit" or "dim" end
+    local combat = tileOf("combat")
+    print("radial categories fresh", "tabs=" .. tabs(), "tiles=" .. tiles(), "list=" .. listNames(),
+        "name=" .. tostring(combat.name.text), "colour=" .. colour(combat.name), "glyph=" .. tostring(combat.glyph.texture),
+        "every=" .. tostring(host.everyButton:IsShown()) .. ":" .. tostring(host.everyButton.label.text)
+        .. ":lit=" .. tostring(host.everyButton.lit:IsShown()), "tip=" .. tip(combat))
+    -- an empty one: no menu
+    menu = nil
+    combat.scripts.OnClick(combat, "RightButton")
+    print("radial categories empty menu", "menu=" .. menuText())
+    -- a radial's menu: the categories first, then the groups of your own
+    local emotesCell = cellOf(function(item) return item.id == emotes end)
+    emotesCell.scripts.OnClick(emotesCell, "RightButton")
+    print("radial categories radial menu", menuText())
+    pick("Move to Social")
+    emotesCell = cellOf(function(item) return item.id == emotes end)
+    emotesCell.scripts.OnClick(emotesCell, "LeftButton")
+    print("radial categories moved", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order(), "crumb=" .. plain(win.crumb.text))
+    emotesCell.scripts.OnClick(emotesCell, "RightButton")
+    print("radial categories radial menu in one", menuText())
+    -- dragged onto a tile
+    local first = RM:GetRadialOrder()[2]
+    local firstCell = cellOf(function(item) return item.id == first end)
+    firstCell.scripts.OnDragStart(firstCell)
+    H.pointAt(tileOf("group"))
+    firstCell.scripts.OnDragStop(firstCell)
+    H.pointAt(nil)
+    print("radial categories dragged", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order())
+    -- a tile clicked: its radials alone, then the ones in none (Not filed); again, every one
+    local social = tileOf("social")
+    social.scripts.OnClick(social, "LeftButton")
+    print("radial categories tile", "tiles=" .. tiles(), "list=" .. listNames(), "colour=" .. colour(social.name), "tip=" .. tip(social))
+    local healing = tileOf("healing")
+    healing.scripts.OnClick(healing, "LeftButton")
+    print("radial categories tile empty", "tiles=" .. tiles(), "list=" .. listNames())
+    healing.scripts.OnClick(healing, "LeftButton")
+    print("radial categories tile off", "tiles=" .. tiles(), "list=" .. listNames())
+    -- Presets: sub-headed by category; the tiles count presets; a tile narrows them
+    host.sideTabs.presets.scripts.OnClick(host.sideTabs.presets)
+    print("radial categories presets", "tabs=" .. tabs(), "tiles=" .. tiles(), "list=" .. listNames())
+    local items = tileOf("items")
+    items.scripts.OnClick(items, "LeftButton")
+    print("radial categories presets tile", "list=" .. listNames())
+    healing.scripts.OnClick(healing, "LeftButton")
+    print("radial categories presets tile empty", "list=" .. listNames())
+    healing.scripts.OnClick(healing, "LeftButton")
+    -- (a radial dropped on a tile from the Presets tab is still put in it; none is draggable there)
+    host.sideTabs.mine.scripts.OnClick(host.sideTabs.mine)
+    -- the key in a chip, a mouse button short
+    local keyed = RM:GetRadialOrder()[3]
+    RM:SetRadialKey(keyed, "ALT-BUTTON3")
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    local kc = cellOf(function(item) return item.id == keyed end)
+    print("radial categories key chip", "key=" .. tostring(kc.Key.text), "chip=" .. tostring(kc.KeyBg[1]:IsShown()))
+    RM:SetRadialKey(keyed, nil)
+    -- a category's heading stays put; a group of your own goes nowhere among them
+    -- (no drag starts: the heading's tooltip stays up, where a drag hides it)
+    local socialHead = headOf("social")
+    GameTooltip:Show()
+    socialHead.scripts.OnDragStart(socialHead)
+    local dragging = not GameTooltip:IsShown()
+    socialHead.scripts.OnDragStop(socialHead)
+    GameTooltip:Hide()
+    local mine = RM:CreateGroupWith(RM:GetRadialOrder()[3], "Mine")
+    print("radial categories fixed", "drag=" .. tostring(dragging), "group onto one=" .. tostring(RM:MoveGroup(mine, "group:social")),
+        "onto its radial=" .. tostring(RM:MoveGroup(mine, emotes)), "one moved=" .. tostring(RM:MoveGroup("social", "group:" .. mine)),
+        "renamed=" .. tostring((function() RM:RenameGroup("social", "Chat") return RM:GetGroup("social").name end)()),
+        "order=" .. order())
+    -- a group of your own dropped on a tile: nothing
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    local mineHead = headOf(mine)
+    mineHead.scripts.OnDragStart(mineHead)
+    H.pointAt(tileOf("items"))
+    mineHead.scripts.OnDragStop(mineHead)
+    H.pointAt(nil)
+    print("radial categories group on a tile", "tiles=" .. tiles(), "order=" .. order())
+    RM:Ungroup(mine)
+    -- a full one: open and close; its menu (the heading's or the tile's) is Empty; emptied, the tile stays
+    socialHead = headOf("social")
+    print("radial categories full", "tip=" .. tip(socialHead))
+    socialHead.scripts.OnClick(socialHead, "LeftButton")
+    print("radial categories folded", listNames())
+    socialHead = headOf("social")
+    socialHead.scripts.OnClick(socialHead, "LeftButton")
+    social.scripts.OnClick(social, "RightButton")
+    print("radial categories tile menu", menuText())
+    pick("Empty")
+    print("radial categories emptied", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order())
+    RM:Ungroup("group")
+    MenuUtil = was
+end
+
 -- ---- Every radial (the sidebar's Options): its cards, its rows (each one's text in its tooltip)
 host.sideSearch.text = "emo"
 host.sideSearch.scripts.OnTextChanged(host.sideSearch)
 print("radial editor sidebar search", listNames())
 host.sideSearch.text = ""
 host.sideSearch.scripts.OnTextChanged(host.sideSearch)
-for _, c in ipairs(host.radialList.cells) do
-    if c.item and c.item.options then c.scripts.OnClick(c, "LeftButton") end
-end
+host.everyButton.scripts.OnClick(host.everyButton)
 local opt = win.look
 local function rowOf(key) return win.lookRows[key] end
 print("radial options tab", "tab=" .. shownTabs(), "look=" .. tostring(opt:IsShown()), "wheel=" .. tostring(win.sheets.wheel:IsShown()),
-    "title=" .. tostring(win.pageTitle.text), "crumb=" .. tostring(win.crumb.text), "lit=" .. lit())
+    "title=" .. tostring(win.pageTitle.text), "crumb=" .. tostring(win.crumb.text), "lit=" .. lit(),
+    "every lit=" .. tostring(host.everyButton.lit:IsShown()))
 local pos = rowOf("rm.position")
 local function picked(r)
     local out = {}
@@ -1271,6 +1422,12 @@ do
     print("radial totems shown, mage", shown())
     UnitClass = function() return "Shaman", "SHAMAN" end
     print("radial totems shown, shaman", shown())
+    -- (2026-11-22) a shaman's sidebar: Totem Bars under its Combat sub-heading, the first
+    if not win:IsShown() then mdluiRadialToggleEditor() end
+    host.sideTabs.presets.scripts.OnClick(host.sideTabs.presets)
+    print("radial totems sidebar, shaman", listNames())
+    host.sideTabs.mine.scripts.OnClick(host.sideTabs.mine)
+    win:Hide()
     local id = RM:AddPreset("totems")
     runTimers()
     local data = RM:GetRadial(id)
@@ -1438,9 +1595,14 @@ print("radial preset marks old", "as it came=" .. tostring(RM:GetRadial(old1).pr
 -- one from the Catalog, Reset on the Radial sheet; a preset viewed read-only, and added
 win:Show()
 win.ShowPage("radial", "wheel")
+-- (a row on the other tab of My radials | Presets: that tab, then the row)
 local function navTo(test)
-    for _, c in ipairs(host.radialList.cells) do
-        if c.item and test(c.item) then c.scripts.OnClick(c, "LeftButton") return true end
+    for _ = 1, 2 do
+        for _, c in ipairs(host.radialList.cells) do
+            if c.item and test(c.item) then c.scripts.OnClick(c, "LeftButton") return true end
+        end
+        local other = host.sideTab == "mine" and host.sideTabs.presets or host.sideTabs.mine
+        other.scripts.OnClick(other)
     end
     return false
 end

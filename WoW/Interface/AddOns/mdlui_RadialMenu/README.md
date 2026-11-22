@@ -26,11 +26,13 @@ Hold a key, sweep the mouse towards a button, and let go: the button you aimed a
 |:---:|:---:|
 | ![The editor on the Markers radial: its wheel of target markers, the chosen slot, and the Catalog's panels](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/radialmenu-showcase/radial-editor-markers.png) | ![The editor on an Emotes radial: five category buttons on its wheel](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/radialmenu-showcase/radial-editor-emotes.png) |
 
-- **The sidebar** lists your radials under their groups, with a search above them.
-  - Right-click a radial to group it, and drag to reorder.
+- **The sidebar** has a search, then a switch between **My radials** and **Presets**, each with its count.
+  - Six category tiles sit under the switch: **Combat**, **Healing**, **Social**, **Group**, **Items** and **Travel & UI**, each with its glyph and count. They start empty: drag a radial onto a tile, or right-click a radial and pick **Move to …**. Click a tile to list only its radials, with the ones in no category under **Not filed**; click it again to list them all. Right-click a tile to **Empty** it.
+  - With no tile chosen, each category with radials in it is a heading that folds, then your own groups and the rest. Right-click a radial to group it, and drag to reorder. A category can't be renamed or moved.
+  - A radial's key sits in a small box at the right of its row; mouse buttons are short (**ALT-M3**), so names keep their room.
   - Radials this character doesn't get sit under **Not on This Character**.
-  - **Presets** come next: **Markers**, **Emotes**, **Voice Emotes** and **Camping** (a slice for each camp kit you carry, and Sit) and **Consumables** (the best health potion or stone, mana potion or gem, food and drink in your bags; turn the wheel on one for the rest), ready-made and read-only. Class presets show only for their class: a shaman also gets **Totem Bars** (a ring for each Call: the Call, and the four totems on its page of the totem bar, read live). **Add to my radials** makes a copy you can change however you like.
-  - **Options > Every radial** sits at the bottom of the list.
+  - **Presets** lists the ready-made radials under the same category names, and a tile narrows them too: **Markers**, **Emotes**, **Voice Emotes** and **Camping** (a slice for each camp kit you carry, and Sit) and **Consumables** (the best health potion or stone, mana potion or gem, food and drink in your bags; turn the wheel on one for the rest), read-only. Class presets show only for their class: a shaman also gets **Totem Bars** (a ring for each Call: the Call, and the four totems on its page of the totem bar, read live). **Add to my radials** makes a copy you can change however you like.
+  - **Every radial** sits at the sidebar's foot.
 - **The Wheel sheet** holds the radial's wheel, the chosen slot, and the **Catalog**.
   - Click a slot to choose it, drag it onto another to move it, and right-click to remove it.
   - The chosen slot's card sets its place on the wheel. For a spell with ranks, it also sets whether the button casts the **Best known** rank or stays on **This rank**.
