@@ -33,6 +33,7 @@ local SECTION_HUES = {
     where = { .44, .71, .81 },
     chain = { .71, .61, .89 },
     reputation = { .49, .77, .48 },
+    party = { .42, .80, .74 },
 }
 local BAND_BEFORE = 8
 local QUEST_ICON = "Interface\\Icons\\INV_Misc_Book_08"
@@ -51,7 +52,7 @@ local function questKey(_, data)
     return readable(data.id)
 end
 
-local fromQuestie, questieWords
+local fromQuestie, questieWords, partyOf
 local function completeModel(model, questID, game)
     -- The quest log's tooltip names no level.
     if questID and not model.level then model.level = game.questLevel(questID) end
@@ -81,6 +82,8 @@ local function completeModel(model, questID, game)
     end
     model.where, model.extras = where, kept
     fromQuestie(model, questID, game, words)
+    -- (2026-11-22) the party's progress on it, once the objectives are known
+    if questID then model.party = partyOf(model, questID, game) or false end
     table.sort(model.where, function(a, b) return (order[a.left] or 4) < (order[b.left] or 4) end)
     model.color = game.difficultyColor(model.level) or QUEST_GOLD
     model.icon = model.icon or QUEST_ICON
@@ -252,6 +255,73 @@ function fromQuestie(model, id, game, words)
     end
 end
 
+-- (2026-11-22) The party members on the quest and how far each has got:
+-- the game's own account first (its synced party progress), then Questie's
+-- party sharing, then only whether a member has the quest. Each member is
+-- { name, classFile, objectives = { objective rows }, done, total, ready };
+-- nil when no one in the party is on it.
+function partyOf(model, id, game)
+    local members = game.partyMembers()
+    if #members == 0 then return end
+    local byName = {}
+    for _, member in ipairs(members) do
+        byName[member.name] = member
+        byName[member.short] = byName[member.short] or member
+    end
+    local found = {}
+    -- the game's: a member's name, then that member's objectives
+    local current
+    for _, line in ipairs(game.questPartyLines(id) or {}) do
+        if line.name then
+            local name = trim(line.name)
+            local member = byName[name] or byName[name:match("^[^%-]+") or name]
+            -- (a name not in the party: its objectives go nowhere)
+            current = { objectives = {} }
+            if member then found[member] = current end
+        elseif current then
+            current.objectives[#current.objectives + 1] = objectiveOf(trim(line.text), "", line.completed)
+        end
+    end
+    -- Questie's: counts by objective, named as the quest names them
+    local log = game.questieRemoteLog(id)
+    local quest = log and game.questieQuest(id)
+    for _, member in ipairs(log and members or {}) do
+        local shared = not found[member] and (log[member.name] or log[member.short])
+        if type(shared) == "table" then
+            local entry = { objectives = {} }
+            for index, objective in ipairs(shared) do
+                if type(objective) == "table" then
+                    local have, need = tonumber(objective.fulfilled), tonumber(objective.required)
+                    local mine = model.objectives[index]
+                    local text = mine and mine.left
+                        or quest and type(quest.ObjectiveData) == "table" and objectiveText(game, quest.ObjectiveData[index])
+                        or "#" .. index
+                    entry.objectives[#entry.objectives + 1] = { left = text, right = have and need and (have .. "/" .. need)
+                        or "", completed = objective.finished == true or (have ~= nil and need ~= nil and have >= need) }
+                end
+            end
+            found[member] = entry
+        end
+    end
+    local list = {}
+    for _, member in ipairs(members) do
+        local entry = found[member]
+        -- on the quest, and nothing more known
+        if not entry and game.unitOnQuest(member.unit, id) then entry = { objectives = {} } end
+        if entry then
+            local done = 0
+            for _, objective in ipairs(entry.objectives) do
+                if objective.completed then done = done + 1 end
+            end
+            entry.name, entry.classFile = member.short, member.classFile
+            entry.done, entry.total = done, #entry.objectives
+            entry.ready = entry.total > 0 and done == entry.total
+            list[#list + 1] = entry
+        end
+    end
+    if #list > 0 then return list end
+end
+
 -- The text after a label, trimmed: "" for the label alone; nil without it.
 local function afterLabel(text, label)
     if startsWith(text, label) then return trim(text:sub(#trim(label) + 1)) end
@@ -263,6 +333,12 @@ local function readRow(model, row, state)
     local right = trim(util.uncolored(row.right or ""))
     if text == "" and right == "" then return end
     if not model.name then return readTitle(model, text) end
+    -- (2026-11-22) the quest log's party lines ("Party members on this
+    -- quest:", each member's name and objectives): the Party section reads
+    -- the party itself, so they are left out here; MedalUI's clicks after
+    -- them still count
+    if text == PARTY_QUEST_STATUS_ON or text == PARTY_QUEST_STATUS_NONE then state.party = true return end
+    if state.party and not ui.isKeyRow(row) then return end
     if state.label then
         model.extras[#model.extras + 1] = { left = state.label, right = text }
         state.label = nil
@@ -470,6 +546,61 @@ local function objectivesSection(model, styles, after)
     }
 end
 
+-- (2026-11-22) The party under its own band: each member in the class's
+-- colour, with how far they have got on the right (Ready, the objectives
+-- done of all, or only that they have it), and the objectives of one not
+-- yet done under the name, each with its checkbox.
+local function partyRows(model)
+    local rows = {}
+    for _, member in ipairs(model.party) do
+        local right, rightColor
+        if member.ready then
+            right, rightColor = L["Ready"], DONE_COLOR
+        elseif member.total > 0 then
+            right, rightColor = member.done .. "/" .. member.total, QUEST_GOLD
+        else
+            right, rightColor = L["On the quest"], colors.detail
+        end
+        local game = ns.Game
+        local color = game and (game.customClassColor(member.classFile) or game.classColor(member.classFile))
+        rows[#rows + 1] = { row = { left = member.name, right = right, color = color or colors.title,
+            rightColor = rightColor } }
+        if not member.ready then
+            for _, objective in ipairs(member.objectives) do rows[#rows + 1] = { row = objective, objective = true } end
+        end
+    end
+    return rows
+end
+
+local function partySection(model, styles, after)
+    local style = styles.questObjectives
+    return {
+        kind = "custom",
+        measure = function(panel)
+            local need = 0
+            for _, entry in ipairs(partyRows(model)) do
+                need = math.max(need, ui.rowWidth(panel, entry.row, style) + (entry.objective and OBJECTIVE_INDENT or 0))
+            end
+            return need
+        end,
+        draw = function(panel, y)
+            y = ui.band(panel, y, PARTY or L["Party"], styles.questCaption, SECTION_HUES.party,
+                after and BAND_BEFORE or 0)
+            for _, entry in ipairs(partyRows(model)) do
+                local row = entry.row
+                if entry.objective then
+                    checkbox(panel, y, row.completed, style.size)
+                    y = ui.drawRow(panel, row, y, style, row.completed and DONE_COLOR or colors.objective,
+                        OBJECTIVE_INDENT, 5)
+                else
+                    y = ui.drawRow(panel, row, y, style, colors.title, 0, 5)
+                end
+            end
+            return y
+        end,
+    }
+end
+
 -- What the panel shows, for Panel/Render.lua to draw.
 -- (2026-11-22) The hint to hold the details key for the rest of the quest
 -- (where, chain, reputation), in Questie's own words when it is there, as its
@@ -499,6 +630,10 @@ local function questView(model, details)
     end
     if #model.objectives > 0 then
         sections[#sections + 1] = objectivesSection(model, styles, #sections > 0)
+    end
+    -- the party's progress, always (not held back with the details)
+    if model.party and #model.party > 0 then
+        sections[#sections + 1] = partySection(model, styles, #sections > 0)
     end
     -- where it is, and the quests either side of it, each under its caption
     local function captioned(label, hue)

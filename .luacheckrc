@@ -269,7 +269,8 @@ files["WoW/Interface/AddOns/mdlui_Tooltips/**/*.lua"] = {
         "UnitClass", "UnitRace", "UnitFactionGroup", "UnitReaction", "UnitIsUnit", "UnitIsPlayer",
         "UnitHealth", "UnitHealthMax", "UnitIsTapDenied", "UnitIsPVP", "UnitIsDeadOrGhost", "UnitIsDND",
         "UnitIsAFK", "UnitCreatureType", "UnitClassification",
-        "LibStub", "Auctionator", "QuestieLoader", "GetFactionInfoByID", "REPUTATION", "ITEM_MIN_LEVEL",
+        "LibStub", "Auctionator", "QuestieLoader", "PARTY_QUEST_STATUS_ON", "PARTY_QUEST_STATUS_NONE", "PARTY", "UNKNOWNOBJECT",
+        "GetFactionInfoByID", "REPUTATION", "ITEM_MIN_LEVEL",
     },
 }
 

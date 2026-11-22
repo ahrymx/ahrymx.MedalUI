@@ -349,6 +349,12 @@ local TYPES = {
                     active = true,
                     description = { L["Motley Garmason wants Kam Deepfury's head brought to him at Dun Modr."] },
                     objectives = { { left = itemName(3640, "Head of Deepfury"), right = "0/1", completed = false } },
+                    -- (2026-11-22) the party's progress: one still at it, one ready
+                    party = {
+                        { name = "Thalric", classFile = "PRIEST", done = 0, total = 1,
+                            objectives = { { left = itemName(3640, "Head of Deepfury"), right = "0/1", completed = false } } },
+                        { name = "Brannoc", classFile = "WARRIOR", ready = true, done = 1, total = 1, objectives = {} },
+                    },
                 },
             },
             {

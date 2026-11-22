@@ -455,6 +455,75 @@ function game.questProgress(questID)
     return { objectives = objectives, ready = ready }
 end
 
+-- (2026-11-22) The party, for its members' progress on a quest: each member
+-- as { unit, name ("Name", or "Name-Realm" from another realm, as the addon
+-- channel and Questie name them), short (the name alone), classFile }, in
+-- the party's order; empty out of a party.
+function game.partyMembers()
+    local list = {}
+    if not (IsInGroup and call(IsInGroup) == true) then return list end
+    for index = 1, 4 do
+        local unit = "party" .. index
+        local name, realm = call(UnitName, unit)
+        if type(name) == "string" and name ~= "" and name ~= UNKNOWNOBJECT then
+            local _, classFile = call(UnitClass, unit)
+            local full = type(realm) == "string" and realm ~= "" and (name .. "-" .. realm) or name
+            list[#list + 1] = { unit = unit, name = full, short = name, classFile = classFile }
+        end
+    end
+    return list
+end
+
+-- Whether a party member has the quest: true, false, or nil when the
+-- client cannot say.
+function game.unitOnQuest(unit, questID)
+    if not (C_QuestLog and C_QuestLog.IsUnitOnQuest) or isSecret(questID) then return end
+    local on = call(C_QuestLog.IsUnitOnQuest, unit, questID)
+    if type(on) == "boolean" then return on end
+end
+
+-- The game's own account of the party's progress on a quest (what its quest
+-- log's tooltip shows under "Party members on this quest"): the tooltip
+-- data's lines, a member's name (QuestPlayer) and then that member's
+-- objectives (QuestObjective), as { name } and { text, completed }; nil
+-- without it.
+function game.questPartyLines(questID)
+    local info = C_TooltipInfo and C_TooltipInfo.GetQuestPartyProgress
+    if not info or isSecret(questID) or type(questID) ~= "number" then return end
+    local data = call(info, questID, true, true)
+    if type(data) ~= "table" or isSecret(data.lines) or type(data.lines) ~= "table" then return end
+    local types = Enum and Enum.TooltipDataLineType or {}
+    local lines = {}
+    for _, line in ipairs(data.lines) do
+        if type(line) == "table" and not isSecret(line) and not isSecret(line.type) then
+            local text = line.leftText
+            if type(text) == "string" and not isSecret(text) and text ~= "" then
+                text = util.uncolored(text)
+                if types.QuestPlayer and line.type == types.QuestPlayer then
+                    lines[#lines + 1] = { name = text }
+                elseif types.QuestObjective and line.type == types.QuestObjective then
+                    local completed = line.completed
+                    if isSecret(completed) then completed = nil end
+                    lines[#lines + 1] = { text = text, completed = completed }
+                end
+            end
+        end
+    end
+    return lines
+end
+
+-- What Questie's party sharing knows of a quest: its log by player name,
+-- each a list of objectives { fulfilled, required, finished }; nil without
+-- Questie, or with nothing shared.
+function game.questieRemoteLog(questID)
+    local modules = QuestieLoader and QuestieLoader._modules
+    local comms = type(modules) == "table" and not isSecret(modules) and modules.QuestieComms
+    local logs = type(comms) == "table" and comms.remoteQuestLogs
+    if type(logs) ~= "table" or isSecret(questID) then return end
+    local log = logs[questID]
+    if type(log) == "table" and not isSecret(log) then return log end
+end
+
 -- A quest's level while it is in the quest log; nil otherwise.
 function game.questLevel(questID)
     if not (C_QuestLog and C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetInfo) then return end

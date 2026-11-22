@@ -992,6 +992,124 @@ do
         print("tooltips quest sections no separators", table.concat(out, " | "))
         mdlui_TooltipsDB.separators = seps
     end
+    -- (2026-11-22) the party's progress: the game's own account (Thalric,
+    -- two objectives, one done), Questie's sharing (Brannoc, both done:
+    -- Ready), and only that one has the quest (Mira); Osk is not on it.
+    -- The quest log's own party lines are not read as the quest's.
+    do
+        local was = { IsInGroup = IsInGroup, UnitName = UnitName, UnitClass = UnitClass, CQ = C_QuestLog,
+            CT = C_TooltipInfo, types = Enum.TooltipDataLineType, on = PARTY_QUEST_STATUS_ON }
+        local P = { grouped = true, names = { party1 = { "Thalric" }, party2 = { "Brannoc", "Argent Dawn" },
+            party3 = { "Mira" }, party4 = { "Osk" } },
+            classes = { party1 = "PRIEST", party2 = "WARRIOR", party3 = "MAGE", party4 = "ROGUE" },
+            on = { party3 = true }, native = true, shared = true }
+        function IsInGroup() return P.grouped end
+        function UnitName(u)
+            local n = P.names[u]
+            if n then return n[1], n[2] end
+            return was.UnitName(u)
+        end
+        function UnitClass(u)
+            if P.classes[u] then return P.classes[u], P.classes[u] end
+            return was.UnitClass(u)
+        end
+        RAID_CLASS_COLORS = setmetatable({ PRIEST = { r = 1, g = 1, b = 1 }, WARRIOR = { r = .78, g = .61, b = .43 },
+            MAGE = { r = .25, g = .78, b = .92 } }, getmetatable(RAID_CLASS_COLORS))
+        Enum.TooltipDataLineType = setmetatable({ QuestObjective = 8, QuestPlayer = 18 }, { __index = was.types })
+        C_QuestLog = setmetatable({ IsUnitOnQuest = function(u) return P.on[u] == true end }, { __index = was.CQ })
+        C_TooltipInfo = setmetatable({ GetQuestPartyProgress = function(id, omit, ignore)
+            if not P.native then return end
+            P.asked = tostring(id) .. "," .. tostring(omit) .. "," .. tostring(ignore)
+            return { lines = { { type = 18, leftText = "|cffffffffThalric|r" },
+                { type = 8, leftText = "Embalmer's Heart: 1/1", completed = true },
+                { type = 8, leftText = "0/3 Grave Moss", completed = false },
+                -- one from another realm, by name alone; a done objective with no count
+                { type = 18, leftText = "Brannoc" }, { type = 8, leftText = "Find the grave", completed = true },
+                -- someone not in the party: left out
+                { type = 18, leftText = "Stranger" }, { type = 8, leftText = "0/1 Something", completed = false } } }
+        end }, { __index = was.CT })
+        local modules = QuestieLoader._modules
+        modules.QuestieComms = { remoteQuestLogs = { [253] = {
+            ["Brannoc-Argent Dawn"] = { { fulfilled = 1, required = 1, finished = true },
+                { fulfilled = 3, required = 3, finished = true } },
+            -- one count, and one only finished (no counts)
+            Thalric = { { fulfilled = 0, required = 1, finished = false }, { finished = true } } } } }
+        local function party(label, model)
+            local list = {}
+            for _, m in ipairs(model.party or {}) do
+                local objs = {}
+                for _, o in ipairs(m.objectives) do objs[#objs + 1] = o.left .. "=" .. o.right .. (o.completed and "+" or "") end
+                list[#list + 1] = m.name .. "(" .. tostring(m.classFile) .. ") " .. m.done .. "/" .. m.total
+                    .. (m.ready and " ready" or "") .. " [" .. table.concat(objs, ",") .. "]"
+            end
+            print("tooltips quest party " .. label, model.party == false and "none" or table.concat(list, " | "))
+            card("party " .. label, model)
+            -- the party's rows: where each starts, and its colour (a member's
+            -- name in the class's; the objectives under it a step in)
+            local panel, after, rows = anchor.prettyTooltipPreview, false, {}
+            for _, t in ipairs(texts(panel)) do
+                if t.text == (PARTY or "Party") or t.text == "PARTY" then after = true
+                elseif after and (t.text == "WHERE" or t.text == "Where") then break
+                elseif after and t.text and t.text ~= "" then
+                    local c = t.f.color or t.f.textColor or {}
+                    rows[#rows + 1] = string.format("%s@%d(%.2f,%.2f,%.2f)", plain(t.text), t.x or -1, c[1] or -1, c[2] or -1,
+                        c[3] or -1)
+                end
+            end
+            print("tooltips quest party rows " .. label, table.concat(rows, " "))
+        end
+        local function lines()
+            return { name = "Bride of the Embalmer", active = true,
+                objectives = { { left = "Embalmer's Heart", right = "0/1", completed = false },
+                    { left = "Grave Moss", right = "1/3", completed = false } } }
+        end
+        party("all three", ui.questModel(lines(), 253))
+        for _, sample in ipairs(byKey.quest.samples) do
+            if sample.label == "Active" then party("sample Active", sample.build()) end
+        end
+        print("tooltips quest party asked", tostring(P.asked))
+        -- the game says nothing: Questie's for Thalric too, named by our objectives
+        P.native = false
+        party("questie only", ui.questModel(lines(), 253))
+        -- no Questie either: only who has it
+        modules.QuestieComms = nil
+        party("on only", ui.questModel(lines(), 253))
+        -- no one on it, and out of a party
+        P.on = {}
+        party("no one", ui.questModel(lines(), 253))
+        P.on, P.grouped = { party3 = true }, false
+        party("solo", ui.questModel(lines(), 253))
+        P.grouped = true
+        -- the quest log's lines with its party lines under them: they are
+        -- not the quest's objectives
+        PARTY_QUEST_STATUS_ON = "Party members on this quest:"
+        local CL = C_QuestLog
+        C_QuestLog = setmetatable({ IsOnQuest = function() return false end }, { __index = CL })
+        local holder = CreateFrame("Frame", nil, UIParent)
+        local tt = { lefts = {}, rights = {} }
+        for i, text in ipairs({ "Bride of the Embalmer", "- Embalmer's Heart: 0/1", "Party members on this quest:",
+            "Thalric", "1/1 Embalmer's Heart" }) do
+            local left, right = holder:CreateFontString(), holder:CreateFontString()
+            left:SetText(text); left:SetTextColor(1, 1, 1); right:SetText(""); right:Hide()
+            left.IsForbidden = function() return false end
+            right.IsForbidden = left.IsForbidden
+            tt.lefts[i], tt.rights[i] = left, right
+        end
+        function tt:NumLines() return #self.lefts end
+        function tt:GetLeftLine(i) return self.lefts[i] end
+        function tt:GetRightLine(i) return self.rights[i] end
+        function tt:GetName() return nil end
+        function tt:GetOwner() return holder end
+        local read = ns.QuestPin.read(tt, 253)
+        local objs = {}
+        for _, o in ipairs(read and read.objectives or {}) do objs[#objs + 1] = o.left .. "=" .. o.right end
+        local extras = {}
+        for _, e in ipairs(read and read.extras or {}) do extras[#extras + 1] = e.left end
+        print("tooltips quest party log lines", "objectives=" .. table.concat(objs, ","), "extras=" .. table.concat(extras, ","))
+        C_QuestLog = CL
+        IsInGroup, UnitName, UnitClass, C_QuestLog, C_TooltipInfo = was.IsInGroup, was.UnitName, was.UnitClass, was.CQ, was.CT
+        Enum.TooltipDataLineType, PARTY_QUEST_STATUS_ON = was.types, was.on
+    end
     QuestieLoader, C_Map.GetAreaInfo, C_Reputation.GetFactionDataByID = nil, area, faction
 end
 
