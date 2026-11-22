@@ -23584,6 +23584,27 @@ if questLogPass then (function()
             end
             print("questlog map with OpenMap " .. tag, "zooms=" .. zooms, "current=" .. tostring(QP.Current()))
         end
+        -- (2026-11-22) the page over what it is opened from: the quest log
+        -- and the other windows (MEDIUM), and the world map at its strata
+        local function over(tag)
+            local f = _G.MedalUIQuestPage
+            print("questlog page over " .. tag, "strata=" .. tostring(f and f:GetFrameStrata()),
+                "raised=" .. tostring(f and f.raised and f.raised > 0))
+        end
+        local mapStrata, mapShown = WorldMapFrame.strata, WorldMapFrame.shown
+        WorldMapFrame.shown = true
+        for _, s in ipairs({ "HIGH", "FULLSCREEN", "FULLSCREEN_DIALOG", "MEDIUM" }) do
+            WorldMapFrame.strata = s
+            QP.Close()
+            click("map at " .. s, pin)
+            over("map at " .. s)
+        end
+        -- closed, whatever its strata: DIALOG
+        WorldMapFrame.shown, WorldMapFrame.strata = false, "FULLSCREEN"
+        QP.Close()
+        click("map closed", pin)
+        over("map closed")
+        WorldMapFrame.strata, WorldMapFrame.shown = mapStrata, mapShown
         QP.Close()
         chain("game pin", pin)
         QP.Close()

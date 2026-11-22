@@ -730,6 +730,25 @@ local function Window()
     return W
 end
 
+-- Over whatever it is opened from (2026-11-22): the quest log and the other
+-- windows (MEDIUM), and the world map, whose strata is the game's to set
+-- (its border HIGH): DIALOG, or the strata above the map's while it shows.
+local STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
+local RANK = {}
+for i, s in ipairs(STRATA) do RANK[s] = i end
+local LEAST, MOST = RANK.DIALOG, RANK.FULLSCREEN_DIALOG
+local function Raise(window)
+    if not window then return end
+    local rank = LEAST
+    local map = WorldMapFrame
+    if map and map:IsShown() then
+        rank = math.max(rank, math.min(MOST, (RANK[map:GetFrameStrata()] or 0) + 1))
+    end
+    if window:GetFrameStrata() ~= STRATA[rank] then window:SetFrameStrata(STRATA[rank]) end
+    window:Raise()
+end
+qp.Raise = Raise
+
 function qp.Open(id)
     local w = Window()
     if current ~= id then
@@ -739,6 +758,7 @@ function qp.Open(id)
     current = id
     if not w.Current() then w.Select(page) end
     w.SetShown(true)
+    Raise(w.window)
     qp.Refresh()
     if ns.questLog then ns.questLog.Refresh() end
 end
