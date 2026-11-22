@@ -476,6 +476,16 @@ local function MapClicks()
     end, MAP_PRIORITY)
 end
 Q.MapClicks = MapClicks
+-- (2026-11-22) for the tooltips companion's quest panel: whether a right
+-- click on this quest's marker opens its page (the map's handler is in, the
+-- quest in the log), so its foot can say so
+function MedalUI_MapQuestPage(id)
+    if not mapHooked or type(id) ~= "number" or ns.IsSecret(id) then return false end
+    for _, q in ipairs(Q.All()) do
+        if q.id == id then return true end
+    end
+    return false
+end
 ns.On("PLAYER_LOGIN", MapClicks)
 ns.On("ADDON_LOADED", MapClicks)
 

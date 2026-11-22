@@ -744,8 +744,10 @@ end
 -- two cells to a row: rows with its mouse glyph in them, as a grid, the
 -- second column starting where the widest first cell ends. keyGrid marks a
 -- list's key rows with their columns (grid); drawRow and rowWidth follow it.
+-- (A row marked loose keeps its two ends apart: the quest foot's hint, with
+-- the map's right click opposite it.)
 local function isKeyRow(row)
-    if row.blank then return false end
+    if row.blank or row.loose then return false end
     local mark = "strips\\mouse-"
     return ((row.left or ""):find(mark, 1, true) or (row.right or ""):find(mark, 1, true)) and true or false
 end

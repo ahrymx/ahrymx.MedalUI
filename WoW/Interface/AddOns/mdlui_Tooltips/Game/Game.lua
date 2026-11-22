@@ -593,6 +593,30 @@ function game.questieQuest(id)
     if ok and type(quest) == "table" and not isSecret(quest) then return quest end
 end
 
+-- (2026-11-22) The experience a quest gives you, as Questie's quest
+-- tooltips figure it (its table, your level and bonuses; nothing at the top
+-- level), else the game's for a quest in the log; nil for none or unknown.
+function game.questXP(id)
+    if isSecret(id) or type(id) ~= "number" then return end
+    local modules = QuestieLoader and QuestieLoader._modules
+    local xp = modules and modules.QuestXP
+    local value
+    if type(xp) == "table" and type(xp.GetQuestLogRewardXP) == "function" then
+        local ok, v = pcall(xp.GetQuestLogRewardXP, xp, id, false)
+        if ok then value = v end
+    end
+    if (value == nil or value == 0) and GetQuestLogRewardXP then value = call(GetQuestLogRewardXP, id) end
+    value = util.number(value)
+    if value and value > 0 then return value end
+end
+
+-- MedalUI's world map right click: whether it opens this quest's page
+-- (MedalUI loaded, the quest in its log)
+function game.mapPage(id)
+    if isSecret(id) or type(id) ~= "number" then return false end
+    return call(MedalUI_MapQuestPage, id) == true
+end
+
 -- One field of a quest, NPC, object or item in Questie's database (kind
 -- "Quest", "NPC", "Object" or "Item"); nil when it has none, or fails.
 function game.questieField(kind, id, field)

@@ -196,7 +196,7 @@ read_globals = {
 -- the saved variables, the slash command, the reset popup's key and the
 -- tooltip spec, the locked line and the beside test mdlui_Tooltips reads (core.lua,
 -- inventory/locks.lua, window/shell.lua)
-globals = { "_G", "MedalUI_TooltipSpec", "MedalUI_LockedLine", "MedalUI_TooltipBeside", "MedalUI_ArenaOpen", "MedalUIDB", "MedalUICharDB", "MedalUIFontFace", "SLASH_MEDALUI1", "SLASH_MEDALUI2", "SLASH_MDLUI1", "SlashCmdList",
+globals = { "_G", "MedalUI_TooltipSpec", "MedalUI_MapQuestPage", "MedalUI_LockedLine", "MedalUI_TooltipBeside", "MedalUI_ArenaOpen", "MedalUIDB", "MedalUICharDB", "MedalUIFontFace", "SLASH_MEDALUI1", "SLASH_MEDALUI2", "SLASH_MDLUI1", "SlashCmdList",
     "StaticPopupDialogs",
     -- the quest log key's binding (Bindings.xml, quests/log.lua)
     "MedalUIToggleQuestLog", "BINDING_NAME_MEDALUI_QUESTLOG",

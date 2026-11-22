@@ -979,6 +979,87 @@ do
         modules.l10n = nil
         -- nothing to hide: no hint
         game("nothing held", ui.questModel({ name = "Plain Quest", objectives = { { left = "A thing", right = "0/1" } } }))
+        -- (2026-11-22) the reward's experience as a chip after the level
+        -- ("ExP 2.4k"): Questie's figure, else the game's; none once done
+        do
+            local xps, gameXP = {}, {}
+            local QX = { GetQuestLogRewardXP = function(_, id) return xps[id] or 0 end }
+            local gq = GetQuestLogRewardXP
+            GetQuestLogRewardXP = function(id) return gameXP[id] or 0 end
+            modules.QuestXP = QX
+            local function chip(label, xp, from, fields)
+                xps[253], gameXP[253] = nil, nil
+                if from == "game" then gameXP[253] = xp else xps[253] = xp end
+                local m = ui.questModel(fields or { name = "Bride of the Embalmer" }, 253)
+                local p = ui.renderPreview(anchor, m, byKey.quest.dataType)
+                local found = "none"
+                for _, t in ipairs(texts(p)) do
+                    if t.text and plain(t.text):find("ExP", 1, true) then found = plain(t.text) end
+                end
+                print("tooltips quest xp " .. label, "model=" .. tostring(m.xp), "chip=" .. found)
+            end
+            chip("small", 850)
+            chip("thousands", 2400)
+            chip("round thousands", 2000)
+            chip("tens of thousands", 12345)
+            chip("game's figure", 300, "game")
+            chip("none", 0)
+            chip("completed", 2400, nil, { name = "Done Quest", completed = true })
+            modules.QuestXP = nil
+            chip("no questie", 300, "game")
+            GetQuestLogRewardXP = gq
+        end
+        -- (2026-11-22) over a quest's marker on the world map, MedalUI's
+        -- right click (its page) at the foot, opposite the hint
+        do
+            local map = WorldMapFrame or CreateFrame("Frame", nil, UIParent)
+            local mapWas, getOwner, pageWas = WorldMapFrame, anchor.GetOwner, MedalUI_MapQuestPage
+            WorldMapFrame = map
+            local pin = { GetQuestID = function() return 253 end, GetMap = function() return map end,
+                IsForbidden = function() return false end, GetWidth = function() return 20 end }
+            local asked = {}
+            MedalUI_MapQuestPage = function(id) asked[#asked + 1] = id return id == 253 end
+            local function foot(label, owner, m)
+                anchor.GetOwner = function() return owner end
+                asked = {}
+                game(label, m)
+                -- (the right button's glyph: the page key, not MedalUI's own left-click Page)
+                local p, right, at = anchor.prettyTooltipPreview, 0, ""
+                for _, t in ipairs(texts(p)) do
+                    if t.text and t.text:find("mouse-right", 1, true) then
+                        right = right + 1
+                        at = at .. " page@" .. math.floor(t.x + .5) .. "+" .. math.floor((t.w or 0) + .5)
+                    elseif t.text and plain(t.text) == "Hold Shift" then
+                        at = at .. " hint@" .. math.floor(t.x + .5)
+                    end
+                end
+                print("tooltips quest page asked " .. label, table.concat(asked, ","), "right=" .. right,
+                    "width=" .. math.floor(p.width + .5) .. at)
+            end
+            foot("pin", pin)
+            -- as a marker's tooltip is: no MedalUI clicks under it
+            local bare = ui.questModel({ name = "Bride of the Embalmer", zone = "Duskwood",
+                objectives = { { left = "Embalmer's Heart", right = "0/1" } } }, 253)
+            foot("pin, no clicks", pin, bare)
+            foot("pin, nothing held", pin, ui.questModel({ name = "Plain Quest", objectives = { { left = "A thing", right = "0/1" } } }))
+            IsShiftKeyDown = function() return true end
+            foot("pin, shift", pin)
+            IsShiftKeyDown = function() return false end
+            foot("pin, other quest", { GetQuestID = function() return 254 end, GetMap = pin.GetMap,
+                IsForbidden = pin.IsForbidden, GetWidth = pin.GetWidth })
+            foot("not on the map", { GetQuestID = pin.GetQuestID, GetMap = function() return nil end,
+                IsForbidden = pin.IsForbidden, GetWidth = pin.GetWidth })
+            -- the style editor's preview names no click, whatever its anchor's owner
+            anchor.GetOwner = function() return pin end
+            local p, right = ui.renderPreview(anchor, bare, byKey.quest.dataType), 0
+            for _, t in ipairs(texts(p)) do
+                if t.text and t.text:find("mouse-right", 1, true) then right = right + 1 end
+            end
+            print("tooltips quest page preview", "right=" .. right)
+            MedalUI_MapQuestPage = nil
+            foot("no medalui", pin)
+            anchor.GetOwner, WorldMapFrame, MedalUI_MapQuestPage = getOwner, mapWas, pageWas
+        end
         IsShiftKeyDown = shift
         -- separators off: the names alone
         local seps = mdlui_TooltipsDB.separators

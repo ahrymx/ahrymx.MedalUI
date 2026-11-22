@@ -23879,6 +23879,11 @@ if questLogPass then (function()
         pinQuest = 201
         click("left button", pin, "LeftButton")
         click("bare map", WorldMapFrame)
+        -- (2026-11-22) what the tooltips companion asks before its foot names
+        -- the right click: in the log, a number, not a secret
+        print("questlog map page asked", "in log=" .. tostring(MedalUI_MapQuestPage(201)),
+            "not in log=" .. tostring(MedalUI_MapQuestPage(999)), "secret=" .. tostring(MedalUI_MapQuestPage(secret(201))),
+            "string=" .. tostring(MedalUI_MapQuestPage("201")))
         -- (2026-11-22) with OpenMap, whose handler (1000) zooms out on every
         -- right click: the game's order, the highest priority asked first
         -- until one takes it; a quest's page first, the zoom for the rest

@@ -85,6 +85,8 @@ local function completeModel(model, questID, game)
     -- (2026-11-22) the party's progress on it, once the objectives are known
     if questID then model.party = partyOf(model, questID, game) or false end
     table.sort(model.where, function(a, b) return (order[a.left] or 4) < (order[b.left] or 4) end)
+    -- (2026-11-22) the experience it gives, while it can still give it
+    if questID and not model.completed and game.questXP then model.xp = game.questXP(questID) end
     model.color = game.difficultyColor(model.level) or QUEST_GOLD
     model.icon = model.icon or QUEST_ICON
     return model
@@ -461,9 +463,19 @@ end
 -- already taken), a glyph for where the quest
 -- stands (with the objectives done while it is under way), a chain with the
 -- quests still to come after it. Its tags keep their words.
+-- (2026-11-22) The experience as few figures as can be: "850", "2.4k", "12k".
+local function xpText(xp)
+    if xp < 1000 then return tostring(xp) end
+    local k = xp / 1000
+    if k >= 10 then return string.format("%dk", math.floor(k + .5)) end
+    return (string.format("%.1fk", k):gsub("%.0k$", "k"))
+end
+
 local function badges(model)
     local list = {}
     if model.level then list[#list + 1] = { "LvL " .. model.level, model.color, keepCase = true } end
+    -- the reward's experience, after its level: "ExP 2.4k"
+    if model.xp then list[#list + 1] = { "ExP " .. xpText(model.xp), PARCHMENT, keepCase = true } end
     for _, tag in ipairs(model.tags) do list[#list + 1] = { tag, PARCHMENT } end
     if model.completed then
         list[#list + 1] = { "", DONE_COLOR, "completed" }
@@ -613,9 +625,15 @@ local function holdHint()
     return L["Hold Shift"]
 end
 
+-- (2026-11-22) MedalUI's right click on a quest's map marker (its page), as
+-- its key glyphs say it, opposite the hint
+local function pageKey()
+    return "|TInterface\\AddOns\\MedalUI\\media\\strips\\mouse-right:16:16:0:0:32:32:5:27:5:27|t " .. L["Page"]
+end
+
 -- details: the rest of the quest shows (the key held, or always); without it,
--- the hint to hold the key in its place
-local function questView(model, details)
+-- the hint to hold the key in its place. page: a right click opens its page.
+local function questView(model, details, page)
     local styles = {}
     for _, key in ipairs(PARTS) do styles[key] = ui.styleOf(key) end
     local header = { { text = model.name, style = styles.questTitle, color = colors.title, gap = 3 } }
@@ -676,7 +694,8 @@ local function questView(model, details)
     -- the hint to hold the key, then MedalUI's clicks
     local foot = {}
     local hint = held > 0 and holdHint()
-    if hint then foot[1] = { left = hint, right = "" } end
+    -- (loose: not in the clicks' grid below it, the key at the right edge)
+    if hint or page then foot[1] = { left = hint or "", right = page and pageKey() or "", loose = true } end
     for _, row in ipairs(model.keys or {}) do foot[#foot + 1] = row end
     local footer = #foot > 0 and { rows = foot, style = ui.styleOf("objectPrices"), color = colors.caption,
         gap = 3 } or nil
@@ -695,7 +714,13 @@ end
 
 local function renderQuest(panel, tooltip, model)
     local details = panel.isPreview or panel.allDetails or ns.detailsKeyDown()
-    ui.renderView(panel, tooltip, questView(model, details and true or false))
+    -- (on the world map's marker, when MedalUI opens the quest's page from it)
+    local page = false
+    if not panel.isPreview and ns.Game and ns.Game.mapPage then
+        local id = mapPinQuest(util.call(tooltip.GetOwner, tooltip))
+        page = id ~= nil and ns.Game.mapPage(id)
+    end
+    ui.renderView(panel, tooltip, questView(model, details and true or false, page))
 end
 
 ui.questModel = function(fields, questID)
