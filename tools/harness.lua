@@ -5411,6 +5411,10 @@ if cdmPass or ccPass then (function()
         item.Bar.Duration:SetPoint("RIGHT", -8, 0)
         function item:SetBarWidth(w) self:SetWidth(w) end
         function item:SetBarContent() self.Bar:SetPoint("LEFT", self.Icon, "RIGHT", 2, 0) end
+        -- the game writes the name only as the data refreshes (RefreshName)
+        function item:RefreshData() end
+        function item:GetNameText() return self.nameText end
+        function item:GetSpellID() return self.spellID end
         table.insert(self.items, item)
         self:OnAcquireItemFrame(item)
         item:SetBarContent(1)
@@ -28217,6 +28221,46 @@ if cdmPass then (function()
         end
         print("cdm bars name", table.concat(out, " "), "wrap=" .. tostring(name.wrap),
             "justify=" .. tostring(name.justifyH))
+    end
+    -- (2026-11-22) a bar the game left without a name (two totems dropped
+    -- together): its own lookup again, then its spell's name; a name it
+    -- has, or one hidden, or a name the bar does not show, left alone
+    do
+        local item = tv.items[1]
+        local name = item.Bar.Name
+        local was = { name:GetText(), C_Spell.GetSpellName, C_Timer }
+        local later = {}
+        C_Timer = { After = function(_, fn) later[#later + 1] = fn end }
+        C_Spell.GetSpellName = function(id) return id == 8512 and "Windfury Totem" or nil end
+        local function case(label, text, lookup, spell, hidden, how)
+            name:SetText(text)
+            item.nameText, item.spellID = lookup, spell
+            if hidden then name:Hide() end
+            if how == "totem" then
+                for _, f in ipairs(events.PLAYER_TOTEM_UPDATE or {}) do f.scripts.OnEvent(f, "PLAYER_TOTEM_UPDATE") end
+            elseif how == "later" then
+                item:RefreshData()
+                item.nameText = "Grace of Air Totem"
+                for _, fn in ipairs(later) do fn() end
+            else
+                item:RefreshData()
+            end
+            later = {}
+            local got = name:GetText()
+            print("cdm bars name fill " .. label, "[" .. (secretOf and secretOf(got) or tostring(got)) .. "]")
+            name:Show()
+        end
+        case("lookup", "", "Strength of Earth Totem")
+        case("spell", "", "", 8512)
+        case("has one", "Lightning Shield", "Strength of Earth Totem")
+        case("hidden name", secret(), "Strength of Earth Totem")
+        case("not shown", "", "Strength of Earth Totem", nil, true)
+        case("nothing to go on", "", "", nil)
+        case("totem update", "", "Strength of Earth Totem", nil, false, "totem")
+        case("a frame later", "", "", nil, false, "later")
+        name:SetText(was[1])
+        C_Spell.GetSpellName, C_Timer = was[2], was[3]
+        item.nameText, item.spellID = nil, nil
     end
     ns.SetOption("cdmTWidth", 220)
     ns.SetOption("cdmTSize", 24)

@@ -327,6 +327,40 @@ function RestyleBar(item)
     end
 end
 
+-- (2026-11-22) A bar's name, when the game left it empty. The game writes
+-- it only as the bar's data refreshes or the bar becomes active, from the
+-- totem's or the aura's data first; dropped together, a second totem's
+-- bar came up with its time and no name. Its own lookup again, then its
+-- spell's name. A name the game hid (a secret) is a name: left alone.
+local function NameText(item)
+    local ok, text = pcall(item.GetNameText, item)
+    if ok and (ns.IsSecret(text) or (type(text) == "string" and text ~= "")) then return text end
+    for _, method in ipairs({ "GetSpellID", "GetBaseSpellID" }) do
+        local fine, id = pcall(item[method], item)
+        if fine and id and not ns.IsSecret(id) and C_Spell and C_Spell.GetSpellName then
+            local got, name = pcall(C_Spell.GetSpellName, id)
+            if got and type(name) == "string" and name ~= "" then return name end
+        end
+    end
+end
+
+local function FillName(item)
+    local name = item.Bar and item.Bar.Name
+    if not (name and item:IsShown() and name:IsShown()) then return end
+    local text = name:GetText()
+    if ns.IsSecret(text) or (text and text ~= "") then return end
+    local fill = NameText(item)
+    if fill then name:SetText(fill) end
+end
+display.FillName = FillName
+
+-- after the game's own writes, and a frame later, as a totem's data comes
+-- after the bar it fills
+local function FillSoon(item)
+    FillName(item)
+    if C_Timer and C_Timer.After then C_Timer.After(0, function() FillName(item) end) end
+end
+
 -- A bar in our dress: the game's art put away (its well, its pip, the
 -- icon's square frame and mask), an ink well with a gold edge, a gold fill.
 -- The fill is the bar's own (it runs on values the game may keep secret),
@@ -404,6 +438,12 @@ local function DressBar(item, key)
             hooksecurefunc(item, method, function() Arrange(key) end)
         end
     end
+    for _, method in ipairs({ "RefreshData", "RefreshName", "OnActiveStateChanged" }) do
+        if type(item[method]) == "function" then
+            hooksecurefunc(item, method, function(self) FillSoon(self) end)
+        end
+    end
+    item:HookScript("OnShow", FillSoon)
     RestyleBar(item)
 end
 
@@ -722,6 +762,13 @@ ns.OnAnySetting(function(setting)
         ns.OutOfCombat(Place)
     end
     Arrange(key)
+end)
+
+-- a totem dropped or gone: the bars' names again, once the game has
+-- refreshed them
+ns.On("PLAYER_TOTEM_UPDATE", function()
+    local items = viewers[BARS] and Items(viewers[BARS])
+    for _, item in ipairs(items or {}) do FillSoon(item) end
 end)
 
 -- ------------------------------------------------------------- the takeover
