@@ -238,6 +238,89 @@ local function texts(panel)
 end
 local function plain(text) return (tostring(text):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|T.-|t", "<m>")) end
 
+-- ------------------------------------------------------------ Questie's map icons
+-- (2026-11-22) Questie's map icon tooltip, its lines as Questie lays them
+-- out (indents are blank textures of a width), drawn as a quest panel
+do
+    local QM = ns.QuestieMap
+    local function indent(w) return "|TInterface\\Minimap\\UI-bonusobjectiveblob-inside.blp:1:" .. w .. "|t" end
+    local holder = CreateFrame("Frame", nil, UIParent)
+    local function tip(list, flagged)
+        local t = { lefts = {}, rights = {} }
+        for i, l in ipairs(list) do
+            local left, right = holder:CreateFontString(), holder:CreateFontString()
+            left:SetText(l[1]); left:SetTextColor(unpack(l[2] or { 1, 1, 1 }))
+            right:SetText(l[3] or ""); right:SetTextColor(unpack(l[4] or { 1, 1, 1 }))
+            if not l[3] then right:Hide() end
+            -- (as the game answers: a tooltip's lines are not forbidden)
+            left.IsForbidden = function() return false end
+            right.IsForbidden = left.IsForbidden
+            t.lefts[i], t.rights[i] = left, right
+        end
+        function t:NumLines() return #self.lefts end
+        function t:GetLeftLine(i) return self.lefts[i] end
+        function t:GetRightLine(i) return self.rights[i] end
+        function t:GetName() return nil end
+        local owner = {}
+        function t:GetOwner() return owner end
+        if flagged ~= false then t.ShownAsMapIcon, t._owner, t._Rebuild = true, owner, function() end end
+        return t
+    end
+    local function show(tag, t)
+        local model = QM.read(t)
+        if not model then print("tooltips questie map " .. tag, "none") return end
+        local panel = ui.renderPreview(anchor, model, "questieMap")
+        local out = {}
+        for _, x in ipairs(texts(panel)) do
+            out[#out + 1] = plain(x.text) .. "@" .. tostring(x.x and math.floor(x.x + 0.5))
+        end
+        print("tooltips questie map " .. tag, "hint=" .. tostring(model.hint), table.concat(out, " | "))
+    end
+    local yellow, grey, green = { 1, 1, 0 }, { .43, .43, .43 }, { .2, 1, .2 }
+    -- one quest: its title, Questie's hint on the right, one objective
+    show("one quest", tip({
+        { "|cFFFFFF00[42] It Takes Guts|r", green, "(Hold Shift)", grey },
+        { indent(13.5) .. "|cFFEFEFEF0/15 Beast Entrails" },
+    }))
+    -- an older Questie's bullets: "- " under the title, read without them
+    show("bullets", tip({
+        { "|cFFFFFF00[42] It Takes Guts|r", green },
+        { indent(13.5) .. "|cFFEFEFEF- 0/15 Beast Entrails" },
+        { indent(13.5) .. "|cFFEFEFEF- 0/8 Rotflesh Mushroom" },
+    }))
+    -- with Shift: two quests, a mob a step in, its objective two
+    show("shift", tip({
+        { "|cFFFFFF00[42] It Takes Guts|r", green, "(4,200xp)", yellow },
+        { indent(13.5) .. "|cFFDDDDDDRotting Worg (40-41)" },
+        { indent(20.25) .. "|cFFEFEFEF0/15 Beast Entrails" },
+        { " " },
+        { "|cFFFFFF00[40] Rotflesh|r", green, "(Active)", yellow },
+        { indent(13.5) .. "|cFFEFEFEF0/8 Rotflesh Mushroom" },
+    }))
+    -- not one of Questie's icons (no mark): left to the game
+    show("unmarked", tip({ { "Some tooltip" } }, false))
+    -- marked, but shown for another owner since (a stale mark)
+    local stale = tip({ { "Some tooltip" } })
+    stale._owner = {}
+    show("stale owner", stale)
+    -- the game's tooltip shown: drawn when it is Questie's icon's, not otherwise
+    local drawn = {}
+    local renderLines = ns.Hooks.renderLines
+    ns.Hooks.renderLines = function(tooltip, kind) drawn[#drawn + 1] = kind end
+    GameTooltip.IsForbidden = function() return false end
+    local owner = {}
+    GameTooltip.GetOwner = function() return owner end
+    GameTooltip.ShownAsMapIcon, GameTooltip._owner, GameTooltip._Rebuild = true, owner, function() end
+    GameTooltip:Show()
+    GameTooltip.ShownAsMapIcon = false
+    GameTooltip:Show()
+    print("tooltips questie map hook", "drawn=" .. table.concat(drawn, ","), "times=" .. #drawn)
+    GameTooltip.ShownAsMapIcon, GameTooltip._owner, GameTooltip._Rebuild = nil, nil, nil
+    GameTooltip.GetOwner, GameTooltip.IsForbidden = nil, nil
+    ns.Hooks.renderLines = renderLines
+end
+
+
 local function chrome(label, panel)
     print("tooltips chrome " .. label, "mode=" .. tostring(panel.backdropMode), "inset=" .. tostring(panel.inset),
         "body=" .. paint(panel.background), "wash=" .. tex(panel.wash))
