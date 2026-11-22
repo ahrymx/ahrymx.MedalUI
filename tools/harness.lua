@@ -3024,9 +3024,20 @@ if characterPass or questPass or npcPass or bankPass or args.inspect then
             GetTotalReputationForRenownLevel = function(_, level) return level * 750 end,
             GetRenownRewardsForLevel = function(_, r)
                 if r == 3 then return { { icon = 123, description = "Faction Tabard" } } end
+                if r == 10 then return { { icon = 456, description = "Battle Standard" } } end
                 return {}
             end,
         }
+        -- kills: 12 today (1 dishonorable), 40 yesterday, 1234 lifetime, the
+        -- highest rank ever 4 (the enum's Rank_1 is 5); the season ends in 41
+        -- days and 6 hours
+        charWorld.pvp = { session = { 12, 1 }, yesterday = { 40, 0 }, life = { 1234, 8 }, ends = 41 * 86400 + 6 * 3600 + 120 }
+        function GetPVPSessionStats() return unpack(charWorld.pvp.session) end
+        function GetPVPYesterdayStats() return unpack(charWorld.pvp.yesterday) end
+        function GetPVPLifetimeStats() return unpack(charWorld.pvp.life) end
+        C_SeasonInfo = { GetTimeUntilCurrentPVPSeasonEnd = function() return charWorld.pvp.ends end }
+        PVP_RANK_REWARDS_VENDOR_ALLIANCE = "Sold by the Alliance quartermasters."
+        PVP_RANK_REWARDS_VENDOR_HORDE = "Sold by the Horde quartermasters."
         PVP_RANK_6_1 = "Corporal"
         Enum.PvPRanks = { Rank_1 = 5 }
         function GetCurrentArenaSeason() return 1 end
@@ -17909,13 +17920,100 @@ if characterPass then
         fire("SKILL_LINES_CHANGED")
         frame()
 
+        -- the page's countdown ticker, caught to beat by hand
+        local realTimer = C_Timer
+        C_Timer = setmetatable({}, { __index = realTimer })
+        C_Timer.NewTicker = function(secs, fn)
+            local t = { fn = fn, secs = secs }
+            function t:Cancel() self.cancelled = true end
+            return t
+        end
         ToggleCharacter("PVPRankFrame")
         frame()
         local pv = page("pvp")
         state("pvp.key")
         print("pvp", pv.season.text, "|", pv.rank.text, "|", pv.emblem.atlas, "|", pv.bar.text.text)
         details("pvp", "pvp")
-        print("pvp.fit", "emblem=" .. pv.emblemSize, "season " .. where(pv.season))
+        print("pvp.fit", "emblem=" .. pv.emblemSize, "icon=" .. pv.iconSize, "gap=" .. pv.gap,
+            "season " .. where(pv.season))
+        -- the three sections: where each stands, and the lot's foot inside the body
+        local function pvpParts(tag)
+            local at = {}
+            for _, sct in ipairs(pv.sections) do table.insert(at, sct.label.text .. "@" .. -sct.points.TOPLEFT[4]) end
+            print(tag .. " sections", table.concat(at, " "), "body=" .. pv.body.h)
+            -- the ladder: rank, state (R reached, o open, l locked), * the
+            -- glow, + a reward; and the insignia's alpha
+            local out = {}
+            for _, t in ipairs(pv.tiles) do
+                if t.shown then
+                    table.insert(out, t.number.text .. (t.state == "reached" and "R" or t.state == "open" and "o" or "l")
+                        .. (t.glow.shown and "*" or "") .. (t.pip.shown and "+" or "")
+                        .. string.format("(%.1f%s)", t.icon.alpha or 1, t.icon.desaturated and "d" or ""))
+                end
+            end
+            print(tag .. " ladder", #out, table.concat(out, " "))
+            local sb = pv.seasonBar
+            print(tag .. " season bar", sb.text.text, tostring(sb.bar.value) .. "/" .. tostring(sb.bar.max),
+                "cap=" .. (sb.cap.shown and tostring(sb.cap.w) or "none"),
+                "legend=" .. pv.legend[1].text.text .. " / " .. pv.legend[2].text.text .. " / " .. pv.legend[3].text.text)
+            local k = {}
+            for _, c in ipairs(pv.kills) do
+                table.insert(k, c.shown and (c.label.text .. " " .. c.value.text) or "-")
+            end
+            print(tag .. " kills", table.concat(k, " | "))
+        end
+        pvpParts("pvp")
+        -- a rank's tooltip: rank 10, locked, with its reward; then the held one
+        local function pvpTip(n)
+            local t = pv.tiles[n]
+            t.scripts.OnEnter(t)
+            local spec = MedalUI_TooltipSpec(GameTooltip)
+            local parts = {}
+            for _, p in ipairs(spec or {}) do
+                if p then table.insert(parts, table.concat({ tostring(p[1]), tostring(p[2]),
+                    type(p[3]) == "table" and (p[3] == ns.colors.dim and "dim" or p[3][1] > 0.9 and p[3][2] < 0.9 and "gold"
+                    or "white") or tostring(p[3] or "") }, ":")) end
+            end
+            print("pvp tip " .. n, spec and spec.title, table.concat(parts, " | "))
+            t.scripts.OnLeave(t)
+        end
+        pvpTip(10)
+        pvpTip(2)
+        -- the countdown a minute on: under a day, hours and minutes
+        charWorld.pvp.ends = 5 * 3600 + 7 * 60
+        if pv.ticker and pv.ticker.fn then pv.ticker.fn() end
+        print("pvp.countdown", pv.season.text, "ticker=" .. tostring(pv.ticker ~= nil))
+        -- a day and three hours: days and hours
+        charWorld.pvp.ends = 86400 + 3 * 3600
+        pv.ticker.fn()
+        print("pvp.countdown day", pv.season.text)
+        -- a new season while the page is open: the lot drawn again (rank 3 now)
+        local realInfo, realSeason = C_MajorFactions.GetMajorFactionProgressionInfo, GetCurrentArenaSeason
+        C_MajorFactions.GetMajorFactionProgressionInfo = function(id)
+            local info = realInfo(id)
+            if info then info.renownLevel = 3 end
+            return info
+        end
+        function GetCurrentArenaSeason() return 2 end
+        pv.ticker.fn()
+        print("pvp.new season", pv.season.text, "|", pv.rank.text)
+        C_MajorFactions.GetMajorFactionProgressionInfo, GetCurrentArenaSeason = realInfo, realSeason
+        pv.ticker.fn()
+        print("pvp.old season", pv.season.text, "|", pv.rank.text)
+        -- the season's end unknown: no countdown; no kills read: no cells; a
+        -- rank never held: none
+        charWorld.pvp.ends = 0
+        local sess, yest, life = GetPVPSessionStats, GetPVPYesterdayStats, GetPVPLifetimeStats
+        GetPVPSessionStats, GetPVPYesterdayStats = nil, nil
+        charWorld.pvp.life = { 1234, 0 }
+        fire("PLAYER_PVP_KILLS_CHANGED")
+        frame()
+        print("pvp.bare", pv.season.text)
+        pvpParts("pvp.bare")
+        GetPVPSessionStats, GetPVPYesterdayStats, GetPVPLifetimeStats = sess, yest, life
+        charWorld.pvp.ends, charWorld.pvp.life = 41 * 86400 + 6 * 3600 + 120, { 1234, 8 }
+        fire("PLAYER_PVP_KILLS_CHANGED")
+        frame()
         -- a short screen: a fixed page keeps the Character page's height,
         -- the tallest, and the emblem its least
         local realHeight = UIParent.GetHeight
@@ -17923,13 +18021,26 @@ if characterPass then
         fire("UI_SCALE_CHANGED")
         frame()
         state("pvp.short")
-        print("pvp.short fit", "emblem=" .. pv.emblemSize, "season " .. where(pv.season))
+        print("pvp.short fit", "emblem=" .. pv.emblemSize, "icon=" .. pv.iconSize, "gap=" .. pv.gap,
+            "season " .. where(pv.season))
+        pvpParts("pvp.short")
+        -- the least the page takes: the emblem and insignia at their least,
+        -- the gaps too; then a little more, which the emblem takes first
+        for _, h in ipairs({ pv.height, pv.height + 40, pv.height + 200 }) do
+            pv.Fit(h)
+            print("pvp.least fit", h, "emblem=" .. pv.emblemSize, "icon=" .. pv.iconSize, "gap=" .. pv.gap,
+                "season " .. where(pv.season), "kills@" .. -pv.sections[3].points.TOPLEFT[4])
+        end
+        pv.Fit(pv.body.h)
         UIParent.GetHeight = realHeight
         fire("UI_SCALE_CHANGED")
         frame()
 
+        local pvTicker = pv.ticker
         page("statistics").tab.scripts.OnClick(page("statistics").tab)
         frame()
+        print("pvp.left", "ticker cancelled=" .. tostring(pvTicker and pvTicker.cancelled), "now=" .. tostring(pv.ticker))
+        C_Timer = realTimer
         state("stats.tab")
         rows("stats", "statistics")
         click("statistics", "Total kills")

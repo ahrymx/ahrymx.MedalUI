@@ -146,7 +146,8 @@ read_globals = {
     "CR_CRIT_MELEE", "CR_HASTE_MELEE", "CR_MASTERY", "CR_DODGE", "CR_PARRY", "CR_LIFESTEAL", "CR_AVOIDANCE", "CR_SPEED",
     "GetInventoryItemQuality", "GetInventoryItemTexture", "GetDetailedItemLevelInfo", "GetSpecializationInfo", "GetSpecializationRoleByID",
     "C_GossipInfo", "C_MajorFactions", "C_SkillInfo", "GetText", "IsModifiedClick", "ChatEdit_InsertLink",
-    "GetCurrentArenaSeason", "GetStatisticsCategoryList", "GetCategoryInfo", "GetCategoryNumAchievements",
+    "GetCurrentArenaSeason", "C_SeasonInfo", "GetPVPSessionStats", "GetPVPYesterdayStats",
+    "GetPVPLifetimeStats", "GetStatisticsCategoryList", "GetCategoryInfo", "GetCategoryNumAchievements",
     "GetStatistic", "GetAchievementInfo", "GetNumTitles", "IsTitleKnown", "GetTitleName", "GetCurrentTitle",
     "SetCurrentTitle", "PLAYER_TITLE_NONE", "EquipmentManager_EquipSet", "MAX_EQUIPMENT_SETS_PER_PLAYER", "REMOVE",
     -- the game's macro window (spells/macros.lua); its "text changed" mark is
