@@ -3995,6 +3995,7 @@ if talentPass or args.inspectTrees then
     end }
     local byID = {}
     for _, n in ipairs(NODES) do byID[n[1]] = n end
+    T.nodes = byID      -- (a case's own places: the slipped nought's)
     -- Elemental Mastery's gate is a condition: 8 points in Elemental, where
     -- its tier alone would ask 15
     local CONDS = { [4] = { 904 } }
@@ -21730,6 +21731,42 @@ if talentPass then
             if b.shown and b.node then low = math.max(low, -b.points.CENTER[4] + 36 / 2) end
         end
         print("talents.inside", "lowest=" .. low, "body=" .. p.body.h, tostring(low <= p.body.h))
+    end
+    -- (2026-11-23, Forever's hunter tree) a place with a nought too many,
+    -- on each axis, stands where its true place does; the rest unmoved
+    do
+        local p = W.Current()
+        local function places()
+            local out = {}
+            for _, b in ipairs(p.nodes) do
+                if b.shown and b.node then
+                    out[#out + 1] = b.node.ID .. "@" .. b.points.CENTER[3] .. "," .. b.points.CENTER[4]
+                end
+            end
+            return table.concat(out, " ")
+        end
+        -- (the hunter's: a nought too many on a column's x, on the deepest
+        -- tier's y; a deep tier of a sparse tree is no slip, and stays)
+        local across, deep = T.nodes[6], T.nodes[8]
+        local before = places()
+        across[3] = across[3] * 10
+        W.Refresh()
+        print("talents.slipped nought, x", "same=" .. tostring(places() == before))
+        across[3], deep[4] = across[3] / 10, deep[4] * 10
+        W.Refresh()
+        local why
+        for _, b in ipairs(p.nodes) do if b.shown and b.node and b.node.ID == 8 then why = b.refusal end end
+        print("talents.slipped nought, y", "same=" .. tostring(places() == before), "why=" .. tostring(why))
+        across[3] = across[3] * 10
+        W.Refresh()
+        print("talents.slipped nought, both", "same=" .. tostring(places() == before))
+        across[3], deep[4] = across[3] / 10, deep[4] / 10
+        across[4] = across[4] * 3
+        W.Refresh()
+        print("talents.slipped nought, a true deep place", "moved=" .. tostring(places() ~= before))
+        across[4] = across[4] / 3
+        W.Refresh()
+        print("talents.slipped nought, back", "same=" .. tostring(places() == before), before)
     end
 
     -- 5. Secondary: not learned, then learned; it reads, and Activate

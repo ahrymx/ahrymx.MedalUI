@@ -187,6 +187,48 @@ local function InGroup(node, id)
     return false
 end
 
+-- A talent's node, its place mended. (2026-11-23, in game) Forever's
+-- hunter tree has two places with a nought too many, 39300 for 3930 and
+-- 102800 for 10280: one talent far below its tree, one far right, and the
+-- one scale for all three shrinking every other talent onto one spot. On
+-- each axis, the places over the tree sorted, the first more than JUMP
+-- times the one before it starts the slips (a nought too many is ten
+-- times); a slip is cut by ten until it is within a jump of the rest
+-- (not under their top: the slipped talent may be the deepest).
+local JUMP = 5
+-- the highest true place on each axis, { x, y }: once a walk of the tree
+local function Reach(config, tree)
+    local xs, ys = {}, {}
+    for _, id in ipairs(C_Traits.GetTreeNodes(tree) or {}) do
+        local n = C_Traits.GetNodeInfo(config, id)
+        if n and n.isVisible then
+            xs[#xs + 1], ys[#ys + 1] = n.posX, n.posY
+        end
+    end
+    local function Top(list)
+        table.sort(list)
+        local top = list[1]
+        for k = 2, #list do
+            if list[k - 1] > 0 and list[k] > JUMP * list[k - 1] then break end
+            top = list[k]
+        end
+        return top
+    end
+    return { x = Top(xs), y = Top(ys) }
+end
+local function Mend(v, top)
+    if not (top and top > 0) then return v end
+    while v > JUMP * top do v = v / 10 end
+    return v
+end
+local function NodeInfo(config, id, r)
+    local n = C_Traits.GetNodeInfo(config, id)
+    if n then
+        n.posX, n.posY = Mend(n.posX, r.x), Mend(n.posY, r.y)
+    end
+    return n
+end
+
 -- a talent's entry, spell, name and icon
 local function Entry(config, node)
     local entry = node.activeEntry and node.activeEntry.entryID or (node.entryIDs and node.entryIDs[1])
@@ -255,8 +297,9 @@ local function Model(config)
     local groups = Groups(config)
     local tree = Tree(config)
     local m = {}
+    local r = tree and Reach(config, tree)
     for _, id in ipairs(tree and C_Traits.GetTreeNodes(tree) or {}) do
-        local node = C_Traits.GetNodeInfo(config, id)
+        local node = NodeInfo(config, id, r)
         if node and node.isVisible then
             for _, g in ipairs(groups) do
                 if not m[id] and InGroup(node, g.groupID) then
@@ -702,8 +745,10 @@ end
 local function Draw(p, config, group, groups, plan)
     local span = { x = 0, y = 0 }
     local box, list = {}, {}
-    for _, id in ipairs(C_Traits.GetTreeNodes(Tree(config)) or {}) do
-        local node = C_Traits.GetNodeInfo(config, id)
+    local tree = Tree(config)
+    local r = Reach(config, tree)
+    for _, id in ipairs(C_Traits.GetTreeNodes(tree) or {}) do
+        local node = NodeInfo(config, id, r)
         if node and node.isVisible then
             for _, g in ipairs(groups) do
                 if InGroup(node, g.groupID) then
