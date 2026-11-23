@@ -10610,6 +10610,22 @@ if stripsPass then
         end
         GetInventoryItemLink = GetInventoryItemLink or function(_, slot) return "[slot" .. slot .. "]" end
         local function class(c) UnitClass = function() return c, c end end
+        -- a cell's engraved frame (pick D of "Plates: engraved tabs"): its
+        -- art, its ends' tex coords, widths and points, the middle between
+        local function frame(b)
+            local f = b.frame
+            local function tc(t)
+                local c = t.coords or {}
+                return string.format("%.3f-%.3f/%g-%g", c[1] or -1, c[2] or -1, c[3] or -1, c[4] or -1)
+            end
+            local l, r = f[1].points.LEFT, f[3].points.RIGHT
+            local m = f[2].points
+            return string.format(" frame=%s h%g L(%s w%g @%s%+g) M(%s %s) R(%s w%g @%s%+g)",
+                tostring(f[1].texture):match("[^\\]+$"), f[1].h,
+                tc(f[1]), f[1].w, l and l[1] == b and l[2] or "?", l and l[3] or 0,
+                tc(f[2]), (m.LEFT and m.LEFT[1] == f[1] and m.RIGHT and m.RIGHT[1] == f[3]) and "between" or "loose",
+                tc(f[3]), f[3].w, r and r[1] == b and r[2] or "?", r and r[3] or 0)
+        end
         local function cells(tag, side)
             local d = D[side]
             local out = {}
@@ -10618,8 +10634,28 @@ if stripsPass then
                 if b.shown and b.spec then
                     local c = b.count.textColor or {}
                     local at, ct, st = b.icon.points.LEFT, b.count.points.LEFT, b.sub.points.LEFT
+                    -- a gauge's pips (pick C of "Plates: gauges"): # lit, unlit;
+                    -- the first's and last's x, their width, the icon's lift
+                    local pips = ""
+                    local shown, lit, first, last = 0, 0, nil, nil
+                    for _, t in ipairs(b.pips) do
+                        if t.shown then
+                            shown = shown + 1
+                            local col = t.color or {}
+                            if (col[1] or 0) > 0.5 then lit = lit + 1 end
+                            local p = t.points.BOTTOMLEFT or t.points.BOTTOMRIGHT
+                            first = first or (p and string.format("%s%+.1f%s", t.points.BOTTOMLEFT and "L" or "R", p[3],
+                                col[2] and string.format("(%.2f,%.2f,%.2f)", col[1], col[2], col[3]) or ""))
+                            last = p and string.format("%+.1f/w%.1f h%g y%g%s", p[3], t.w, t.h, p[4],
+                                col[2] and string.format("(%.2f,%.2f,%.2f)", col[1], col[2], col[3]) or "")
+                        end
+                    end
+                    if shown > 0 then
+                        pips = string.format(" pips=%d/%d %s..%s lift=%s count=%s", lit, shown, first, last,
+                            tostring(b.icon.points.LEFT and b.icon.points.LEFT[4]), tostring(b.count.shown))
+                    end
                     table.insert(out, string.format("%s %s%s(%.2f,%.2f,%.2f)%s icon=%s%s w=%s share=%s"
-                        .. " icon@%s count@%s sub@%s/%.2f%s%s%s", b.spec.id,
+                        .. " icon@%s count@%s sub@%s/%.2f%s%s%s%s", b.spec.id,
                         tostring(b.count.text), b.sub.shown and tostring(b.sub.text) or "", c[1] or -1, c[2] or -1,
                         c[3] or -1, b.icon.desaturated and " grey" or "",
                         tostring(b.icon.texture), b:GetAttribute("type") and (" casts=" .. tostring(b:GetAttribute("spell")))
@@ -10628,14 +10664,11 @@ if stripsPass then
                         ct and (ct[1] == b.icon and "icon" or "?") .. "+" .. ct[3] or "-",
                         st and (st[1] == b.count and "count" or "?") .. "+" .. st[3] or "-",
                         b.sub.textColor and b.sub.textColor[4] or -1,
-                        b.groove.shown and string.format(" groove@%s", b.groove.points.TOPLEFT and "L"
-                            or b.groove.points.TOPRIGHT and "R" or "?") or "",
-                        b.grooveLip.shown and string.format(" lip@%s", (b.grooveLip.points.TOPLEFT
-                            or b.grooveLip.points.TOPRIGHT or {})[1] == b.groove and "groove" or "?") or "",
+                        frame(b), "",
                         b.tab.shown and string.format(" tab=w%g,h%g@%+g%s%s", b.tab.w or 0, b.tab.h or 0,
                             b.tab.points.BOTTOM and b.tab.points.BOTTOM[4] or 0,
                             b.tab.color and string.format("(%.2f,%.2f,%.2f)", b.tab.color[1], b.tab.color[2],
-                                b.tab.color[3]) or "", b.tabGlow.shown and " lit" or "") or ""))
+                                b.tab.color[3]) or "", b.tabGlow.shown and " lit" or "") or "", pips))
                 end
             end
             print("drawer " .. tag, side < 0 and "left" or "right", "on=" .. tostring(d.On()),
@@ -10667,6 +10700,16 @@ if stripsPass then
         known[23028], known[3561], known[130] = true, true, true
         info.Refresh(-1)
         cells("mage", -1)
+        -- a gauge on the left strip fills from its medallion too, the left
+        do
+            local d = info.pool[-1][1]
+            local spec = d.spec
+            d.spec = setmetatable({ pips = 0.5 }, { __index = spec })
+            d:Fitted(d.fit)
+            cells("a gauge on the left", -1)
+            d.spec = spec
+            d:Fitted(d.fit)
+        end
         state("mage closed", -1)
         screen("drawer key left", D[-1].key)
         -- the chevron's parts: the frame cut round it, its shadow and halo, all turned as one
@@ -10714,12 +10757,30 @@ if stripsPass then
             info.Refresh(-1)
             cells(c:lower(), -1)
         end
-        -- a hunter: ammo, red under 200, the equipped stack's icon
+        -- a hunter: ammo, the equipped stack's icon; a gauge of a full quiver
+        -- (stripAmmoFull, 2000 by default), red under 200, green full; the
+        -- count in its tooltip
         class("HUNTER")
         GetInventoryItemCount = function(_, slot) return slot == 0 and bags.ammo or 0 end
         bags.ammo, bags.ammoIcon = 1842, 132382
         info.Refresh(-1)
         cells("hunter", -1)
+        do
+            local said, add = {}, GameTooltip.AddLine
+            GameTooltip.AddLine = function(_, t) table.insert(said, tostring(t)) end
+            info.pool[-1][1].scripts.OnEnter(info.pool[-1][1])
+            GameTooltip.AddLine = add
+            print("drawer ammo tip", table.concat(said, " | "))
+            info.pool[-1][1].scripts.OnLeave(info.pool[-1][1])
+        end
+        bags.ammo = 2000
+        info.Refresh(-1)
+        cells("hunter, a full quiver", -1)
+        bags.ammo = 1842
+        ns.SetOption("stripAmmoFull", 1000)
+        cells("hunter, a full quiver set to 1000", -1)
+        ns.SetOption("stripAmmoFull", 2000)
+        cells("hunter, set back to 2000", -1)
         bags.ammo = 150
         info.Refresh(-1)
         cells("hunter, low", -1)
@@ -10759,11 +10820,40 @@ if stripsPass then
             { __index = was.ts })
         info.Refresh(1)
         cells("professions", 1)
-        -- "/300" fits the cell's width but not within its padding: dropped
-        P[4][3] = 75
+        -- a primary's "/300" fits the cell's width but not within its
+        -- padding: dropped (Tailoring's 280/300, 67 wide, in 70)
+        do
+            local t = info.pool[1][4]
+            local was = t.fit
+            t:Fitted(70)
+            print("drawer Tailoring narrowed to 70", "sub=" .. tostring(t.sub.shown), "count=" .. tostring(t.count.shown))
+            t:Fitted(was)
+        end
+        -- a secondary's gauge: one pip lit for any skill at all, none at
+        -- none, every one at its cap (green); its pips laid again when its
+        -- cell narrows, and gone, the number back, when it has no cap
+        P[4][3] = 1
         info.Refresh(1)
-        cells("fishing at 75, a tight fit", 1)
-        P[4][3] = 150
+        cells("fishing at 1", 1)
+        P[4][3] = 0
+        info.Refresh(1)
+        cells("fishing at 0", 1)
+        P[4][3] = 225
+        info.Refresh(1)
+        cells("fishing at its cap", 1)
+        do
+            local t = info.pool[1][3]
+            local was = t.fit
+            t:Fitted(30)
+            cells("fishing's cell at 30, the fewest pips", 1)
+            t:Fitted(200)
+            cells("fishing's cell at 200, the most", 1)
+            t:Fitted(was)
+        end
+        P[4][3], P[4][4] = 150, 0
+        info.Refresh(1)
+        cells("fishing with no cap", 1)
+        P[4][4] = 225
         info.Refresh(1)
         state("right closed", 1)
         for _, b in ipairs(info.pool[1]) do if b.shown then screen("drawer cell right", b, b.spec.id) end end

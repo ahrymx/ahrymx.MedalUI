@@ -2,7 +2,12 @@
 -- "MedalUI strip drawers" canvas): what each strip's row shows while its
 -- menu keys are rolled away (strips/drawer.lua), from the medallion
 -- inward. The cells share the whole row; each is an icon with its number
--- beside it (a profession's "/max" after, dimmed, where it fits).
+-- beside it (a profession's "/max" after, dimmed, where it fits). A
+-- secondary profession has no number: a gauge of pips along its foot
+-- (2026-11-23, the user's pick C of the "Plates: gauges" board, "text for
+-- primary professions, durability, and ammo"). Ammo became one too, the
+-- same day ("2000 as 100%, with a configurable value in settings":
+-- stripAmmoFull).
 --
 --   left    ammo (a hunter's, where there is ammo), else the lowest
 --           durability; then the class's reagents, each with the spell that
@@ -24,21 +29,32 @@ local ICON = 16
 local PAD, SPACE = 3, 2                 -- a cell's edge to its contents; icon to number
 local SUB_ALPHA = 0.55
 -- a readout's look (2026-11-23, the user's pick 1 of the "Plates" board):
--- no well and no edge, its contents on the channel itself, a groove cut
--- between it and the one before; a cell that opens a window (a crafting
--- profession) has a short gold tab under it, lit under the mouse. Not a
--- menu key's look: a reagent's click casts, but it is still a readout.
-local GROOVE = { 0.020, 0.016, 0.012, 1 }
-local GROOVE_LIP = { 1, 0.91, 0.67, 0.14 }
+-- no well, its contents on the channel itself; a cell that opens a window
+-- (a crafting profession) has a short gold tab under it, lit under the
+-- mouse. Not a menu key's look: a reagent's click casts, but it is still a
+-- readout. Its edge (the user's pick D of the "Plates: engraved tabs"
+-- board, in place of a groove between cells): a chamfered frame engraved
+-- round it, media/strips/cell-tab (64x32, the frame 24 tall in its middle,
+-- 2 past the cell's top and bottom), in three pieces: its ends FRAME_END
+-- wide, the middle stretched; FRAME_IN from the cell's ends. The window's
+-- tab lies on the frame's bottom edge.
+local FRAME_TEX, FRAME_END, FRAME_IN = 64, 8, 1
+local INK = { 0.020, 0.016, 0.012 }      -- an unlit pip, cut as the frame is
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local GOLD = { 0.941, 0.831, 0.533 }
-local TAB, TAB_MAX, TAB_DROP = 2, 30, -1      -- the tab's height, longest, below the cell's bottom
+local TAB, TAB_MAX, TAB_DROP = 2, 30, -3      -- the tab's height, longest, below the cell's bottom
 local SIZE = 10
+-- the pips: inset from the cell's ends, one per PIP_STEP of its width (at
+-- least PIP_MIN, at most PIP_MAX), PIP_GAP between, PIP_H tall at the
+-- cell's foot, inside the frame; the icon above them lifted PIP_LIFT
+local PIP_INSET, PIP_STEP, PIP_MIN, PIP_MAX, PIP_GAP, PIP_H, PIP_LIFT = 7, 6, 4, 20, 2, 2, 1
+local PIP_LIT = { 0.847, 0.698, 0.290 }
 local WHITE = { 1, 1, 1 }
 local GREEN = { 0.65, 0.85, 0.56 }      -- a profession at its rank's cap
 local AMBER = { 0.94, 0.64, 0.23 }
 local RED = { 1, 0.35, 0.29 }
 local AMMO_LOW = 200
+local AMMO_FULL = 2000                  -- stripAmmoFull's default
 local DURABILITY_ICON = "Interface\\Icons\\Trade_BlackSmithing"
 local AMMO_ICON = "Interface\\Icons\\INV_Ammo_Arrow_02"
 
@@ -138,16 +154,21 @@ local function Outside(owner) ns.window.Outside(owner, "ANCHOR_TOP") end
 -- grey, share (of the row, as ns.StripCells), cast (a spell name), window
 -- (its click opens a window: marked with a tab), Tip(owner).
 
+-- a gauge: how much of a full quiver (stripAmmoFull) is carried; red
+-- when low, green when full
 local function Ammo()
     local count = _G.GetInventoryItemCount
     local n = count and count("player", 0) or 0
+    local full = ns.db and tonumber(ns.db.stripAmmoFull) or AMMO_FULL
     local icon = GetInventoryItemTexture and GetInventoryItemTexture("player", 0)
-    return { id = "ammo", icon = icon or AMMO_ICON, text = BreakUpLargeNumbers and BreakUpLargeNumbers(n)
-        or tostring(n), color = n < AMMO_LOW and RED or WHITE, share = 1.4,
+    local function Num(v) return BreakUpLargeNumbers and BreakUpLargeNumbers(v) or tostring(v) end
+    return { id = "ammo", icon = icon or AMMO_ICON, text = "", pips = n / full,
+        color = n < AMMO_LOW and RED or n >= full and GREEN or WHITE, share = 1.4,
         Tip = function(owner)
             if icon then
                 Outside(owner)
                 GameTooltip:SetInventoryItem("player", 0)
+                GameTooltip:AddLine(format(Tr["%s of %s"], Num(n), Num(full)), 1, 1, 1)
                 GameTooltip:Show()
             else
                 ns.Tip(owner, Outside, { title = Tr["Ammo"], { "body", Tr["None equipped."] } })
@@ -218,8 +239,10 @@ local function Profession(index, primary)
         spell = SpellName(item.spellID) or item.name
     end
     rank, max = rank or 0, max or 0
-    return { id = "profession:" .. name .. ":" .. tostring(spell), icon = icon, text = tostring(rank),
-        sub = max > 0 and "/" .. max or nil, share = primary and 1.3 or 1,
+    -- a secondary one: pips, how far to its rank's cap; no number
+    local pips = not primary and max > 0 and rank / max or nil
+    return { id = "profession:" .. name .. ":" .. tostring(spell), icon = icon, text = pips and "" or tostring(rank),
+        sub = not pips and max > 0 and "/" .. max or nil, share = primary and 1.3 or 1, pips = pips,
         color = max > 0 and rank >= max and GREEN or WHITE, cast = spell, window = spell ~= nil,
         Tip = function(owner)
             ns.Tip(owner, Outside, { title = name,
@@ -262,19 +285,23 @@ local function Cell(side, i)
         "SecureActionButtonTemplate")
     b:SetFrameLevel(ns.levels.stripTop)
     b:RegisterForClicks("AnyUp", "AnyDown")
-    -- the groove at its medallion-side edge, its lip on the far side
-    local a, far = side < 0 and "LEFT" or "RIGHT", side < 0 and "RIGHT" or "LEFT"
-    b.groove = b:CreateTexture(nil, "BACKGROUND", nil, 1)
-    b.groove:SetColorTexture(GROOVE[1], GROOVE[2], GROOVE[3], GROOVE[4])
-    b.groove:SetPoint("TOP" .. a)
-    b.groove:SetPoint("BOTTOM" .. a)
-    b.groove:SetWidth(1)
-    b.grooveLip = b:CreateTexture(nil, "BACKGROUND", nil, 1)
-    b.grooveLip:SetColorTexture(GROOVE_LIP[1], GROOVE_LIP[2], GROOVE_LIP[3], GROOVE_LIP[4])
-    b.grooveLip:SetPoint("TOP" .. a, b.groove, "TOP" .. far)
-    b.grooveLip:SetPoint("BOTTOM" .. a, b.groove, "BOTTOM" .. far)
-    b.grooveLip:SetWidth(1)
-    -- a window's tab, and its glow under the mouse
+    -- the engraved frame: its two ends, and the middle between them
+    b.frame = {}
+    local cut = FRAME_TEX - FRAME_END
+    for k, u in ipairs({ { 0, FRAME_END }, { FRAME_END, cut }, { cut, FRAME_TEX } }) do
+        local t = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+        t:SetTexture(ns.media .. "strips\\cell-tab")
+        t:SetTexCoord(u[1] / FRAME_TEX, u[2] / FRAME_TEX, 0, 1)
+        t:SetHeight(FRAME_TEX / 2)
+        b.frame[k] = t
+    end
+    b.frame[1]:SetWidth(FRAME_END)
+    b.frame[3]:SetWidth(FRAME_END)
+    b.frame[1]:SetPoint("LEFT", b, "LEFT", FRAME_IN, 0)
+    b.frame[3]:SetPoint("RIGHT", b, "RIGHT", -FRAME_IN, 0)
+    b.frame[2]:SetPoint("LEFT", b.frame[1], "RIGHT")
+    b.frame[2]:SetPoint("RIGHT", b.frame[3], "LEFT")
+    -- a window's tab, on the frame's bottom edge, and its glow under the mouse
     b.tab = b:CreateTexture(nil, "ARTWORK")
     b.tab:SetPoint("BOTTOM", b, "BOTTOM", 0, TAB_DROP)
     b.tab:SetHeight(TAB)
@@ -286,6 +313,8 @@ local function Cell(side, i)
     b.icon = b:CreateTexture(nil, "OVERLAY", nil, 5)
     b.icon:SetSize(ICON, ICON)
     b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    -- the pips' row, made as a cell first needs them (Fit)
+    b.side, b.pips = side, {}
     b.count = ns.Text(b, SIZE)
     b.count:SetPoint("LEFT", b.icon, "RIGHT", SPACE, 0)
     b.sub = ns.Text(b, SIZE - 1)
@@ -308,16 +337,57 @@ local function Cell(side, i)
     return b
 end
 
+-- a gauge's pips along the cell's foot, lit from the medallion side: one at
+-- the least, where there is any at all; all of them past full
+local function Pips(b, w)
+    local frac = b.spec and b.spec.pips
+    local n, lit, step = 0, 0, 0
+    if frac then
+        local span = w - 2 * PIP_INSET
+        n = math.max(PIP_MIN, math.min(PIP_MAX, math.floor(span / PIP_STEP)))
+        step = span / n
+        lit = math.floor(frac * n + 0.5)
+        if frac > 0 and lit < 1 then lit = 1 end
+    end
+    local c = b.spec and (b.spec.color == GREEN or b.spec.color == RED) and b.spec.color or PIP_LIT
+    local a = b.side < 0 and "LEFT" or "RIGHT"
+    for k = 1, math.max(n, #b.pips) do
+        local t = b.pips[k]
+        if k <= n then
+            if not t then
+                t = b:CreateTexture(nil, "ARTWORK")
+                t:SetHeight(PIP_H)
+                b.pips[k] = t
+            end
+            local x = PIP_INSET + (k - 1) * step + PIP_GAP / 2
+            t:ClearAllPoints()
+            t:SetPoint("BOTTOM" .. a, b, "BOTTOM" .. a, b.side < 0 and x or -x, 0)
+            t:SetWidth(math.max(step - PIP_GAP, 1))
+            if k <= lit then
+                t:SetColorTexture(c[1], c[2], c[3], 1)
+            else
+                t:SetColorTexture(INK[1], INK[2], INK[3], 1)
+            end
+            t:Show()
+        elseif t then
+            t:Hide()
+        end
+    end
+    return n > 0
+end
+
 -- the icon, number and "/max" centred in the cell; the "/max" only where
--- all of it fits
+-- all of it fits; a gauge's icon alone, over its pips
 function Fit(b)
     local w = b.fit or 0
-    local inner = ICON + SPACE + b.count:GetStringWidth()
+    local pips = Pips(b, w)
+    local inner = pips and ICON or ICON + SPACE + b.count:GetStringWidth()
     local sub = b.spec and b.spec.sub and inner + b.sub:GetStringWidth() <= w - 2 * PAD
+    b.count:SetShown(not pips)
     b.sub:SetShown(sub and true or false)
     if sub then inner = inner + b.sub:GetStringWidth() end
     b.icon:ClearAllPoints()
-    b.icon:SetPoint("LEFT", b, "LEFT", math.max(PAD, math.floor((w - inner) / 2)), 0)
+    b.icon:SetPoint("LEFT", b, "LEFT", math.max(PAD, math.floor((w - inner) / 2)), pips and PIP_LIFT or 0)
     b.tab:SetWidth(math.max(math.min(w - 10, TAB_MAX), 1))
 end
 
@@ -374,9 +444,6 @@ function Refresh(side)
         local b = Cell(side, i)
         Face(b, s)
         b.share = s.share
-        -- the first cell has the bay's plate before it, not a cell
-        b.groove:SetShown(i > 1)
-        b.grooveLip:SetShown(i > 1)
         b:SetAttribute("type", s.cast and "spell" or nil)
         b:SetAttribute("spell", s.cast)
         b:Show()
@@ -411,5 +478,6 @@ end
 local events = CreateFrame("Frame")
 ns.RegisterUnitEvent(events, "UNIT_INVENTORY_CHANGED", "player")
 events:SetScript("OnEvent", LeftOnly)
+ns.OnSetting("stripAmmoFull", LeftOnly)
 ns.On("SKILL_LINES_CHANGED", RightOnly)
 ns.On("TRADE_SKILL_LIST_UPDATE", RightOnly)

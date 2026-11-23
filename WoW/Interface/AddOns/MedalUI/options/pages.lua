@@ -902,6 +902,9 @@ function ns.OptionPages()
                         Tr["The micro menu rolls away behind the chevron beside your portrait. The strip shows "
                         .. "your lowest durability (a hunter's ammo) and your class's reagents instead, each with "
                         .. "the spell that spends it: a click casts it. Grey is none carried."]),
+                    Slider("stripAmmoFull", Tr["Full quiver"], 200, 5000, 100,
+                        Tr["A hunter's ammo shows on the left drawer as a gauge: this many fills it. Red is "
+                        .. "under 200, green is full; its tooltip gives the count."]),
                     Check("stripDrawerRight", Tr["Right drawer"],
                         Tr["The shortcut keys and the clock roll away behind the chevron beside the backpack. "
                         .. "The strip shows your professions instead, secondary then primary, each with its "

@@ -21,6 +21,7 @@ references are not mirrored (portrait outer, backpack inner), so two mirrored re
     python3 art/strips/gen_strips.py mailbox  -> assets/strips/mailbox.png, media/strips/mailbox.tga
     python3 art/strips/gen_strips.py rounded  -> assets/strips/rounded.png, media/strips/rounded.tga
     python3 art/strips/gen_strips.py bay      -> assets/strips/drawer-frame.png, media/strips/drawer-frame.tga
+    python3 art/strips/gen_strips.py tab      -> assets/strips/cell-tab.png, media/strips/cell-tab.tga
     python3 art/strips/gen_strips.py stripes  -> assets/strips/stripes.png (a tile of diagonal stripes)
     python3 art/strips/gen_strips.py shadow   -> assets/strips/shadow.png (a floating window's shadow's corner)
 
@@ -928,6 +929,39 @@ def main():
     chat_preview()
 
 
+# A drawer cell's engraved frame (2026-11-23, the user's pick D of the
+# "Plates: engraved tabs" board): a chamfered line cut into the channel
+# round each readout, as the bay's frame is cut (a dark groove, a light lip
+# under it). 64x32, the frame 24 tall from row 4, its corners clipped 4;
+# code draws it in three pieces (the ends 8 wide, the middle stretched), so
+# it fits a cell of any width.
+TAB_FRAME = ('<path d="M5.5 5.4H58.5L62.5 9.4V24.4L58.5 28.4H5.5L1.5 24.4V9.4Z" fill="none" '
+             'stroke="#ffe8aa" stroke-opacity="0.26" stroke-width="1"/>'
+             '<path d="M5.5 4.5H58.5L62.5 8.5V23.5L58.5 27.5H5.5L1.5 23.5V8.5Z" fill="none" '
+             'stroke="#050403" stroke-opacity="0.95" stroke-width="1"/>')
+
+
+def tab_part():
+    """assets/strips/cell-tab.png and media/strips/cell-tab.tga, and a look
+    at it at 4x over the channel's ink in render/cell-tab.png."""
+    parts = os.path.join(ROOT, "assets", "strips")
+    os.makedirs(parts, exist_ok=True)
+    png = os.path.join(parts, "cell-tab.png")
+    doc = svg(TAB_FRAME).replace(f'width="{W}" height="{H}"', 'width="64" height="32"')
+    subprocess.run(["rsvg-convert", "-o", png], input=doc.encode(), check=True)
+    im = Image.open(png).convert("RGBA")
+    media = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "strips", "cell-tab.tga")
+    os.makedirs(OUT, exist_ok=True)
+    tmp = os.path.join(OUT, "cell-tab-tga.png")
+    im.save(tmp)
+    subprocess.run(["magick", tmp, "-define", "tga:compression=none", media], check=True)
+    os.remove(tmp)
+    sheet = Image.new("RGBA", (64, 32), (20, 17, 11, 255))
+    sheet.alpha_composite(im)
+    sheet.resize((256, 128), Image.NEAREST).save(os.path.join(OUT, "cell-tab.png"))
+    print(media)
+
+
 if __name__ == "__main__":
     import sys
     if sys.argv[1:2] == ["layer3"]:
@@ -948,5 +982,7 @@ if __name__ == "__main__":
         rounded_part()
     elif sys.argv[1:2] == ["bay"]:
         bay_part()
+    elif sys.argv[1:2] == ["tab"]:
+        tab_part()
     else:
         main()

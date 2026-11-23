@@ -3171,6 +3171,12 @@ L["Left drawer"] = "Левый ящик"
 L["Right drawer"] = "Правый ящик"
 L["Lowest"] = "Наименьшая"
 L["None equipped."] = "Не надеты."
+L["%s of %s"] = "%s из %s"
+L["Full quiver"] = "Полный колчан"
+L["A hunter's ammo shows on the left drawer as a gauge: this many fills it. Red is "
+    .. "under 200, green is full; its tooltip gives the count."] =
+    "Боеприпасы охотника показаны в левом ящике шкалой: столько заполняет её. Красная — "
+    .. "меньше 200, зелёная — полная; подсказка даёт количество."
 L["The micro menu rolls away behind the chevron beside your portrait. The strip shows your lowest durability "
     .. "(a hunter's ammo) and your class's reagents instead, each with the spell that spends it: a click casts it. "
     .. "Grey is none carried."] =
