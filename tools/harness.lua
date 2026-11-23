@@ -7242,6 +7242,37 @@ if barPass then
         for _ = 1, 20 do ns.barFade.scripts.OnUpdate(ns.barFade, 0.05) end
         print("drawer hover", string.format("%.2f", ns.actionBar.alpha or 1))
         mouseOver = false
+        -- (2026-11-23, the user's) a flyout open from a bar 1 button keeps
+        -- the faded bar whole while the pointer is on it; one from a button
+        -- elsewhere, or shut, does not
+        do
+            local function bar1(tag)
+                for _ = 1, 20 do ns.barFade.scripts.OnUpdate(ns.barFade, 0.05) end
+                local x = ns.extraBarFade
+                for _ = 1, 20 do x.scripts.OnUpdate(x, 0.05) end
+                print("bar1 flyout " .. tag, string.format("bar1=%.2f extra=%.2f",
+                    ns.actionBar.alpha or 1, ns.extraBars.alpha or 1))
+            end
+            local extraWas = ns.db.extraVisibility
+            ns.db.extraVisibility = ns.db.visibility
+            local fly = CreateFrame("Frame", "SpellFlyout", UIParent)
+            fly:Hide()
+            bar1("shut")
+            fly:SetParent(ns.actionButtons[1])
+            fly:SetPoint("BOTTOM", ns.actionButtons[1], "TOP")
+            fly:Show()
+            bar1("open from button 1")
+            local away = CreateFrame("Button", nil, UIParent)
+            fly:SetParent(away)
+            fly:ClearAllPoints()
+            fly:SetPoint("BOTTOM", away, "TOP")
+            bar1("open from elsewhere")
+            fly:SetParent(ns.actionButtons[1])
+            fly:Hide()
+            bar1("shut on button 1")
+            SpellFlyout = nil
+            ns.db.extraVisibility = extraWas
+        end
         -- in a vehicle, on an override bar, controlling a Steam Tonk: bar 1 whole
         for _ = 1, 20 do ns.barFade.scripts.OnUpdate(ns.barFade, 0.05) end
         local out = { string.format("on foot %.2f", ns.actionBar.alpha or 1) }
@@ -14967,6 +14998,39 @@ function FadePass()
     casting = false
     fire("UNIT_SPELLCAST_STOP", "player")
     say("your cast over")
+    -- (2026-11-23, the user's) a flyout open from one of its buttons keeps
+    -- it whole: the game's SpellFlyout, parented to the button, or on
+    -- UIParent anchored to it; one from elsewhere does not
+    do
+        local button = CreateFrame("Button", nil, ns.actionBar)
+        local away = CreateFrame("Button", nil, UIParent)
+        local fly = CreateFrame("Frame", "SpellFlyout", UIParent)
+        fly:Hide()
+        run(0.1)
+        say("flyout shut")
+        fly:SetParent(button)
+        fly:ClearAllPoints()
+        fly:SetPoint("BOTTOM", button, "TOP")
+        fly:Show()
+        run(0.1)
+        say("flyout open from bar 1")
+        fly:SetParent(UIParent)
+        run(0.1)
+        say("flyout on UIParent, anchored to bar 1")
+        fly:ClearAllPoints()
+        fly:SetPoint("BOTTOM", away, "TOP")
+        run(0.1)
+        say("flyout from elsewhere")
+        fly:SetParent(button)
+        run(0.1)
+        say("flyout parented to bar 1, anchored elsewhere")
+        fly:ClearAllPoints()
+        fly:SetPoint("BOTTOM", button, "TOP")
+        fly:Hide()
+        run(0.1)
+        say("flyout closed on bar 1")
+        SpellFlyout = nil
+    end
     casting, castUnit = true, "target"
     fire("UNIT_SPELLCAST_START", "target")
     say("the target casts")

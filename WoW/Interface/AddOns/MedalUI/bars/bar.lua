@@ -75,7 +75,8 @@ end
 -- The Bar 1 visibility and Extra bar(s) visibility options fade Bar 1 and
 -- Bars 2/3 independently. Only the alpha changes, which is allowed in combat,
 -- so a faded bar keeps working: clicks and key bindings stay live. It also
--- comes back while a spell or item is on the cursor, so one can be dropped on it.
+-- comes back while a spell or item is on the cursor, so one can be dropped on it,
+-- and stays while a flyout opened from one of its buttons is open (ns.FlyoutFrom).
 -- Bar 1 shows whole in a vehicle, on an override bar or controlling another
 -- (the Darkmoon Faire's Steam Tonk, a possess bar): it is that one's bar then.
 local FADE_TIME, FADED = 0.2, 0
@@ -97,7 +98,7 @@ local function MakeFade(frame, settingKey, isOver, forced)
     local function Wanted()
         local mode = ns.db[settingKey] or V.ALWAYS
         if mode == V.ALWAYS or ns.keybinding or (GetCursorInfo and GetCursorInfo()) then return true end
-        if forced and forced() then return true end
+        if (forced and forced()) or ns.FlyoutFrom(frame) then return true end
         local over = isOver()
         if mode == V.COMBAT then return inCombat end
         if mode == V.MOUSEOVER then return over end

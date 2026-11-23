@@ -229,6 +229,26 @@ local function Safely(Do, f, o)
     holds[f], took[f] = nil, nil
     return true
 end
+-- Whether the game's flyout (SpellFlyout: Pet Utilities, the summons) is
+-- open from a button within `frame`: parented to the button that opened
+-- it, or anchored on it. A faded bar or console stays whole under it, so
+-- the pointer can leave the bar for the flyout (the user's, 2026-11-23).
+local function Within(f, frame)
+    for _ = 1, 20 do
+        if not f then return false end
+        if f == frame then return true end
+        f = f.GetParent and f:GetParent()
+    end
+    return false
+end
+function ns.FlyoutFrom(frame)
+    local fly = _G.SpellFlyout
+    if not (frame and fly and fly:IsShown()) then return false end
+    if Within(fly:GetParent(), frame) then return true end
+    local _, on = fly:GetPoint(1)
+    return Within(on, frame)
+end
+
 function ns.Untouchable(frames, Off, CanWake)
     local o = { want = false, held = 0 }
     local function Roots()

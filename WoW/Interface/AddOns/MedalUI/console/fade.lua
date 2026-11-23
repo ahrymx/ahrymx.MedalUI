@@ -162,15 +162,15 @@ local function Casting()
 end
 
 -- Whether the console shows at its full opacity now. Binding keys, a spell
--- or item on the cursor, a cast, Edit Mode's movers and the party preview
--- always want it whole: they are about what is on it. (A cast is not one
+-- or item on the cursor, a cast, a flyout open from it, Edit Mode's movers
+-- and the party preview always want it whole: they are about what is on it. (A cast is not one
 -- that wakes it in a fight for the mouse, ns.Untouchable: a console at 0%
 -- taken out of the pointer's way for the fight stays so through a cast.)
 function ns.ConsoleWanted()
     local db = ns.db
     local minimal = Minimal()
     if not (db.consoleFade or minimal) then return true end
-    if ns.keybinding or (GetCursorInfo and GetCursorInfo()) or db.simParty or Casting()
+    if ns.keybinding or (GetCursorInfo and GetCursorInfo()) or db.simParty or Casting() or ns.FlyoutFrom(console)
         or (ns.ConsoleMoversShown and ns.ConsoleMoversShown()) then
         return true
     end
