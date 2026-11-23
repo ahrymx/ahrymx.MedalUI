@@ -66,6 +66,7 @@ strips\rolls_sim.lua
 strips\meter.lua
 strips\auras.lua
 strips\zone.lua
+strips\zonecontrols.lua
 inventory\locks.lua
 inventory\slots.lua
 inventory\bags.lua

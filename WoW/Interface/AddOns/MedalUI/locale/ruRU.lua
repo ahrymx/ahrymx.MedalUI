@@ -722,9 +722,6 @@ L["Hide its objectives."] = "Скрыть цели."
 L["Show its objectives."] = "Показать цели."
 L["Tracking"] = "Отслеживание"
 L["No quests in this zone."] = "В этой зоне нет заданий."
-L["Zoom in"] = "Приблизить"
-L["Zoom out"] = "Отдалить"
-L["The mouse wheel on the map zooms too."] = "Колесо мыши на карте тоже меняет масштаб."
 L["this client has no tracking menu."] = "в этом клиенте нет меню отслеживания."
 L["What the minimap shows: herbs, ores, vendors and the like."] =
     "Что показывает миникарта: травы, руду, торговцев и так далее."
@@ -3108,7 +3105,10 @@ L["Run the setup again: the console, Immersion Mode and the party frames."] =
 -- the Zone tab's Guide (strips/zone.lua, quests/guide.lua)
 L["Guide"] = "Гид"
 L["Show the quests"] = "Показ заданий"
-L["What to do next for experience: quests to take near you, then quick work, hand-ins and wide work, nearest first. Needs QuestieDB."] = "Что делать дальше ради опыта: задания рядом, затем быстрые цели, сдача и цели на большой площади, ближайшие первыми. Нужен QuestieDB."
+L["What to do next for experience: quests to take near you, then quick work, hand-ins and wide work, "
+    .. "nearest first. Needs QuestieDB."] =
+    "Что делать дальше ради опыта: задания рядом, затем быстрые цели, сдача и цели на большой площади, "
+    .. "ближайшие первыми. Нужен QuestieDB."
 L["%s experience"] = "опыт: %s"
 L["Given by %s."] = "Выдаёт: %s."
 L["A chain: %d more after it, %s experience."] = "Цепочка: ещё %d после него, опыт: %s."
@@ -3118,4 +3118,41 @@ L["The Guide needs QuestieDB."] = "Гиду нужен QuestieDB."
 L["Nothing here at your level."] = "Здесь нет ничего для вашего уровня."
 L["Nothing here at your level: try %s."] = "Здесь нет ничего для вашего уровня: попробуйте %s."
 L["Guide sets the waypoint"] = "Гид ставит путевую точку"
-L["While the Guide is shown, the waypoint follows the head of its list: a quest to take points at its giver. A waypoint you set yourself is left alone until you clear it."] = "Пока показан гид, путевая точка следует за первым пунктом его списка: для задания, которое ещё не взято, она указывает на того, кто его выдаёт. Точку, поставленную вами, гид не трогает, пока вы её не снимете."
+L["While the Guide is shown, the waypoint follows the head of its list: a quest to take points at its "
+    .. "giver. A waypoint you set yourself is left alone until you clear it."] =
+    "Пока показан гид, путевая точка следует за первым пунктом его списка: для задания, которое ещё не "
+    .. "взято, она указывает на того, кто его выдаёт. Точку, поставленную вами, гид не трогает, пока вы её "
+    .. "не снимете."
+L["Controls"] = "Управление"
+L["Coordinates"] = "Координаты"
+L["Guide lists quests to take"] = "Гид показывает задания, которые можно взять"
+L["Hidden. Click: show where you stand after the subzone."] =
+    "Скрыты. Щелчок: показывать, где вы стоите, после подзоны."
+L["Hide the tab's controls."] = "Скрыть управление вкладкой."
+L["Larger text"] = "Крупнее текст"
+L["No quest items."] = "Нет предметов заданий."
+L["Quests to take"] = "Задания, которые можно взять"
+L["Show the tab's controls over the panel: the quest items, the text size, where you stand and the "
+    .. "Guide's."] =
+    "Показать управление вкладкой над панелью: предметы заданий, размер текста, где вы стоите и "
+    .. "управление гидом."
+L["Shown after the subzone. Click: hide them."] = "Показаны после подзоны. Щелчок: скрыть."
+L["Smaller text"] = "Мельче текст"
+L["Step back"] = "Шаг назад"
+L["Step on"] = "Шаг вперёд"
+L["The Guide lists quests to take near you, not only your log's. The tab's controls switch it too."] =
+    "Гид показывает задания, которые можно взять поблизости, а не только задания из журнала. "
+    .. "Переключается и управлением вкладки."
+L["The Guide lists quests to take near you. Click: only your log's."] =
+    "Гид показывает задания, которые можно взять поблизости. Щелчок: только задания из журнала."
+L["The Guide lists your log's quests only. Click: quests to take near you too."] =
+    "Гид показывает только задания из журнала. Щелчок: и те, что можно взять поблизости."
+L["The last quest stepped past leads the list again."] = "Последнее пропущенное задание снова возглавляет список."
+L["The list's text, in points; its rows follow. The tab's controls step it too."] =
+    "Размер текста списка в пунктах; строки подстраиваются под него. Меняется и управлением вкладки."
+L["The list's text: %d points."] = "Текст списка: %d пт."
+L["The quest at the top goes to the end of the list, and the next one leads (the waypoint with it)."] =
+    "Верхнее задание уходит в конец списка, и список возглавляет следующее (путевая точка переходит к "
+    .. "нему)."
+L["Where you stand, after the subzone over the list. The tab's controls switch it too."] =
+    "Где вы стоите, после подзоны над списком. Переключается и управлением вкладки."

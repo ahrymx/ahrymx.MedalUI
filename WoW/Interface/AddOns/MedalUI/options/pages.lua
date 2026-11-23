@@ -1369,7 +1369,15 @@ function ns.OptionPages()
                             Check("zoneGuideWaypoint", Tr["Guide sets the waypoint"],
                                 Tr["While the Guide is shown, the waypoint follows the head of its list: a quest "
                                 .. "to take points at its giver. A waypoint you set yourself is left alone until "
-                                .. "you clear it."])),
+                                .. "you clear it."]),
+                            Check("zoneGuidePicks", Tr["Guide lists quests to take"],
+                                Tr["The Guide lists quests to take near you, not only your log's. The tab's "
+                                .. "controls switch it too."]),
+                            Check("zoneCoords", Tr["Coordinates"],
+                                Tr["Where you stand, after the subzone over the list. The tab's controls switch "
+                                .. "it too."]),
+                            Slider("zoneFontSize", Tr["Text size"], 9, 14, 1,
+                                Tr["The list's text, in points; its rows follow. The tab's controls step it too."])),
                     }),
                 Part("side/auras", Tr["Auras tab"], false,
                     Needs("side", Check("sideAuras", Tr["Auras tab"],

@@ -8072,6 +8072,94 @@ if sidePass then
             now = now + 2
             C_SuperTrack.SetSuperTrackedQuestID(0)
             way("you cleared it")
+            -- (2026-11-23) the tab's controls, with the Guide shown: quests to
+            -- take or not, a step on, a step back (strips/zonecontrols.lua)
+            ;(function()
+                local C = ns.zoneControls
+                C.Toggle()
+                local d = C.Drawer()
+                d.scripts.OnUpdate(d, 1)
+                local function ctl(text)
+                    for _, c in ipairs(d.inner.all_) do
+                        if c.spec and c.spec.text == text then return c end
+                    end
+                end
+                local function heads(tag)
+                    local ids = {}
+                    for _, r in ipairs(list.all_) do
+                        if r.kind == "Button" and r.shown and r.line and r.line.quest and not r.line.objective
+                            and not r.line.item then
+                            ids[#ids + 1] = r.line.quest.id .. (r.line.quest.pick and "!" or "")
+                        end
+                    end
+                    local cs = {}
+                    for _, c in ipairs(d.inner.all_) do
+                        if c.spec and c.shown then
+                            cs[#cs + 1] = c.spec.text .. (c.mark.shown and "*" or "") .. (c.label.alpha == 1 and "" or "~")
+                        end
+                    end
+                    print("zone guide steps " .. tag, table.concat(ids, " "), table.concat(cs, " "))
+                end
+                -- (a frame later: the waypoint moved)
+                local function press(text, now)
+                    local c = ctl(text)
+                    c.scripts.OnClick(c)
+                    if not now then settle() end
+                end
+                heads("open")
+                press(">")
+                way("step on")
+                heads("step on")
+                press(">")
+                way("step on twice")
+                heads("step on twice")
+                press("<")
+                way("step back")
+                heads("step back")
+                press("<")
+                way("step back again")
+                heads("step back again")
+                press("<")
+                heads("nothing to step back to")
+                -- two steps in one frame: the top row is still the waypoint's
+                -- (passed already), so the second passes the next one
+                press(">", true)
+                press(">")
+                heads("two in a frame")
+                press("<")
+                press("<")
+                -- on to the last: then no step on; all the way back
+                for _ = 1, 10 do press(">") end
+                heads("on to the last")
+                for _ = 1, 10 do press("<") end
+                heads("all the way back")
+                -- a quest passed that leaves the list (taken elsewhere): nothing to step back to
+                press(">")
+                done[302] = true
+                z.Refresh()
+                heads("passed one gone")
+                done[302] = nil
+                z.Refresh()
+                heads("passed one back")
+                -- your own waypoint: a step takes it back for the Guide
+                now = now + 2
+                C_SuperTrack.SetSuperTrackedQuestID(201)
+                way("yours before a step")
+                press(">")
+                way("a step takes it back")
+                heads("a step takes it back")
+                press("<")
+                way("and back")
+                -- quests to take: off, then on again
+                press("!")
+                way("no quests to take")
+                heads("no quests to take")
+                print("zone guide steps picks", "db=" .. tostring(ns.db.zoneGuidePicks))
+                press("!")
+                way("quests to take again")
+                heads("quests to take again")
+                C.Toggle()
+            end)()
             -- a game that will not keep the pin: set once, not again and again
             now = now + 2
             C_Map.ClearUserWaypoint()
@@ -8188,11 +8276,133 @@ if sidePass then
         fold(2)
         print("zone item closed", "shown=" .. tostring(use and use.shown),
             "layer=" .. tostring(_G.MedalUIZoneItems and _G.MedalUIZoneItems.shown))
-        -- the column: zoom in twice, out once; the foot tracks the zone, then untracks it
-        z.paint[1].scripts.OnClick(z.paint[1], "LeftButton")
-        z.paint[1].scripts.OnClick(z.paint[1], "LeftButton")
-        z.paint[2].scripts.OnClick(z.paint[2], "LeftButton")
-        print("zone zoom", zoom)
+        -- (2026-11-23) the column's top button: the tab's controls, a drawer
+        -- over the panel (strips/zonecontrols.lua); zoom's place, the wheel zooms
+        ;(function()
+            local C = ns.zoneControls
+            local top = z.paint[1]
+            local setCooldown = rawget(Region, "SetCooldown")
+            function Region:SetCooldown(start, duration) self.start, self.duration = start, duration end
+            local function ctl(text, size)
+                for _, b in ipairs(C.Drawer().inner.all_) do
+                    if b.spec and b.spec.text == text and b.spec.size == size then return b end
+                end
+            end
+            local function drawer(tag)
+                local d = C.Drawer()
+                local out = {}
+                for _, c in ipairs(d.inner.all_) do
+                    if c.shown and c.spec then
+                        out[#out + 1] = c.spec.text .. (c.mark.shown and "*" or "") .. (c.label.alpha == 1 and "" or "~")
+                    elseif c.shown and c.icon then
+                        out[#out + 1] = "[" .. tostring(c.item) .. " " .. tostring(c.icon.texture) .. " x"
+                            .. tostring(c.count.text) .. (c.icon.desaturated and " grey" or "")
+                            .. (c.cooldown.duration and (" cd=" .. c.cooldown.duration) or "") .. "]"
+                    end
+                end
+                local layer = C.Layer()
+                local secure = {}
+                for _, b in ipairs(layer and layer.buttons or {}) do
+                    if b.shown then secure[#secure + 1] = tostring(b:GetAttribute("item")) end
+                end
+                print("zone controls " .. tag, "open=" .. tostring(d.shown) .. " db=" .. tostring(ns.db.zoneControls)
+                    .. " lit=" .. tostring(top.mark.shown), string.format("w=%.0f full=%.0f", d.w or 0, d.full or 0),
+                    table.concat(out, " "), "none=" .. tostring(d.none.shown),
+                    "secure=" .. (#secure > 0 and table.concat(secure, ",") or "none")
+                    .. " layer=" .. tostring(layer and layer.shown))
+            end
+            local function open()
+                local d = C.Drawer()
+                d.scripts.OnUpdate(d, 1)
+            end
+            print("zone controls glyph", top.glyph.texture:match("[^\\]+$"), "zoom buttons="
+                .. tostring(z.paint[2].glyph.texture:match("zoom") ~= nil))
+            top.scripts.OnClick(top, "LeftButton")
+            local function placed()
+                local n = 0
+                for _, b in ipairs(C.Layer() and C.Layer().buttons or {}) do if b.shown then n = n + 1 end end
+                return n
+            end
+            print("zone controls growing", "w=" .. tostring(C.Drawer().w), "secure=" .. placed())
+            open()
+            drawer("opened")
+            -- the item on cooldown; in combat the secure buttons hide, the slot stays
+            local cd = C_Container and C_Container.GetItemCooldown
+            C_Container = C_Container or {}
+            C_Container.GetItemCooldown = function(id) if id == 5555 then return 90, 30, 1 end return 0, 0, 1 end
+            fire("BAG_UPDATE_COOLDOWN")
+            inCombat = true
+            harnessHolds.combat = true
+            stateTick()
+            drawer("in combat")
+            harnessHolds.combat = nil
+            inCombat = false
+            stateTick()
+            fire("PLAYER_REGEN_ENABLED")
+            C_Container.GetItemCooldown = cd
+            fire("BAG_UPDATE_COOLDOWN")
+            drawer("after combat")
+            -- the text a point larger: the rows taller, their text too
+            local bigger, smaller = ctl("A", 14), ctl("A", 9)
+            bigger.scripts.OnClick(bigger)
+            local r = row(1)
+            print("zone controls larger", "size=" .. tostring(ns.db.zoneFontSize), "row h=" .. tostring(r.h),
+                "font=" .. tostring(r.text.font and r.text.font[2]), "count font=" .. tostring(r.count.font[2]))
+            rows("larger")
+            for _ = 1, 4 do bigger.scripts.OnClick(bigger) end
+            drawer("largest")
+            print("zone controls largest", "size=" .. tostring(ns.db.zoneFontSize), "row h=" .. tostring(row(1).h))
+            for _ = 1, 9 do smaller.scripts.OnClick(smaller) end
+            drawer("smallest")
+            print("zone controls smallest", "size=" .. tostring(ns.db.zoneFontSize), "row h=" .. tostring(row(1).h))
+            -- out of its range (a saved value): kept to it
+            ns.SetOption("zoneFontSize", 30)
+            print("zone controls too large", "row h=" .. tostring(row(1).h), "font=" .. tostring(row(1).text.font[2]))
+            ns.SetOption("zoneFontSize", 11)
+            print("zone controls back", "row h=" .. tostring(row(1).h), "font=" .. tostring(row(1).text.font[2]))
+            -- where you stand: hidden, shown again
+            local list = select(2, z.body:GetChildren())
+            local xy = ctl("x/y", 10)
+            xy.scripts.OnClick(xy)
+            print("zone controls no coords", tostring(list.all_[2].text), "db=" .. tostring(ns.db.zoneCoords))
+            drawer("no coords")
+            xy.scripts.OnClick(xy)
+            print("zone controls coords", tostring(list.all_[2].text))
+            -- no quest with an item: the bar says so, its buttons away
+            local special = GetQuestLogSpecialItemInfo
+            GetQuestLogSpecialItemInfo = function() end
+            fire("QUEST_LOG_UPDATE")
+            drawer("no items")
+            -- two quests with one item: one slot; a third quest's own after it
+            GetQuestLogSpecialItemInfo = function(i)
+                if i == 5 or i == 3 then return "|Hitem:5555|h[Night Lantern]|h", 1, 1, false end
+                if i == 7 then return "|Hitem:5556|h[Star Chart]|h", 1, 1, false end
+            end
+            fire("QUEST_LOG_UPDATE")
+            drawer("one item twice")
+            -- a narrow panel: as many as fit
+            local pw = side.panel.w
+            side.panel:SetWidth(140)
+            z.Refresh()
+            drawer("narrow")
+            side.panel:SetWidth(pw)
+            GetQuestLogSpecialItemInfo = special
+            fire("QUEST_LOG_UPDATE")
+            drawer("items again")
+            -- another tab: it goes with the tab, and comes back open
+            pick(views.loot)
+            drawer("loot picked")
+            pick(z)
+            open()
+            drawer("zone again")
+            -- closed
+            top.scripts.OnClick(top, "LeftButton")
+            drawer("closed")
+            pick(views.loot)
+            pick(z)
+            drawer("closed, zone again")
+            Region.SetCooldown = setCooldown
+        end)()
         local foot = z.paint[#z.paint]
         foot.scripts.OnClick(foot, "LeftButton")
         print("zone foot", "lit=" .. tostring(foot.mark.shown), "watched 201-203=" .. tostring(watched[201])

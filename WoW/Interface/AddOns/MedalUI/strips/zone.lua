@@ -40,13 +40,21 @@
 -- giver. With zoneGuideWaypoint the waypoint follows the list's head,
 -- unless you set one yourself (until you clear it).
 --
--- The column: zoom in, zoom out, the minimap's tracking, the world map; at
--- the foot, every quest here tracked (or, while they all are, none).
+-- The column: the tab's controls (strips/zonecontrols.lua: a drawer over
+-- the panel with the list's quest items, the list's text size, where you
+-- stand shown or not, and the Guide's quests to take and steps), the
+-- minimap's tracking, the world map, the sort; at the foot, every quest
+-- here tracked (or, while they all are, none). (2026-11-23: the controls
+-- took zoom in and zoom out's place: the mouse wheel on the map zooms.)
+--
+-- The list's text is zoneFontSize points, its rows as tall as that needs;
+-- the coordinates after the subzone go with zoneCoords.
 local _, ns = ...
 local Tr = ns.L
 
 local PARTS = ns.media .. "strips\\"
-local ROW, LINE, HEAD, GAP = 18, 13, 22, 1
+local ROW, LINE, HEAD, GAP = 18, 13, 22, 1    -- a quest's row and an objective's line: at 11 points (Sized)
+local SIZE, SIZE_MIN, SIZE_MAX = 11, 9, 14   -- the list's text, in points (zoneFontSize)
 local TICK = "Interface\\RaidFrame\\ReadyCheck-Ready"
 local SWORD = "Interface\\CURSOR\\Attack"    -- the game's attack cursor
 local GOLD = { 0.941, 0.831, 0.533 }
@@ -76,7 +84,9 @@ local function Place()
     local pos = map and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(map, "player")
     if pos then
         local x, y = pos:GetXY()
-        if x and y and (x > 0 or y > 0) then at = string.format("%.0f, %.0f", x * 100, y * 100) end
+        if x and y and (x > 0 or y > 0) and ns.db.zoneCoords ~= false then
+            at = string.format("%.0f, %.0f", x * 100, y * 100)
+        end
     end
     if sub ~= "" and at ~= "" then return sub .. "  " .. at end
     return sub ~= "" and sub or at
@@ -441,8 +451,21 @@ local function Wash(r, q)
 end
 
 -- A quest's row, or one of its objectives under it.
+-- the list's text size: the rows' heights follow it, its rows' fonts too
+local function Size()
+    local n = tonumber(ns.db.zoneFontSize) or SIZE
+    return math.max(SIZE_MIN, math.min(SIZE_MAX, math.floor(n)))
+end
+local function Sized(r)
+    local n = Size()
+    if r.size == n then return end
+    r.size = n
+    for _, fs in ipairs({ r.text, r.count, r.fold }) do fs:SetFont(ns.font, n, "") end
+end
+
 local function Fill(r, line, odd, top)
     r.line = line
+    Sized(r)
     r.stripes:Hide()
     r.rule:Hide()
     r.folder:Hide()
@@ -553,6 +576,7 @@ function Refresh()
     if not body then return end
     Header()
     local head
+    ROW, LINE = Size() + 7, Size() + 2
     quests, head = Here()
     lines = Lines()
     if first > 0 and first >= #lines then first = math.max(0, #lines - 1) end
@@ -586,6 +610,7 @@ function Refresh()
             or try and format(Tr["Nothing here at your level: try %s."], try) or Tr["Nothing here at your level."])
     end
     PlaceItems()
+    if ns.zoneControls then ns.zoneControls.Refresh() end
     ns.side.Changed()
     -- the waypoint after the plan's head (a change draws this again: the
     -- second finds it there already)
@@ -597,11 +622,6 @@ end
 -- picked or another one, the panel shown or hidden.
 local function Lend()
     if ns.LendMinimap then ns.LendMinimap(body:IsVisible() and hold or nil) end
-end
-
-local function Zoom(by)
-    local z = Minimap:GetZoom() + by
-    Minimap:SetZoom(math.max(0, math.min(Minimap:GetZoomLevels() - 1, z)))
 end
 
 -- The game's tracking types, as a menu of ticks just outside the panel,
@@ -713,7 +733,8 @@ function view.Build(f)
         if ns.side.IsCurrent(view) then Refresh() end
     end
     ns.questSource.Listen(Update)
-    ns.OnSetting("zoneSort", Update)
+    for _, key in ipairs({ "zoneSort", "zoneGuidePicks", "zoneFontSize" }) do ns.OnSetting(key, Update) end
+    ns.OnSetting("zoneCoords", function() place:SetText(Place()) end)
     -- the waypoint: its wash moves; its distance, in place
     ns.waypoint.OnChange(Update)
     ns.waypoint.OnTick(function()
@@ -734,6 +755,10 @@ function view.Build(f)
 end
 
 view.Refresh = function() Refresh() end
+-- (the tab's controls: strips/zonecontrols.lua)
+view.Quests = function() return quests end
+view.Guide = function() return Guide() end
+view.Size, view.SIZE_MIN, view.SIZE_MAX = Size, SIZE_MIN, SIZE_MAX
 
 function view.Shown()
     Lend()
@@ -805,16 +830,14 @@ end
 
 view.buttons = {
     {
-        glyph = function() return "side-zoom-in" end,
-        lit = function() return false end,
-        click = function() Zoom(1) end,
-        tip = function() return Tr["Zoom in"], Tr["The mouse wheel on the map zooms too."] end,
-    },
-    {
-        glyph = function() return "side-zoom-out" end,
-        lit = function() return false end,
-        click = function() Zoom(-1) end,
-        tip = function() return Tr["Zoom out"], Tr["The mouse wheel on the map zooms too."] end,
+        glyph = function() return "side-controls" end,
+        lit = function() return ns.zoneControls ~= nil and ns.zoneControls.IsOpen() end,
+        click = function() if ns.zoneControls then ns.zoneControls.Toggle() end end,
+        tip = function()
+            return Tr["Controls"], ns.zoneControls and ns.zoneControls.IsOpen() and Tr["Hide the tab's controls."]
+                or Tr["Show the tab's controls over the panel: the quest items, the text size, where you stand "
+                .. "and the Guide's."]
+        end,
     },
     {
         glyph = function() return "side-tracking" end,

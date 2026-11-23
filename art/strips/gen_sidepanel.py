@@ -200,16 +200,6 @@ def g_quality(cx, cy):        # loot: least quality shown
             f'stroke="url(#gold)" stroke-width="1"/>')
 
 
-def g_zoom(cx, cy, more):    # zone: the minimap zoomed in (+) or out (-)
-    # bars, not strokes: a gradient stroke on a flat line has no box to fill
-    bars = f'<rect x="{cx - 5}" y="{cy - 2.4}" width="7" height="1.8" fill="url(#gold)"/>'
-    if more:
-        bars += f'<rect x="{cx - 2.4}" y="{cy - 5}" width="1.8" height="7" fill="url(#gold)"/>'
-    return (f'<circle cx="{cx - 1.5}" cy="{cy - 1.5}" r="5.6" fill="none" stroke="url(#gold)" stroke-width="1.8"/>'
-            f'<path d="M{cx + 2.6},{cy + 2.6} L{cx + 7},{cy + 7}" stroke="url(#gold)" stroke-width="2.6" '
-            f'stroke-linecap="round"/>' + bars)
-
-
 def g_tracking(cx, cy):       # zone: the minimap's tracking, a sight on a dot
     ticks = (f'M{cx},{cy - 8} L{cx},{cy - 4} M{cx},{cy + 4} L{cx},{cy + 8} '
              f'M{cx - 8},{cy} L{cx - 4},{cy} M{cx + 4},{cy} L{cx + 8},{cy}')
@@ -239,6 +229,17 @@ def g_sort(cx, cy):           # zone: the quests' order (2026-11-21), three bars
            f'fill="url(#gold)" stroke="#2a1e08" stroke-width="0.75"/>'
            f'<circle cx="{cx + 5}" cy="{cy - 0.6}" r="1.2" fill="#2a1e08"/>')
     return bars + pin
+
+
+def g_controls(cx, cy):       # zone: the tab's controls drawer (2026-11-23, took zoom's place), three sliders
+    out = ""
+    for i, k in enumerate((-3.5, 3, -1)):
+        y = cy - 5.5 + i * 5.5
+        out += (f'<rect x="{cx - 8}" y="{y - 0.9}" width="16" height="1.8" rx="0.6" fill="url(#gold)" '
+                f'stroke="#2a1e08" stroke-width="0.5"/>'
+                f'<rect x="{cx + k - 2}" y="{y - 2.6}" width="4" height="5.2" rx="0.8" fill="url(#gold)" '
+                f'stroke="#2a1e08" stroke-width="0.75"/>')
+    return out
 
 
 def column(side, glyphs):
@@ -606,8 +607,7 @@ def parts():
         "side-roll": g_die(c, c),
         "side-quality": white,
         "side-timeless": g_timeless(c, c),
-        "side-zoom-in": g_zoom(c, c, True),
-        "side-zoom-out": g_zoom(c, c, False),
+        "side-controls": g_controls(c, c),
         "side-tracking": g_tracking(c, c),
         "side-worldmap": g_worldmap(c, c),
         "side-trackall": g_trackall(c, c),
