@@ -652,7 +652,6 @@ local function ApplyStubAuras(b)
             end
             btn:SetShown(k <= n)
         end
-        if b.mineLaid then b.mineLaid(n) end
     end
 end
 
@@ -789,7 +788,11 @@ local function MakeLive(row)
         return false
     end
     c:Hide()
-    row.liveState = {}
+    -- (its icons cancel a buff on a right click, or not, as made)
+    row.liveState = { cancels = row.cancels }
+    -- (by the size its icons are made at: one a size, kept for its return)
+    row.liveAt = row.liveAt or {}
+    row.liveAt[row.liveSize] = { c, row.liveState }
     return c
 end
 
@@ -844,7 +847,7 @@ local function Lay(c, row)
     local key = table.concat({ corner, f.size, f.gap, horizontal and "h" or "v", h, v, f.cols }, " ")
     local st = row.liveState
     if st.lay == key then return end
-    st.lay = key
+    st.lay, st.size = key, f.size
     row.liveSize = f.size
     c:ClearAllPoints()
     c:SetPoint(corner, row[1], corner, 0, 0)
@@ -857,15 +860,6 @@ local function Lay(c, row)
     c:SetFlowLayoutMaximumLineSize(f.cols * f.size + (f.cols - 1) * f.gap + 0.5)
     c:SetAuraGroupLayout("row", { elementSpacing = f.gap, lineSpacing = f.gap,
         elementWidth = f.size, elementHeight = f.size })
-    -- the icons made at another size take this one (out of combat: in it
-    -- the client keeps the row's frames from this addon)
-    if not InCombatLockdown() and c.GetAuraGroupFrameCount then
-        local ok, n = pcall(c.GetAuraGroupFrameCount, c, "row")
-        for i = 1, (ok and not ns.IsSecret(n) and n) or 0 do
-            local okF, btn = pcall(c.GetAuraGroupFrame, c, "row", i)
-            if okF and btn then pcall(btn.SetSize, btn, f.size, f.size) end
-        end
-    end
 end
 
 -- A real unit's row: its container, shown (on) with the auras of filter,
@@ -878,7 +872,9 @@ local function Live(b, row, on, filter, max, timeless)
     -- before its icons are made; a change, on those made, out of combat
     -- (the client's buttons take their clicks then), else at the next pass
     local cancels = b.unit == "player" and row == b.buffWidgets and ns.BuffsCancel()
+    local size = row[1] and row[1]:GetWidth() or ICON
     if row.live == nil then
+        row.liveSize = size
         row.cancels = cancels
         row.live = MakeLive(row)
     elseif row.live and row.cancels ~= cancels and not InCombatLockdown() then
@@ -888,9 +884,37 @@ local function Live(b, row, on, filter, max, timeless)
             local okF, btn = pcall(row.live.GetAuraGroupFrame, row.live, "row", i)
             if okF and btn then pcall(btn.SetCancelAuraButtons, btn, cancels and "RightButtonUp" or nil) end
         end
+        row.liveState.cancels = cancels
     end
     local c = row.live
     if not c then return false end
+    -- The icons are made at the row's size, and keep it: a container's
+    -- frames are the client's, resized by no one after (2026-11-23: the
+    -- target's debuffs drawn at 15 px a 40 px step apart, once the editor's
+    -- size came after them; in combat, and wherever the client keeps their
+    -- count secret, the old resize never ran). A new size, the container
+    -- whose icons are made at it (made the first time); the old one hidden
+    -- and emptied, kept for its size's return: an editor's size stepped up
+    -- and down makes one a size, no more.
+    if row.liveState.size and row.liveState.size ~= size then
+        -- (one kept from before the buffs' right click changed is not
+        -- reused: its icons click as they were made)
+        local kept = row.liveAt[size]
+        if kept and kept[2].cancels ~= row.cancels then kept = nil end
+        local made
+        row.liveSize = size
+        if kept then
+            made, row.liveState = kept[1], kept[2]
+            pcall(made.SetAuraGroupEnabled, made, "row", true)
+        else
+            made = MakeLive(row)
+        end
+        if made then
+            c:Hide()
+            pcall(c.SetAuraGroupEnabled, c, "row", false)
+            row.live, c = made, made
+        end
+    end
     for _, btn in ipairs(row) do btn:Hide() end
     local st = row.liveState
     st.shown = on and true or false
@@ -1287,10 +1311,8 @@ local function ScanUnitAuras(b)
     end
 
     -- 5. Debuffs: yours (on an enemy), or all (the row's From)
-    if b.mineWidgets and Live(b, b.mineWidgets, Shows(b, "mine"),
+    if b.mineWidgets and not Live(b, b.mineWidgets, Shows(b, "mine"),
         ns.RowFrom(b, "mine") == "all" and "HARMFUL" or "HARMFUL|PLAYER", ns.RowMax(b, "mine"), false) then
-        if b.mineLaid then b.mineLaid("live") end
-    elseif b.mineWidgets then
         local list, filter
         if Shows(b, "mine") and Auras and Auras.GetAuraDataByIndex then
             list, filter = List(unit, ns.RowFrom(b, "mine") == "all" and "HARMFUL" or "HARMFUL|PLAYER",
@@ -1312,7 +1334,6 @@ local function ScanUnitAuras(b)
                 end
             end
             for k, btn in ipairs(b.mineWidgets) do btn:SetShown(k <= #list) end
-            if b.mineLaid then b.mineLaid(#list) end
         end
     end
 end
@@ -1342,7 +1363,6 @@ local function HideAuras(b)
     for _, btn in ipairs(b.buffWidgets or {}) do btn:Hide() end
     for _, btn in ipairs(b.mineWidgets or {}) do btn:Hide() end
     HideLive(b)
-    if b.mineLaid then b.mineLaid(0) end
 end
 
 -- What /mdlui probe reports per unit: aura events heard (in combat of
@@ -1462,17 +1482,14 @@ end
 local function RaidKeys() return ns.InBattleground() and BG_KEYS or RAID_KEYS end
 ns.RaidAuraKeys = RaidKeys
 
--- A widget's cell, or an overhead boss, given its aura pieces and the
--- options that rule them (Unit Frames' tabs), by kind:
+-- A widget's cell, given its aura pieces and the options that rule them
+-- (Unit Frames' tabs), by kind:
 --   "raid": the dispel glow on the border; crowd control or a boss debuff
 --           in the middle of the health (the draft's A, gen_cell_auras.py);
 --           every debuff on it in the health's bottom right
 --   "boss", "arena": your debuffs in the health's top right; on arena,
 --           crowd control in the middle
---   "overhead": the overhead's boss, too short for a row over its name: your
---           debuffs (size square) at the health's right end, its value
---           stepping left of them
-function ns.AttachAuras(b, kind, size)
+function ns.AttachAuras(b, kind)
     local level = b:GetFrameLevel()
     local function Over(f, by) f:SetFrameLevel(level + by) end
     if kind == "raid" then
@@ -1490,37 +1507,11 @@ function ns.AttachAuras(b, kind, size)
         b.auraKeys = { cc = "arenaCC", mine = "arenaMine" }
         b.ccWidget = CreateCCWidget(b.health, 20)
         Over(b.ccWidget, 4)
-    elseif kind == "boss" then
-        b.auraKeys = { mine = "bossWidgetMine" }
     else
-        b.auraKeys = { mine = "bossMine" }
+        b.auraKeys = { mine = "bossWidgetMine" }
     end
     if kind == "boss" or kind == "arena" then
         b.mineWidgets = CreateMineWidgets(b.health, 14, "TOPRIGHT", -2)
-    elseif kind == "overhead" then
-        b.mineWidgets = CreateMineWidgets(b.health, size, "RIGHT", 0)
-        local value = b.value
-        -- live, the value steps left of the row's container, through a
-        -- frame that runs no layout script: the client lets no other
-        -- frame of this addon hang from the container
-        local okHold, hold = pcall(CreateFrame, "Frame", nil, b.health, "DisableUntrustedLayoutScriptsTemplate")
-        if not okHold then hold = nil end
-        b.mineLaid = function(n)
-            value:ClearAllPoints()
-            local live = n == "live" and b.mineWidgets.live
-            if live and hold then
-                hold:ClearAllPoints()
-                hold:SetSize(1, size)
-                hold:SetPoint("TOPRIGHT", live, "TOPLEFT", -3, 0)
-                value:SetPoint("RIGHT", hold, "RIGHT", 0, 0)
-            elseif live then
-                value:SetPoint("RIGHT", value:GetParent(), "RIGHT", -4, 0)
-            elseif n > 0 then
-                value:SetPoint("RIGHT", b.mineWidgets[n], "LEFT", -3, 0)
-            else
-                value:SetPoint("RIGHT", value:GetParent(), "RIGHT", -4, 0)
-            end
-        end
     end
     for _, btn in ipairs(b.mineWidgets or {}) do Over(btn, 4) end
     -- a cell gone takes its auras with it; shown, its owner draws them again
@@ -1632,7 +1623,7 @@ for _, t in ipairs(DISPEL_PRIORITY) do
     ns.OnSetting("dispel" .. t, UpdateAllAuras)
     ns.OnSetting("dispelColor" .. t, UpdateAllAuras)
 end
-for _, key in ipairs({ "raidGlow", "raidCC", "raidBoss", "bgGlow", "bgCC", "bossMine", "bossWidgetMine", "arenaCC",
+for _, key in ipairs({ "raidGlow", "raidCC", "raidBoss", "bgGlow", "bgCC", "bossWidgetMine", "arenaCC",
     "arenaMine", "partyWidgetGlow", "partyWidgetCC", "partyWidgetBuffs", "partyWidgetBoss", "partyLayout",
     "partyWidgetThreat", "raidThreat", "bgThreat", "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs",
     "bgDebuffs" }) do

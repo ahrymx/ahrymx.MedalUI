@@ -1840,8 +1840,8 @@ L["Swing timer"] = "Таймер удара"
 L["Mana"] = "Мана"
 L["Your mana, the amount at its right. Empty for a class without mana."] =
     "Ваша мана, справа — её количество. Пусто для класса без маны."
-L["Boss, pet, focus and target frames, and bars, at the top of the screen."] =
-    "Рамки боссов, питомца, фокуса и цели, а также панели — вверху экрана."
+L["Pet, focus and target of target frames, and bars, at the top of the screen."] =
+    "Рамки питомца, фокуса и цели цели, а также панели — вверху экрана."
 L["Blizzard's chat in a box over the micro menu."] = "Чат Blizzard в рамке над микроменю."
 L["Zone, auras, meter and loot tabs on the right strip."] = "Вкладки зоны, аур, измерителя и добычи на правой полосе."
 L["The minimap beside this zone's quests, in the side panel."] = "Миникарта рядом с заданиями зоны, в боковой панели."
@@ -2416,19 +2416,6 @@ L["Fade out"] = "Исчезание"
 L["How long it takes to fade."] = "Сколько длится исчезание."
 L["Kept per profile. Where the console's parts sit."] = "Свой у каждого профиля. Где находятся части консоли."
 L["Party frames"] = "Рамки группы"
-L["Boss frames (shared by every profile)"] = "Рамки боссов (общие для всех профилей)"
-L["Boss frames"] = "Рамки боссов"
-L["On the overhead's top tier, dividing into 1, 2 or 3 columns."] =
-    "На верхнем ярусе верхних рамок, в 1, 2 или 3 столбца."
-L["Vertical"] = "Столбец"
-L["A column under a Boss tab that you can drag anywhere: hold the tab to move it."] =
-    "Столбец со вкладкой «Босс», который можно перетащить куда угодно: потяните за вкладку."
-L["Both"] = "Оба"
-L["On the overhead and in the column."] = "На верхних рамках и в столбце."
-L["Where the encounter's boss frames show. Raid and arena frames are boxes too: hold a box's tab to move it. "
-    .. "Simulate party frames shows them all."] =
-    "Где показываются рамки боссов схватки. Рамки рейда и арены — тоже блоки: потяните за вкладку, чтобы сдвинуть. "
-    .. "Имитация рамок группы показывает их все."
 L["Action Bars"] = "Панели команд"
 L["Action bar"] = "Панель команд"
 L["MedalUI's bar on top of the console, holding action bar 1. Untick it to keep Blizzard's bars or use another "
@@ -2497,15 +2484,16 @@ L["Kept per profile & class"] = "Свой у каждого профиля и к
 L["Every character of a class shares it, separately for each profile."] =
     "Общий для всех персонажей класса, отдельно для каждого профиля."
 L["Overhead console"] = "Верхняя консоль"
-L["Top-of-screen cascading trapezoid structure for boss frames, pet, focus, target of target, and action bars."] =
-    "Каскад трапеций вверху экрана для рамок боссов, питомца, фокуса, цели цели и панелей команд."
+L["Top-of-screen cascading trapezoid structure for pet, focus, target of target, and action bars."] =
+    "Каскад трапеций вверху экрана для рамок питомца, фокуса, цели цели и панелей команд."
 L["Frames"] = "Рамки"
 L["Player pet frame"] = "Рамка питомца игрока"
-L["Player pet unit frame on the middle tier."] = "Рамка питомца игрока на среднем ярусе."
+L["Player pet unit frame, on a tier of its own under the focus and target of target frames."] =
+    "Рамка питомца игрока, на своём ярусе под рамками фокуса и цели цели."
 L["Focus frame"] = "Рамка фокуса"
-L["Focus target unit frame on the middle tier."] = "Рамка фокуса на среднем ярусе."
+L["Focus target unit frame on the top tier."] = "Рамка фокуса на верхнем ярусе."
 L["Target of target frame"] = "Рамка цели цели"
-L["Target's target unit frame on the middle tier."] = "Рамка цели вашей цели на среднем ярусе."
+L["Target's target unit frame on the top tier."] = "Рамка цели вашей цели на верхнем ярусе."
 L["Detached"] = "Отдельно"
 L["Pet frame"] = "Рамка питомца"
 L["Off the overhead, on its own, with the pet bar docked under it. Alt+drag a frame off the overhead to detach it "
@@ -2609,8 +2597,8 @@ L["Battleground"] = "Поле боя"
 L["Shared by every profile. The Raid widget while you are in a battleground."] =
     "Общий для всех профилей. Виджет «Рейд», пока вы на поле боя."
 L["Edit the raid frames"] = "Править рамки рейда"
-L["Shared by every profile. Where the boss frames show is Console > Layout > Boss frames."] =
-    "Общий для всех профилей. Где показываются рамки боссов — в «Консоль > Расположение > Рамки боссов»."
+L["Shared by every profile. The Boss widget's frames, one for each of the encounter's bosses."] =
+    "Общий для всех профилей. Рамки виджета «Босс», по одной на каждого босса схватки."
 L["Edit the Boss widget"] = "Править виджет «Босс»"
 L["Shared by every profile. The Arena widget's enemy frames."] =
     "Общий для всех профилей. Рамки противников виджета «Арена»."

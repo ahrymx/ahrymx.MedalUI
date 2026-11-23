@@ -1005,6 +1005,8 @@ function tipSpec()
     return "spec=" .. tostring(s.title) .. " [" .. table.concat(parts, ",") .. "]"
 end
 PlayerFrame, TargetFrame = new("Frame", UIParent), new("Frame", UIParent)
+-- the game's boss frames, retired for the Boss widget's (blizzard.lua)
+for i = 1, 5 do _G["Boss" .. i .. "TargetFrame"] = new("Frame", UIParent) end
 -- Blizzard's buff and debuff rows, top right (Forever and retail)
 BuffFrame, DebuffFrame = new("Frame", UIParent, "BuffFrame"), new("Frame", UIParent, "DebuffFrame")
 MainMenuBar = new("Frame", UIParent, "MainMenuBar")
@@ -2526,9 +2528,9 @@ MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
         -- use (light, now reticule) gives the shared ones; arena's are dropped
         profiles = { default = { drawer = 2, topBoss = true, overheadAlpha = 0.3, topFocus = false },
             light = { rows = 2, topBoss = false, partyRange = 30, overheadAlpha = 0.7, detachPet = true,
-            bossMine = false,
+            bossMine = false, bossFrames = "both",
             partyWidgetPoint = { "TOPLEFT", "TOPLEFT", 50, -60 } } },
-        global = { lootMoney = false } }
+        global = { lootMoney = false, bossFrames = "vertical" } }
     or profilesPass and { consoleProfile = "light", rows = 3, actionBar = true, bareIcons = true,
         artColor = "ffffffff", drawer = 2, sideTab = "loot", bagsPoint = { "TOP", "TOP", 4, -8 },
         bagsColumns = 12, retired = "kept" }
@@ -6262,12 +6264,12 @@ if barPass then
         table.sort(off)
         print("shared defaults differ", #off == 0 and "none" or table.concat(off, ","))
         local heard = {}
-        for _, k in ipairs({ "raidDebuffs", "arenaMine", "auraDebuffs", "bossMine" }) do
+        for _, k in ipairs({ "raidDebuffs", "arenaMine", "auraDebuffs", "bossWidgetMine" }) do
             ns.OnSetting(k, function(v) table.insert(heard, k .. "=" .. tostring(v)) end)
         end
         local function state(tag)
             local o = {}
-            for _, k in ipairs({ "auraDebuffs", "raidDebuffs", "bossMine", "arenaMine" }) do
+            for _, k in ipairs({ "auraDebuffs", "raidDebuffs", "bossWidgetMine", "arenaMine" }) do
                 table.insert(o, k .. "=" .. tostring(ns.db[k]) .. (ns.OptionOwn(k) and " own" or ""))
             end
             print("shared " .. tag, "all=" .. tostring(ns.db.sharedDebuffs), table.concat(o, " "),
@@ -6321,7 +6323,7 @@ if barPass then
             for j, cell in pairs(cells) do o[j] = grid.spec.cols[j].label .. ":" .. cell.spec.key end
             return table.concat(o, " ")
         end)())
-        cells[8].scripts.OnClick(cells[8])
+        cells[#grid.spec.cols].scripts.OnClick(cells[#grid.spec.cols])
         ns.RefreshOptions()
         state("grid arena on")
         print("shared grid", (row("Debuffs")))
@@ -10596,7 +10598,7 @@ if stripsPass then
                     local c = b.count.textColor or {}
                     local at, ct, st = b.icon.points.LEFT, b.count.points.LEFT, b.sub.points.LEFT
                     table.insert(out, string.format("%s %s%s(%.2f,%.2f,%.2f)%s icon=%s%s w=%s share=%s"
-                        .. " icon@%s count@%s sub@%s/%.2f", b.spec.id,
+                        .. " icon@%s count@%s sub@%s/%.2f%s%s%s", b.spec.id,
                         tostring(b.count.text), b.sub.shown and tostring(b.sub.text) or "", c[1] or -1, c[2] or -1,
                         c[3] or -1, b.icon.desaturated and " grey" or "",
                         tostring(b.icon.texture), b:GetAttribute("type") and (" casts=" .. tostring(b:GetAttribute("spell")))
@@ -10604,7 +10606,15 @@ if stripsPass then
                         at and (at[1] == b and "cell" or "?") .. "+" .. at[3] or "-",
                         ct and (ct[1] == b.icon and "icon" or "?") .. "+" .. ct[3] or "-",
                         st and (st[1] == b.count and "count" or "?") .. "+" .. st[3] or "-",
-                        b.sub.textColor and b.sub.textColor[4] or -1))
+                        b.sub.textColor and b.sub.textColor[4] or -1,
+                        b.groove.shown and string.format(" groove@%s", b.groove.points.TOPLEFT and "L"
+                            or b.groove.points.TOPRIGHT and "R" or "?") or "",
+                        b.grooveLip.shown and string.format(" lip@%s", (b.grooveLip.points.TOPLEFT
+                            or b.grooveLip.points.TOPRIGHT or {})[1] == b.groove and "groove" or "?") or "",
+                        b.tab.shown and string.format(" tab=w%g,h%g@%+g%s%s", b.tab.w or 0, b.tab.h or 0,
+                            b.tab.points.BOTTOM and b.tab.points.BOTTOM[4] or 0,
+                            b.tab.color and string.format("(%.2f,%.2f,%.2f)", b.tab.color[1], b.tab.color[2],
+                                b.tab.color[3]) or "", b.tabGlow.shown and " lit" or "") or ""))
                 end
             end
             print("drawer " .. tag, side < 0 and "left" or "right", "on=" .. tostring(d.On()),
@@ -10656,6 +10666,8 @@ if stripsPass then
         for _, b in ipairs(info.pool[-1]) do if b.shown then screen("drawer cell left", b, b.spec.id) end end
         for _, b in ipairs(D[-1].keyList) do screen("drawer menu key left", b, b.name) end
         tip("drawer cell tip powder", info.pool[-1][2])
+        cells("pointer on a reagent, a readout that casts", -1)
+        info.pool[-1][2].scripts.OnLeave(info.pool[-1][2])
         tip("drawer cell tip runes", info.pool[-1][3])
         tip("drawer cell tip durability", info.pool[-1][1])
         tip("drawer key tip", D[-1].key)
@@ -10737,7 +10749,12 @@ if stripsPass then
         screen("drawer key right", D[1].key)
         for _, b in ipairs(D[1].keyList) do screen("drawer menu key right", b, b.shortcut and b.shortcut[2] or "clock") end
         tip("drawer cell tip cooking", info.pool[1][1])
+        cells("pointer on Cooking, a window", 1)
+        info.pool[1][1].scripts.OnLeave(info.pool[1][1])
         tip("drawer cell tip herbalism", info.pool[1][5])
+        cells("pointer on Herbalism, a readout", 1)
+        info.pool[1][5].scripts.OnLeave(info.pool[1][5])
+        cells("pointer gone", 1)
 
         -- the roll: a click, then the frames until it is out
         mouseOver = ns.strips[-1]
@@ -11698,7 +11715,18 @@ if profilesPass then
     state("arena reset")
     print("profiles overhead after the resets", "topToT=" .. tostring(ns.db.topToT),
         "overheadAlpha=" .. tostring(ns.db.overheadAlpha), "detachPet=" .. tostring(ns.db.detachPet),
-        "bossFrames=" .. tostring(ns.db.bossFrames), "bossMine=" .. tostring(ns.db.bossMine), "shared once=" .. tostring(MedalUIDB.overheadShared))
+        "shared once=" .. tostring(MedalUIDB.overheadShared))
+    -- the overhead's boss options, gone with its boss deck: from every store
+    local left = {}
+    local stores = { db = MedalUIDB, global = MedalUIDB.global }
+    for name, t in pairs(MedalUIDB.profiles or {}) do stores[name] = t end
+    for name, t in pairs(stores) do
+        for _, k in ipairs({ "bossFrames", "bossMine", "topBoss" }) do
+            if t[k] ~= nil then table.insert(left, name .. "." .. k .. "=" .. tostring(t[k])) end
+        end
+    end
+    table.sort(left)
+    print("profiles boss options left", #left == 0 and "none" or table.concat(left, " "))
     if args[3] == "saved" then
         -- the widgets' options came from the profile in use once (see
         -- "migrated"): with the party's saved in it and the raid's back to
@@ -12144,7 +12172,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
     local function state(tag)
         stateTick()
         watchTick()
-        print("widgets " .. tag, "layout=" .. tostring(ns.db.partyLayout), "boss=" .. tostring(ns.db.bossFrames),
+        print("widgets " .. tag, "layout=" .. tostring(ns.db.partyLayout),
             "sim=" .. tostring(ns.db.simParty), "art=" .. art())
         widget("party", ns.partyWidget)
         party("buttons")
@@ -12759,13 +12787,19 @@ if args[2] == "widgets" or args[3] == "widgets" then
             break
         end
     end
-    S.bossFrames:Set("vertical")
-    state("bosses vertical (two simulated)")
+    state("bosses (two simulated)")
+    print("widgets game's boss frames", (function()
+        local o = {}
+        for i = 1, 5 do
+            local f = _G["Boss" .. i .. "TargetFrame"]
+            table.insert(o, i .. ":" .. (f.parent == ns.hidden and "parked" or "kept")
+                .. (f.unregistered and ",silent" or ""))
+        end
+        return table.concat(o, " ")
+    end)())
     ns.sim.enemies.bosses = 1
     ns.UpdateWidgets()
     state("one boss")
-    S.bossFrames:Set("both")
-    state("bosses both")
     S.simParty:Set(false)
     fire("GROUP_ROSTER_UPDATE")
     state("preview off")
@@ -12780,8 +12814,11 @@ if args[2] == "widgets" or args[3] == "widgets" then
     fire("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
     state("boss2 mid-fight")
     inCombat = false
-    S.bossFrames:Set("overhead")
-    state("bosses overhead")
+    -- the old choice, left in a save the migration missed, hides it no more
+    ns.db.bossFrames = "overhead"
+    ns.UpdateWidgets()
+    state("bosses with a stale bossFrames=overhead")
+    ns.db.bossFrames = nil
     exists.boss1, exists.boss2 = nil, nil
     harnessHolds["@boss1,exists"], harnessHolds["@boss2,exists"] = nil, nil
     -- an arena of two
@@ -12793,7 +12830,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
     harnessHolds["@arena1,exists"] = nil
 
     -- auras on the cells, each by its own tab (Unit Frames; console/auras.lua):
-    -- what a cell shows, and on the overhead's bosses where the value went
+    -- what a cell shows
     local function auras(b)
         local o = {}
         if b.dispelGlow and b.dispelGlow.shown then table.insert(o, "glow") end
@@ -12819,17 +12856,6 @@ if args[2] == "widgets" or args[3] == "widgets" then
         for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIBossWidgetUnit" .. i])) end
         print("auras " .. tag, "boss widget", table.concat(o, " | "))
         o = {}
-        for i = 1, 3 do
-            local b = ns.overheadUnits["boss" .. i]
-            local v = b.value.points.RIGHT
-            local by = v and v[1] and (v[1] == b.value:GetParent() and "text" or "icons") or "?"
-            -- live: through the frame hung from the row's container
-            local hung = v and v[1] and v[1].points and v[1].points.TOPRIGHT
-            if hung and hung[1] == b.mineWidgets.live then v, by = hung, "container" end
-            table.insert(o, i .. ":" .. auras(b) .. " value@" .. by .. (v and "," .. tostring(v[3]) or ""))
-        end
-        print("auras " .. tag, "overhead", table.concat(o, " | "))
-        o = {}
         for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIArenaWidgetUnit" .. i])) end
         print("auras " .. tag, "arena", table.concat(o, " | "))
     end
@@ -12845,7 +12871,6 @@ if args[2] == "widgets" or args[3] == "widgets" then
     fire("PLAYER_REGEN_ENABLED")
     S.simParty:Set(true)
     ns.sim.enemies.bosses = 3
-    S.bossFrames:Set("both")
     fire("GROUP_ROSTER_UPDATE")
     stateTick()
     watchTick()
@@ -12858,8 +12883,8 @@ if args[2] == "widgets" or args[3] == "widgets" then
     end
     local m = _G.MedalUIBossWidgetUnit1.mineWidgets
     print("auras mine row", "size=" .. n(m[1].w) .. "x" .. n(m[1].h), "at=" .. at(m[1], _G.MedalUIBossWidgetUnit1)
-        .. " " .. at(m[3], _G.MedalUIBossWidgetUnit1), "overhead=" .. n(ns.overheadUnits.boss1.mineWidgets[1].w))
-    for _, key in ipairs({ "bossMine", "bossWidgetMine", "arenaCC", "arenaMine", "raidGlow", "raidCC", "raidBoss" }) do
+        .. " " .. at(m[3], _G.MedalUIBossWidgetUnit1))
+    for _, key in ipairs({ "bossWidgetMine", "arenaCC", "arenaMine", "raidGlow", "raidCC", "raidBoss" }) do
         S[key]:Set(false)
         cells(key .. " off")
         S[key]:Set(true)
@@ -16640,10 +16665,16 @@ if savedSimParty then
     -- one anchor and no size is no rectangle in the game: nothing hung off it shows
     print("overhead.box", "w=" .. tostring(ovh.w), "h=" .. tostring(ovh.h), "shown=" .. tostring(ovh.shown))
     local heard = {}
-    for _, u in ipairs({ "pet", "focus", "targettarget", "boss1", "boss5" }) do
+    for _, u in ipairs({ "pet", "focus", "targettarget" }) do
         local b = ns.overheadUnits[u]
         table.insert(heard, u .. "=" .. tostring(b.unitOf and b.unitOf.UNIT_HEALTH))
     end
+    print("overhead.units", (function()
+        local o = {}
+        for u, b in pairs(ns.overheadUnits) do table.insert(o, u .. ">" .. tostring(b.deck)) end
+        table.sort(o)
+        return table.concat(o, " ")
+    end)())
     print("overhead.hears", table.concat(heard, " "))
     local function deckState(tag)
         local out = {}
@@ -16651,7 +16682,8 @@ if savedSimParty then
             if d.shown then
                 local l, t = rel(d.left)
                 local r = select(3, rel(d.right))
-                table.insert(out, string.format("%d:%s half=%s y=%s wings=%d..%d top=%d piece=%s", slot, d.kind,
+                table.insert(out, string.format("%d:%s half=%s y=%s wings=%d..%d top=%d piece=%s", slot,
+                    d.kind .. (d.id and d.id ~= d.kind and "/" .. d.id or ""),
                     tostring(d.half), tostring(d.y), round(l), round(r), round(t),
                     tostring(d.left.texture):match("[^\\]+$")))
             else
@@ -16665,7 +16697,7 @@ if savedSimParty then
     print("overhead.pieces", "lowerOver=" .. tostring(decks[3].left.sub > decks[2].left.sub
             and decks[2].left.sub > decks[1].left.sub),
         "rightMirrored=" .. tostring(decks[1].right.coords[1] > decks[1].right.coords[2]),
-        "plateUnderCells=" .. tostring(decks[1].left.parent.level < ns.overheadUnits.boss1.level))
+        "plateUnderCells=" .. tostring(decks[1].left.parent.level < ns.overheadUnits.focus.level))
     -- every shown cell inside its deck's floor; the row centred on the line,
     -- the cells filling the floor however wide the deck (2026-11-10, the
     -- user's call; the 2026-11-02 overlap of a stretched pet and the ToT is
@@ -16676,7 +16708,7 @@ if savedSimParty then
                 local h = A.deck[d.kind]
                 local inside, lo, hi, n = true, 1e9, -1e9, 0
                 for _, b in pairs(ns.overheadUnits) do
-                    if b.shown and b.kind == d.kind then
+                    if b.shown and b.deck == d.id then
                         local l, t, r, bt = rel(b)
                         n = n + 1
                         lo, hi = math.min(lo, l), math.max(hi, r)
@@ -16684,8 +16716,8 @@ if savedSimParty then
                     end
                 end
                 local w
-                for _, b in pairs(ns.overheadUnits) do if b.shown and b.kind == d.kind then w = b.w end end
-                print(tag, slot .. ":" .. d.kind, "cells=" .. n, "insideFloor=" .. tostring(inside),
+                for _, b in pairs(ns.overheadUnits) do if b.shown and b.deck == d.id then w = b.w end end
+                print(tag, slot .. ":" .. tostring(d.id), "cells=" .. n, "insideFloor=" .. tostring(inside),
                     "centred=" .. tostring(round(lo + hi) == 0), string.format("span=%d..%d", round(lo), round(hi)),
                     "fills=" .. tostring(hi - lo > 2 * (d.half - h - A.margin) - 2 * n), "w=" .. tostring(w))
             end
@@ -16693,14 +16725,14 @@ if savedSimParty then
     end
     cellState("overhead.cells")
     local chips = {}
-    for _, u in ipairs({ "boss1", "pet", "focus", "targettarget" }) do
+    for _, u in ipairs({ "pet", "focus", "targettarget" }) do
         local b = ns.overheadUnits[u]
         local cl = rel(b.chip)
         local bl = rel(b)
         table.insert(chips, u .. "=" .. tostring(b.chip.texture):match("[^\\]+$") .. "@" .. round(cl - bl))
     end
     print("overhead.chips", table.concat(chips, " "))
-    print("overhead.names", tostring(ns.overheadUnits.boss1.name.text), tostring(ns.overheadUnits.pet.name.text))
+    print("overhead.names", tostring(ns.overheadUnits.focus.name.text), tostring(ns.overheadUnits.pet.name.text))
     -- the command row: stances, a gap, the pet bar; centred inside the tray,
     -- the bottom deck, with every icon inside the tray's floor
     local function rowState(tag)
@@ -16771,12 +16803,19 @@ if savedSimParty then
         "totems=" .. tostring(MultiCastActionBarFrame.parent == ns.hidden),
         "totemEvents=" .. tostring(not MultiCastActionBarFrame.unregistered))
 
-    -- no bosses (they are in the Boss widget): the companion deck moves to
-    -- the top, on its own pieces
-    page.settings.bossFrames:Set("vertical")
-    deckState("overhead.noBoss")
-    cellState("overhead.noBoss.cells")
-    rowState("overhead.noBoss.row")
+    -- focus alone: the upper deck, the tray under it; then the pet joins, on
+    -- a deck of its own between them (2026-11-23: focus and target of target
+    -- moved up off the pet's deck)
+    page.settings.topToT:Set(false)
+    page.settings.topPet:Set(false)
+    deckState("overhead.focusOnly")
+    cellState("overhead.focusOnly.cells")
+    rowState("overhead.focusOnly.row")
+    page.settings.topPet:Set(true)
+    deckState("overhead.focusPet")
+    cellState("overhead.focusPet.cells")
+    rowState("overhead.focusPet.row")
+    page.settings.topToT:Set(true)
     -- the pet alone over the full row (the 2026-11-01 screenshot): the row's
     -- tray is wider than one cell's deck, so the deck grows; the cell keeps its
     -- width, centred (2026-11-02: a stretched pet ran under the ToT)
@@ -16784,19 +16823,18 @@ if savedSimParty then
     page.settings.topToT:Set(false)
     deckState("overhead.petOnly")
     cellState("overhead.petOnly.cells")
-    -- and with bosses over it: the grown pet deck must grow the boss deck in
+    -- and focus over it: the grown pet deck must grow the upper deck in
     -- turn, so the growth runs bottom up
-    page.settings.bossFrames:Set("overhead")
-    deckState("overhead.bossPet")
-    cellState("overhead.bossPet.cells")
     page.settings.topFocus:Set(true)
+    deckState("overhead.focusOverPet")
+    cellState("overhead.focusOverPet.cells")
     page.settings.topToT:Set(true)
     -- every deck width a stack can reach keeps the row's total even (centred
     -- on whole pixels) and the cells inside the floor, filling it but for
     -- the rounding (under two pixels a cell: the share's fraction, and a
     -- pixel off each cell to keep the total even)
     local odd, over = 0, 0
-    for _, kind in ipairs({ "boss", "unit" }) do
+    for _, kind in ipairs({ "unit" }) do
         for n = 1, 5 do
             local least = n * A.cell[kind] + (n - 1) * A.gap + 2 * A.deck[kind] + 2 * A.margin
             for w = least, least + 400, 2 do
@@ -16819,7 +16857,7 @@ if savedSimParty then
     tot.unit = "targettarget"
     page.settings.topToT:Set(true)
     -- in combat the cells' secure buttons are not moved; the layout waits
-    local b1 = ns.overheadUnits.boss1
+    local b1 = ns.overheadUnits.focus
     local before = b1.points
     inCombat = true
     ns.UpdateOverhead()
@@ -16862,7 +16900,7 @@ if savedSimParty then
         UIParent.w = u[3] - u[1]
     end
     tip("overhead.tip.focus", units.focus)
-    tip("overhead.tip.boss2", units.boss2)
+    tip("overhead.tip.tot", units.targettarget)
     tip("overhead.tip.tray", PetActionButton1)
     tip("overhead.tip.enter", units.pet, "enter")
     local said = MedalUI_TooltipSpec(GameTooltip)
@@ -17046,7 +17084,7 @@ if savedSimParty then
     end
     local function overhead(tag)
         local out = {}
-        for _, u in ipairs({ "pet", "focus", "targettarget", "boss1", "boss2", "boss3", "boss4", "boss5" }) do
+        for _, u in ipairs({ "pet", "focus", "targettarget" }) do
             local b = ns.overheadUnits[u]
             if b and b.shown then
                 table.insert(out, string.format("%s:%s,hp=%s", u, tostring(b.name.text), tostring(b.health.value)))
@@ -17220,9 +17258,9 @@ if savedSimParty then
     press("enemies.dead")
     panelState("simPanel.enemies five bosses, two arena, dead")
     enemies("simPanel.enemies five bosses, two arena, dead")
+    -- bosses are the Boss widget's: the overhead keeps its own
     overhead("simPanel.enemies five bosses overhead")
     press("enemies.bosses")
-    overhead("simPanel.enemies no bosses overhead")
     press("enemies.bosses")
     for _ = 1, 3 do press("enemies.bosses.less") end
     press("enemies.arena.more")
@@ -20268,10 +20306,11 @@ if (args[2] == "auraguard" or args[3] == "auraguard") and C_UnitAuras then
     C_UnitAuras.GetAuraDataByIndex, C_UnitAuras.DoesAuraHaveExpirationTime = saved, savedTimed
 end
 
--- The unit row in combat (console/overhead.lua's unitRow; the 2026-11-02
+-- The unit rows in combat (console/overhead.lua's unitRow; the 2026-11-02
 -- screenshot): the pet alone over a full pet bar, then the target's target
--- turns up mid-fight. The layout waits for combat to end, so the row lays
--- itself out: no cell over another, none wider than its own width.
+-- turns up mid-fight, on the upper deck over it (2026-11-23). The layout
+-- waits for combat to end, so the rows lay themselves out: no cell over
+-- another, each on its own deck, inside its floor.
 if args[2] == "unitrow" or args[3] == "unitrow" then
     local function fireAll(e, ...)
         for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
@@ -20280,14 +20319,13 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
     inCombat = false
     fireAll("PLAYER_REGEN_ENABLED")
     page.settings.simParty:Set(false)
-    page.settings.bossFrames:Set("vertical")
     page.settings.topFocus:Set(false)
     local exists = { pet = true }
     local realExists = UnitExists
     function UnitExists(u) return exists[u] or realExists(u) end
     petBar = true
     for i = 1, 10 do _G["PetActionButton" .. i].shown = true end
-    local pet, tot = ns.overheadUnits.pet, ns.overheadUnits.targettarget
+    local pet, tot, focus = ns.overheadUnits.pet, ns.overheadUnits.targettarget, ns.overheadUnits.focus
     -- in design pixels from the overhead's top centre, wherever the cell is
     -- anchored (the overhead out of combat, the row's header in it)
     local function span(b)
@@ -20298,31 +20336,50 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
         local l, t = (r[1] - cx) / k, (r[2] - o[2]) / k
         return math.floor(l + 0.5), math.floor(l + 0.5) + b.w, math.floor(t + 0.5)
     end
-    -- each shown cell's span; overlap: two share pixels; fits: the row stays
-    -- inside the floor of the deck drawn under it
+    -- each shown cell's span; overlap: two at one height share pixels;
+    -- fits: each row stays inside the floor of its own deck, as drawn, and
+    -- hangs at that deck's top
     local A = ns.overheadArt
     local function state(tag)
-        -- the unit deck's floor, from the plate Layout drew
-        local floorOf = 0
+        -- the unit decks' floors and tops, from the plates drawn
+        local floor, top, dk = {}, {}, {}
         for _, d in ipairs(ns.overheadDecks) do
-            if d.shown and d.kind == "unit" then floorOf = 2 * d.half - 2 * A.deck.unit - 2 * A.margin end
+            if d.shown and d.kind == "unit" then
+                floor[d.id] = 2 * d.half - 2 * A.deck.unit - 2 * A.margin
+                top[d.id] = d.y + A.cellTop
+                table.insert(dk, d.id .. "@" .. d.y .. ":" .. floor[d.id])
+            end
         end
         local out, cells = {}, {}
-        for _, b in ipairs({ pet, tot }) do
+        for _, b in ipairs({ focus, tot, pet }) do
             if b.shown then
                 local l, r, y = span(b)
-                if l then table.insert(cells, { l, r }) end
+                if l then table.insert(cells, { l, r, y, b.deck }) end
                 table.insert(out, l and string.format("%s=%d..%d(w%d,y%d)", b.unit, l, r, b.w, y)
                     or b.unit .. "=unplaced")
             end
         end
         local overlap = #cells < #out
-            or (#cells == 2 and cells[1][2] > cells[2][1] and cells[2][2] > cells[1][1])
-        local lo, hi = math.huge, -math.huge
-        for _, c in ipairs(cells) do lo, hi = math.min(lo, c[1]), math.max(hi, c[2]) end
-        local fits = #cells == 0 or hi - lo <= floorOf
-        print("unitrow " .. tag, table.concat(out, " "), "floor=" .. floorOf, "overlap=" .. tostring(overlap),
-            "fits=" .. tostring(fits))
+        for i = 1, #cells do
+            for j = i + 1, #cells do
+                local a, c = cells[i], cells[j]
+                if a[3] == c[3] and a[2] > c[1] and c[2] > a[1] then overlap = true end
+            end
+        end
+        local fits = true
+        for _, id in ipairs({ "upper", "pet" }) do
+            local lo, hi, any = math.huge, -math.huge, false
+            for _, c in ipairs(cells) do
+                if c[4] == id then
+                    any = true
+                    lo, hi = math.min(lo, c[1]), math.max(hi, c[2])
+                    if c[3] ~= top[id] then fits = false end
+                end
+            end
+            if any and not (floor[id] and hi - lo <= floor[id]) then fits = false end
+        end
+        print("unitrow " .. tag, table.concat(out, " "), "decks=" .. table.concat(dk, ","),
+            "overlap=" .. tostring(overlap), "fits=" .. tostring(fits))
     end
     ns.UpdateOverhead()
     state("pet alone")
@@ -20364,33 +20421,40 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
     exists.pet, harnessVisible.pet = true, nil
     harnessNextFrame()
     state("pet there again")
-    -- under a boss: the row's top is the boss deck's foot, not the overhead's
-    exists.targettarget = nil
-    exists.boss1 = true
-    page.settings.bossFrames:Set("overhead")
+    -- focus over the pet; the target's target joins it mid-fight, the two
+    -- sharing the upper deck's floor; then both go, and the pet steps up
+    exists.targettarget, exists.focus = nil, true
+    page.settings.topFocus:Set(true)
     harnessNextFrame()
-    state("under a boss")
+    state("focus over the pet")
     inCombat = true
     fireAll("PLAYER_REGEN_DISABLED")
     exists.targettarget = true
     harnessNextFrame()
-    state("under a boss, ToT in combat")
+    state("focus over the pet, ToT in combat")
+    exists.targettarget, exists.focus = nil, nil
+    harnessNextFrame()
+    state("the upper deck emptied in combat")
+    exists.focus = true
+    harnessNextFrame()
+    state("focus back in combat")
     inCombat = false
     fireAll("PLAYER_REGEN_ENABLED")
-    state("under a boss, combat over")
+    state("focus over the pet, combat over")
+    exists.focus = nil
+    page.settings.topFocus:Set(false)
 
     -- the command row alone, then the target's target turns up mid-fight
     -- (2026-11-05: it stood over the totems). The icons step down a deck
     -- under it and the plates follow; back up when it goes.
-    page.settings.bossFrames:Set("vertical")
-    exists.targettarget, exists.boss1, exists.pet = nil, nil, nil
+    exists.targettarget, exists.pet = nil, nil
     petBar, shapeshiftForms = false, 2
     harnessNextFrame()
     ns.UpdateOverhead()
     local function rowAt(tag)
         local decks = {}
         for _, d in ipairs(ns.overheadDecks) do
-            if d.shown then table.insert(decks, d.kind .. "@" .. d.y .. "w" .. 2 * d.half) end
+            if d.shown then table.insert(decks, tostring(d.id) .. "@" .. d.y .. "w" .. 2 * d.half) end
         end
         local icons = {}
         for _, b in ipairs({ StanceButton1, StanceButton2 }) do
@@ -20398,8 +20462,9 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
             table.insert(icons, l and (l .. "," .. y) or "unplaced")
         end
         local tot = tot.shown and select(3, span(tot))
+        local petY = pet.shown and select(3, span(pet))
         print("unitrow " .. tag, "decks=" .. table.concat(decks, " "), "icons=" .. table.concat(icons, " "),
-            "tot=" .. tostring(tot))
+            "tot=" .. tostring(tot), "pet=" .. tostring(petY))
     end
     local function rowAlone(tag)
         rowAt(tag)
@@ -20435,23 +20500,20 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
     harnessNextFrame()
     ns.UpdateOverhead()
     rowAlone("wide row")
-    -- and under a boss: the boss deck stays on top, the rest below it
-    exists.boss1 = true
-    page.settings.bossFrames:Set("overhead")
+    -- and over the pet: the target's target turning up mid-fight goes on a
+    -- deck over the pet's, which steps down with the icons under it
+    page.settings.topPet:Set(true)
+    exists.pet = true
     harnessNextFrame()
     ns.UpdateOverhead()
-    rowAlone("under a boss")
-    exists.boss1 = nil
-    page.settings.bossFrames:Set("vertical")
-    page.settings.topPet:Set(true)
+    rowAlone("pet over the row")
     exists.targettarget, exists.pet = nil, true
     petBar, shapeshiftForms = true, 0
 
     -- Test 3 of the 2026-11-03 disconnect: the pet frame and the pet bar both
     -- on, the pet dismissed on mounting and back on landing. The watch shows
     -- the pet from inside its walk; nothing may touch its list there.
-    page.settings.bossFrames:Set("vertical")
-    exists.targettarget, exists.boss1 = nil, nil
+    exists.targettarget = nil
     harnessNextFrame()
     -- layouts run inside the watch's walk, and watches touched by a layout
     -- that changes nothing: both none
@@ -20483,7 +20545,6 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
     print("unitrow landed, frames", "layouts inside the walk=" .. inWalk,
         "layout still asked=" .. tostring(ns.overheadSoon.shown))
     ovh.SetSize = realSize
-    page.settings.bossFrames:Set("overhead")
 
     -- A layout that asks for itself from inside (the 2026-11-03 disconnect's
     -- shape: a loop on the stack froze the client). Here the fade in asks
@@ -20517,7 +20578,6 @@ if args[2] == "detach" or args[3] == "detach" then
     inCombat = false
     fireAll("PLAYER_REGEN_ENABLED")
     page.settings.simParty:Set(false)
-    page.settings.bossFrames:Set("vertical")
     local exists = { pet = true, focus = true, targettarget = true }
     local realExists = UnitExists
     function UnitExists(u) return exists[u] or realExists(u) end
@@ -20553,7 +20613,12 @@ if args[2] == "detach" or args[3] == "detach" then
                     b.shown and "" or ",hidden", b.shadow.shown and ",shadow" or ""))
             end
         end
-        print("detach " .. tag, "row=" .. table.concat(row, " "), "tray pet=" .. tray,
+        local decks = {}
+        for _, d in ipairs(ns.overheadDecks) do
+            if d.shown then table.insert(decks, tostring(d.id) .. "@" .. d.y) end
+        end
+        print("detach " .. tag, "row=" .. table.concat(row, " "), "decks=" .. table.concat(decks, ","),
+            "tray pet=" .. tray,
             "dock=" .. docked .. (dock.shown and ("(w" .. r(dock.w) .. ")") or "(off)"),
             "off=" .. table.concat(off, " "),
             "saved=" .. tostring(ns.db.detachPet) .. "," .. tostring(ns.db.detachFocus) .. "," .. tostring(ns.db.detachToT),
@@ -20573,6 +20638,8 @@ if args[2] == "detach" or args[3] == "detach" then
         local from = b.parent
         b.scripts.OnDragStart(b, "LeftButton")
         local lifted = zone.shown
+        local zoneAt = zone.shown and string.format("w%g,h%g@%g", r(zone.w), r(zone.h),
+            r(zone.points.TOP and zone.points.TOP[4] or 0))
         if onZone then over(zone) else cx, cy = 50, 50 end
         local w = ns.overheadDragWatch
         local function tick() if w.shown and w.scripts.OnUpdate then w.scripts.OnUpdate(w, 0) end end
@@ -20592,7 +20659,8 @@ if args[2] == "detach" or args[3] == "detach" then
         modsDown.ALT = nil
         if alt then
             print("detach  let go", b.unit, "stuck=" .. tostring(stuck), "zone=" .. tostring(zone.shown),
-                "same parent while held=" .. tostring(kept), byDragStop and "by its drag-stop" or "by the button")
+                "same parent while held=" .. tostring(kept), byDragStop and "by its drag-stop" or "by the button",
+                "zone at=" .. tostring(zoneAt))
         end
         return lifted, lit
     end
@@ -20642,9 +20710,16 @@ if args[2] == "detach" or args[3] == "detach" then
     -- back onto the overhead
     lifted, lit = drag(pet, true, nil, true)
     state("pet back, zone=" .. tostring(lifted) .. " lit=" .. tostring(lit))
-    -- the focus off alone: a key, no dock
+    -- the focus off alone: a key, no dock; the target of target keeps the
+    -- upper deck
     drag(focus, true, { "TOPLEFT", "BOTTOMLEFT", 800, 500 })
     state("focus off")
+    -- and the target of target off too: the pet's deck goes on top
+    drag(tot, true, { "TOPLEFT", "BOTTOMLEFT", 500, 300 })
+    state("focus and ToT off, the pet on top")
+    -- dragged back over the pet's deck alone, the zone is that deck
+    lifted, lit = drag(tot, true, nil, true)
+    state("ToT back, zone lit=" .. tostring(lit))
     -- the page's check puts it back; ticked, it goes to where it was
     page.settings.detachFocus:Set(false)
     state("focus check off")
@@ -30736,4 +30811,57 @@ if radialPass then
 end
 if tooltipsPass then
     assert(loadfile("tools/harness_tooltips.lua"))({ events = events, medalui = ns, region = Region })
+end
+
+-- A live row's icons at the row's size (console/auras.lua's Live): the
+-- client's frames keep the size they were made at, so a new size (the
+-- editor's) makes the row a new container. 2026-11-23: the target's
+-- debuffs were 15 px icons a 40 px step apart, the size having come after
+-- them in combat.
+if (args[2] == "liverow" or args[3] == "liverow") and modern then
+    local realExists = UnitExists
+    function UnitExists(u) return u == "target" or realExists(u) end
+    local t = ns.units.target
+    local was = ns.db.editUnit
+    local function state(tag)
+        ns.UpdateUnitAuras(t)
+        for _, id in ipairs({ "buffWidgets", "mineWidgets" }) do
+            local row = t[id]
+            local c, o = row.live, {}
+            local g = c and c.groups.row
+            for i, btn in ipairs(g and g.frames or {}) do o[#o + 1] = i .. ":w" .. tostring(btn.w) end
+            -- (idle: icons a hidden container still fills; one set aside is emptied)
+            local shown, made, idle = 0, 0, 0
+            for _, f in ipairs(harnessContainers) do
+                if f.parent == t.health and f.groups.row and f.groups.row.filter:find(
+                    id == "buffWidgets" and "HELPFUL" or "HARMFUL", 1, true) then
+                    made = made + 1
+                    if f.shown then shown = shown + 1 end
+                    if not f.shown and f ~= c then
+                        for _, btn in ipairs(f.groups.row.frames) do if btn.shown then idle = idle + 1 end end
+                    end
+                end
+            end
+            print("liverow " .. tag, id, "row=w" .. tostring(row[1]:GetWidth()),
+                "laid=w" .. tostring(g and g.layout and g.layout.elementWidth), "icons " .. table.concat(o, " "),
+                "containers shown=" .. shown .. " made=" .. made .. " idle icons=" .. idle)
+        end
+    end
+    state("start")
+    ns.SetOption("editUnit", { buffs = { size = 30, out = "right" }, mine = { size = 30, out = "right" } })
+    state("size 30")
+    inCombat = true
+    ns.SetOption("editUnit", { buffs = { size = 40, out = "right" }, mine = { size = 40, out = "right" } })
+    state("size 40 in combat")
+    inCombat = false
+    state("after combat")
+    ns.SetOption("editUnit", was)
+    state("size back")
+    -- the size back again, kept: an aura more is drawn at it, by the
+    -- container reused (one a size, so no more made)
+    ns.SetOption("editUnit", { buffs = { size = 30, out = "right" }, mine = { size = 30, out = "right" } })
+    table.insert(buffs, { id = 98, icon = "fresh", timed = true })
+    state("size 30 again, an aura more")
+    table.remove(buffs)
+    ns.SetOption("editUnit", was)
 end

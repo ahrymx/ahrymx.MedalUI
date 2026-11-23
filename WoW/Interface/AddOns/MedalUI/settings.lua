@@ -212,13 +212,12 @@ local DEFAULTS = {
                              -- (widgets/party.lua)
     partyRange = 40,        -- distance in yards to fade out-of-range party frames (0 = off)
     overhead = true,        -- top-of-screen cascading trapezoid structure
-    bossFrames = "overhead", -- boss frames on the overhead's top tier, in the "vertical" Boss widget, or "both"
     -- where each group widget was dragged to: { point, relativePoint, x, y } (widgets/; not on the
     -- page), shared by every profile
     partyWidgetPoint = false, raidWidgetPoint = false, bossWidgetPoint = false, arenaWidgetPoint = false,
-    topPet = true,          -- player pet unit frame on the middle tier
-    topFocus = true,        -- focus unit frame on the middle tier
-    topToT = true,          -- target of target frame on the middle tier
+    topPet = true,          -- player pet unit frame, its deck under focus and target of target
+    topFocus = true,        -- focus unit frame on the top deck
+    topToT = true,          -- target of target frame on the top deck
     topPetBar = true,       -- pet action bar on the bottom tier
     -- an overhead unit frame alt+dragged off it, where it was left: its
     -- holder's top-left from the screen's bottom-left, in the holder's units
@@ -235,7 +234,6 @@ local DEFAULTS = {
     auraBuffs = true,       -- row of buffs on outer health corner (yours; the editor's From)
     auraDebuffs = true,     -- row of debuffs on inner health corner (all; the editor's From)
     auraBoss = true,        -- boss debuffs on inner health corner
-    bossMine = true,        -- your debuffs on the overhead's bosses
     -- The widgets' (Unit Frames' Widget groups and the Raid, Battleground and
     -- Arena tabs; console/auras.lua), shared by every profile: the Party
     -- widget's own range and auras (ns.PartyOption; it has no pets), the raid's out of
@@ -409,7 +407,7 @@ local OVERHEAD_KEYS = {
     "overhead", "overheadScale", "overheadX", "overheadY", "overheadAlpha", "overheadFadeIn", "overheadFadeOut",
     "topPet", "topFocus", "topToT", "topPetBar", "topStances", "topTotems", "overheadFlyoutTips",
     "detachPet", "detachFocus", "detachToT", "detachPetX", "detachPetY", "detachFocusX", "detachFocusY",
-    "detachToTX", "detachToTY", "bossFrames", "bossMine",
+    "detachToTX", "detachToTY",
 }
 ns.OVERHEAD_KEYS = OVERHEAD_KEYS
 for _, key in ipairs({
@@ -474,8 +472,7 @@ local SHARED = {
     sharedThreat = { "auraThreat", "partyWidgetThreat", "raidThreat", "bgThreat" },
     sharedCC = { "auraCC", "partyWidgetCC", "raidCC", "bgCC", "arenaCC" },
     sharedBuffs = { "auraBuffs", "partyWidgetBuffs" },
-    sharedDebuffs = { "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs", "bgDebuffs", "bossMine", "bossWidgetMine",
-        "arenaMine" },
+    sharedDebuffs = { "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs", "bgDebuffs", "bossWidgetMine", "arenaMine" },
     sharedBoss = { "auraBoss", "partyWidgetBoss", "raidBoss" },
 }
 local SHARED_OF = {}
@@ -726,8 +723,6 @@ local function Migrate(fresh)
         db.arenaLeft = true
     end
     for name in pairs(PROFILES) do db.profiles[name] = db.profiles[name] or {} end
-    -- the overhead's Boss frames checkbox became Boss frames: Overhead,
-    -- Vertical or Both; turned off, the bosses were not on the overhead
     local stores = { db }
     for name in pairs(PROFILES) do table.insert(stores, db.profiles[name]) end
     -- the party layout was Vertical (the medallion's wings, the light
@@ -736,10 +731,9 @@ local function Migrate(fresh)
     for _, store in ipairs(stores) do
         if store.partyLayout == "vertical" or store.partyLayout == "horizontal" then store.partyLayout = nil end
     end
-    for _, store in ipairs(stores) do
-        if store.topBoss == false and store.bossFrames == nil then store.bossFrames = "vertical" end
-        store.topBoss = nil
-    end
+    -- the overhead's Boss frames checkbox (topBoss), then its Boss frames
+    -- choice, are gone with its boss deck: see the end
+    for _, store in ipairs(stores) do store.topBoss = nil end
     -- the windows' details are always open now: their folds forgotten; and
     -- the spellbook lists a spell's ranks under it, folded, not all at once
     local gone = { "bankDetails", "characterDetails", "spellbookDetails", "spellbookAllRanks" }
@@ -803,6 +797,11 @@ local function Migrate(fresh)
         end
         db.overheadShared = true
     end
+    -- The overhead's boss deck is gone (2026-11-23): bosses are the Boss
+    -- widget's alone, so where they showed (bossFrames) and your debuffs on
+    -- the overhead's (bossMine) go; last, after the moves above read them.
+    for _, store in ipairs({ db, db.global }) do store.bossFrames, store.bossMine = nil, nil end
+    for name in pairs(PROFILES) do db.profiles[name].bossFrames, db.profiles[name].bossMine = nil, nil end
 end
 
 -- "ffRRGGBB" -> r, g, b in 0..1, white for anything unreadable.

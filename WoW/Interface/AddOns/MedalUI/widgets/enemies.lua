@@ -96,11 +96,18 @@ local function Column(spec)
 end
 
 -- ------------------------------------------------------------ boss
-local function BossesHere()
-    local where = ns.db.bossFrames
-    return where == "vertical" or where == "both"
-end
-ns.BossWidgetShown = BossesHere
+-- The game's boss frames are this widget's alone (2026-11-23: the overhead's
+-- boss deck, and the choice between the two, are gone).
+local function BossesHere() return true end
+
+-- what simulating shows, up to the simulation panel's count (simulate.lua)
+ns.bossStubs = {
+    { name = Tr["High Warlord Naj'entus"], health = 85, maxHealth = 100, power = 100, class = "WARRIOR" },
+    { name = Tr["Supremus"], health = 92, maxHealth = 100, power = 50, class = "WARRIOR" },
+    { name = Tr["Teron Gorefiend"], health = 64, maxHealth = 100, power = 100, class = "WARLOCK" },
+    { name = Tr["Gurtogg Bloodboil"], health = 100, maxHealth = 100, power = 30, class = "WARRIOR" },
+    { name = Tr["Reliquary of Souls"], health = 41, maxHealth = 100, power = 70, class = "PRIEST" },
+}
 
 ns.bossWidget = Column({
     name = "MedalUIBossWidget", key = "bossWidgetPoint", default = { "RIGHT", "RIGHT", -260, 160 },
@@ -109,7 +116,7 @@ ns.bossWidget = Column({
     title = function(n) return n > 1 and Tr["Bosses"] or Tr["Boss"] end,
     on = BossesHere,
     preview = function() return ns.sim.enemies.bosses end,
-    -- the overhead's simulated bosses, with the power a cell here draws
+    -- the simulated bosses, with the power a cell here draws
     stubs = (function()
         local list = {}
         for i, stub in ipairs(ns.bossStubs) do
@@ -119,7 +126,6 @@ ns.bossWidget = Column({
         return list
     end)(),
 })
-ns.OnSetting("bossFrames", function() ns.UpdateWidgets() end)
 
 -- ------------------------------------------------------------ arena
 local ARENA_STUBS = {

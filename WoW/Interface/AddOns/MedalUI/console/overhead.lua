@@ -1,8 +1,11 @@
 -- The overhead console: decks hanging from the screen's top edge, in the
 -- console's brown and gold (art/console/gen_overhead.py, variant C).
---   the boss deck:      boss1..boss5
---   the companion deck: pet, focus, target of target
---   the tray:           the stance bar, the pet bar and the totem bar, one centred row of bare icons
+--   the upper deck: focus, target of target
+--   the pet's deck: the pet
+--   the tray:       the stance bar, the pet bar and the totem bar, one centred row of bare icons
+-- (2026-11-23: the boss deck is gone, bosses are the Boss widget's alone,
+-- widgets/enemies.lua; focus and target of target moved up off the pet's
+-- deck onto one of their own over it.)
 -- Each deck is an inverted trapezoid; a lower one is narrower than the floor
 -- above it, so the stack reads as an upside-down ziggurat. When a lower deck
 -- is too wide for that, the decks above grow, and their cells stretch to fill. Every unit is one
@@ -115,7 +118,7 @@ local function DeckSlot(slot)
     -- A.channel from its top, its floor and the floor's corners
     d.channel = plate:CreateTexture(nil, "OVERLAY", nil, slot)
     d.channel:SetColorTexture(0.051, 0.043, 0.027, 0.65)
-    function d:Place(kind, y, half)
+    function d:Place(kind, y, half, id)
         local name = kind .. "-" .. y
         local wing = PIECES[name .. "-wing"]
         Piece(self.left, name .. "-wing", false)
@@ -133,7 +136,7 @@ local function DeckSlot(slot)
         self.channel:SetPoint("TOPLEFT", overhead, "TOP", -(half - h - c), -(y + c))
         self.channel:SetSize(2 * (half - h - c), h - 2 * c)
         self.channel:Show()
-        self.kind, self.y, self.half, self.shown = kind, y, half, true
+        self.kind, self.id, self.y, self.half, self.shown = kind, id, y, half, true
         self.left:Show(); self.right:Show(); self.mid:Show()
     end
     function d:Clear()
@@ -153,8 +156,8 @@ local function DeckWidth(kind, n)
 end
 
 -- The cells share a deck's floor less its margins, filling it: a deck the
--- one under it has widened (three units under two bosses, a full pet bar
--- under the pet) stretches its cells across. The total is kept even so the
+-- one under it has widened (a full pet bar under the pet) stretches its
+-- cells across. The total is kept even so the
 -- row is centred on whole pixels. Never under A.cell from Layout: a deck is
 -- at least DeckWidth wide.
 local function CellWidth(kind, n, w)
@@ -295,37 +298,25 @@ local function CreateCell(unit, kind, chip)
     return b
 end
 
-local bossUnits = {}
-for i = 1, 5 do
-    local b = CreateCell("boss" .. i, "boss", "boss")
-    -- your debuffs at the health's right end (Unit Frames > Boss; auras.lua),
-    -- two pixels short of its height
-    ns.AttachAuras(b, "overhead", A.deck.boss - A.cellTop - A.cellBottom - 2 * A.cellEdge - 2 - A.power - 1 - 2)
-    ns.RegisterUnitEvent(b, "UNIT_AURA", b.unit)
-    -- the unit watch shows it in combat, with no word to the layout
-    b:HookScript("OnShow", ns.UpdateUnitAuras)
-    b:SetScript("OnEvent", function(self, event)
-        if event == "UNIT_AURA" then ns.UpdateUnitAuras(self) else UpdateUnitStatus(self) end
-    end)
-    bossUnits[i] = b
-end
 local petUnit = CreateCell("pet", "unit", "pet")
 local focusUnit = CreateCell("focus", "unit", "focus")
 local totUnit = CreateCell("targettarget", "unit", "targettarget")
 
--- The unit row, as its cells come and go. Out of combat a cell the unit
--- watch shows or hides lays the overhead out again. In combat the layout
--- waits for it to end (UpdateOverhead), but the watch does not: a target's
--- target that turns up mid-fight showed where it last stood, over the pet
--- standing there now. So in combat the row lays itself out, securely: the
--- cells shown, centred on the deck the last layout drew, each at most its
--- drawn width, narrower when more show than that deck was drawn for. The
--- command row's icons go with it: a cell that turns up where no unit deck
--- was drawn takes the tray's place, so the icons step down a deck under it
--- (2026-11-05: a target's target over the totems), and back up when the
--- last cell goes. The plates follow on the next frame (CombatPlates): they
--- are textures, free in combat.
+-- The unit rows, as their cells come and go: row 1 the upper deck's (focus,
+-- target of target), row 2 the pet's. Out of combat a cell the unit watch
+-- shows or hides lays the overhead out again. In combat the layout waits
+-- for it to end (UpdateOverhead), but the watch does not: a target's target
+-- that turns up mid-fight showed where it last stood, over the pet standing
+-- there now. So in combat the rows lay themselves out, securely: each row's
+-- cells shown, centred on the deck the last layout drew for it, each at
+-- most its drawn width, narrower when more show than that deck was drawn
+-- for. A row with a cell shown is a deck: the rows and the command row's
+-- icons under it step down one when it turns up (2026-11-05: a target's
+-- target over the totems), and back up when its last cell goes. The plates
+-- follow on the next frame (CombatPlates): they are textures, free in combat.
 local unitCells = { petUnit, focusUnit, totUnit }
+local ROW = { [petUnit] = 2, [focusUnit] = 1, [totUnit] = 1 }
+for b, r in pairs(ROW) do b.deck = r == 1 and "upper" or "pet" end
 -- each cell's switch on the Overhead page, and its name in the detach
 -- settings (console/overhead.lua's detached cells)
 for i, b in ipairs(unitCells) do
@@ -342,48 +333,65 @@ unitRow:SetSize(1, 1)
 unitRow:SetPoint("TOP", overhead, "TOP")
 unitRow:SetAttribute("cell", A.cell.unit)
 unitRow:SetAttribute("gap", A.gap)
-unitRow:SetAttribute("floor", 0)
+unitRow:SetAttribute("floor1", 0)
+unitRow:SetAttribute("floor2", 0)
 unitRow:SetAttribute("top", A.cellTop)
+unitRow:SetAttribute("trayBase", A.trayTop)
 unitRow:SetAttribute("icons", 0)
 unitRow:SetAttribute("unitDeck", A.deck.unit)
--- the cells on the row, not detached (Layout keeps cell1.. to this count)
+-- the cells on the rows, not detached (Layout keeps cell1.. and their
+-- row1.. to this count)
 unitRow:SetAttribute("cells", 3)
 ns.overheadUnitRow = unitRow
 -- Restricted code has no math library; everything is worked out before a
 -- cell is touched, and each keeps its point until the new one is set.
 local UNIT_ROW = [=[
     if not PlayerInCombat() then return end
-    local cells, n = newtable(), 0
+    local upper, pet, n1, n2 = newtable(), newtable(), 0, 0
     for i = 1, owner:GetAttribute("cells") do
         local c = owner:GetFrameRef("cell" .. i)
         if c and c:IsShown() then
-            n = n + 1
-            cells[n] = c
+            if owner:GetAttribute("row" .. i) == 2 then
+                n2 = n2 + 1
+                pet[n2] = c
+            else
+                n1 = n1 + 1
+                upper[n1] = c
+            end
         end
     end
-    -- the command row: under the unit deck while a cell shows, else in its place
+    local deck = owner:GetAttribute("unitDeck")
+    -- the command row: under the unit decks with a cell shown, else in their place
     local icons = owner:GetAttribute("icons")
     if icons > 0 then
         local y = owner:GetAttribute("trayBase")
-        if n > 0 then y = y + owner:GetAttribute("unitDeck") end
+        if n1 > 0 then y = y + deck end
+        if n2 > 0 then y = y + deck end
         for i = 1, icons do
             local b = owner:GetFrameRef("icon" .. i)
             if b then b:SetPoint("TOPLEFT", owner, "TOP", owner:GetAttribute("iconX" .. i), -y) end
         end
     end
-    if n == 0 then return end
-    local cw, gap, floor = owner:GetAttribute("cell"), owner:GetAttribute("gap"), owner:GetAttribute("floor")
-    -- floor: the drawn deck's width less its sides, the cells filling it;
-    -- 0, no deck was drawn
-    if floor > 0 then
-        cw = (floor - (n - 1) * gap) / n
-        cw = cw - cw % 1
-    end
-    if (n * cw + (n - 1) * gap) % 2 == 1 then cw = cw - 1 end
-    local left, top = -(n * cw + (n - 1) * gap) / 2, -owner:GetAttribute("top")
-    for i = 1, n do
-        cells[i]:SetWidth(cw)
-        cells[i]:SetPoint("TOPLEFT", owner, "TOP", left + (i - 1) * (cw + gap), top)
+    local gap, y = owner:GetAttribute("gap"), owner:GetAttribute("top")
+    for r = 1, 2 do
+        local cells, n = upper, n1
+        if r == 2 then cells, n = pet, n2 end
+        if n > 0 then
+            -- floor: the row's drawn deck's width less its sides, the cells
+            -- filling it; 0, no deck was drawn for it
+            local cw, floor = owner:GetAttribute("cell"), owner:GetAttribute("floor" .. r)
+            if floor > 0 then
+                cw = (floor - (n - 1) * gap) / n
+                cw = cw - cw % 1
+            end
+            if (n * cw + (n - 1) * gap) % 2 == 1 then cw = cw - 1 end
+            local left = -(n * cw + (n - 1) * gap) / 2
+            for i = 1, n do
+                cells[i]:SetWidth(cw)
+                cells[i]:SetPoint("TOPLEFT", owner, "TOP", left + (i - 1) * (cw + gap), -y)
+            end
+            y = y + deck
+        end
     end
 ]=]
 -- The watch shows and hides a cell from inside its walk over every watched
@@ -413,11 +421,6 @@ ns.overheadUnits = {
     pet = petUnit,
     focus = focusUnit,
     targettarget = totUnit,
-    boss1 = bossUnits[1],
-    boss2 = bossUnits[2],
-    boss3 = bossUnits[3],
-    boss4 = bossUnits[4],
-    boss5 = bossUnits[5],
 }
 
 -- A watched button is shown and hidden by its unit's existence, every frame:
@@ -737,23 +740,13 @@ local function AdoptCommandButtons()
 end
 
 -- ------------------------------------------------------------ layout
--- Bosses show up to the simulation panel's count (simulate.lua; two at first),
--- in the Enemies set's state; the pet, focus and target of target each while
--- the panel's Overhead tab has them, hurt with it.
+-- The pet, focus and target of target each while the simulation panel's
+-- Overhead tab has them (simulate.lua), hurt with it.
 local OVERHEAD_STUBS = {
-    boss1 = { name = Tr["High Warlord Naj'entus"], health = 85, maxHealth = 100, power = 100, class = "WARRIOR",
-        boss = 1 },
-    boss2 = { name = Tr["Supremus"], health = 92, maxHealth = 100, power = 50, class = "WARRIOR", boss = 2 },
-    boss3 = { name = Tr["Teron Gorefiend"], health = 64, maxHealth = 100, power = 100, class = "WARLOCK", boss = 3 },
-    boss4 = { name = Tr["Gurtogg Bloodboil"], health = 100, maxHealth = 100, power = 30, class = "WARRIOR", boss = 4 },
-    boss5 = { name = Tr["Reliquary of Souls"], health = 41, maxHealth = 100, power = 70, class = "PRIEST", boss = 5 },
     pet = { name = Tr["Shadowfiend"], health = 75, maxHealth = 100, power = 80, class = "PRIEST" },
     focus = { name = Tr["Lady Sacrolash"], health = 60, maxHealth = 100, power = 100, class = "MAGE" },
     targettarget = { name = Tr["Main Tank"], health = 88, maxHealth = 100, power = 40, class = "WARRIOR" },
 }
-
-ns.bossStubs = { OVERHEAD_STUBS.boss1, OVERHEAD_STUBS.boss2, OVERHEAD_STUBS.boss3, OVERHEAD_STUBS.boss4,
-    OVERHEAD_STUBS.boss5 }      -- the Boss widget's preview (widgets/enemies.lua)
 
 -- Which cells show: a real unit, or a stub while simulating.
 local function Present(b, key)
@@ -763,10 +756,7 @@ local function Present(b, key)
     end
     local sim = ns.db and ns.db.simParty
     local stub = sim and OVERHEAD_STUBS[b.unit]
-    if stub and stub.boss then
-        local n = ns.sim.enemies.bosses
-        if stub.boss > n then stub = nil else ns.SimApply(stub, "enemies", stub.boss, n) end
-    elseif stub then
+    if stub then
         if ns.sim.overhead[b.unit] then ns.SimApply(stub, "overhead", 1, 1) else stub = nil end
     end
     if not Exists(b.unit) and stub then
@@ -820,7 +810,8 @@ local function CommandRow(petAway)
     return row, #stances, breaks, pets
 end
 
--- The decks the last layout drew, by kind: their widths (nil, not drawn).
+-- The decks the last layout drew, by id (upper, pet, tray): their widths
+-- (nil, not drawn).
 local drawn = {}
 
 local function Widen(stack)
@@ -830,25 +821,26 @@ local function Widen(stack)
 end
 
 -- In combat: the plates only, for the cells the watch shows now. The cells
--- and icons are secure, and unitRow has placed them; the boss deck and the
--- tray keep their widths, and a unit deck keeps the one it was drawn at,
--- which is the floor unitRow fits its cells to.
+-- and icons are secure, and unitRow has placed them; the tray keeps its
+-- width, and a unit deck keeps the one it was drawn at, which is the floor
+-- unitRow fits its row's cells to.
 local function CombatPlates()
     if not overhead:IsShown() then return end
-    local n = 0
+    local n = { 0, 0 }
     for _, b in ipairs(unitCells) do
-        if b:IsShown() and not ns.OverheadOff(b) then n = n + 1 end
+        if b:IsShown() and not ns.OverheadOff(b) then n[ROW[b]] = n[ROW[b]] + 1 end
     end
     local stack = {}
-    if drawn.boss then table.insert(stack, { kind = "boss", w = drawn.boss }) end
-    if n > 0 then table.insert(stack, { kind = "unit", w = drawn.unit or DeckWidth("unit", n) }) end
-    if drawn.tray then table.insert(stack, { kind = "tray", w = drawn.tray }) end
+    for r, id in ipairs({ "upper", "pet" }) do
+        if n[r] > 0 then table.insert(stack, { id = id, kind = "unit", w = drawn[id] or DeckWidth("unit", n[r]) }) end
+    end
+    if drawn.tray then table.insert(stack, { id = "tray", kind = "tray", w = drawn.tray }) end
     Widen(stack)
     local y = 0
     for slot = 1, #decks do
         local d = stack[slot]
         if d then
-            decks[slot]:Place(d.kind, y, d.w / 2)
+            decks[slot]:Place(d.kind, y, d.w / 2, d.id)
             y = y + A.deck[d.kind]
         else
             decks[slot]:Clear()
@@ -1042,7 +1034,7 @@ do
     end
 end
 ns.overheadZone = zone
-local zoneAt = { y = 0, w = 0 }
+local zoneAt = { w = 0, h = 0 }
 
 local function OverZone()
     local x, y = GetCursorPosition()
@@ -1056,15 +1048,15 @@ end
 local function ShowZone()
     zone:SetScale(overhead:GetScale())
     zone:ClearAllPoints()
-    zone:SetPoint("TOP", overhead, "TOP", 0, -zoneAt.y)
-    zone:SetSize(zoneAt.w, A.deck.unit)
+    zone:SetPoint("TOP", overhead, "TOP")
+    zone:SetSize(zoneAt.w, zoneAt.h)
     zone:Show()
 end
 
 -- what Layout tells it: the detached on their holders, the pet's dock, and
--- where the unit deck hangs: under the boss deck if there is one, as wide as
--- it is drawn (nil: none, a cell's)
-function ns.OverheadDetached(pets, underBosses, unitW)
+-- the drop zone over the unit decks: the top one's width and their height
+-- as drawn (nil: none, one cell's deck)
+function ns.OverheadDetached(pets, unitW, unitH)
     for _, b in ipairs(unitCells) do
         if b == dragging then
             -- under the pointer: left where it is until the drop; the pet's
@@ -1077,8 +1069,8 @@ function ns.OverheadDetached(pets, underBosses, unitW)
             Unmount(b)
         end
     end
-    zoneAt.y = underBosses and A.deck.boss or 0
     zoneAt.w = unitW or DeckWidth("unit", 1)
+    zoneAt.h = unitH or A.deck.unit
 end
 
 -- The drag moves the cell itself, from wherever it hangs, and it changes
@@ -1270,24 +1262,16 @@ local function Layout()
     end
     laying = true
 
-    -- bosses here, or in the Boss widget only (widgets/enemies.lua)
-    local bosses = {}
-    local onTop = ns.db.bossFrames ~= "vertical"
-    for i = 1, 5 do
-        if not onTop then
-            Retire(bossUnits[i])
-        elseif Present(bossUnits[i], "bossFrames") then
-            table.insert(bosses, bossUnits[i])
-        end
-    end
-    local units, attached = {}, 0
+    -- the cells by row: focus and target of target over the pet
+    local rows, attached = { {}, {} }, 0
     for _, b in ipairs(unitCells) do
         local on = Present(b, b.switch)
         if not ns.OverheadOff(b) then
-            if on then table.insert(units, b) end
+            if on then table.insert(rows[ROW[b]], b) end
             if ns.db[b.switch] ~= false then
                 attached = attached + 1
                 unitRow:SetFrameRef("cell" .. attached, b)
+                unitRow:SetAttribute("row" .. attached, ROW[b])
             end
         end
     end
@@ -1301,15 +1285,24 @@ local function Layout()
     -- the decks, top down; bottom up, a deck grows when the one under it
     -- would not be a ledge narrower than its floor
     local stack = {}
-    if #bosses > 0 then table.insert(stack, { kind = "boss", cells = bosses, w = DeckWidth("boss", #bosses) }) end
-    if #units > 0 then table.insert(stack, { kind = "unit", cells = units, w = DeckWidth("unit", #units) }) end
-    if #row > 0 then table.insert(stack, { kind = "tray", w = rowW + 2 * A.deck.tray + 2 * A.margin }) end
+    for r, id in ipairs({ "upper", "pet" }) do
+        local cells = rows[r]
+        if #cells > 0 then
+            table.insert(stack, { id = id, row = r, kind = "unit", cells = cells, w = DeckWidth("unit", #cells) })
+        end
+    end
+    if #row > 0 then table.insert(stack, { id = "tray", kind = "tray", w = rowW + 2 * A.deck.tray + 2 * A.margin }) end
     Widen(stack)
     -- the detached on their holders, the pet's bar in its dock; before an
     -- emptied overhead fades, so they do not fade with it
-    local unitW
-    for _, d in ipairs(stack) do if d.kind == "unit" then unitW = d.w end end
-    ns.OverheadDetached(petAway and pets or nil, #bosses > 0, unitW)
+    local unitW, unitH
+    for _, d in ipairs(stack) do
+        if d.kind == "unit" then
+            unitW = unitW or d.w
+            unitH = (unitH or 0) + A.deck.unit
+        end
+    end
+    ns.OverheadDetached(petAway and pets or nil, unitW, unitH)
 
     -- emptied: the plate stays as it was while it fades out (console/fade.lua),
     -- then this runs again to clear it and hide
@@ -1327,22 +1320,16 @@ local function Layout()
 
     local y, widest = 0, 0
     drawn = {}
-    -- where the unit row's cells go in combat (unitRow): no deck, at its top
-    local rowFloor, rowTop = 0, nil
+    -- the floor each unit row's cells fill in combat (unitRow): 0, no deck
+    local floors = { 0, 0 }
     for slot = 1, #decks do
         local d = stack[slot]
-        if d and d.kind ~= "boss" and not rowTop then
-            rowTop = y + A.cellTop
-            if d.kind == "unit" then rowFloor = d.w - 2 * A.deck.unit - 2 * A.margin end
-        end
+        if d and d.row then floors[d.row] = d.w - 2 * A.deck.unit - 2 * A.margin end
         if d then
-            decks[slot]:Place(d.kind, y, d.w / 2)
+            decks[slot]:Place(d.kind, y, d.w / 2, d.id)
             if d.kind == "tray" then
                 -- the icons inside the tray, centred
                 local x, step = -rowW / 2, A.icon + A.iconGap
-                -- the tray's top with no unit deck over it, for unitRow
-                local trayBase = y + A.trayTop - (drawn.unit and A.deck.unit or 0)
-                unitRow:SetAttribute("trayBase", trayBase)
                 for i, btn in ipairs(row) do
                     if breaks[i] then x = x + sep end
                     btn:ClearAllPoints()
@@ -1365,16 +1352,14 @@ local function Layout()
             end
             y = y + A.deck[d.kind]
             widest = math.max(widest, d.w)
-            drawn[d.kind] = d.w
+            drawn[d.id] = d.w
         else
             decks[slot]:Clear()
         end
     end
     unitRow:SetAttribute("icons", drawn.tray and #row or 0)
-    unitRow:SetAttribute("floor", rowFloor)
-    unitRow:SetAttribute("top", rowTop or y + A.cellTop)
-    -- bosses past the count, hidden but still watched
-    for i = #bosses + 1, 5 do bossUnits[i]:Hide() end
+    unitRow:SetAttribute("floor1", floors[1])
+    unitRow:SetAttribute("floor2", floors[2])
 
     ns.overheadRow, ns.overheadRowStances = row, stances
 
@@ -1450,7 +1435,6 @@ end)
 ns.On("PLAYER_LOGIN", UpdateOverhead)
 ns.On("PLAYER_ENTERING_WORLD", UpdateOverhead)
 ns.On("GROUP_ROSTER_UPDATE", UpdateOverhead)
-ns.On("INSTANCE_ENCOUNTER_ENGAGE_UNIT", UpdateOverhead)
 ns.On("UNIT_TARGET", function(_, u)
     if u == "target" or u == "player" then UpdateOverhead() end
 end)
@@ -1464,7 +1448,6 @@ ns.On("PET_BAR_UPDATE", UpdateOverhead)
 ns.On("UPDATE_MULTI_CAST_ACTIONBAR", UpdateOverhead)
 
 ns.OnSetting("overhead", UpdateOverhead)
-ns.OnSetting("bossFrames", UpdateOverhead)
 ns.OnSetting("topPet", UpdateOverhead)
 ns.OnSetting("topFocus", UpdateOverhead)
 ns.OnSetting("topToT", UpdateOverhead)

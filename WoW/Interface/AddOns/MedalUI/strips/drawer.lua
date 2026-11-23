@@ -168,7 +168,8 @@ local function Drawer(side)
         if not on then D.open, D.reach = false, 0 end
         key:SetShown(on)
         ns.StripCells(side, D.keyList, on and START or nil)
-        if on then ns.StripCells(side, D.infoList, START) end
+        -- the cells abut: the grooves cut between them part them (strips/infocells.lua)
+        if on then ns.StripCells(side, D.infoList, START, 0) end
         Face()
         D.Notice()
         Place()

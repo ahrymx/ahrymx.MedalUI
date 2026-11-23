@@ -1,40 +1,41 @@
 #!/usr/bin/env python3
 """The overhead console: the decks that hang from the screen's top edge
-(bosses, then pet / focus / target of target), in the console's brown and
+(focus / target of target, then the pet), in the console's brown and
 gold, with the pet and stance bars laid over the plate's bottom rim as bare
 icons (variant A, chosen 2026-11-01: one centred row, stances then pet bar;
 the icon column on the LEFT of every unit). Round 2 (variant C, chosen the
 same day): the icons sit inside a third deck, the tray, instead of hovering
 over the floor; unit cells are 200 wide and every cell stretches to fill a
 deck that had to grow. Round 3 (2026-11-01, variant A of `frames`): each
-command icon is edged in gold, as the unit cells are.
+command icon is edged in gold, as the unit cells are. 2026-11-23: the boss
+deck is gone (bosses are the Boss widget's alone), and focus and target of
+target moved up off the pet's deck onto one of their own over it.
 
     python3 art/console/gen_overhead.py            mockup -> art/console/render/overhead-C.png
     python3 art/console/gen_overhead.py export     pieces -> media/overhead/*.tga,
                                                     data   -> console/overhead_art.lua (after the check)
     python3 art/console/gen_overhead.py frames     the tray's gold-frame options -> render/overhead-frames.png
     python3 art/console/gen_overhead.py --check    assemble the pieces the way the Lua does, for every
-                                                    boss/unit count, and compare with the plate drawn whole
+                                                    deck and icon count, and compare with the plate drawn whole
 
 This file is the one source of the geometry: the Lua reads it through the
 generated console/overhead_art.lua. Never hand-edit that file.
 
 The plate is one outline. Each deck is an inverted trapezoid with 45-degree
 sides; a lower deck is LEDGE narrower than the floor of the deck above, so the
-stack reads as an upside-down ziggurat: bosses, then companions, then the
-tray of stance and pet icons. When a lower deck is too wide for that, the
+stack reads as an upside-down ziggurat: focus and target of target, then
+the pet, then the tray of stance and pet icons. When a lower deck is too wide for that, the
 decks above grow, and their cells stretch to fill the floor. A deck is three textures: a left wing
 (its diagonal), a middle column stretched across, and the left wing mirrored.
 The plate's gradient is fixed to the screen, so a deck's pieces depend on
-the y it hangs at: pieces are named for their kind and that y (boss-0,
-unit-34, tray-64, ...). A lower deck's pieces start OVERLAP rows above its own top, so they paint
+the y it hangs at: pieces are named for their kind and that y (unit-0,
+unit-30, tray-60, ...). A lower deck's pieces start OVERLAP rows above its own top, so they paint
 over the upper deck's rim wherever the two decks meet; cut from
 the plate drawn whole and masked to the lower deck, they put back the union's
 outline, mitred corners included (the check measures it).
 
 Every unit is one rectangle (the round-7 rule): a gold-edged well, an icon
-column on its left that says who the frame is (skull, paw, crosshair, two
-heads), then health over a thin power strip. Cells sit inside their deck's
+column on its left that says who the frame is (paw, crosshair, two heads), then health over a thin power strip. Cells sit inside their deck's
 floor, so no bar corner can poke past a diagonal (the round-6 rule).
 """
 import math
@@ -61,9 +62,9 @@ GOLD_B = "#e8c96e"                # the keys' percentages
 NAVY_TOP, NAVY_BOTTOM = "#2f2713", "#483c1f"   # the plate's gradient, fixed to screen y 0..64
 
 # ----------------------------------------------------------------- geometry (design pixels, 1080 high)
-DECK = {"boss": 34, "unit": 30, "tray": 30}   # deck heights
-CELL = {"boss": 168, "unit": 200} # a cell's least width; cells stretch to fill a grown deck
-COL = {"boss": 20, "unit": 18}    # the icon column, inside the cell's edge
+DECK = {"unit": 30, "tray": 30}   # deck heights
+CELL = {"unit": 200}              # a cell's least width; cells stretch to fill a grown deck
+COL = {"unit": 18}                # the icon column, inside the cell's edge
 CELL_TOP, CELL_BOTTOM = 4, 4      # a cell's top below its deck's top; its bottom above the deck's floor
                                   # (2026-11-10: keys in a channel, mockup C; were flush, before that 3 and 7)
 CHANNEL = 2                       # a deck's dark channel: in from its top, floor and the floor's corners
@@ -79,7 +80,7 @@ EDGE = 2                          # pixels a piece reaches past its deck's outli
 WING = 10                         # floor pixels a wing carries past the diagonal's foot
 MID = 8                           # the middle column's texture width (it is stretched)
 
-MAX_BOSS, MAX_UNIT = 5, 3
+MAX_UPPER = 2                     # focus and target of target, on the deck over the pet's
 ROWS = [(0, 0), (1, 0), (3, 0), (0, 10), (3, 10), (6, 10)]   # (stances, pets) the check walks
 TOLERANCE = 8                     # out of 255, for the check
 
@@ -98,15 +99,16 @@ def row_width(stances, pets):
     return n * (ICON + ICON_GAP) - ICON_GAP + (ICON_SEP if stances and pets else 0)
 
 
-def stack(bosses, units, stances=0, pets=0):
-    """The decks, top down, as (kind, n, top y, half-width); a tray's n is its
-    row's width. Bottom up, a deck grows when the one under it would not be
-    LEDGE narrower than its floor. The Lua does the same sums."""
+def stack(upper, pet, stances=0, pets=0):
+    """The decks, top down, as (kind, n, top y, half-width): upper cells
+    (focus, target of target), then the pet's deck, then the tray, whose n
+    is its row's width. Bottom up, a deck grows when the one under it would
+    not be LEDGE narrower than its floor. The Lua does the same sums."""
     decks = []
-    if bosses:
-        decks.append(["boss", bosses, deck_width("boss", bosses)])
-    if units:
-        decks.append(["unit", units, deck_width("unit", units)])
+    if upper:
+        decks.append(["unit", upper, deck_width("unit", upper)])
+    if pet:
+        decks.append(["unit", 1, deck_width("unit", 1)])
     rw = row_width(stances, pets)
     if rw:
         decks.append(["tray", rw, rw + 2 * DECK["tray"] + 2 * MARGIN])
@@ -199,13 +201,6 @@ def glyph(kind, cx, cy, size):
     s = size / 20
     f = 'fill="url(#gold)" stroke="#2a1e08" stroke-width="0.7"'
     t = f'transform="translate({cx - size / 2:.3f},{cy - size / 2:.3f}) scale({s:.4f})"'
-    if kind == "skull":       # boss
-        return (f'<path {t} fill-rule="evenodd" {f} d="M10,1.5 C4.5,1.5 2,5.2 2,9.2 C2,12 3.4,13.6 5,14.4 '
-                f'L5,17.8 L7.4,17.8 L7.4,16 L8.8,16 L8.8,17.8 L11.2,17.8 L11.2,16 L12.6,16 L12.6,17.8 L15,17.8 '
-                f'L15,14.4 C16.6,13.6 18,12 18,9.2 C18,5.2 15.5,1.5 10,1.5 Z '
-                f'M4.6,9.4 a2.6,2.4 0 1,0 5.2,0 a2.6,2.4 0 1,0 -5.2,0 Z '
-                f'M10.2,9.4 a2.6,2.4 0 1,0 5.2,0 a2.6,2.4 0 1,0 -5.2,0 Z '
-                f'M10,11.6 L8.9,13.6 L11.1,13.6 Z"/>')
     if kind == "paw":         # pet
         return (f'<g {t} {f}>'
                 f'<path d="M10,9 C6,9 3.2,13 3.6,15.6 C4,18 6.6,18.4 10,17.2 C13.4,18.4 16,18 16.4,15.6 '
@@ -228,7 +223,7 @@ def glyph(kind, cx, cy, size):
 
 
 # unit -> (glyph, cell kind)
-WHO = {"boss": ("skull", "boss"), "pet": ("paw", "unit"), "focus": ("target", "unit"),
+WHO = {"pet": ("paw", "unit"), "focus": ("target", "unit"),
        "targettarget": ("friend", "unit")}
 
 
@@ -282,11 +277,6 @@ def rsvg(text):
 
 
 # ----------------------------------------------------------------- the mockup's units
-BOSSES = [("High Warlord Naj'entus", 0.85, "#b8401a", "#c03028"),
-          ("Supremus", 0.92, "#b8401a", "#c03028"),
-          ("Shade of Akama", 0.40, "#b8401a", "#3a64b8"),
-          ("Teron Gorefiend", 0.66, "#b8401a", "#3a64b8"),
-          ("Gurtogg Bloodboil", 0.20, "#b8401a", "#c03028")]
 UNITS = {"pet": ("Wolf", 1.00, "#3f9a3a", "#c8a028"),
          "focus": ("Lady Sacrolash", 0.60, "#b8401a", "#3a64b8"),
          "targettarget": ("Main Tank", 0.88, "#9e7c56", "#c03028")}
@@ -359,8 +349,10 @@ def gold_edge(x, y):
     return f'<rect x="{x - 1}" y="{y - 1}" width="{ICON + 2}" height="{ICON + 2}" fill="url(#gold)"/>'
 
 
-def scene(cx, bosses, units, stances=0, pets=0):
-    decks = stack(bosses, len(units), stances, pets)
+def scene(cx, units, stances=0, pets=0):
+    upper = [u for u in units if u != "pet"]
+    rows = [r for r in (upper, ["pet"] if "pet" in units else []) if r]
+    decks = stack(len(upper), "pet" in units, stances, pets)
     body = [plate_svg(cx, decks)]
     for kind, n, y, half in decks:      # the channels
         h, c = DECK[kind], CHANNEL
@@ -370,9 +362,9 @@ def scene(cx, bosses, units, stances=0, pets=0):
         if kind == "tray":
             body.append(command_row(cx, y, stances, pets))
             continue
-        who = ["boss"] * n if kind == "boss" else units
-        for i, (rect, w) in enumerate(zip(cells(cx, kind, n, y, half), who)):
-            body.append(cell_svg(w, rect, BOSSES[i] if w == "boss" else UNITS[w]))
+        who = rows.pop(0)
+        for rect, w in zip(cells(cx, kind, n, y, half), who):
+            body.append(cell_svg(w, rect, UNITS[w]))
     return "".join(body)
 
 
@@ -384,10 +376,10 @@ CX = CW // 2
 def placements():
     """Every place a deck can hang: name -> (kind, y, the kinds above it)."""
     out = {}
-    for b in (False, True):
-        for u in (False, True):
+    for u in (False, True):
+        for p in (False, True):
             for t in (False, True):
-                kinds = [k for k, on in (("boss", b), ("unit", u), ("tray", t)) if on]
+                kinds = [k for k, on in (("unit", u), ("unit", p), ("tray", t)) if on]
                 y = 0
                 for i, k in enumerate(kinds):
                     out[f"{k}-{y}"] = (k, y, kinds[:i])
@@ -470,12 +462,12 @@ def cut_pieces():
     return out
 
 
-def assemble(pieces, bosses, units, width, stances=0, pets=0):
+def assemble(pieces, upper, pet, width, stances=0, pets=0):
     """The plate as the Lua lays it: per deck, top deck first, the wing at the
     left corner, the wing mirrored at the right, the column stretched between."""
     canvas = Image.new("RGBA", (width, CH), (0, 0, 0, 0))
     cx = width // 2
-    for kind, _, y, half in stack(bosses, units, stances, pets):
+    for kind, _, y, half in stack(upper, pet, stances, pets):
         p = pieces[f"{kind}-{y}"]
         wing, mid = p["wing"], p["mid"]
         x, top = cx - half + p["dx"], y + p["dy"]
@@ -507,7 +499,7 @@ def worst(a, b, tol):
 
 
 def check(pieces=None):
-    """Every boss/unit count and command row: the plate assembled from pieces against the plate
+    """Every deck and command row: the plate assembled from pieces against the plate
     drawn whole, and the whole plate against its mirror. The middle column
     must be flat, or stretching it would smear."""
     pieces = pieces or cut_pieces()
@@ -519,14 +511,14 @@ def check(pieces=None):
             print(f"FAIL {name}: the middle column is not flat ({len(cols)} different columns)")
             bad += 1
     top = 0
-    for b in range(MAX_BOSS + 1):
-        for u in range(MAX_UNIT + 1):
+    for u in range(MAX_UPPER + 1):
+        for b in (0, 1):
             for st, pe in ROWS:
                 if not b and not u and not st and not pe:
                     continue
-                what = f"{b} bosses, {u} units, {st}+{pe} icons"
-                whole = premul(rsvg(svg(CW, CH, plate_svg(CW // 2, stack(b, u, st, pe)))))
-                d, where = worst(whole, premul(assemble(pieces, b, u, CW, st, pe)), TOLERANCE)
+                what = f"{u} upper, {'a' if b else 'no'} pet, {st}+{pe} icons"
+                whole = premul(rsvg(svg(CW, CH, plate_svg(CW // 2, stack(u, b, st, pe)))))
+                d, where = worst(whole, premul(assemble(pieces, u, b, CW, st, pe)), TOLERANCE)
                 top = max(top, d)
                 if where:
                     print(f"FAIL {what}: pieces differ from the whole plate by {d} at {where}")
@@ -593,9 +585,9 @@ def export():
 local _, ns = ...
 
 ns.overheadArt = {{
-    deck = {{ boss = {DECK["boss"]}, unit = {DECK["unit"]}, tray = {DECK["tray"]} }},
-    cell = {{ boss = {CELL["boss"]}, unit = {CELL["unit"]} }},
-    col = {{ boss = {COL["boss"]}, unit = {COL["unit"]} }},
+    deck = {{ unit = {DECK["unit"]}, tray = {DECK["tray"]} }},
+    cell = {{ unit = {CELL["unit"]} }},
+    col = {{ unit = {COL["unit"]} }},
     cellTop = {CELL_TOP}, cellBottom = {CELL_BOTTOM}, cellEdge = {CELL_EDGE}, channel = {CHANNEL},
     gap = {GAP}, margin = {MARGIN}, ledge = {LEDGE}, power = {POWER},
     icon = {ICON}, iconGap = {ICON_GAP}, iconSep = {ICON_SEP}, trayTop = {TRAY_TOP},
@@ -622,13 +614,13 @@ ns.overheadChips = {{
 # ----------------------------------------------------------------- mockup
 W, H = 1000, 110
 STATES = [
-    ("Hunter, solo: pet + pet bar", 0, ["pet"], 0, 10),
-    ("Hunter, 7 pet slots shown", 0, ["pet"], 0, 7),
-    ("Warrior, a target: ToT + stances", 0, ["targettarget"], 3, 0),
-    ("Raid boss, everything", 2, ["pet", "focus", "targettarget"], 3, 10),
-    ("One boss, pet and focus", 1, ["pet", "focus"], 0, 10),
-    ("Five bosses, no companions", 5, [], 6, 0),
-    ("Warrior, no target: the tray alone", 0, [], 3, 0),
+    ("Hunter, solo: pet + pet bar", ["pet"], 0, 10),
+    ("Hunter, 7 pet slots shown", ["pet"], 0, 7),
+    ("Warrior, a target: ToT + stances", ["targettarget"], 3, 0),
+    ("Everything: focus and ToT over the pet", ["pet", "focus", "targettarget"], 3, 10),
+    ("Focus over the pet", ["pet", "focus"], 0, 10),
+    ("Focus and ToT, no pet", ["focus", "targettarget"], 6, 0),
+    ("Warrior, no target: the tray alone", [], 3, 0),
 ]
 
 
@@ -636,8 +628,8 @@ def mockup():
     from PIL import ImageFont
     os.makedirs(OUT, exist_ok=True)
     tiles = []
-    for label, bosses, units, stances, pets in STATES:
-        art = rsvg(svg(W, H, scene(W // 2, bosses, units, stances, pets), f"0 0 {W} {H}", 2))
+    for label, units, stances, pets in STATES:
+        art = rsvg(svg(W, H, scene(W // 2, units, stances, pets), f"0 0 {W} {H}", 2))
         x0 = 960 - W // 2
         base = Image.open(BASE).convert("RGBA").crop((x0, 0, x0 + W, H)).resize((W * 2, H * 2))
         tiles.append((label, Image.alpha_composite(base, art)))

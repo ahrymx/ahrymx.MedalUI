@@ -133,14 +133,16 @@ end
 
 -- Lay the keys out along the side's channel (from `from`, as
 -- ns.StripChannel), from the medallion outward (inward, toward the
--- console), sharing its width less their gaps; a key with a share (default
--- 1) takes that many parts of it. A key with a Fitted(w) is told its width.
-function ns.StripCells(side, list, from)
+-- console), sharing its width less their gaps (`gap`, KEY.gap unless
+-- given); a key with a share (default 1) takes that many parts of it. A key
+-- with a Fitted(w) is told its width.
+function ns.StripCells(side, list, from, gap)
     local n = #list
     if n == 0 then return end
     from = from or cells.from
+    gap = gap or KEY.gap
     local x = from - 2 + KEY.inset                       -- the channel's start, inset
-    local total = cells.to - from - 2 * KEY.inset - (n - 1) * KEY.gap
+    local total = cells.to - from - 2 * KEY.inset - (n - 1) * gap
     local h = KEY.channel - 2 * KEY.inset
     local parts, upto = 0, 0
     for _, f in ipairs(list) do parts = parts + (f.share or 1) end
@@ -150,7 +152,7 @@ function ns.StripCells(side, list, from)
         local w = math.floor(upto * total / parts) - math.floor(before * total / parts)
         ns.OnStrip(f, side, x + w / 2, cells.y, w, h)
         if f.Fitted then f:Fitted(w) end
-        x = x + w + KEY.gap
+        x = x + w + gap
     end
 end
 ns.stripKey = KEY

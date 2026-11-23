@@ -164,7 +164,7 @@ end
 local MODULES = {
     ["console/bar"] = { "skills", "MedalUI's bar on top of the console, holding action bar 1." },
     ["console/overhead"] = { "view-full",
-        Tr["Boss, pet, focus and target frames, and bars, at the top of the screen."] },
+        Tr["Pet, focus and target of target frames, and bars, at the top of the screen."] },
     chat = { "chat", Tr["Blizzard's chat in a box over the micro menu."] },
     side = { "side-meter", Tr["Zone, auras, meter and loot tabs on the right strip."] },
     ["side/zone"] = { "side-zone", Tr["The minimap beside this zone's quests, in the side panel."] },
@@ -634,24 +634,22 @@ local function Specs(list)
 end
 
 local AURA_COLS = { { label = Tr["All"] }, { label = Tr["Console"] }, { label = Tr["Widget"] }, { label = Tr["Raid"] },
-    { label = Tr["BG"] }, { label = Tr["Overhead"] }, { label = Tr["Boss"] }, { label = Tr["Arena"] } }
+    { label = Tr["BG"] }, { label = Tr["Boss"] }, { label = Tr["Arena"] } }
 -- a row per piece: the shared key, then each frame set's (false: it has none)
 local AURA_ROWS = {
     { label = Tr["Dispel glow"], tip = Tr["The frame's border in the debuff's colour while an ally has one you can "
-        .. "dispel."], keys = { "sharedGlow", "auraGlow", "partyWidgetGlow", "raidGlow", "bgGlow", false, false,
-        false } },
+        .. "dispel."], keys = { "sharedGlow", "auraGlow", "partyWidgetGlow", "raidGlow", "bgGlow", false, false } },
     { label = Tr["Aggro glow"], tip = Tr["The frame's border while that unit has aggro."],
-        keys = { "sharedThreat", "auraThreat", "partyWidgetThreat", "raidThreat", "bgThreat", false, false, false } },
+        keys = { "sharedThreat", "auraThreat", "partyWidgetThreat", "raidThreat", "bgThreat", false, false } },
     { label = Tr["Crowd control"], tip = Tr["A large icon in the middle of the frame while the unit is crowd "
-        .. "controlled."], keys = { "sharedCC", "auraCC", "partyWidgetCC", "raidCC", "bgCC", false, false,
-        "arenaCC" } },
+        .. "controlled."], keys = { "sharedCC", "auraCC", "partyWidgetCC", "raidCC", "bgCC", false, "arenaCC" } },
     { label = Tr["Buffs"], tip = Tr["A row of buffs on the frame."],
-        keys = { "sharedBuffs", "auraBuffs", "partyWidgetBuffs", false, false, false, false, false } },
+        keys = { "sharedBuffs", "auraBuffs", "partyWidgetBuffs", false, false, false, false } },
     { label = Tr["Debuffs"], tip = Tr["A row of debuffs on the frame."],
-        keys = { "sharedDebuffs", "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs", "bgDebuffs", "bossMine",
+        keys = { "sharedDebuffs", "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs", "bgDebuffs",
             "bossWidgetMine", "arenaMine" } },
     { label = Tr["Boss debuffs"], tip = Tr["A critical boss debuff in the middle of the frame."],
-        keys = { "sharedBoss", "auraBoss", "partyWidgetBoss", "raidBoss", false, false, false, false } },
+        keys = { "sharedBoss", "auraBoss", "partyWidgetBoss", "raidBoss", false, false, false } },
 }
 
 -- Minimal OoC Mode for the whole Cooldown Manager (cooldowns/display.lua):
@@ -1031,22 +1029,11 @@ function ns.OptionPages()
                         Seconds("consoleFadeOut", Tr["Fade out"], Tr["How long it takes to fade."])) }))),
                 },
                 {
-                    -- where the console's parts sit: the console's own card,
-                    -- then what both have
+                    -- where the console's parts sit: the console's own card
                     id = "layout", name = Tr["Layout"], intro = Tr["Kept per profile. Where the console's parts sit."],
                     groups = Concat(
                         ForConsole("reticule", Group(Tr["Party frames"], PartyLayout("reticule"))),
-                        ForConsole("arena", Group(Tr["Party frames"], PartyLayout("arena"))),
-                        { Group(Tr["Boss frames (shared by every profile)"],
-                            Choice("bossFrames", Tr["Boss frames"], {
-                                { "overhead", Tr["Overhead"], Tr["On the overhead's top tier, dividing into 1, 2 or 3 "
-                                    .. "columns."] },
-                                { "vertical", Tr["Vertical"],
-                                    Tr["A column under a Boss tab that you can drag anywhere: "
-                                    .. "hold the tab to move it."] },
-                                { "both", Tr["Both"], Tr["On the overhead and in the column."] },
-                            }, Tr["Where the encounter's boss frames show. Raid and arena frames are boxes too: hold a "
-                                .. "box's tab to move it. Simulate party frames shows them all."])) }),
+                        ForConsole("arena", Group(Tr["Party frames"], PartyLayout("arena")))),
                 },
                 {
                     id = "bar", name = Tr["Action Bars"], intro = Tr["Kept per profile."],
@@ -1116,14 +1103,16 @@ function ns.OptionPages()
                 {
                     id = "overhead", name = Tr["Overhead"], intro = Tr["Shared by every profile."],
                     master = Check("overhead", Tr["Overhead console"],
-                        Tr["Top-of-screen cascading trapezoid structure for boss frames, pet, focus, target of target, "
-                        .. "and action bars."], true),
+                        Tr["Top-of-screen cascading trapezoid structure for pet, focus, target of target, and "
+                        .. "action bars."], true),
                     groups = Concat(AllOn("elements", {
                         Group(Tr["Frames"],
-                            Check("topPet", Tr["Player pet frame"], Tr["Player pet unit frame on the middle tier."]),
-                            Check("topFocus", Tr["Focus frame"], Tr["Focus target unit frame on the middle tier."]),
+                            Check("topPet", Tr["Player pet frame"],
+                                Tr["Player pet unit frame, on a tier of its own under the focus and target of "
+                                .. "target frames."]),
+                            Check("topFocus", Tr["Focus frame"], Tr["Focus target unit frame on the top tier."]),
                             Check("topToT", Tr["Target of target frame"],
-                                Tr["Target's target unit frame on the middle tier."])),
+                                Tr["Target's target unit frame on the top tier."])),
                         Group(Tr["Detached"],
                             Check("detachPet", Tr["Pet frame"],
                                 Tr["Off the overhead, on its own, with the pet bar docked under it. Alt+drag a frame "
@@ -1296,10 +1285,9 @@ function ns.OptionPages()
                 },
                 {
                     id = "boss", name = Tr["Boss"],
-                    intro = Tr["Shared by every profile. Where the boss frames show is Console > Layout > Boss "
-                        .. "frames."],
+                    intro = Tr["Shared by every profile. The Boss widget's frames, one for each of the "
+                        .. "encounter's bosses."],
                     groups = {
-                        Group(Tr["Overhead"], Mine("bossMine", "a boss")),
                         Group(Tr["Widget"], Mine("bossWidgetMine", "a boss"),
                             Movers("bossMoverHover", "Boss")),
                         Group(Tr["Editor"], Editor("boss", Tr["Edit the Boss widget"])),

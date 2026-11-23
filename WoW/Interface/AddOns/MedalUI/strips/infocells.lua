@@ -23,6 +23,16 @@ local Tr = ns.L
 local ICON = 16
 local PAD, SPACE = 3, 2                 -- a cell's edge to its contents; icon to number
 local SUB_ALPHA = 0.55
+-- a readout's look (2026-11-23, the user's pick 1 of the "Plates" board):
+-- no well and no edge, its contents on the channel itself, a groove cut
+-- between it and the one before; a cell that opens a window (a crafting
+-- profession) has a short gold tab under it, lit under the mouse. Not a
+-- menu key's look: a reagent's click casts, but it is still a readout.
+local GROOVE = { 0.020, 0.016, 0.012, 1 }
+local GROOVE_LIP = { 1, 0.91, 0.67, 0.14 }
+local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = { 0.941, 0.831, 0.533 }
+local TAB, TAB_MAX, TAB_DROP = 2, 30, -1      -- the tab's height, longest, below the cell's bottom
 local SIZE = 10
 local WHITE = { 1, 1, 1 }
 local GREEN = { 0.65, 0.85, 0.56 }      -- a profession at its rank's cap
@@ -125,7 +135,8 @@ local function Outside(owner) ns.window.Outside(owner, "ANCHOR_TOP") end
 -- ------------------------------------------------------------ the cells
 -- A cell's spec: id (what it is, and what its click does: a cell whose id
 -- changes is laid out again), icon, text, sub (dimmed after it), color,
--- grey, share (of the row, as ns.StripCells), cast (a spell name), Tip(owner).
+-- grey, share (of the row, as ns.StripCells), cast (a spell name), window
+-- (its click opens a window: marked with a tab), Tip(owner).
 
 local function Ammo()
     local count = _G.GetInventoryItemCount
@@ -209,7 +220,7 @@ local function Profession(index, primary)
     rank, max = rank or 0, max or 0
     return { id = "profession:" .. name .. ":" .. tostring(spell), icon = icon, text = tostring(rank),
         sub = max > 0 and "/" .. max or nil, share = primary and 1.3 or 1,
-        color = max > 0 and rank >= max and GREEN or WHITE, cast = spell,
+        color = max > 0 and rank >= max and GREEN or WHITE, cast = spell, window = spell ~= nil,
         Tip = function(owner)
             ns.Tip(owner, Outside, { title = name,
                 { "bar", rank, max, format("%d / %d", rank, max) },
@@ -230,7 +241,17 @@ local function Right()
 end
 
 -- ----------------------------------------------------------- the buttons
-local Fit
+local Fit, Lit
+
+-- a window's tab: gold under the mouse, dark gold else; a readout, nothing
+function Lit(b)
+    local window = b.spec and b.spec.window or false
+    local on = window and b.hover or false
+    local c = on and GOLD or GOLD_D
+    b.tab:SetColorTexture(c[1], c[2], c[3], 1)
+    b.tab:SetShown(window)
+    b.tabGlow:SetShown(on)
+end
 local pool = { [-1] = {}, [1] = {} }
 local laid = { [-1] = {}, [1] = {} }    -- the specs laid out, in order
 
@@ -241,7 +262,27 @@ local function Cell(side, i)
         "SecureActionButtonTemplate")
     b:SetFrameLevel(ns.levels.stripTop)
     b:RegisterForClicks("AnyUp", "AnyDown")
-    ns.StripCell(b)
+    -- the groove at its medallion-side edge, its lip on the far side
+    local a, far = side < 0 and "LEFT" or "RIGHT", side < 0 and "RIGHT" or "LEFT"
+    b.groove = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+    b.groove:SetColorTexture(GROOVE[1], GROOVE[2], GROOVE[3], GROOVE[4])
+    b.groove:SetPoint("TOP" .. a)
+    b.groove:SetPoint("BOTTOM" .. a)
+    b.groove:SetWidth(1)
+    b.grooveLip = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+    b.grooveLip:SetColorTexture(GROOVE_LIP[1], GROOVE_LIP[2], GROOVE_LIP[3], GROOVE_LIP[4])
+    b.grooveLip:SetPoint("TOP" .. a, b.groove, "TOP" .. far)
+    b.grooveLip:SetPoint("BOTTOM" .. a, b.groove, "BOTTOM" .. far)
+    b.grooveLip:SetWidth(1)
+    -- a window's tab, and its glow under the mouse
+    b.tab = b:CreateTexture(nil, "ARTWORK")
+    b.tab:SetPoint("BOTTOM", b, "BOTTOM", 0, TAB_DROP)
+    b.tab:SetHeight(TAB)
+    b.tabGlow = b:CreateTexture(nil, "ARTWORK", nil, 1)
+    b.tabGlow:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.35)
+    b.tabGlow:SetBlendMode("ADD")
+    b.tabGlow:SetPoint("TOPLEFT", b.tab, "TOPLEFT", -2, 1)
+    b.tabGlow:SetPoint("BOTTOMRIGHT", b.tab, "BOTTOMRIGHT", 2, -1)
     b.icon = b:CreateTexture(nil, "OVERLAY", nil, 5)
     b.icon:SetSize(ICON, ICON)
     b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
@@ -253,8 +294,16 @@ local function Cell(side, i)
         self.fit = w
         Fit(self)
     end
-    b:SetScript("OnEnter", function(self) if self.spec then self.spec.Tip(self) end end)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:SetScript("OnEnter", function(self)
+        self.hover = true
+        Lit(self)
+        if self.spec then self.spec.Tip(self) end
+    end)
+    b:SetScript("OnLeave", function(self)
+        self.hover = nil
+        Lit(self)
+        GameTooltip:Hide()
+    end)
     pool[side][i] = b
     return b
 end
@@ -269,6 +318,7 @@ function Fit(b)
     if sub then inner = inner + b.sub:GetStringWidth() end
     b.icon:ClearAllPoints()
     b.icon:SetPoint("LEFT", b, "LEFT", math.max(PAD, math.floor((w - inner) / 2)), 0)
+    b.tab:SetWidth(math.max(math.min(w - 10, TAB_MAX), 1))
 end
 
 -- a cell's face: what may change in combat
@@ -282,6 +332,7 @@ local function Face(b, s)
     local c = s.color or WHITE
     b.count:SetTextColor(c[1], c[2], c[3], s.grey and 0.6 or 1)
     b.sub:SetTextColor(c[1], c[2], c[3], SUB_ALPHA)
+    Lit(b)
     Fit(b)
 end
 
@@ -323,6 +374,9 @@ function Refresh(side)
         local b = Cell(side, i)
         Face(b, s)
         b.share = s.share
+        -- the first cell has the bay's plate before it, not a cell
+        b.groove:SetShown(i > 1)
+        b.grooveLip:SetShown(i > 1)
         b:SetAttribute("type", s.cast and "spell" or nil)
         b:SetAttribute("spell", s.cast)
         b:Show()
