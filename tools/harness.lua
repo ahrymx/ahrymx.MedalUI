@@ -8450,6 +8450,27 @@ if sidePass then
                 ns.SetOption("zoneSort", "guide")
                 print("zone guide away ticking", "guide=" .. tostring(away.shown))
                 way("away, guide again")
+                -- (2026-11-23, the user's) in a dungeon the Guide is the log's
+                -- order: its quests of the place, the waypoint left where it is
+                do
+                    local realZone = GetRealZoneText
+                    harnessInstance = "party"
+                    function GetRealZoneText() return "Elwynn Forest" end
+                    fire("ZONE_CHANGED_NEW_AREA")
+                    rows("guide in a dungeon")
+                    z.body:Hide()
+                    zoneDist[101], zoneDist[203] = 900, 40
+                    tick(2.1)
+                    way("away, in a dungeon")
+                    -- out again: the Guide's order (the distances as they were)
+                    harnessInstance, GetRealZoneText = "none", realZone
+                    zoneDist[101], zoneDist[203] = 10, 900
+                    fire("ZONE_CHANGED_NEW_AREA")
+                    tick(2.1)
+                    way("away, out of the dungeon")
+                    z.body:Show()
+                    rows("guide out of the dungeon")
+                end
             end
             -- handed in a moment ago, the game's flag not yet set: not one
             -- to take again (Low Zone, its giver's)
@@ -20366,7 +20387,10 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
                 if a[3] == c[3] and a[2] > c[1] and c[2] > a[1] then overlap = true end
             end
         end
-        local fits = true
+        -- fills: each row spans its floor, short of it by no more than
+        -- the pixel kept for an even total (2026-11-23: the target of
+        -- target, turned up in combat, a bare cell on a widened deck)
+        local fits, fills = true, true
         for _, id in ipairs({ "upper", "pet" }) do
             local lo, hi, any = math.huge, -math.huge, false
             for _, c in ipairs(cells) do
@@ -20377,9 +20401,10 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
                 end
             end
             if any and not (floor[id] and hi - lo <= floor[id]) then fits = false end
+            if any and floor[id] and floor[id] - (hi - lo) > 2 then fills = false end
         end
         print("unitrow " .. tag, table.concat(out, " "), "decks=" .. table.concat(dk, ","),
-            "overlap=" .. tostring(overlap), "fits=" .. tostring(fits))
+            "overlap=" .. tostring(overlap), "fits=" .. tostring(fits), "fills=" .. tostring(fills))
     end
     ns.UpdateOverhead()
     state("pet alone")
@@ -20473,6 +20498,7 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
         exists.targettarget = true
         harnessNextFrame()
         rowAt(tag .. ", ToT in combat")
+        state(tag .. ", ToT in combat")
         exists.targettarget = nil
         harnessNextFrame()
         rowAt(tag .. ", ToT gone in combat")
@@ -20492,6 +20518,25 @@ if args[2] == "unitrow" or args[3] == "unitrow" then
         rowAt(tag .. ", that fight over")
     end
     rowAlone("row alone")
+    -- the pet called mid-fight over the row, no pet deck drawn before the
+    -- fight; then the target's target over it: each row fills the deck its
+    -- plate is drawn at, widened over the one under it
+    inCombat = true
+    fireAll("PLAYER_REGEN_DISABLED")
+    exists.pet = true
+    fireAll("UNIT_PET", "player")
+    harnessNextFrame()
+    state("row alone, pet called in combat")
+    exists.targettarget = true
+    harnessNextFrame()
+    state("row alone, pet called, ToT in combat")
+    exists.targettarget, exists.pet = nil, nil
+    fireAll("UNIT_PET", "player")
+    harnessNextFrame()
+    inCombat = false
+    fireAll("PLAYER_REGEN_ENABLED")
+    harnessNextFrame()
+    rowAt("row alone, after the pet's fight")
     -- a row wider than the cell's deck: the deck over it is widened to
     -- stand a ledge out from the tray, as the layout draws it
     page.settings.topPet:Set(false)

@@ -104,7 +104,14 @@ end
 local rank = {}                 -- the distance sort's last order
 local RESORT = 2                -- seconds between looks at the distances (sorted by them)
 local function Distance() return ns.db.zoneSort == "distance" end
-local function Guide() return ns.db.zoneSort == "guide" and ns.questGuide ~= nil end
+-- (2026-11-23, the user's: "guide mode in dungeons should function just as
+-- 'quest log' mode") inside an instance the Guide stands aside: the list is
+-- the log's quests here, in its order, and the waypoint is left alone; out
+-- again, it takes up where it was (the zone's change redraws the tab)
+local function Guide()
+    if ns.db.zoneSort ~= "guide" or ns.questGuide == nil then return false end
+    return not (IsInInstance and IsInInstance())
+end
 local fresh                     -- the Guide's plan, looked at by Moved and not drawn yet
 
 -- The Guide's list: its plan as it is, the waypoint's row where it falls

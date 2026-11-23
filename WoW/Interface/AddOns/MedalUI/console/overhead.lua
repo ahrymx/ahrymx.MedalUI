@@ -333,8 +333,9 @@ unitRow:SetSize(1, 1)
 unitRow:SetPoint("TOP", overhead, "TOP")
 unitRow:SetAttribute("cell", A.cell.unit)
 unitRow:SetAttribute("gap", A.gap)
-unitRow:SetAttribute("floor1", 0)
-unitRow:SetAttribute("floor2", 0)
+-- floor<row>_<n1><n2>: the width row <row>'s cells fill with n1 cells
+-- shown on the upper row and n2 on the pet's (Layout's, the plates the
+-- combat ones draw: 0 until then, a cell each)
 unitRow:SetAttribute("top", A.cellTop)
 unitRow:SetAttribute("trayBase", A.trayTop)
 unitRow:SetAttribute("icons", 0)
@@ -377,9 +378,9 @@ local UNIT_ROW = [=[
         local cells, n = upper, n1
         if r == 2 then cells, n = pet, n2 end
         if n > 0 then
-            -- floor: the row's drawn deck's width less its sides, the cells
-            -- filling it; 0, no deck was drawn for it
-            local cw, floor = owner:GetAttribute("cell"), owner:GetAttribute("floor" .. r)
+            -- floor: the width of the deck drawn for it with these rows
+            -- shown, less its sides, the cells filling it (CombatStack's)
+            local cw, floor = owner:GetAttribute("cell"), owner:GetAttribute("floor" .. r .. "_" .. n1 .. n2) or 0
             if floor > 0 then
                 cw = (floor - (n - 1) * gap) / n
                 cw = cw - cw % 1
@@ -824,18 +825,31 @@ end
 -- and icons are secure, and unitRow has placed them; the tray keeps its
 -- width, and a unit deck keeps the one it was drawn at, which is the floor
 -- unitRow fits its row's cells to.
+--
+-- The stack in combat with n[1] cells shown on the upper row, n[2] on the
+-- pet's. Layout works it out ahead for each count (unitRow's floors): a
+-- deck not drawn before combat is one the deck under it widens, and its
+-- cells must fill that (2026-11-23, the user's screenshot: the target of
+-- target turned up in combat a bare cell on a deck widened over the pet's).
+local function CombatStack(n)
+    local stack = {}
+    for r, id in ipairs({ "upper", "pet" }) do
+        if n[r] > 0 then
+            table.insert(stack, { id = id, row = r, kind = "unit", w = drawn[id] or DeckWidth("unit", n[r]) })
+        end
+    end
+    if drawn.tray then table.insert(stack, { id = "tray", kind = "tray", w = drawn.tray }) end
+    Widen(stack)
+    return stack
+end
+
 local function CombatPlates()
     if not overhead:IsShown() then return end
     local n = { 0, 0 }
     for _, b in ipairs(unitCells) do
         if b:IsShown() and not ns.OverheadOff(b) then n[ROW[b]] = n[ROW[b]] + 1 end
     end
-    local stack = {}
-    for r, id in ipairs({ "upper", "pet" }) do
-        if n[r] > 0 then table.insert(stack, { id = id, kind = "unit", w = drawn[id] or DeckWidth("unit", n[r]) }) end
-    end
-    if drawn.tray then table.insert(stack, { id = "tray", kind = "tray", w = drawn.tray }) end
-    Widen(stack)
+    local stack = CombatStack(n)
     local y = 0
     for slot = 1, #decks do
         local d = stack[slot]
@@ -1320,11 +1334,8 @@ local function Layout()
 
     local y, widest = 0, 0
     drawn = {}
-    -- the floor each unit row's cells fill in combat (unitRow): 0, no deck
-    local floors = { 0, 0 }
     for slot = 1, #decks do
         local d = stack[slot]
-        if d and d.row then floors[d.row] = d.w - 2 * A.deck.unit - 2 * A.margin end
         if d then
             decks[slot]:Place(d.kind, y, d.w / 2, d.id)
             if d.kind == "tray" then
@@ -1358,8 +1369,17 @@ local function Layout()
         end
     end
     unitRow:SetAttribute("icons", drawn.tray and #row or 0)
-    unitRow:SetAttribute("floor1", floors[1])
-    unitRow:SetAttribute("floor2", floors[2])
+    -- the floor each unit row's cells fill in combat, for every count of
+    -- cells shown on the two rows (unitRow): the plates CombatPlates draws
+    for n1 = 0, 2 do
+        for n2 = 0, 1 do
+            for _, d in ipairs(CombatStack({ n1, n2 })) do
+                if d.row then
+                    unitRow:SetAttribute("floor" .. d.row .. "_" .. n1 .. n2, d.w - 2 * A.deck.unit - 2 * A.margin)
+                end
+            end
+        end
+    end
 
     ns.overheadRow, ns.overheadRowStances = row, stances
 
