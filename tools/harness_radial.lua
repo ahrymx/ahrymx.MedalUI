@@ -1385,6 +1385,32 @@ do
     print("radial consumables catalog", table.concat(out, " | "))
     category("Markers")
     C_QuestLog = questLog
+    -- (2026-11-23, seen in game: Food (0) with bread in the bags) the spell matched by its id when
+    -- its name differs; a Food & Drink item (0/5) whose spell is neither, by its Use: line: health
+    -- food, mana drink, both both, any case; another class with health on its line is not food
+    -- (Oat Bread's class unknown here: found by its spell's id alone); without
+    -- C_Item.GetItemSpell, the global one
+    bag = { { itemID = 9401 }, { itemID = 9402 }, { itemID = 9403 }, { itemID = 9404 }, { itemID = 9405 } }
+    names[9401], names[9402], names[9403], names[9404], names[9405] =
+        "Oat Bread", "Refreshing Water", "Conjured Muffin", "Mixed Platter", "Health Charm"
+    uses[9401], uses[9402], uses[9403], uses[9404], uses[9405] = "Use: Restores 61 health over 18 sec.",
+        "Use: Restores 151 mana over 18 sec.", "Use: Restores 294 Health over 21 sec.",
+        "Use: Restores 500 health and 400 mana over 24 sec.", "Use: Restores 90 health."
+    local ids = { [9401] = 433, [9402] = 430 }
+    local classes = { [9402] = 5, [9403] = 5, [9404] = 5, [9405] = 8 }
+    local was2 = { C_Item.GetItemInfoInstant, GetItemSpell, HEALTH, MANA }
+    C_Item.GetItemSpell = function(id)
+        return ({ [9401] = "Eat", [9402] = "Sip", [9403] = "Refreshment", [9404] = "Food & Drink",
+            [9405] = "Charm" })[id], ids[id]
+    end
+    C_Item.GetItemInfoInstant = function(id) return id, nil, nil, nil, nil, 0, classes[id] end
+    HEALTH, MANA = "Health", "Mana"
+    RM.useAmounts = {}
+    each("radial consumables named otherwise")
+    GetItemSpell, C_Item.GetItemSpell = C_Item.GetItemSpell, nil
+    each("radial consumables global spell")
+    C_Item.GetItemSpell, GetItemSpell = GetItemSpell, was2[2]
+    C_Item.GetItemInfoInstant, HEALTH, MANA = was2[1], was2[3], was2[4]
     bag = {}
     each("radial consumables none")
     C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemIconByID, C_Item.GetItemInfo,

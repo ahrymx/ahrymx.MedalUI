@@ -856,11 +856,33 @@ function RM.UseAmount(id)
         end
     end
 end
+-- (2026-11-23) food the Food spell did not find, seen in game: a Food & Drink item (class 0,
+-- subclass 5) is food when its Use: line restores health, drink when it restores mana (both,
+-- both), whatever its spell is called
+function RM.Restores(id)
+    local FOOD_CLASS, FOOD_SUBCLASS = 0, 5      -- Consumable, Food & Drink
+    local instant = (C_Item and C_Item.GetItemInfoInstant) or GetItemInfoInstant
+    if not instant then return nil end
+    local _, _, _, _, _, classID, subclassID = instant(id)
+    if classID ~= FOOD_CLASS or subclassID ~= FOOD_SUBCLASS then return nil end
+    local data = C_TooltipInfo and C_TooltipInfo.GetItemByID and C_TooltipInfo.GetItemByID(id)
+    local trigger, health, mana = ITEM_SPELL_TRIGGER_ONUSE, HEALTH, MANA
+    if not (data and data.lines and trigger) then return nil end
+    for _, line in ipairs(data.lines) do
+        local text = ns.CanAccess(line.leftText) and line.leftText
+        if type(text) == "string" and text:sub(1, #trigger) == trigger then
+            text = text:lower()
+            return { food = type(health) == "string" and text:find(health:lower(), 1, true) ~= nil,
+                drink = type(mana) == "string" and text:find(mana:lower(), 1, true) ~= nil }
+        end
+    end
+end
 -- the item ids of a kind carried, best first
 function RM.Consumables(want)
     local table_, spell = RM.CONSUMABLES[want], RM.CONSUMABLE_SPELLS[want]
     if not (table_ or spell) or not C_Container then return {} end
     local spellName = spell and C_Spell.GetSpellName(spell)
+    local itemSpell = (C_Item and C_Item.GetItemSpell) or GetItemSpell
     local level = UnitLevel("player") or 0
     local amount, found = {}, {}
     for bag = 0, 5 do
@@ -869,9 +891,15 @@ function RM.Consumables(want)
             local id = info and info.itemID
             if id and not amount[id] then
                 local worth = table_ and table_[id]
-                if spellName and C_Item.GetItemSpell then
-                    local used = C_Item.GetItemSpell(id)
-                    if used and used == spellName then worth = RM.UseAmount(id) or 0 end
+                if spell and itemSpell then
+                    local used, usedID = itemSpell(id)
+                    if (usedID ~= nil and usedID == spell) or (used ~= nil and used == spellName) then
+                        worth = RM.UseAmount(id) or 0
+                    end
+                end
+                if spell and not worth then
+                    local restores = RM.Restores(id)
+                    if restores and restores[want] then worth = RM.UseAmount(id) or 0 end
                 end
                 local minLevel = worth and C_Item.GetItemInfo and select(5, C_Item.GetItemInfo(id))
                 if worth and not (type(minLevel) == "number" and minLevel > level) then
