@@ -18,6 +18,15 @@
 --   W.OnChange(fn)      fn() when it moves or clears
 --   W.OnTick(fn)        fn() twice a second while there is one: the distance
 --   W.WASH, W.COLOR     the wash ({ r, g, b, a }) and the text's colour
+--   W.Set(id)           set to the quest (not cleared when it has it)
+--
+-- And a place that is not a quest's (the Guide's quest to take, at its
+-- giver: quests/guide.lua): the game's own map pin, pointed to the same way.
+--   W.Point(map, x, y)  set there (x, y out of 100); true when set
+--   W.ClearPoint()      the pin away
+--   W.PointAt()         map, x, y of the pin while pointed to, else nil
+--   W.IsPoint(map, x, y) whether it is pointed to there
+--   W.PointTag()        its distance, as Tag's
 --
 -- Retail's and Forever's (C_SuperTrack). A client without it has none:
 -- Toggle does nothing, Quest is nil.
@@ -53,6 +62,46 @@ function W.Toggle(quest)
     C_SuperTrack.SetSuperTrackedQuestID(W.Is(quest.id) and 0 or quest.id)
 end
 
+function W.Set(id)
+    if not Has() or W.Is(id) then return end
+    C_SuperTrack.SetSuperTrackedQuestID(id)
+end
+
+-- ------------------------------------------------------------ a place
+local function CanPoint()
+    return Has() and C_Map and C_Map.SetUserWaypoint and C_Map.GetUserWaypoint and UiMapPoint
+        and UiMapPoint.CreateFromCoordinates and C_SuperTrack.SetSuperTrackedUserWaypoint
+        and C_SuperTrack.IsSuperTrackingUserWaypoint and true or false
+end
+
+function W.Point(map, x, y)
+    if not CanPoint() then return false end
+    local ok = pcall(C_Map.SetUserWaypoint, UiMapPoint.CreateFromCoordinates(map, x / 100, y / 100))
+    if not ok then return false end
+    C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+    return true
+end
+
+function W.ClearPoint()
+    if CanPoint() and C_Map.ClearUserWaypoint then C_Map.ClearUserWaypoint() end
+end
+
+function W.PointAt()
+    if not CanPoint() or not C_SuperTrack.IsSuperTrackingUserWaypoint() then return nil end
+    local p = C_Map.GetUserWaypoint()
+    local pos = p and p.position
+    if not (p and p.uiMapID and pos) then return nil end
+    local x, y = pos.x, pos.y
+    if pos.GetXY then x, y = pos:GetXY() end
+    if not (x and y) or ns.IsSecret(x) then return nil end
+    return p.uiMapID, x * 100, y * 100
+end
+
+function W.IsPoint(map, x, y)
+    local m, px, py = W.PointAt()
+    return m ~= nil and m == map and math.abs(px - x) < 0.05 and math.abs(py - y) < 0.05
+end
+
 -- yards, or "far" (another continent), or nil (no place known)
 local function Yards(id)
     local N = C_Navigation
@@ -69,8 +118,10 @@ local function Yards(id)
     return math.sqrt(d2)
 end
 
-function W.Distance(id)
-    local d = Yards(id)
+local Text
+function W.Distance(id) return Text(Yards(id)) end
+
+function Text(d)
     if d == "far" then return Tr["far"] end
     if not d then return "" end
     if d >= 10000 then return string.format(Tr["%.0fk yd"], d / 1000) end
@@ -80,6 +131,14 @@ end
 function W.Tag(id)
     local s = W.Distance(id)
     return s ~= "" and ("  " .. HEX .. s .. "|r") or ""
+end
+
+function W.PointTag()
+    local N = C_Navigation
+    if not (W.PointAt() and N and N.GetDistance) then return "" end
+    local d = N.GetDistance()
+    if not d or ns.IsSecret(d) or d <= 0 then return "" end
+    return "  " .. HEX .. Text(d) .. "|r"
 end
 
 function W.OnChange(fn) table.insert(changed, fn) end
@@ -97,9 +156,10 @@ clock:SetScript("OnUpdate", function(_, elapsed)
 end)
 
 local function Changed()
-    clock:SetShown(W.Quest() ~= nil)
+    clock:SetShown(W.Quest() ~= nil or W.PointAt() ~= nil)
     for _, fn in ipairs(changed) do fn() end
 end
 
 ns.On("SUPER_TRACKING_CHANGED", Changed)
 ns.On("PLAYER_ENTERING_WORLD", Changed)
+ns.On("USER_WAYPOINT_UPDATED", Changed)

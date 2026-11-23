@@ -7848,6 +7848,319 @@ if sidePass then
             rows("sort by log")
             for k in pairs(zoneDist) do zoneDist[k] = nil end
         end)()
+        -- (2026-11-23) the Guide: the sort's third choice. QuestieDB stubbed:
+        -- a map unit is ten yards; you stand at 73.4, 44.1 of Duskwood (47),
+        -- level 23. Quests to take by experience for the trip, then quick
+        -- work, hand-ins, wide work, nearest first.
+        ;(function()
+            local G = ns.questGuide
+            local function v2(x, y) return { x = x, y = y, GetXY = function(s) return s.x, s.y end } end
+            local saved = { CreateVector2D, C_Map.GetWorldPosFromMapPos, UnitLevel, UnitRace, UnitClass,
+                C_QuestLog.IsQuestFlaggedCompleted, C_SuperTrack, C_Map.SetUserWaypoint, C_Map.GetUserWaypoint,
+                C_Map.ClearUserWaypoint, UiMapPoint, C_Map.GetPlayerMapPosition, C_Map.GetMapInfo, C_Timer }
+            -- a frame later: what C_Timer.After(0) put off, run by settle()
+            local later = {}
+            C_Timer = { After = function(_, fn) later[#later + 1] = fn end }
+            local function settle()
+                for _ = 1, 20 do
+                    if #later == 0 then return end
+                    local run = later
+                    later = {}
+                    for _, fn in ipairs(run) do fn() end
+                end
+                print("zone guide settle", "still putting off after 20 frames")
+            end
+            CreateVector2D = v2
+            -- map 48 lies 5000 yards east, map 1429 on another continent
+            C_Map.GetWorldPosFromMapPos = function(map, v)
+                if map == 1429 then return 0, v2(v.x * 1000, v.y * 1000) end
+                return 1, v2(v.x * 1000 + (map == 48 and 5000 or 0), v.y * 1000)
+            end
+            local me = { 0.734, 0.441 }
+            C_Map.GetPlayerMapPosition = function() return { GetXY = function() return me[1], me[2] end } end
+            C_Map.GetMapInfo = function(m) return { name = m == 48 and "Deadwind Pass" or "Duskwood" } end
+            UnitLevel = function() return 23 end
+            UnitRace = function() return "Human", "Human", 1 end
+            UnitClass = function() return "Warrior", "WARRIOR", 1 end
+            local done = {}
+            C_QuestLog.IsQuestFlaggedCompleted = function(id) return done[id] or false end
+            -- one thing pointed to: a quest, or the pin. As the game, each
+            -- change says so AT ONCE, part way through: a pin set drops the
+            -- quest pointed to and says so before the pin is pointed to; a
+            -- quest pointed to clears the pin first and says so
+            local track, pin = { quest = 0 }, nil
+            local depth, deepest = 0, 0
+            local function say(e)
+                depth = depth + 1
+                deepest = math.max(deepest, depth)
+                if depth < 50 then fire(e) end
+                depth = depth - 1
+            end
+            C_SuperTrack = {
+                GetSuperTrackedQuestID = function() return track.quest or 0 end,
+                SetSuperTrackedQuestID = function(id)
+                    if pin then
+                        pin, track = nil, { quest = 0 }
+                        say("USER_WAYPOINT_UPDATED")
+                    end
+                    track = { quest = id }
+                    say("SUPER_TRACKING_CHANGED")
+                end,
+                IsSuperTrackingQuest = function() return (track.quest or 0) ~= 0 end,
+                SetSuperTrackedUserWaypoint = function(on)
+                    if on then track = { pin = true } end
+                    say("SUPER_TRACKING_CHANGED")
+                end,
+                IsSuperTrackingUserWaypoint = function() return track.pin == true and pin ~= nil end,
+            }
+            UiMapPoint = { CreateFromCoordinates = function(m, x, y) return { uiMapID = m, position = v2(x, y) } end }
+            local refuse, writes = false, 0
+            C_Map.SetUserWaypoint = function(p)
+                writes = writes + 1
+                pin, track = p, { quest = 0 }
+                say("USER_WAYPOINT_UPDATED")
+                if refuse then              -- (a game that will not keep it: cleared at once)
+                    pin = nil
+                    say("USER_WAYPOINT_UPDATED")
+                end
+            end
+            C_Map.GetUserWaypoint = function() return pin end
+            C_Map.ClearUserWaypoint = function()
+                pin, track = nil, { quest = 0 }
+                say("USER_WAYPOINT_UPDATED")
+            end
+            local function npc(name, ...)
+                local pts = {}
+                for _, p in ipairs({ ... }) do pts[#pts + 1] = p end
+                return { name = name, spawns = { [10] = pts } }
+            end
+            local npcs = {
+                [1001] = npc("Skeletal Fiend", { 10, 10 }, { 90, 90 }),          -- all over: wide
+                [1002] = npc("Kobold", { 50, 50 }, { 52, 51 }),                  -- one spot
+                [1003] = npc("Commander Althea", { 74, 45 }),                     -- the hand-in, near
+                [2001] = npc("Calor", { 80, 44.1 }),                              -- 66 yd
+                [2002] = npc("Madame Eva", { 90, 44.1 }),                         -- 166 yd
+                [2003] = npc("Jitters", { 75, 44.1 }),
+                [2004] = { name = "Far Away", spawns = { [11] = { { 10, 10 } } } }, -- Deadwind: out of reach
+                [2005] = { name = "Old Timer", spawns = { [12] = { { 76, 44.1 } } } }, -- a low zone's (49), near
+            }
+            local quests = {
+                [201] = { questLevel = 24, objectives = { { { 1001 } } } },
+                [102] = { questLevel = 22, objectives = { { { 1002 } } } },
+                [202] = { questLevel = 25, finishedBy = { { 1003 } } },
+                [101] = { questLevel = 5 }, [203] = { questLevel = 22 },
+                [301] = { name = "Near Filler", questLevel = 22, startedBy = { { 2001 } } },
+                [302] = { name = "Big Reward", questLevel = 23, startedBy = { { 2002 } } },
+                [303] = { name = "Green Alone", questLevel = 15, startedBy = { { 2003 } } },
+                [304] = { name = "Green Opener", questLevel = 15, startedBy = { { 2003 } }, nextQuestInChain = 305 },
+                [305] = { name = "Chain Payoff", questLevel = 24, preQuestSingle = { 304 } },
+                [306] = { name = "Locked", questLevel = 23, startedBy = { { 2003 } }, preQuestSingle = { 999 } },
+                [307] = { name = "Orcs Only", questLevel = 23, startedBy = { { 2003 } }, requiredRaces = 8589934770 },
+                [308] = { name = "Too High", questLevel = 27, startedBy = { { 2003 } } },
+                [309] = { name = "Out of Reach", questLevel = 23, startedBy = { { 2004 } } },
+                [310] = { name = "Shut Out", questLevel = 23, startedBy = { { 2003 } }, exclusiveTo = { 201 } },
+                [311] = { name = "Low Zone", questLevel = 23, startedBy = { { 2005 } } },
+                [312] = { name = "Low One", questLevel = 5, startedBy = { { 2005 } } },
+                [313] = { name = "Low Two", questLevel = 6, startedBy = { { 2005 } } },
+            }
+            local xp = { [301] = { 22, 1000 }, [302] = { 23, 3000 }, [304] = { 15, 400 }, [305] = { 24, 2600 } }
+            local ids = {}
+            for id in pairs(quests) do ids[#ids + 1] = id end
+            table.sort(ids)
+            local function lib()
+                LibQuestieDB = { RequireContract = function(v) return v == 4 end, Support = { Get = function(n)
+                    if n == "ZoneDB" then
+                        return { private = { areaIdToUiMapId = "return { [10] = 47, [11] = 48, [12] = 49 }",
+                            areaIdToUiMapIdOverride = "return { [0] = 0 }" } }
+                    end
+                    if n == "QuestXP" then return { db = xp } end
+                end } }
+                QuestDB = { GetAllIds = function() return ids end, Exists = function(id) return quests[id] ~= nil end,
+                    Get = function(id, k)
+                        local q = quests[id]
+                        if not q then return nil end
+                        if k == "startedBy" or k == "finishedBy" or k == "objectives" then return q[k] or {} end
+                        if k == "requiredLevel" or k == "specialFlags" or k == "requiredRaces"
+                            or k == "requiredClasses" then return q[k] or 0 end
+                        return q[k]
+                    end }
+                NpcDB = { Get = function(id, k) return npcs[id] and npcs[id][k] end }
+                ObjectDB = { Get = function() return nil end }
+                ItemDB = { Get = function() return nil end }
+            end
+            lib()
+            G.Reset()
+            local function plan(tag, frozen)
+                local list, moved = G.Plan(frozen)
+                local o = {}
+                for _, q in ipairs(list) do
+                    o[#o + 1] = q.id .. ":" .. q.guide.kind .. (q.guide.yards and ("@" .. math.floor(q.guide.yards)) or "")
+                end
+                print("zone guide " .. tag, table.concat(o, " "), "moved=" .. tostring(moved))
+            end
+            local function way(tag)
+                settle()
+                local m, x, y = ns.waypoint.PointAt()
+                print("zone guide way " .. tag, "quest=" .. tostring(ns.waypoint.Quest()),
+                    "pin=" .. (m and string.format("%d %.1f,%.1f", m, x, y) or "none"),
+                    "nested=" .. deepest, "yielded=" .. tostring(G.Yielded()))
+                deepest = 0
+            end
+            plan("first")
+            -- the head, a quest to take, kept until another has twice its score
+            xp[301] = { 22, 4000 }
+            plan("pick not twice")
+            xp[301] = { 22, 9000 }
+            plan("pick twice")
+            xp[301] = { 22, 1000 }
+            plan("pick back")
+            -- the third choice: the list, the head's waypoint at its giver
+            local sortB
+            for _, b in ipairs(z.paint) do
+                if b.spec and b.spec.glyph and b.spec.glyph() == "side-sort" then sortB = b end
+            end
+            local orders = views.zone.Orders()
+            sortB.scripts.OnClick(sortB, "LeftButton")
+            orders.keys[3].scripts.OnClick(orders.keys[3], "LeftButton")
+            sortB.scripts.OnClick(sortB, "LeftButton")
+            print("zone guide picked", "zoneSort=" .. tostring(ns.db.zoneSort), "lit=" .. tostring(sortB.spec.lit()),
+                "tip=" .. tostring(sortB.spec.tip()))
+            rows("guide")
+            way("steered")
+            print("zone guide way other map", "is=" .. tostring(ns.waypoint.IsPoint(48, 90, 44.1)),
+                "here=" .. tostring(ns.waypoint.IsPoint(47, 90, 44.1)))
+            -- a quest to take's tooltip
+            local list = select(2, z.body:GetChildren())
+            local function rowOf(id)
+                for _, r in ipairs(list.all_) do
+                    if r.kind == "Button" and r.shown and r.line and r.line.quest and r.line.quest.id == id then return r end
+                end
+            end
+            local pickRow = rowOf(304)
+            local tip = {}
+            local st, al, adl = GameTooltip.SetText, GameTooltip.AddLine, GameTooltip.AddDoubleLine
+            function GameTooltip:SetText(t) tip = { tostring(t) } end
+            function GameTooltip:AddLine(t) tip[#tip + 1] = tostring(t) end
+            function GameTooltip:AddDoubleLine(a, b) tip[#tip + 1] = tostring(a) .. "~" .. tostring(b) end
+            pickRow.scripts.OnEnter(pickRow)
+            GameTooltip.SetText, GameTooltip.AddLine, GameTooltip.AddDoubleLine = st, al, adl
+            print("zone guide tip", (table.concat(tip, " | "):gsub("|T[^|]*|t", "(mouse)")))
+            pickRow.scripts.OnLeave(pickRow)
+            -- you click another quest to take: your pin; it heads the list,
+            -- the Guide leaves it be
+            pickRow.scripts.OnClick(pickRow, "LeftButton")
+            fire("USER_WAYPOINT_UPDATED")
+            way("yours")
+            rows("guide, yours")
+            z.Refresh()
+            way("yours kept")
+            -- cleared (a click on it again, now at the top), seconds later: the Guide's again
+            now = now + 2
+            pickRow = rowOf(304)
+            pickRow.scripts.OnClick(pickRow, "LeftButton")
+            fire("USER_WAYPOINT_UPDATED")
+            way("cleared")
+            -- (the overflow seen in game, 2026-11-23) you point the game at
+            -- another quest while the Guide's pin is up: the game clears the
+            -- pin first and says so, then points at the quest. The Guide
+            -- keeps out of it: your quest stays, nothing nests
+            C_SuperTrack.SetSuperTrackedQuestID(201)
+            way("you chose a quest")
+            z.Refresh()
+            way("you chose a quest, drawn again")
+            -- you clear it, seconds later: the Guide's pin again
+            now = now + 2
+            C_SuperTrack.SetSuperTrackedQuestID(0)
+            way("you cleared it")
+            -- a game that will not keep the pin: set once, not again and again
+            now = now + 2
+            C_Map.ClearUserWaypoint()
+            refuse, writes = true, 0
+            way("refused")
+            for _ = 1, 3 do z.Refresh() end
+            way("refused, drawn again")
+            print("zone guide refused", "writes=" .. writes)
+            refuse = false
+            now = now + 2
+            -- the switch off: the waypoint is left as it is
+            ns.db.zoneGuideWaypoint = false
+            C_Map.ClearUserWaypoint()
+            fire("USER_WAYPOINT_UPDATED")
+            way("switch off")
+            ns.db.zoneGuideWaypoint = true
+            -- quests to take all taken or done: quick work by its markers,
+            -- the head kept until another is clearly nearer
+            for _, id in ipairs({ 301, 302, 304 }) do done[id] = true end
+            zoneDist[101], zoneDist[203] = 50, 70
+            plan("no picks")
+            zoneDist[101], zoneDist[203] = 60, 40
+            plan("near not clearly")
+            -- twice as near but not a minute sooner; a minute sooner but not
+            -- twice as near (Marked Here, 224 yd, out of the log meanwhile)
+            local kobolds = table.remove(log, 3)
+            zoneDist[101], zoneDist[203] = 200, 90
+            plan("twice not a minute")
+            zoneDist[101], zoneDist[203] = 1000, 550
+            plan("a minute not twice")
+            zoneDist[101], zoneDist[203] = 900, 40
+            plan("clearly nearer")
+            table.insert(log, 3, kobolds)
+            plan("kobolds back")
+            -- in combat: the last order, whatever the distances say
+            zoneDist[101], zoneDist[203] = 10, 900
+            plan("in combat", true)
+            inCombat = true
+            z.Refresh()
+            rows("guide in combat")
+            inCombat = false
+            -- out of combat, the look every two seconds draws the new order
+            -- (the waypoint follows the new head a frame later; its change draws it again)
+            z.body.scripts.OnUpdate(z.body, 2.1)
+            rows("guide relook")
+            way("relook")
+            rows("guide relook, waypoint moved")
+            plan("after combat")
+            -- a failed quest is left out
+            local failed = C_QuestLog.IsFailed
+            C_QuestLog.IsFailed = function(id) return id == 203 end
+            plan("failed")
+            C_QuestLog.IsFailed = failed
+            -- a look that moved nothing keeps no plan for later: a quest
+            -- gone from the log is gone from the list at once
+            z.body.scripts.OnUpdate(z.body, 2.1)
+            z.body.scripts.OnUpdate(z.body, 2.1)
+            local wolves = table.remove(log, 5)
+            fire("QUEST_LOG_UPDATE")
+            rows("guide quest gone")
+            table.insert(log, 5, wolves)
+            fire("QUEST_LOG_UPDATE")
+            -- a quest handed in: Commander Althea's quest leaves the log
+            local gone = table.remove(log, 6)
+            plan("handed in")
+            table.insert(log, 6, gone)
+            -- nothing at all: the log empty, nothing to take; the zone at your level named
+            local was = {}
+            for i = #log, 1, -1 do was[i] = table.remove(log, i) end
+            for _, id in ipairs({ 303, 306, 307, 308, 309, 310 }) do done[id] = true end
+            z.Refresh()
+            print("zone guide empty", tostring(select(2, z.body:GetChildren()).all_[3].text))
+            -- without QuestieDB
+            LibQuestieDB, QuestDB, NpcDB, ObjectDB, ItemDB = nil, nil, nil, nil, nil
+            G.Reset()
+            for i, e in ipairs(was) do log[i] = e end
+            z.Refresh()
+            rows("guide, no QuestieDB")
+            print("zone guide no db", tostring(select(2, z.body:GetChildren()).all_[3].text))
+            -- back to the log's order
+            ns.SetOption("zoneSort", "log")
+            G.Reset()
+            CreateVector2D, C_Map.GetWorldPosFromMapPos, UnitLevel, UnitRace, UnitClass,
+                C_QuestLog.IsQuestFlaggedCompleted, C_SuperTrack, C_Map.SetUserWaypoint, C_Map.GetUserWaypoint,
+                C_Map.ClearUserWaypoint, UiMapPoint, C_Map.GetPlayerMapPosition, C_Map.GetMapInfo, C_Timer
+                = unpack(saved, 1, 14)
+            for k in pairs(zoneDist) do zoneDist[k] = nil end
+            z.Refresh()
+        end)()
         -- a kill's line: a sword for "slain"; too long, the name's first word
         -- an initial (a short one keeps its words)
         fold(2)

@@ -80,7 +80,8 @@ local DEFAULTS = {
     sideMeter = true,       -- its Meter tab
     sideLoot = true,        -- its Loot tab
     sideZone = true,        -- its Zone tab: the minimap and this zone's quests
-    zoneSort = "log",       -- the Zone tab's quests: "log" (the quest log's order) or "distance" (its button too)
+    zoneSort = "log",       -- the Zone tab's quests: "log" (the quest log's order), "distance" or "guide" (its button too)
+    zoneGuideWaypoint = true, -- the Guide's waypoint follows the head of its list (quests/guide.lua)
     sideTab = "meter",      -- the tab last shown (not on the page: the tabs set it)
     sideClosed = false,     -- closed to its tab row (not on the page: a click on the lit tab)
     -- Immersion (Shared > Visibility & fading): the chat bare when idle, its

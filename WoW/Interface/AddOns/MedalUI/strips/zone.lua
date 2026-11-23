@@ -32,6 +32,14 @@
 -- own on the strip, placed by numbers out of combat (ns.window.Over) and
 -- hidden in combat by the game's driver, as the rows may move meanwhile.
 --
+-- (2026-11-23) The sort button's third choice, Guide (quests/guide.lua):
+-- the list becomes what to do next for experience, the log's quests from
+-- anywhere and quests to take near you ("!" before them, their experience
+-- on the right), in the Guide's order, looked at again every RESORT
+-- seconds out of combat. A quest to take clicks to the waypoint at its
+-- giver. With zoneGuideWaypoint the waypoint follows the list's head,
+-- unless you set one yourself (until you clear it).
+--
 -- The column: zoom in, zoom out, the minimap's tracking, the world map; at
 -- the foot, every quest here tracked (or, while they all are, none).
 local _, ns = ...
@@ -79,9 +87,27 @@ end
 local rank = {}                 -- the distance sort's last order
 local RESORT = 2                -- seconds between looks at the distances (sorted by them)
 local function Distance() return ns.db.zoneSort == "distance" end
+local function Guide() return ns.db.zoneSort == "guide" and ns.questGuide ~= nil end
+local fresh                     -- the Guide's plan, looked at by Moved and not drawn yet
+
+-- The Guide's list: its plan, the waypoint's quest (or place) first; and
+-- the plan's head, for the waypoint to follow
+local function Guided()
+    local plan = fresh or ns.questGuide.Plan(InCombatLockdown())
+    fresh = nil
+    local W, out, lead = ns.waypoint, {}, nil
+    for _, q in ipairs(plan) do
+        local here = q.pick and q.guide.where and W.IsPoint(q.guide.where.map, q.guide.where.x, q.guide.where.y)
+            or not q.pick and W.Is(q.id)
+        if here and not lead then lead = q else out[#out + 1] = q end
+    end
+    if lead then table.insert(out, 1, lead) end
+    return out, plan[1]
+end
 
 local function Here()
     if not (C_QuestLog and C_QuestLog.GetNumQuestLogEntries) then return {} end
+    if Guide() then return Guided() end
     local names, marked = { [ZoneName()] = true }, {}
     local map = MapID()
     local info = map and C_Map.GetMapInfo and C_Map.GetMapInfo(map)
@@ -225,9 +251,38 @@ local function PlaceItems()
 end
 
 -- ----------------------------------------------------------------- rows
+-- experience as the quest tooltips' chip: 850, 2.4k, 12k
+local function XPText(xp)
+    if xp < 1000 then return tostring(xp) end
+    if xp < 10000 then return (string.format("%.1fk", xp / 1000):gsub("%.0k$", "k")) end
+    return string.format("%dk", math.floor(xp / 1000))
+end
+
+local function LevelColor(level)
+    local c = GetQuestDifficultyColor and GetQuestDifficultyColor(level)
+    return c and { c.r, c.g, c.b } or ns.colors.text
+end
+
+-- A quest to take: who gives it, its experience, its chain, how far
+local function PickTip(r, q)
+    local g = q.guide
+    local spec = { title = q.title, color = LevelColor(q.level),
+        { "body", format(Tr["Level %d"], q.level) .. (g.xp > 0 and ("  \194\183  " .. format(Tr["%s experience"],
+            XPText(g.xp))) or "") } }
+    if g.npc then table.insert(spec, { "body", format(Tr["Given by %s."], g.npc) }) end
+    if g.steps > 0 then
+        table.insert(spec, { "body", g.chainXP > 0 and format(Tr["A chain: %d more after it, %s experience."],
+            g.steps, XPText(g.chainXP)) or format(Tr["A chain: %d more after it."], g.steps) })
+    end
+    if g.yards then table.insert(spec, { "body", format(Tr["%d yd away."], g.yards) }) end
+    table.insert(spec, { "key", "left", nil, Tr["Waypoint"] })
+    ns.Tip(r, ns.side.Beside, spec)
+end
+
 local function Tip(r)
     local q = r.line and r.line.quest
     if not q then return end
+    if q.pick then PickTip(r, q) return end
     if r.line.item then
         -- (in combat: the secure button is away, the line under it shows)
         ItemTip(r, r.line.item, Tr["Usable here after combat."])
@@ -345,6 +400,17 @@ local function Row()
     r:SetScript("OnClick", function(self, mouse)
         local q = self.line and self.line.quest
         if not q or self.line.item then return end
+        -- a quest to take: the waypoint at its giver, or away
+        if q.pick then
+            local p = q.guide.where
+            if mouse ~= "LeftButton" or not p then return end
+            if ns.waypoint.IsPoint(p.map, p.x, p.y) then
+                ns.waypoint.ClearPoint()
+            else
+                ns.waypoint.Point(p.map, p.x, p.y)
+            end
+            return
+        end
         -- (a waypoint is drawn again by its change); an objective's
         -- Shift-click puts its line in the chat box
         if ns.questSource.ClickObjective(q, self.line.objective, mouse) ~= "track" then return end
@@ -365,7 +431,10 @@ end
 
 -- The waypoint's quest: all its lines in its wash.
 local function Wash(r, q)
-    if not ns.waypoint.Is(q.id) then return false end
+    local p = q.pick and q.guide.where
+    if q.pick and not (p and ns.waypoint.IsPoint(p.map, p.x, p.y)) or not q.pick and not ns.waypoint.Is(q.id) then
+        return false
+    end
     r.stripe:SetColorTexture(unpack(ns.waypoint.WASH))
     r.stripe:Show()
     return true
@@ -399,6 +468,25 @@ local function Fill(r, line, odd, top)
         r.count:SetTextColor(unpack(DIM))
         r:EnableMouse(true)
         Wash(r, q)
+    elseif q.pick then
+        -- a quest to take: "!", its title in its level's colour, its experience
+        r:SetHeight(ROW)
+        r.stripe:SetColorTexture(odd and 0 or 0.102, odd and 0 or 0.078, odd and 0 or 0.039, 0.45)
+        r.stripe:Show()
+        r.fold:SetText("!")
+        r.tick:Hide()
+        r.count:SetText(q.guide.xp > 0 and XPText(q.guide.xp) or "")
+        r.count:SetTextColor(unpack(GOLD))
+        r.rule:SetShown(not top)
+        r.text:SetPoint("LEFT", 14, 0)
+        r.text:SetPoint("RIGHT", r.count, "LEFT", -4, 0)
+        r.text:SetText(q.title)
+        r.text:SetTextColor(unpack(LevelColor(q.level)))
+        r:EnableMouse(true)
+        if Wash(r, q) then
+            r.far = q.title
+            r.text:SetText(q.title .. ns.waypoint.PointTag())
+        end
     elseif o then
         local a, b = Count(o)
         r:SetHeight(LINE)
@@ -464,7 +552,8 @@ end
 function Refresh()
     if not body then return end
     Header()
-    quests = Here()
+    local head
+    quests, head = Here()
     lines = Lines()
     if first > 0 and first >= #lines then first = math.max(0, #lines - 1) end
     local y, n, odd = HEAD, 0, false
@@ -490,8 +579,17 @@ function Refresh()
         rows[i].line = nil
     end
     empty:SetShown(#lines == 0)
+    if #lines == 0 then
+        local G = Guide() and ns.questGuide
+        local try = G and G.Ready() and G.Suggest()
+        empty:SetText(not G and Tr["No quests in this zone."] or not G.Ready() and Tr["The Guide needs QuestieDB."]
+            or try and format(Tr["Nothing here at your level: try %s."], try) or Tr["Nothing here at your level."])
+    end
     PlaceItems()
     ns.side.Changed()
+    -- the waypoint after the plan's head (a change draws this again: the
+    -- second finds it there already)
+    if head then ns.questGuide.Steer(head) end
 end
 
 -- ---------------------------------------------------------- the minimap
@@ -545,7 +643,7 @@ end
 local function AllTracked()
     if #quests == 0 then return false end
     for _, q in ipairs(quests) do
-        if not q.tracked then return false end
+        if not q.pick and not q.tracked then return false end
     end
     return true
 end
@@ -604,7 +702,7 @@ function view.Build(f)
         resortIn = resortIn - elapsed
         if resortIn <= 0 then
             resortIn = RESORT
-            if Distance() and not InCombatLockdown() and Moved() then Refresh() end
+            if (Distance() or Guide()) and not InCombatLockdown() and Moved() then Refresh() end
         end
         wait = wait - elapsed
         if wait > 0 then return end
@@ -621,7 +719,10 @@ function view.Build(f)
     ns.waypoint.OnTick(function()
         if not body:IsVisible() then return end
         for _, r in ipairs(rows) do
-            if r:IsShown() and r.far then r.text:SetText(r.far .. ns.waypoint.Tag(r.line.quest.id)) end
+            if r:IsShown() and r.far then
+                local q = r.line.quest
+                r.text:SetText(r.far .. (q.pick and ns.waypoint.PointTag() or ns.waypoint.Tag(q.id)))
+            end
         end
     end)
     -- the items' counts and names; their buttons placed again after a fight
@@ -654,12 +755,20 @@ end
 local ORDERS = {
     { "log", Tr["Quest log"], Tr["As your quest log orders them."] },
     { "distance", Tr["Distance"], Tr["The nearest quests first, by the game's objective markers on the map."] },
+    { "guide", Tr["Guide"], Tr["What to do next for experience: quests to take near you, then quick work, hand-ins "
+        .. "and wide work, nearest first. Needs QuestieDB."] },
 }
+local function Order()
+    for _, o in ipairs(ORDERS) do
+        if o[1] == ns.db.zoneSort then return o end
+    end
+    return ORDERS[1]
+end
 local orders                    -- built at its first use: the window kit loads after this file
 local function Orders()
     orders = orders or ns.window.Choices({
-        name = "MedalUIZoneOrders", title = Tr["Sort the quests"], width = 220, choices = ORDERS, side = "left",
-        Get = function() return Distance() and "distance" or "log" end,
+        name = "MedalUIZoneOrders", title = Tr["Show the quests"], width = 220, choices = ORDERS, side = "left",
+        Get = function() return Order()[1] end,
         Set = function(v) ns.SetOption("zoneSort", v) end,
         Anchor = function()
             for _, b in ipairs(view.paint or {}) do
@@ -673,15 +782,20 @@ end
 view.Orders = Orders
 SORT = {
     glyph = function() return "side-sort" end,
-    lit = function() return Distance() or (orders ~= nil and orders.IsOpen()) end,
+    lit = function() return Order() ~= ORDERS[1] or (orders ~= nil and orders.IsOpen()) end,
     click = function() Orders().Toggle() end,
     tip = function()
-        local o = Distance() and ORDERS[2] or ORDERS[1]
+        local o = Order()
         return format(Tr["Sorted: %s."], o[2]), o[3] .. " " .. Tr["Click: choose another."]
     end,
 }
 
 function Moved()
+    if Guide() then
+        local plan, moved = ns.questGuide.Plan(false)
+        fresh = moved and plan or nil
+        return moved
+    end
     local rest = {}
     for _, q in ipairs(quests) do
         if not (ns.waypoint and ns.waypoint.Is(q.id)) then table.insert(rest, q) end
@@ -725,10 +839,10 @@ view.foot = {
     lit = AllTracked,
     click = function()
         if AllTracked() then
-            for _, q in ipairs(quests) do ns.questSource.Untrack(q) end
+            for _, q in ipairs(quests) do if not q.pick then ns.questSource.Untrack(q) end end
         else
             for _, q in ipairs(quests) do
-                if not q.tracked and not ns.questSource.Track(q) then break end
+                if not q.pick and not q.tracked and not ns.questSource.Track(q) then break end
             end
         end
         Refresh()

@@ -13,6 +13,8 @@
 --   ns.questChains.Level(id)  its level in QuestieDB, or nil
 --   ns.questChains.XP(id)     its xp at the player's level (QuestieDB's quest
 --                             xp table, scaled as the game scales it), or nil
+--   ns.questChains.Fits(id)   whether your race and class may take it (true
+--                             when QuestieDB cannot say)
 local _, ns = ...
 
 local qc = {}
@@ -54,6 +56,13 @@ local function Fits(db, id)
         return false
     end
     return true
+end
+
+-- whether the player's race and class may take it (the Guide's, quests/guide.lua)
+function qc.Fits(id)
+    local db = DB()
+    if not db then return true end
+    return Fits(db, id)
 end
 
 local function Done(id)

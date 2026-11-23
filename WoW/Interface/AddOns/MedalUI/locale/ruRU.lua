@@ -3105,3 +3105,17 @@ L["Closes this window and opens the setup a new character starts with: the conso
     .. "рамок группы. Также /mdlui setup."
 L["Run the setup again: the console, Immersion Mode and the party frames."] =
     "Пройти настройку заново: консоль, режим погружения и рамки группы."
+-- the Zone tab's Guide (strips/zone.lua, quests/guide.lua)
+L["Guide"] = "Гид"
+L["Show the quests"] = "Показ заданий"
+L["What to do next for experience: quests to take near you, then quick work, hand-ins and wide work, nearest first. Needs QuestieDB."] = "Что делать дальше ради опыта: задания рядом, затем быстрые цели, сдача и цели на большой площади, ближайшие первыми. Нужен QuestieDB."
+L["%s experience"] = "опыт: %s"
+L["Given by %s."] = "Выдаёт: %s."
+L["A chain: %d more after it, %s experience."] = "Цепочка: ещё %d после него, опыт: %s."
+L["A chain: %d more after it."] = "Цепочка: ещё %d после него."
+L["%d yd away."] = "В %d ярдах."
+L["The Guide needs QuestieDB."] = "Гиду нужен QuestieDB."
+L["Nothing here at your level."] = "Здесь нет ничего для вашего уровня."
+L["Nothing here at your level: try %s."] = "Здесь нет ничего для вашего уровня: попробуйте %s."
+L["Guide sets the waypoint"] = "Гид ставит путевую точку"
+L["While the Guide is shown, the waypoint follows the head of its list: a quest to take points at its giver. A waypoint you set yourself is left alone until you clear it."] = "Пока показан гид, путевая точка следует за первым пунктом его списка: для задания, которое ещё не взято, она указывает на того, кто его выдаёт. Точку, поставленную вами, гид не трогает, пока вы её не снимете."

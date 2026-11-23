@@ -1362,8 +1362,14 @@ function ns.OptionPages()
                                 { "log", Tr["Quest log"], Tr["As your quest log orders them."] },
                                 { "distance", Tr["Distance"], Tr["The nearest quests first, by the game's objective "
                                     .. "markers on the map."] },
+                                { "guide", Tr["Guide"], Tr["What to do next for experience: quests to take near you, "
+                                    .. "then quick work, hand-ins and wide work, nearest first. Needs QuestieDB."] },
                             }, Tr["How the zone's quests are ordered; the waypoint's quest stays first. The tab's "
-                                .. "own button changes it too."])),
+                                .. "own button changes it too."]),
+                            Check("zoneGuideWaypoint", Tr["Guide sets the waypoint"],
+                                Tr["While the Guide is shown, the waypoint follows the head of its list: a quest "
+                                .. "to take points at its giver. A waypoint you set yourself is left alone until "
+                                .. "you clear it."])),
                     }),
                 Part("side/auras", Tr["Auras tab"], false,
                     Needs("side", Check("sideAuras", Tr["Auras tab"],

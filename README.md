@@ -54,6 +54,7 @@ The right strip opens a panel with tabs. **Zone** lends it the minimap beside th
 
 - **Meter** shows the game's own damage meter, on clients that have one; **Auras** lists your buffs and debuffs, live in combat.
 - In the Zone tab, click a quest for its objectives, or shift-click it to track it.
+- The Zone tab's sort button also has a **Guide**: what to do next for experience. Quests to take near you come first, ranked by their experience and their chain's. Then come quick objectives, hand-ins and objectives spread over a wide area, nearest first. The waypoint follows the top of the list. It needs [QuestieDB](https://www.curseforge.com/wow/addons/questiedb).
 - Addons' minimap buttons gather in a **drawer** at the end of the action bar, instead of crowding the minimap.
 
 ---
@@ -170,6 +171,7 @@ These addons are by other authors and pair well with MedalUI. They are not part 
 
 - **[W2UI](https://wowinterface.com/downloads/info27203-W2UI.html)** by aesketch: a design reference for the character window, the corner medallions and the utility bars. Used as a reference only; no code or art is taken from it.
 - **[Baganator](https://www.curseforge.com/wow/addons/baganator)**: inspiration for the bags window.
+- **[Forever Quest Routes](https://www.curseforge.com/wow/addons/forever-quest-routes)** by j__b: the model for the Zone tab's Guide. Used as a reference only; no code or data is taken from it. The Guide reads QuestieDB while the game runs.
 - **[PrettyTooltip](https://github.com/FallenShard/PrettyTooltip)** by FallenShard: the base of `mdlui_Tooltips` (MIT).
 - **[FlareUI](https://github.com/malkkav/FlareUI)** by Malkkav: its radial menu is the base of `mdlui_RadialMenu` (MIT).
 - **Marcellus SC** by Brian J. Bonislawsky (Astigmatic): the interface font (SIL OFL 1.1).
