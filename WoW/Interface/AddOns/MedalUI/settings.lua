@@ -95,6 +95,9 @@ local DEFAULTS = {
     chatImmersion = false, chatBareCombat = false, chatBareDelay = 4, chatBands = 0.45,
     sideImmersion = false, sideFadedAlpha = 0.5, sideShowCombat = true, sideShowTarget = true,
     sideShowHurt = false, sideShowGroup = false, sideShowMouse = true, sideFadeIn = 0.2, sideFadeOut = 0.6,
+    -- the corner strips as drawers (strips/drawer.lua): information resting
+    -- on the row, the menu keys unrolled over it by the chevron beside the medallion
+    stripDrawerLeft = true, stripDrawerRight = true,
     meterColumns = 1,       -- 2 shows a second list beside the first
     meterLeft = "damage",   -- what the first list shows: see METER_METRICS
     meterRight = "healing", -- what the second list shows

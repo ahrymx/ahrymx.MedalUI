@@ -1,6 +1,7 @@
 -- The micro menu, on the left strip: the character portrait in the medallion
 -- and one gold glyph per micro button after it, each in a cell of the
--- strip's row (ns.StripCells). The buttons are Blizzard's
+-- strip's row (ns.StripCells), behind the strip's drawer (strips/drawer.lua).
+-- The buttons are Blizzard's
 -- own, moved and redrawn, so their clicks, tooltips, level locks (talents)
 -- and enable rules stay Blizzard's.
 --
@@ -100,6 +101,7 @@ local function Refresh(btn)
         m.tex:SetAlpha(enabled and 1 or 0.45)
     end
     m.glow:SetShown(enabled and m.over or false)
+    if m.glyph then ns.stripDrawers[-1].Notice() end
 end
 
 local function Skin(btn, tex, glow, size, glyph)
@@ -134,7 +136,7 @@ local function Skin(btn, tex, glow, size, glyph)
 end
 
 local function Glyph(btn, kind)
-    btn:SetParent(ns.strips[-1])
+    btn:SetParent(ns.stripDrawers[-1].keys)         -- behind the drawer (strips/drawer.lua)
     btn:SetFrameLevel(ns.levels.stripTop)
     ns.StripCell(btn)
     local tex = btn:CreateTexture(nil, "OVERLAY", nil, 6)
@@ -247,7 +249,7 @@ local function Layout()
     for _, btn in ipairs(buttons) do
         if btn:IsShown() then table.insert(shown, btn) end
     end
-    ns.StripCells(-1, shown)
+    ns.stripDrawers[-1].Keys(shown)
 end
 
 -- Micro menu notification banners (unspent talents, profession knowledge,

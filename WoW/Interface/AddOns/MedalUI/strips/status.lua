@@ -4,7 +4,8 @@
 -- backpack (ns.Ring), their numbers in the medallions' tooltips (ours, in
 -- place of Blizzard's, after it has written its own). The row holds
 -- shortcut keys, MedalUI's and the game's, then the clock nearest the
--- console, wider, opening Blizzard's time manager.
+-- console, wider, opening Blizzard's time manager; keys and clock behind the
+-- strip's drawer (strips/drawer.lua), the professions resting over them.
 local _, ns = ...
 local Tr = ns.L
 
@@ -13,8 +14,6 @@ local SIZE = 13
 
 local GetSlots = C_Container and C_Container.GetContainerNumSlots or GetContainerNumSlots
 local GetFree = C_Container and C_Container.GetContainerNumFreeSlots or GetContainerNumFreeSlots
-
-local strip = ns.strips[1]
 
 -- tooltips just outside the side panel, towards the screen's middle (the
 -- strip is marked, strips/side.lua); over the row with no panel built
@@ -62,6 +61,8 @@ local function Lowest()
     return low, slot
 end
 
+ns.stripDurability = Lowest           -- (the left drawer's cell, strips/infocells.lua)
+
 local durability = ns.Ring(-1)
 
 local function UpdateDurability()
@@ -106,7 +107,7 @@ end
 local keys = {}
 
 local function Key(sc)
-    local b = CreateFrame("Button", nil, strip)
+    local b = CreateFrame("Button", nil, ns.stripDrawers[1].keys)
     b:SetFrameLevel(ns.levels.stripTop)
     b:RegisterForClicks("LeftButtonUp")
     ns.StripCell(b)
@@ -144,7 +145,7 @@ local function Now()
     return date("%H:%M")
 end
 
-local clock = CreateFrame("Button", nil, strip)
+local clock = CreateFrame("Button", nil, ns.stripDrawers[1].keys)
 clock:SetFrameLevel(ns.levels.stripTop)
 ns.StripCell(clock)
 clock.share = 1.8
@@ -184,7 +185,7 @@ local function Arrange()
         if on then table.insert(row, b) end
     end
     table.insert(row, clock)
-    ns.StripCells(1, row)
+    ns.stripDrawers[1].Keys(row)
 end
 ns.stripShortcuts = { keys = keys, clock = clock, Arrange = Arrange }
 

@@ -20,6 +20,7 @@ references are not mirrored (portrait outer, backpack inner), so two mirrored re
     python3 art/strips/gen_strips.py glyphs   -> assets/strips/<glyph>.png alone
     python3 art/strips/gen_strips.py mailbox  -> assets/strips/mailbox.png, media/strips/mailbox.tga
     python3 art/strips/gen_strips.py rounded  -> assets/strips/rounded.png, media/strips/rounded.tga
+    python3 art/strips/gen_strips.py bay      -> assets/strips/drawer-frame.png, media/strips/drawer-frame.tga
     python3 art/strips/gen_strips.py stripes  -> assets/strips/stripes.png (a tile of diagonal stripes)
     python3 art/strips/gen_strips.py shadow   -> assets/strips/shadow.png (a floating window's shadow's corner)
 
@@ -487,6 +488,36 @@ def rounded_part():
     print(media)
 
 
+# The drawer's frame (2026-11-23, the user's pick 4b of the "MedalUI strip
+# drawers" canvas): a rounded frame cut into the plate round the chevron
+# beside a medallion, 18x22 in the middle of a 32x32 part, drawn at its
+# size: a dark groove, a light lip under it where the cut catches the
+# light, and a faint one inside its top edge.
+BAY_FRAME = ('<rect x="7.5" y="5.4" width="17" height="21" rx="2.5" fill="none" '
+             'stroke="#ffe8aa" stroke-opacity="0.24" stroke-width="1"/>'
+             '<line x1="9.5" y1="5.4" x2="22.5" y2="5.4" stroke="#ffe8aa" stroke-opacity="0.12" stroke-width="1"/>'
+             '<rect x="7.5" y="4.5" width="17" height="21" rx="2.5" fill="none" '
+             'stroke="#050403" stroke-opacity="0.95" stroke-width="1"/>')
+
+
+def bay_part():
+    """assets/strips/drawer-frame.png and media/strips/drawer-frame.tga, and
+    a look at it at 4x over the plate's ink in render/drawer-frame.png."""
+    parts = os.path.join(ROOT, "assets", "strips")
+    part("drawer-frame", BAY_FRAME)
+    im = Image.open(os.path.join(parts, "drawer-frame.png")).convert("RGBA")
+    media = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "strips", "drawer-frame.tga")
+    os.makedirs(OUT, exist_ok=True)
+    tmp = os.path.join(OUT, "drawer-frame-tga.png")
+    im.save(tmp)
+    subprocess.run(["magick", tmp, "-define", "tga:compression=none", media], check=True)
+    os.remove(tmp)
+    sheet = Image.new("RGBA", (32, 32), (30, 26, 17, 255))
+    sheet.alpha_composite(im)
+    sheet.resize((128, 128), Image.NEAREST).save(os.path.join(OUT, "drawer-frame.png"))
+    print(media)
+
+
 def mailbox_part():
     """assets/strips/mailbox.png and media/strips/mailbox.tga, and a look at
     it in render/mailbox.png: at 4x, and at the 42 px the head draws it,
@@ -915,5 +946,7 @@ if __name__ == "__main__":
         mailbox_part()
     elif sys.argv[1:2] == ["rounded"]:
         rounded_part()
+    elif sys.argv[1:2] == ["bay"]:
+        bay_part()
     else:
         main()

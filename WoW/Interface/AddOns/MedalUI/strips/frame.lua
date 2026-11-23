@@ -69,12 +69,19 @@ local cells = { from = ns.stripWell.x + L.ringRadius + 5, to = L.length,
     y = art.height - L.stripHeight / 2, height = L.stripHeight }
 ns.stripCells = cells
 
+-- The channel from `from` (cells.from unless given; a drawer starts it
+-- later, its chevron on the bare plate before it) to the row's end.
+function ns.StripChannel(side, from)
+    from = from or cells.from
+    ns.OnStrip(ns.strips[side].channel, side, (from + cells.to) / 2 - 2, cells.y, cells.to - from, KEY.channel)
+end
+
 for _, side in ipairs({ -1, 1 }) do
     local strip = ns.strips[side]
     local channel = strip.art:CreateTexture(nil, "OVERLAY")
     channel:SetColorTexture(0.051, 0.043, 0.027, 0.65)
-    ns.OnStrip(channel, side, (cells.from + cells.to) / 2 - 2, cells.y, cells.to - cells.from, KEY.channel)
     strip.channel = channel
+    ns.StripChannel(side)
 end
 
 local function Edges(b)
@@ -124,14 +131,16 @@ function ns.StripCell(b)
     b:HookScript("OnLeave", function(self) Lit(self, false) end)
 end
 
--- Lay the keys out along the side's channel, from the medallion outward
--- (inward, toward the console), sharing its width less their gaps; a key
--- with a share (default 1) takes that many parts of it.
-function ns.StripCells(side, list)
+-- Lay the keys out along the side's channel (from `from`, as
+-- ns.StripChannel), from the medallion outward (inward, toward the
+-- console), sharing its width less their gaps; a key with a share (default
+-- 1) takes that many parts of it. A key with a Fitted(w) is told its width.
+function ns.StripCells(side, list, from)
     local n = #list
     if n == 0 then return end
-    local x = cells.from - 2 + KEY.inset                 -- the channel's start, inset
-    local total = cells.to - cells.from - 2 * KEY.inset - (n - 1) * KEY.gap
+    from = from or cells.from
+    local x = from - 2 + KEY.inset                       -- the channel's start, inset
+    local total = cells.to - from - 2 * KEY.inset - (n - 1) * KEY.gap
     local h = KEY.channel - 2 * KEY.inset
     local parts, upto = 0, 0
     for _, f in ipairs(list) do parts = parts + (f.share or 1) end
@@ -140,9 +149,11 @@ function ns.StripCells(side, list)
         upto = upto + (f.share or 1)
         local w = math.floor(upto * total / parts) - math.floor(before * total / parts)
         ns.OnStrip(f, side, x + w / 2, cells.y, w, h)
+        if f.Fitted then f:Fitted(w) end
         x = x + w + KEY.gap
     end
 end
+ns.stripKey = KEY
 
 -- A round hover glow for a medallion button.
 function ns.RoundGlow(btn, r, g, b, a)

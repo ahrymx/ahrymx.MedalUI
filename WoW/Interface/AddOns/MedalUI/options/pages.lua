@@ -899,6 +899,15 @@ function ns.OptionPages()
                     Check("simRolls", Tr["Simulate rolls"], Tr["Drop simulated items to roll on: the Roll window "
                         .. "pops up as for a real roll, its choices work, and a simulated group rolls too. A small "
                         .. "panel on the right sets what drops. Nothing is sent to the game."])),
+                Group(Tr["Corner strips"],
+                    Check("stripDrawerLeft", Tr["Left drawer"],
+                        Tr["The micro menu rolls away behind the chevron beside your portrait. The strip shows "
+                        .. "your lowest durability (a hunter's ammo) and your class's reagents instead, each with "
+                        .. "the spell that spends it: a click casts it. Grey is none carried."]),
+                    Check("stripDrawerRight", Tr["Right drawer"],
+                        Tr["The shortcut keys and the clock roll away behind the chevron beside the backpack. "
+                        .. "The strip shows your professions instead, secondary then primary, each with its "
+                        .. "skill: a click opens a crafting one."])),
                 Group(Tr["Editor"],
                     Editor(nil, Tr["Edit unit frames"])),
                 Group(Tr["Key bindings"],

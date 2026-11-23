@@ -9948,9 +9948,12 @@ if sidePass then
                 local function word(c)
                     return c.name or (c.shortcut and c.shortcut[2]) or (c.label and c.label.text) or "?"
                 end
+                -- the drawers' layers are named, but hold the keys: walked into
+                local layer = {}
+                for _, D in pairs(ns.stripDrawers) do layer[D.keys], layer[D.info] = true, true end
                 local function walk(f)
                     for _, c in ipairs(f.all_ or {}) do
-                        if c ~= at and not (c.name and c.name:match("^MedalUI")) then
+                        if c ~= at and (layer[c] or not (c.name and c.name:match("^MedalUI"))) then
                             if c.scripts and c.scripts.OnEnter then
                                 GameTooltip.owner, GameTooltip.points = nil, {}
                                 c.scripts.OnEnter(c)
@@ -9993,13 +9996,16 @@ if sidePass then
                 local pt, p = next(GameTooltip.points)
                 local rel = p and (p[1] == side.panel and "panel" or p[1] == ns.chat.box and "chat"
                     or p[1] == b and "itself" or tostring(p[1] and p[1].name))
+                -- (its strip: the key's parent, or the drawer's layer's, strips/drawer.lua)
+                local up = b:GetParent()
+                if up and up ~= ns.strips[1] and up ~= ns.strips[-1] then up = up:GetParent() end
                 print("strip tip", b.name or (b.shortcut and b.shortcut[2]) or "clock",
-                    "parent=" .. tostring(b:GetParent() == ns.strips[1] and "right" or b:GetParent() == ns.strips[-1]
+                    "parent=" .. tostring(up == ns.strips[1] and "right" or up == ns.strips[-1]
                         and "left" or "other"), "owned=" .. tostring(GameTooltip.owner == b),
                     "at=" .. tostring(pt) .. ">" .. tostring(rel) .. "." .. tostring(p and p[2]) .. " "
                         .. (p and string.format("%.1f,%.1f", p[3] or 0, p[4] or 0) or "-"),
                     "foot=" .. string.format("%.1f/%.1f", b:GetBottom() or -1,
-                        (b:GetParent() == ns.strips[-1] and ns.chat.box or side.panel):GetBottom()))
+                        (up == ns.strips[-1] and ns.chat.box or side.panel):GetBottom()))
                 if b.scripts.OnLeave then b.scripts.OnLeave(b) end
             end
             -- the game's own (its OnEnter's SetOwner, by an anchor of its own):
@@ -10454,7 +10460,8 @@ if stripsPass then
     end
     print("bags", "drawer=" .. tostring(_G.MedalUIBagDrawer ~= nil), table.concat(left, " "))
     for _, f in ipairs(all) do
-        if f.kind == "FontString" and f.parent and f.parent.parent == ns.strips[1] and f.text then
+        if f.kind == "FontString" and f.parent and (f.parent.parent == ns.strips[1]
+            or f.parent.parent == ns.stripDrawers[1].keys) and f.text then
             screen("stat", f.parent, string.format("%q", f.text))
         end
     end
@@ -10471,7 +10478,8 @@ if stripsPass then
     GetInventoryItemLink = GetInventoryItemLink or function(_, slot) return "[Item " .. slot .. "]" end
     GetInventoryItemTexture = GetInventoryItemTexture or function(_, slot) return "slot" .. slot end
     for _, f in ipairs(all) do
-        if f.kind == "FontString" and f.parent and f.parent.parent == ns.strips[1] and f.text
+        if f.kind == "FontString" and f.parent and (f.parent.parent == ns.strips[1]
+            or f.parent.parent == ns.stripDrawers[1].keys) and f.text
             and f.parent.scripts.OnEnter then
             f.parent.scripts.OnEnter(f.parent)
             print("stat tip", table.concat(lines, " | "), tipSpec())
@@ -10555,6 +10563,316 @@ if stripsPass then
     end
     print("shortcut clicks", table.concat(said, ", "))
     SlashCmdList.MACRO, SLASH_MACRO1 = hadMacro, nil
+
+    -- the corner strips as drawers (2026-11-23, strips/drawer.lua and
+    -- strips/infocells.lua): the cells resting on each row, the drawer key
+    -- unrolling the menu keys over them, the roll, the linger, combat
+    do
+        local D, info = ns.stripDrawers, ns.stripInfo
+        local was = { UnitClass = UnitClass, ammoSlot = CharacterAmmoSlot, count = C_Item and C_Item.GetItemCount,
+            known = IsPlayerSpell, profs = GetProfessions, prof = GetProfessionInfo, inv = GetInventoryItemCount,
+            invTex = GetInventoryItemTexture, book = C_SpellBook, ts = C_TradeSkillUI, spellName = C_Spell.GetSpellName,
+            spellTex = C_Spell.GetSpellTexture, link = GetInventoryItemLink }
+        local bags, known = {}, {}
+        C_Item = C_Item or {}
+        C_Item.GetItemCount = function(id) return bags[id] or 0 end
+        C_Item.GetItemIconByID = C_Item.GetItemIconByID or function(id) return 7000 + id end
+        C_Item.GetItemNameByID = C_Item.GetItemNameByID or function(id) return "item" .. id end
+        IsPlayerSpell = function(id) return known[id] or false end
+        C_Spell.GetSpellName = function(id) return "spell" .. id end
+        C_Spell.GetSpellTexture = function(id) return 5000 + id end
+        GetInventoryItemTexture = function(_, slot)
+            if slot == 0 then return bags.ammoIcon end
+            return 600 + slot
+        end
+        GetInventoryItemLink = GetInventoryItemLink or function(_, slot) return "[slot" .. slot .. "]" end
+        local function class(c) UnitClass = function() return c, c end end
+        local function cells(tag, side)
+            local d = D[side]
+            local out = {}
+            for _, b in ipairs(info.pool[side]) do
+                if b.shown and not b.spec then table.insert(out, "(a cell with nothing)") end
+                if b.shown and b.spec then
+                    local c = b.count.textColor or {}
+                    local at, ct, st = b.icon.points.LEFT, b.count.points.LEFT, b.sub.points.LEFT
+                    table.insert(out, string.format("%s %s%s(%.2f,%.2f,%.2f)%s icon=%s%s w=%s share=%s"
+                        .. " icon@%s count@%s sub@%s/%.2f", b.spec.id,
+                        tostring(b.count.text), b.sub.shown and tostring(b.sub.text) or "", c[1] or -1, c[2] or -1,
+                        c[3] or -1, b.icon.desaturated and " grey" or "",
+                        tostring(b.icon.texture), b:GetAttribute("type") and (" casts=" .. tostring(b:GetAttribute("spell")))
+                            or "", tostring(b.fit), tostring(b.share),
+                        at and (at[1] == b and "cell" or "?") .. "+" .. at[3] or "-",
+                        ct and (ct[1] == b.icon and "icon" or "?") .. "+" .. ct[3] or "-",
+                        st and (st[1] == b.count and "count" or "?") .. "+" .. st[3] or "-",
+                        b.sub.textColor and b.sub.textColor[4] or -1))
+                end
+            end
+            print("drawer " .. tag, side < 0 and "left" or "right", "on=" .. tostring(d.On()),
+                "key=" .. tostring(d.key.shown), "| " .. table.concat(out, " | "))
+        end
+        local function state(tag, side)
+            local d = D[side]
+            local ch = resolve(ns.strips[side].channel)
+            print(string.format("drawer %s %s: open=%s reach=%.2f keys=%s info=%s channel=%.1f-%.1f turn=%.2f"
+                .. " desat=%s glow=%s vertex=%s",
+                tag, side < 0 and "left" or "right", tostring(d.open), d.reach, tostring(d.keys.shown),
+                tostring(d.info.shown), ch[1] + 612, ch[3] + 612, d.key.tex.rotation or 0,
+                tostring(d.key.tex.desaturated),
+                d.key.glow.shown and string.format("%.2f%s@%.2f,%.2f,%.2f", d.key.glow.alpha or 1,
+                    d.key.glow.desaturated and "/grey" or "",
+                    d.key.glow.vertex and d.key.glow.vertex[1] or 1, d.key.glow.vertex and d.key.glow.vertex[2] or 1,
+                    d.key.glow.vertex and d.key.glow.vertex[3] or 1) or "off",
+                d.key.tex.vertex and string.format("%.2f,%.2f,%.2f", d.key.tex.vertex[1], d.key.tex.vertex[2],
+                    d.key.tex.vertex[3]) or "-"))
+            if d.keys.shown then screen("drawer " .. tag .. " keys layer", d.keys) end
+            if d.info.shown then screen("drawer " .. tag .. " info layer", d.info) end
+        end
+        local function tick(side, dt) D[side].ticker.scripts.OnUpdate(D[side].ticker, dt) end
+
+        -- the left: a mage with powder and runes, and a feather known with none carried
+        CharacterAmmoSlot = CharacterAmmoSlot or CreateFrame("Button", "CharacterAmmoSlot")
+        class("MAGE")
+        bags[17020], bags[17031] = 18, 5
+        known[23028], known[3561], known[130] = true, true, true
+        info.Refresh(-1)
+        cells("mage", -1)
+        state("mage closed", -1)
+        screen("drawer key left", D[-1].key)
+        -- the chevron's parts: the frame cut round it, its shadow and halo, all turned as one
+        do
+            local k = D[-1].key
+            local function part(t)
+                local p = t.points.CENTER
+                return string.format("%s %gx%g @%s%+g,%+g turn=%.2f vertex=%s alpha=%.2f layer=%s/%s",
+                    tostring(t.texture):match("[^\\]+$"), t.w, t.h, p and (p[1] == k and "key" or "?") or "-",
+                    p and p[3] or 0, p and p[4] or 0, t.rotation or 0,
+                    t.vertex and string.format("%.2f,%.2f,%.2f", t.vertex[1], t.vertex[2], t.vertex[3]) or "-",
+                    t.alpha or 1, tostring(t.layer), tostring(t.sub))
+            end
+            for _, n in ipairs({ "frame", "halo", "shadow", "tex", "glow" }) do
+                print("drawer chevron " .. n, part(k[n]), k[n].blend or "-")
+            end
+        end
+        for _, b in ipairs(info.pool[-1]) do if b.shown then screen("drawer cell left", b, b.spec.id) end end
+        for _, b in ipairs(D[-1].keyList) do screen("drawer menu key left", b, b.name) end
+        tip("drawer cell tip powder", info.pool[-1][2])
+        tip("drawer cell tip runes", info.pool[-1][3])
+        tip("drawer cell tip durability", info.pool[-1][1])
+        tip("drawer key tip", D[-1].key)
+        state("mage closed, chevron under the pointer", -1)
+        D[-1].key.scripts.OnLeave(D[-1].key)
+        state("mage closed, pointer gone", -1)
+        -- no spell known and none carried: no cell; carried, unknown: a cell, no click
+        known[130] = nil
+        info.Refresh(-1)
+        cells("mage, no feather", -1)
+        bags[17056] = 2
+        info.Refresh(-1)
+        cells("mage, feathers, no Slow Fall", -1)
+        bags[17056] = nil
+        -- each class: what its row rests on
+        for _, c in ipairs({ "PRIEST", "DRUID", "PALADIN", "SHAMAN", "WARLOCK", "ROGUE", "WARRIOR" }) do
+            class(c)
+            bags, known = {}, {}
+            for _, r in ipairs(ns.stripReagents[c] or {}) do
+                for _, s in ipairs(r.spells or {}) do known[s] = true end
+            end
+            bags[17028], bags[22147], bags[17038], bags[17037], bags[6265] = 4, 0, 2, 3, 7
+            info.Refresh(-1)
+            cells(c:lower(), -1)
+        end
+        -- a hunter: ammo, red under 200, the equipped stack's icon
+        class("HUNTER")
+        GetInventoryItemCount = function(_, slot) return slot == 0 and bags.ammo or 0 end
+        bags.ammo, bags.ammoIcon = 1842, 132382
+        info.Refresh(-1)
+        cells("hunter", -1)
+        bags.ammo = 150
+        info.Refresh(-1)
+        cells("hunter, low", -1)
+        bags.ammo, bags.ammoIcon = 0, nil
+        info.Refresh(-1)
+        cells("hunter, none", -1)
+        tip("drawer cell tip no ammo", info.pool[-1][1])
+        -- retail's world (no ammo slot): a mage's reagents and a hunter's ammo are gone
+        local slot = CharacterAmmoSlot
+        CharacterAmmoSlot = nil
+        info.Refresh(-1)
+        cells("hunter, retail", -1)
+        class("MAGE")
+        bags[17020], known[23028] = 9, true
+        info.Refresh(-1)
+        cells("mage, retail", -1)
+        CharacterAmmoSlot = slot
+        info.Refresh(-1)
+        cells("mage, before the fight", -1)
+
+        -- the right: the professions, secondaries then primaries
+        state("right, no professions", 1)
+        GetProfessions = function() return 1, 2, nil, 4, 5, 3 end
+        local P = { { "Tailoring", 136249, 280, 300, 1, 10 }, { "Herbalism", 136246, 300, 300, 1, 12 },
+            { "First Aid", 135966, 225, 225, 1, 14 }, { "Fishing", 136245, 150, 225, 1, 16 },
+            { "Cooking", 133971, 225, 300, 1, 18 } }
+        GetProfessionInfo = function(i) return unpack(P[i]) end
+        local spells = { [11] = 3908, [13] = 2383, [15] = 3273, [17] = 7620, [19] = 2550 }
+        C_SpellBook = setmetatable({ GetSpellBookItemInfo = function(slot)
+            return spells[slot] and { spellID = spells[slot], name = "book" .. slot } end }, { __index = was.book })
+        local hadEnum = Enum
+        Enum = Enum or {}
+        local hadBank = Enum.SpellBookSpellBank
+        Enum.SpellBookSpellBank = Enum.SpellBookSpellBank or { Player = 0 }
+        local crafts = { [3908] = true, [3273] = true, [2550] = true }
+        C_TradeSkillUI = setmetatable({ CanTradeSkillShowCraftingUI = function(id) return crafts[id] or false end },
+            { __index = was.ts })
+        info.Refresh(1)
+        cells("professions", 1)
+        -- "/300" fits the cell's width but not within its padding: dropped
+        P[4][3] = 75
+        info.Refresh(1)
+        cells("fishing at 75, a tight fit", 1)
+        P[4][3] = 150
+        info.Refresh(1)
+        state("right closed", 1)
+        for _, b in ipairs(info.pool[1]) do if b.shown then screen("drawer cell right", b, b.spec.id) end end
+        screen("drawer key right", D[1].key)
+        for _, b in ipairs(D[1].keyList) do screen("drawer menu key right", b, b.shortcut and b.shortcut[2] or "clock") end
+        tip("drawer cell tip cooking", info.pool[1][1])
+        tip("drawer cell tip herbalism", info.pool[1][5])
+
+        -- the roll: a click, then the frames until it is out
+        mouseOver = ns.strips[-1]
+        D[-1].key.scripts.OnClick(D[-1].key)
+        state("clicked", -1)
+        tick(-1, 0.09)
+        state("half out", -1)
+        tick(-1, 0.09)
+        tick(-1, 0.01)
+        state("out", -1)
+        tip("drawer key tip open", D[-1].key)
+        state("open, chevron under the pointer", -1)
+        D[-1].key.scripts.OnLeave(D[-1].key)
+        state("open, pointer off the chevron", -1)
+        -- the pointer stays on the strip: it stays; off it, a second, then back
+        tick(-1, 5)
+        state("pointer on it", -1)
+        mouseOver = false
+        tick(-1, 0.6)
+        state("off 0.6s", -1)
+        tick(-1, 0.5)
+        state("off 1.1s", -1)
+        tick(-1, 0.09)
+        state("rolling back", -1)
+        tick(-1, 0.2)
+        state("back", -1)
+        print("drawer ticker after", tostring(D[-1].ticker.shown))
+        -- clicked open and shut again before the roll ends
+        D[-1].key.scripts.OnClick(D[-1].key)
+        tick(-1, 0.05)
+        D[-1].key.scripts.OnClick(D[-1].key)
+        print("drawer ticker, shut mid-roll", tostring(D[-1].ticker.shown))
+        tick(-1, 0.03)
+        state("changed its mind", -1)
+        tick(-1, 0.1)
+        state("changed its mind, done", -1)
+
+        -- combat: no click moves it; a fight starting mid-roll ends the roll at once
+        inCombat = true
+        D[-1].key.scripts.OnClick(D[-1].key)
+        state("clicked in combat", -1)
+        tip("drawer key tip in combat", D[-1].key)
+        D[-1].key.scripts.OnLeave(D[-1].key)
+        inCombat = false
+        mouseOver = ns.strips[-1]
+        D[-1].key.scripts.OnClick(D[-1].key)
+        tick(-1, 0.05)
+        fire("PLAYER_REGEN_DISABLED")
+        inCombat = true
+        state("fight mid-roll", -1)
+        mouseOver = false
+        tick(-1, 3)
+        state("fight, pointer away", -1)
+        -- in combat the keys' own changes wait too (Blizzard hides one)
+        local keysWere = D[-1].keyList
+        local first = keysWere[2]
+        local function at(b) local r = resolve(b) return string.format("%.1f-%.1f", r[1] + 612, r[3] + 612) end
+        local before = at(first)
+        D[-1].Keys({ keysWere[2], keysWere[3] })
+        print("drawer keys changed in combat", before, at(first))
+        -- in combat the numbers change, a cell come waits for its end
+        bags[17020] = 3
+        bags[17032] = 1
+        info.Refresh(-1)
+        cells("in combat", -1)
+        inCombat = false
+        for _, f in ipairs(events.PLAYER_REGEN_ENABLED or {}) do f.scripts.OnEvent(f, "PLAYER_REGEN_ENABLED") end
+        cells("after combat", -1)
+        print("drawer keys changed, after combat", at(first))
+        D[-1].Keys(keysWere)
+        tick(-1, 0.5)
+        state("after combat, 0.5s away", -1)
+        tick(-1, 0.6)
+        tick(-1, 0.3)
+        state("after combat, away", -1)
+
+        -- something new behind a key: the drawer key turns blue while closed
+        local mk = D[-1].keyList[1]
+        if mk and mk.NotificationOverlay then
+            mk.NotificationOverlay:Show()
+            if mk.NotificationOverlay.scripts.OnShow then mk.NotificationOverlay.scripts.OnShow(mk.NotificationOverlay) end
+            state("notice", -1)
+            D[-1].key.scripts.OnEnter(D[-1].key)
+            state("notice, chevron under the pointer", -1)
+            D[-1].key.scripts.OnLeave(D[-1].key)
+            D[-1].Set(true, true)
+            state("notice, open", -1)
+            D[-1].Set(false, true)
+            mk.NotificationOverlay:Hide()
+            if mk.NotificationOverlay.scripts.OnHide then mk.NotificationOverlay.scripts.OnHide(mk.NotificationOverlay) end
+            state("notice gone", -1)
+        else
+            D[-1].keyList[1].NotificationOverlay = CreateFrame("Frame")
+            D[-1].Notice()
+            state("notice", -1)
+            D[-1].key.scripts.OnEnter(D[-1].key)
+            state("notice, chevron under the pointer", -1)
+            D[-1].key.scripts.OnLeave(D[-1].key)
+            D[-1].Set(true, true)
+            state("notice, open", -1)
+            D[-1].Set(false, true)
+            D[-1].keyList[1].NotificationOverlay:Hide()
+            D[-1].Notice()
+            state("notice gone", -1)
+            D[-1].keyList[1].NotificationOverlay = nil
+        end
+
+        -- the options: off, the keys have the row back; on, the drawer again (closed)
+        D[1].key.scripts.OnClick(D[1].key)
+        tick(1, 0.2)
+        state("right open", 1)
+        page.settings.stripDrawerRight:Set(false)
+        state("right option off", 1)
+        cells("right option off", 1)
+        for _, b in ipairs(D[1].keyList) do screen("drawer off menu key right", b, b.shortcut and b.shortcut[2] or "clock") end
+        page.settings.stripDrawerRight:Set(true)
+        state("right option on", 1)
+        -- no professions left: no drawer
+        GetProfessions = function() end
+        info.Refresh(1)
+        state("right, professions gone", 1)
+
+        UnitClass, CharacterAmmoSlot, C_Item.GetItemCount, IsPlayerSpell = was.UnitClass, was.ammoSlot, was.count,
+            was.known
+        GetProfessions, GetProfessionInfo, GetInventoryItemCount, GetInventoryItemTexture = was.profs, was.prof,
+            was.inv, was.invTex
+        C_SpellBook, C_TradeSkillUI, C_Spell.GetSpellName, C_Spell.GetSpellTexture = was.book, was.ts,
+            was.spellName, was.spellTex
+        GetInventoryItemLink = was.link
+        Enum.SpellBookSpellBank = hadBank
+        Enum = hadEnum
+        mouseOver = false
+        info.Refresh(-1)
+        info.Refresh(1)
+    end
 
     -- the chat panel: the art, where the messages and the edit box go, and
     -- Blizzard's art hidden on a docked window and kept hidden
