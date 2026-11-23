@@ -9,19 +9,22 @@
 -- each quest, where they stand, where its creatures and objects are. Without
 -- it the Guide has nothing to show and says so.
 --
--- The order (the user's, 2026-11-23), kind by kind:
+-- The order (the user's, 2026-11-23), tier by tier:
 --   1 pick    quests to take: in reach, at your level (a green one only when
---             its chain comes back to your level), by experience for the
---             trip: (xp + half the chain's xp to come) / (seconds + 30)
---   2 small   quests whose work left is one of each, or all in one spot
---             (every place it is done within SMALL yards of their middle)
---   3 turnin  quests done, to hand in
---   4 large   the rest: counts of kills or loot over a wide area
--- Within kinds 2 to 4 the nearest first, in steps of STEP yards, a step's
--- quests keeping the order they had. The one at the head keeps its place
--- while another in its kind is not clearly better (KEEP: twice as near and
--- a minute sooner, or for a pick twice the score). In combat the order is
--- the last one; quests new to it go last.
+--             its chain comes back to your level)
+--     small   and quests whose work left is one of each, or all in one spot
+--             (every place it is done within SMALL yards of their middle):
+--             one tier, the nearest first ("short objectives or pickup
+--             depending on which is closest"; picks first had a tier of
+--             their own, ahead, and that was too keen on them)
+--   2 turnin  quests done, to hand in
+--   3 large   the rest: counts of kills or loot over a wide area
+-- Within a tier the nearest first, in steps of STEP yards; in one step,
+-- quests to take by experience for the trip ((xp + half the chain's xp to
+-- come) / (seconds + 30)), then the order they had. The one at the head
+-- keeps its place while another in its tier is not clearly better (KEEP:
+-- twice as near and a minute sooner). In combat the order is the last one;
+-- quests new to it go last.
 --
 --   G.Ready()          whether QuestieDB is there to plan with
 --   G.Plan(frozen)     the list: the log's quests (Q.Log's, each with .guide)
@@ -58,7 +61,7 @@ local KEEP_RATIO, KEEP_SECONDS = 2, 60  -- clearly better: twice as near and a m
 local BELOW, ABOVE = 2, 3               -- the levels of quests to take, from yours
 local ZONE_BELOW, ZONE_ABOVE = 5, 5     -- a zone's middle level, from yours
 local MOST = 60                         -- places kept of each creature or object
-local TIER = { pick = 1, small = 2, turnin = 3, large = 4 }
+local TIER = { pick = 1, small = 1, turnin = 2, large = 3 }
 G.TIER = TIER
 local floor, sqrt, huge = math.floor, math.sqrt, math.huge
 
@@ -376,22 +379,18 @@ local function Before(a, b)
     local ga, gb = a.guide, b.guide
     local ta, tb = TIER[ga.kind], TIER[gb.kind]
     if ta ~= tb then return ta < tb end
-    if ga.kind == "pick" then
-        if ga.score ~= gb.score then return ga.score > gb.score end
-    else
-        local ka, kb = ga.yards and floor(ga.yards / STEP), gb.yards and floor(gb.yards / STEP)
-        if (ka == nil) ~= (kb == nil) then return kb == nil end
-        if ka and ka ~= kb then return ka < kb end
-    end
+    local ka, kb = ga.yards and floor(ga.yards / STEP), gb.yards and floor(gb.yards / STEP)
+    if (ka == nil) ~= (kb == nil) then return kb == nil end
+    if ka and ka ~= kb then return ka < kb end
+    if ga.score and gb.score and ga.score ~= gb.score then return ga.score > gb.score end
     local ra, rb = rank[a.id] or huge, rank[b.id] or huge
     if ra ~= rb then return ra < rb end
     return a.id < b.id
 end
 
--- whether n is clearly better than o at the head (both of one kind)
+-- whether n is clearly better than o at the head (both of one tier)
 local function Better(n, o)
     local gn, go = n.guide, o.guide
-    if gn.kind == "pick" and gn.score >= KEEP_RATIO * go.score then return true end
     if not go.yards then return gn.yards ~= nil end
     if not gn.yards then return false end
     local sn, so = gn.yards / SPEED, go.yards / SPEED
@@ -467,12 +466,12 @@ function G.Plan(frozen)
         for _, e in ipairs(Picks(cont, wx, wy, level, held)) do out[#out + 1] = e end
     end
     table.sort(out, Before)
-    -- the head keeps its place while none of its kind is clearly better
+    -- the head keeps its place while none of its tier is clearly better
     if lead and out[1] and out[1].id ~= lead then
         for i = 2, #out do
             local e = out[i]
             if e.id == lead then
-                if e.guide.kind == out[1].guide.kind and not Better(out[1], e) then
+                if TIER[e.guide.kind] == TIER[out[1].guide.kind] and not Better(out[1], e) then
                     table.remove(out, i)
                     table.insert(out, 1, e)
                 end

@@ -8025,12 +8025,25 @@ if sidePass then
                 deepest = 0
             end
             plan("first")
-            -- the head, a quest to take, kept until another has twice its score
-            xp[301] = { 22, 4000 }
-            plan("pick not twice")
-            xp[301] = { 22, 9000 }
-            plan("pick twice")
-            xp[301] = { 22, 1000 }
+            -- (2026-11-23, the user's: "short objectives or pickup depending on
+            -- which is closest") quick work nearer than a quest to take goes
+            -- before it; a quest to take's experience only orders those in one
+            -- step (Madame Eva moved by Jitters: Big Reward over Green Opener)
+            G.Reset()
+            zoneDist[203] = 40
+            plan("quick work between")
+            G.Reset()
+            zoneDist[203] = nil
+            local eva = npcs[2002].spawns[10][1]
+            npcs[2002].spawns[10][1] = { 75.1, 44.1 }
+            plan("one step, by experience")
+            -- Big Reward's xp cut: Green Opener's chain puts it first
+            G.Reset()
+            xp[302] = { 23, 500 }
+            plan("one step, the chain's")
+            G.Reset()
+            xp[302] = { 23, 3000 }
+            npcs[2002].spawns[10][1] = eva
             plan("pick back")
             -- the third choice: the list, the head's waypoint at its giver
             local sortB
@@ -8045,8 +8058,8 @@ if sidePass then
                 "tip=" .. tostring(sortB.spec.tip()))
             rows("guide")
             way("steered")
-            print("zone guide way other map", "is=" .. tostring(ns.waypoint.IsPoint(48, 90, 44.1)),
-                "here=" .. tostring(ns.waypoint.IsPoint(47, 90, 44.1)))
+            print("zone guide way other map", "is=" .. tostring(ns.waypoint.IsPoint(48, 75, 44.1)),
+                "here=" .. tostring(ns.waypoint.IsPoint(47, 75, 44.1)))
             -- a quest to take's tooltip
             local list = select(2, z.body:GetChildren())
             local function rowOf(id)
@@ -8064,17 +8077,18 @@ if sidePass then
             GameTooltip.SetText, GameTooltip.AddLine, GameTooltip.AddDoubleLine = st, al, adl
             print("zone guide tip", (table.concat(tip, " | "):gsub("|T[^|]*|t", "(mouse)")))
             pickRow.scripts.OnLeave(pickRow)
-            -- you click another quest to take: your pin; it heads the list,
-            -- the Guide leaves it be
+            -- you click another quest to take (Big Reward, the head being
+            -- Green Opener): your pin; the Guide leaves it be
+            pickRow = rowOf(302)
             pickRow.scripts.OnClick(pickRow, "LeftButton")
             fire("USER_WAYPOINT_UPDATED")
             way("yours")
             rows("guide, yours")
             z.Refresh()
             way("yours kept")
-            -- cleared (a click on it again, now at the top), seconds later: the Guide's again
+            -- cleared (a click on it again), seconds later: the Guide's again
             now = now + 2
-            pickRow = rowOf(304)
+            pickRow = rowOf(302)
             pickRow.scripts.OnClick(pickRow, "LeftButton")
             fire("USER_WAYPOINT_UPDATED")
             way("cleared")
@@ -8155,11 +8169,11 @@ if sidePass then
                 heads("all the way back")
                 -- the one stepped to leaves the list (taken elsewhere): the head again
                 press(">")
-                done[304] = true
+                done[301] = true
                 z.Refresh()
                 way("stepped-to one gone")
                 heads("stepped-to one gone")
-                done[304] = nil
+                done[301] = nil
                 z.Refresh()
                 way("it is back")
                 heads("it is back")
@@ -8191,6 +8205,9 @@ if sidePass then
                 press("!")
                 way("quests to take again")
                 heads("quests to take again")
+                -- (the head held by the quick work led while they were off; a
+                -- level up lets go of it)
+                fire("PLAYER_LEVEL_UP")
                 -- (the waypoint back at the head, for the cases after)
                 for _ = 1, 10 do press("<") end
                 way("back to the head")
@@ -8215,6 +8232,7 @@ if sidePass then
             -- quests to take all taken or done: quick work by its markers,
             -- the head kept until another is clearly nearer
             for _, id in ipairs({ 301, 302, 304 }) do done[id] = true end
+            fire("PLAYER_LEVEL_UP")
             zoneDist[101], zoneDist[203] = 50, 70
             plan("no picks")
             zoneDist[101], zoneDist[203] = 60, 40
