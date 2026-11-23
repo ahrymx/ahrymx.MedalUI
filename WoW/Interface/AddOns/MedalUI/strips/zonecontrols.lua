@@ -16,8 +16,8 @@
 --                     (zoneFontSize)
 --   x/y               where you stand after the subzone, or not (zoneCoords)
 --   ! < >             with the Guide shown only (quests/guide.lua): quests to
---                     take in the list or not (zoneGuidePicks); a step back,
---                     a step on through the list
+--                     take in the list or not (zoneGuidePicks); the waypoint
+--                     a row up the list, a row down (the rows stay put)
 --
 -- Left open, it is open again whenever the tab is up (zoneControls, not on
 -- the options page); it goes with the tab, the panel closed or hidden.
@@ -216,19 +216,13 @@ local SPECS = {
                 or Tr["The Guide lists your log's quests only. Click: quests to take near you too."]
         end },
     { text = "<", size = 13, group = 2, guide = true,
-        on = function() return G() ~= nil and G().CanBack() end,
-        click = function() if G().Back() then Again() end end,
-        tip = function() return Tr["Step back"], Tr["The last quest stepped past leads the list again."] end },
+        on = function() return G() ~= nil and G().CanBack(View().Focused()) end,
+        click = function() if G().Back(View().Focused()) then Again() end end,
+        tip = function() return Tr["Step back"], Tr["The waypoint to the quest above in the list."] end },
     { text = ">", size = 13, group = 2, guide = true,
-        on = function() return G() ~= nil and G().CanNext() end,
-        click = function()
-            local v = View()
-            if G().Next(v.Quests()[1]) then Again() end
-        end,
-        tip = function()
-            return Tr["Step on"], Tr["The quest at the top goes to the end of the list, and the next one leads "
-                .. "(the waypoint with it)."]
-        end },
+        on = function() return G() ~= nil and G().CanNext(View().Focused()) end,
+        click = function() if G().Next(View().Focused()) then Again() end end,
+        tip = function() return Tr["Step on"], Tr["The waypoint to the quest below in the list."] end },
 }
 
 local function Pressable(spec) return not spec.on or spec.on() end

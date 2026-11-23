@@ -37,8 +37,9 @@
 -- anywhere and quests to take near you ("!" before them, their experience
 -- on the right), in the Guide's order, looked at again every RESORT
 -- seconds out of combat. A quest to take clicks to the waypoint at its
--- giver. With zoneGuideWaypoint the waypoint follows the list's head,
--- unless you set one yourself (until you clear it).
+-- giver. With zoneGuideWaypoint the waypoint follows the list's head (or
+-- the row the controls stepped it to), unless you set one yourself (until
+-- you clear it). The waypoint's row is not lifted to the top here.
 --
 -- The column: the tab's controls (strips/zonecontrols.lua: a drawer over
 -- the panel with the list's quest items, the list's text size, where you
@@ -100,19 +101,23 @@ local function Distance() return ns.db.zoneSort == "distance" end
 local function Guide() return ns.db.zoneSort == "guide" and ns.questGuide ~= nil end
 local fresh                     -- the Guide's plan, looked at by Moved and not drawn yet
 
--- The Guide's list: its plan, the waypoint's quest (or place) first; and
--- the plan's head, for the waypoint to follow
+-- The Guide's list: its plan as it is, the waypoint's row where it falls
+-- (2026-11-23, the user's: a step moves the waypoint, never the rows); and
+-- the entry the waypoint is to follow (the one stepped to, or the head)
 local function Guided()
     local plan = fresh or ns.questGuide.Plan(InCombatLockdown())
     fresh = nil
-    local W, out, lead = ns.waypoint, {}, nil
-    for _, q in ipairs(plan) do
-        local here = q.pick and q.guide.where and W.IsPoint(q.guide.where.map, q.guide.where.x, q.guide.where.y)
-            or not q.pick and W.Is(q.id)
-        if here and not lead then lead = q else out[#out + 1] = q end
+    return plan, ns.questGuide.Head(plan)
+end
+
+-- the row the waypoint is at: a quest to take by its giver's place
+local function OnWay(q)
+    local W = ns.waypoint
+    if q.pick then
+        local p = q.guide.where
+        return p ~= nil and W.IsPoint(p.map, p.x, p.y)
     end
-    if lead then table.insert(out, 1, lead) end
-    return out, plan[1]
+    return W.Is(q.id)
 end
 
 local function Here()
@@ -758,6 +763,9 @@ view.Refresh = function() Refresh() end
 -- (the tab's controls: strips/zonecontrols.lua)
 view.Quests = function() return quests end
 view.Guide = function() return Guide() end
+view.Focused = function()
+    for _, q in ipairs(quests) do if OnWay(q) then return q end end
+end
 view.Size, view.SIZE_MIN, view.SIZE_MAX = Size, SIZE_MIN, SIZE_MAX
 
 function view.Shown()

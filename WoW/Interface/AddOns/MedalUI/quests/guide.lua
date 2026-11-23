@@ -31,14 +31,18 @@
 --   G.Steer(entry)     the waypoint at the entry (zoneGuideWaypoint), unless
 --                      the player set another themselves
 --   G.Suggest()        the nearest zone at your level on this continent: its name
---   G.Next(), G.Back() a step on through the list, or back (the Zone tab's
---                      controls); G.CanNext(), G.CanBack() whether there is one
+--   G.Head(list)       the entry the waypoint is for: the one stepped to, or the head
+--   G.Next(cur), G.Back(cur)  the waypoint a row down or up the list (the Zone
+--                      tab's controls; cur: the row it is at); G.CanNext(cur),
+--                      G.CanBack(cur) whether there is one
 --
--- Steps (2026-11-23): Next puts the head after the rest, behind any passed
--- before it, until it leaves the list or changes kind (its work done, it
--- is a hand-in); Back undoes the last Next, the one passed leading again
--- (as the head keeps its place: until another is clearly better). Either
--- takes the waypoint back for the Guide, from a waypoint the player set too. Quests to take are left out
+-- Steps (2026-11-23, the user's: "the list should be static, but the
+-- focused quest should move"): Next and Back move the waypoint a row down
+-- the list or up, the list as it is. The Guide points at the one stepped
+-- to (G.Head) until it leaves the list or changes kind (its work done, it
+-- is a hand-in), or the player sets a waypoint of their own; then at the
+-- head again. A step takes the waypoint back for the Guide, from a waypoint
+-- the player set too. Quests to take are left out
 -- while zoneGuidePicks is off.
 local _, ns = ...
 
@@ -396,35 +400,22 @@ end
 G.Better = Better
 
 -- ----------------------------------------------------------------- steps
-local passed = {}               -- entry keys passed over by Next, in order
+local focus                     -- the entry key stepped to: the waypoint's, the list left as it is
 local claim = false             -- a step was taken: the waypoint is the Guide's again
 local order = {}                -- the last list handed out
 
 local function EntryKey(e) return e.guide.kind .. ":" .. e.id end
 
--- the passed ones after the rest, in the order passed; keys no longer in
--- the list forgotten
-local function Stepped(out)
-    if #passed == 0 then return out end
-    local here = {}
-    for _, e in ipairs(out) do here[EntryKey(e)] = true end
-    local keep = {}
-    for _, k in ipairs(passed) do if here[k] then keep[#keep + 1] = k end end
-    passed = keep
-    local at = {}
-    for i, k in ipairs(passed) do at[k] = i end
-    local rest, tail = {}, {}
-    for _, e in ipairs(out) do
-        local k = EntryKey(e)
-        if at[k] then tail[at[k]] = e else rest[#rest + 1] = e end
+local function Place(key)
+    if not key then return nil end
+    for i, e in ipairs(order) do
+        if EntryKey(e) == key then return i end
     end
-    for i = 1, #passed do rest[#rest + 1] = tail[i] end
-    return rest
 end
 
 local function Ranked(out)
-    out = Stepped(out)
     order = out
+    if not Place(focus) then focus = nil end     -- gone from the list, or of another kind now
     local now, moved = {}, false
     for i, e in ipairs(out) do
         now[e.id] = i
@@ -476,8 +467,6 @@ function G.Plan(frozen)
         for _, e in ipairs(Picks(cont, wx, wy, level, held)) do out[#out + 1] = e end
     end
     table.sort(out, Before)
-    -- (the ones passed after the rest first: the head is among those left)
-    out = Stepped(out)
     -- the head keeps its place while none of its kind is clearly better
     if lead and out[1] and out[1].id ~= lead then
         for i = 2, #out do
@@ -499,44 +488,36 @@ function G.Plan(frozen)
     return Ranked(out)
 end
 
--- whether there is a step on (another not passed after the head), or back
-function G.CanNext()
-    local n = 0
-    for _, e in ipairs(order) do
-        local k = EntryKey(e)
-        local gone = false
-        for _, p in ipairs(passed) do if p == k then gone = true break end end
-        if not gone then n = n + 1 end
+-- The entry the waypoint is for: the one stepped to, else the list's head
+function G.Head(list)
+    list = list or order
+    for _, e in ipairs(list) do
+        if focus and EntryKey(e) == focus then return e end
     end
-    return n >= 2
-end
-function G.CanBack() return #passed > 0 end
-
--- e (the list's head when nil, or when e is not in it or passed already)
--- passed over: the next one leads (the list drawn again by the caller).
--- (e is the tab's top row: the waypoint's, a frame behind a step taken)
-function G.Next(e)
-    local found = false
-    for _, o in ipairs(order) do if o == e then found = true break end end
-    if found then
-        local k = EntryKey(e)
-        for _, p in ipairs(passed) do if p == k then found = false break end end
-    end
-    if not found then e = order[1] end
-    if not (e and G.CanNext()) then return false end
-    passed[#passed + 1] = EntryKey(e)
-    claim = true
-    return true
+    return list[1]
 end
 
--- the last Next undone: the one it passed leads again
-function G.Back()
-    local k = table.remove(passed)
-    if not k then return false end
-    lead = tonumber(k:match(":(%d+)$"))
-    claim = true
+-- where a step goes from: the one stepped to; else cur (the tab's row the
+-- waypoint is at: the player's own, say); else the head
+local function From(cur)
+    local i = Place(focus)
+    if i then return i end
+    for n, e in ipairs(order) do if e == cur then return n end end
+    return 1
+end
+
+function G.CanNext(cur) return From(cur) < #order end
+function G.CanBack(cur) return #order > 0 and From(cur) > 1 end
+
+-- the waypoint a row down the list, or up (the list drawn again by the caller)
+local function Step(cur, by)
+    local e = order[From(cur) + by]
+    if not e then return false end
+    focus, claim = EntryKey(e), true
     return true
 end
+function G.Next(cur) return Step(cur, 1) end
+function G.Back(cur) return Step(cur, -1) end
 
 -- ----------------------------------------------------------- the waypoint
 -- What the Guide set last: { quest } or { map, x, y }. The waypoint is the
@@ -592,7 +573,7 @@ local function Settle()
     local e = want
     if yielded or not (ns.db.zoneGuideWaypoint and e) then return end
     if any and not ours then
-        yielded, mine = true, nil       -- someone else's
+        yielded, mine, focus = true, nil, nil   -- someone else's (no step taken holds)
         return
     end
     local key = Key(e)
@@ -664,7 +645,7 @@ function G.Reset()
     db, areas, spotsOf, workOf, index, middles = nil, nil, {}, {}, {}, {}
     rank, lead, last, mine = {}, nil, {}, nil
     want, tried, wroteAt, yielded, foreign, pending = nil, nil, nil, false, false, false
-    passed, claim, order = {}, false, {}
+    focus, claim, order = nil, false, {}
 end
 
 -- what can be taken changes with what was handed in, and with your level

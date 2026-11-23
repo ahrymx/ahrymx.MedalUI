@@ -3147,12 +3147,10 @@ L["The Guide lists quests to take near you. Click: only your log's."] =
     "Гид показывает задания, которые можно взять поблизости. Щелчок: только задания из журнала."
 L["The Guide lists your log's quests only. Click: quests to take near you too."] =
     "Гид показывает только задания из журнала. Щелчок: и те, что можно взять поблизости."
-L["The last quest stepped past leads the list again."] = "Последнее пропущенное задание снова возглавляет список."
+L["The waypoint to the quest above in the list."] = "Путевая точка к заданию выше в списке."
 L["The list's text, in points; its rows follow. The tab's controls step it too."] =
     "Размер текста списка в пунктах; строки подстраиваются под него. Меняется и управлением вкладки."
 L["The list's text: %d points."] = "Текст списка: %d пт."
-L["The quest at the top goes to the end of the list, and the next one leads (the waypoint with it)."] =
-    "Верхнее задание уходит в конец списка, и список возглавляет следующее (путевая точка переходит к "
-    .. "нему)."
+L["The waypoint to the quest below in the list."] = "Путевая точка к заданию ниже в списке."
 L["Where you stand, after the subzone over the list. The tab's controls switch it too."] =
     "Где вы стоите, после подзоны над списком. Переключается и управлением вкладки."

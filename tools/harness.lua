@@ -8090,6 +8090,7 @@ if sidePass then
                         if r.kind == "Button" and r.shown and r.line and r.line.quest and not r.line.objective
                             and not r.line.item then
                             ids[#ids + 1] = r.line.quest.id .. (r.line.quest.pick and "!" or "")
+                                .. (r.far and "@" or "")
                         end
                     end
                     local cs = {}
@@ -8106,6 +8107,7 @@ if sidePass then
                     c.scripts.OnClick(c)
                     if not now then settle() end
                 end
+                -- (2026-11-23, the user's) the rows stay put; the waypoint moves
                 heads("open")
                 press(">")
                 way("step on")
@@ -8120,36 +8122,49 @@ if sidePass then
                 way("step back again")
                 heads("step back again")
                 press("<")
-                heads("nothing to step back to")
-                -- two steps in one frame: the top row is still the waypoint's
-                -- (passed already), so the second passes the next one
+                heads("nothing above")
+                -- two steps in one frame (the waypoint not yet moved): two rows on
                 press(">", true)
                 press(">")
+                way("two in a frame")
                 heads("two in a frame")
-                press("<")
-                press("<")
-                -- on to the last: then no step on; all the way back
+                -- to the last row: then no step on; all the way back up
                 for _ = 1, 10 do press(">") end
+                way("on to the last")
                 heads("on to the last")
                 for _ = 1, 10 do press("<") end
+                way("all the way back")
                 heads("all the way back")
-                -- a quest passed that leaves the list (taken elsewhere): nothing to step back to
+                -- the one stepped to leaves the list (taken elsewhere): the head again
                 press(">")
-                done[302] = true
+                done[304] = true
                 z.Refresh()
-                heads("passed one gone")
-                done[302] = nil
+                way("stepped-to one gone")
+                heads("stepped-to one gone")
+                done[304] = nil
                 z.Refresh()
-                heads("passed one back")
-                -- your own waypoint: a step takes it back for the Guide
+                way("it is back")
+                heads("it is back")
+                -- your own waypoint, in the list: a step goes on from it, and
+                -- takes the waypoint back for the Guide
+                -- (a step taken first: yours, set after, is where the next goes from)
+                press(">")
                 now = now + 2
-                C_SuperTrack.SetSuperTrackedQuestID(201)
+                C_SuperTrack.SetSuperTrackedQuestID(203)
                 way("yours before a step")
+                heads("yours before a step")
                 press(">")
-                way("a step takes it back")
-                heads("a step takes it back")
+                way("a step on from yours")
+                heads("a step on from yours")
                 press("<")
-                way("and back")
+                way("and back up")
+                heads("and back up")
+                -- yours again, and a step onto the one the Guide set last: set again
+                now = now + 2
+                C_SuperTrack.SetSuperTrackedQuestID(202)
+                way("yours below it")
+                press("<")
+                way("a step onto the last set")
                 -- quests to take: off, then on again
                 press("!")
                 way("no quests to take")
@@ -8158,6 +8173,9 @@ if sidePass then
                 press("!")
                 way("quests to take again")
                 heads("quests to take again")
+                -- (the waypoint back at the head, for the cases after)
+                for _ = 1, 10 do press("<") end
+                way("back to the head")
                 C.Toggle()
             end)()
             -- a game that will not keep the pin: set once, not again and again
