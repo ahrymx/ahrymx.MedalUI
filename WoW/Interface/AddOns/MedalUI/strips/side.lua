@@ -222,9 +222,18 @@ local function Close(on)
     Select(current)
 end
 
+-- (2026-11-23) the current view's quest items are out in combat (the Zone
+-- tab's, strips/zone.lua): its body cannot go until the end, its buttons
+-- standing over it
+local function Holds()
+    return current ~= nil and not closed and current.Holds ~= nil and current.Holds() and true or false
+end
+ns.side.Holds = Holds
+
 -- The tabs that are on, from the outer end inward, sharing the row edge to
 -- edge; the panel goes when none is.
 local function Arrange()
+    if Holds() then return ns.OutOfCombat(Arrange) end
     local shown, pick = {}, nil
     for _, v in ipairs(views) do
         if v.available then
@@ -262,6 +271,7 @@ local function Tab(view)
     tab.glyph:SetPoint("CENTER")
     tab.glyph:SetTexture(PARTS .. "side-" .. view.key)
     tab:SetScript("OnClick", function(self)
+        if Holds() then return end      -- (told so by its tooltip)
         if closed then
             current = view
             Close(false)
@@ -274,7 +284,8 @@ local function Tab(view)
     end)
     tab.OnEnter = function(self)
         ns.Tip(self, ns.side.Beside, { title = view.label,
-            { "hint", closed and Tr["Click to open the panel."] or current == view and Tr["Click to close the panel."]
+            { "hint", Holds() and Tr["Its quest items are out: after combat."]
+                or closed and Tr["Click to open the panel."] or current == view and Tr["Click to close the panel."]
                 or Tr["Click to show it."] } })
     end
     tab:SetScript("OnEnter", tab.OnEnter)

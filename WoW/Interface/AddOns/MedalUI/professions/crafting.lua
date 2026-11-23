@@ -117,7 +117,12 @@ local function Recipe(p, info)
         end,
         enter = function(row)
             W.Beside(row)
-            GameTooltip:SetSpellByID(info.recipeID)
+            -- (2026-11-23, the user's) what it makes, as the item's own
+            -- tooltip; a craft with no item (an enchant) its spell's
+            local schematic = C_TradeSkillUI.GetRecipeSchematic
+                and C_TradeSkillUI.GetRecipeSchematic(info.recipeID, false)
+            local made = schematic and schematic.outputItemID
+            if made then GameTooltip:SetItemByID(made) else GameTooltip:SetSpellByID(info.recipeID) end
             GameTooltip:AddLine(Favourites()[info.recipeID] and Tr["Right-click: take its star off."]
                 or Tr["Right-click: star it, to list it first."], unpack(ns.colors.dim))
             GameTooltip:Show()
@@ -125,6 +130,23 @@ local function Recipe(p, info)
 end
 
 local function Label(e) return e.rank and format("%s (%s)", e.name, e.rank) or e.name end
+
+-- a trainer's service: the item it makes, as the item's tooltip (its id
+-- kept when the trainer was read; for a list read before that, the item of
+-- its name when the game knows it); else its name and what it asks
+local function TrainedTip(row, e)
+    W.Beside(row)
+    local link = not e.item and C_Item.GetItemInfo and select(2, C_Item.GetItemInfo(e.name))
+    if e.item then
+        GameTooltip:SetItemByID(e.item)
+    elseif type(link) == "string" then
+        GameTooltip:SetHyperlink(link)
+    else
+        GameTooltip:SetText(Label(e))
+        GameTooltip:AddLine(Tr["At the trainer"], unpack(ns.colors.dim))
+    end
+    GameTooltip:Show()
+end
 
 -- the profession trainer's services not learned, matching the search:
 -- { key, entry, now }, those you can learn now first, then by skill
@@ -220,6 +242,7 @@ local function Rows(p)
                 value = (e.skill or 0) > 0 and format(Tr["Skill %d"], e.skill) or nil,
                 color = u.now and ns.colors.text or ns.colors.dim,
                 selected = u.key == p.trained,
+                enter = function(row) TrainedTip(row, e) end,
                 click = function(button)
                     if button == "RightButton" then return end
                     p.chosen, p.trained, p.node = nil, u.key, nil

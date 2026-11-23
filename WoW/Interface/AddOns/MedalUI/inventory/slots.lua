@@ -185,9 +185,11 @@ end
 -- added over it lifts it, since a tint only ever darkens. In a frame of its
 -- own, above the slot's border and cooldown, shown and hidden as one.
 local BLUE = { 0.45, 0.75, 1 }
-local function Padlock(b)
+-- (also the quest items' rows and slots that cannot be used until combat
+-- ends, strips/zone.lua and strips/zonecontrols.lua: ns.Padlock(b, size))
+local function Padlock(b, size)
     local f = CreateFrame("Frame", nil, b)
-    f:SetSize(28, 28)
+    f:SetSize(size or 28, size or 28)
     f:SetPoint("BOTTOMLEFT", 0, 0)
     f:SetFrameLevel(b:GetFrameLevel() + 5)
     for _, blend in ipairs({ "BLEND", "ADD" }) do
@@ -202,6 +204,7 @@ local function Padlock(b)
     f:Hide()
     return f
 end
+ns.Padlock = Padlock
 
 function ns.Slots(spec)
     local set = { holders = {}, slots = {}, headings = {} }

@@ -38,7 +38,7 @@ read_globals = {
     "NumTaxiNodes", "TaxiNodeName", "TaxiNodeGetType", "TaxiNodePosition", "TaxiNodeCost", "GetNumRoutes",
     "TaxiGetNodeSlot", "TaxiIsDirectFlight", "TakeTaxiNode", "CloseTaxiMap", "SetTaxiMap", "TaxiFrame",
     "ERR_TAXINOPATHS", "TAXINODEYOUAREHERE", "FLIGHT_MAP", "UIErrorsFrame",
-    "SetTrainerServiceTypeFilter", "GetTrainerServiceLevelReq", "GetTrainerServiceSkillReq",
+    "SetTrainerServiceTypeFilter", "GetTrainerServiceLevelReq", "GetTrainerServiceSkillReq", "GetTrainerServiceItemLink",
     "GetTrainerServiceTypeFilter", "IsTradeskillTrainer", "GetTrainerServiceSkillLine", "GetMacroSpell",
     "GetMaxLevelForPlayerExpansion",
     "BankFrame", "C_Bank", "MerchantFrame",

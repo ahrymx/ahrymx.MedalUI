@@ -31,8 +31,10 @@
 -- A quest with a usable item (quests/source.lua's q.item, as the tracker's)
 -- ends its open objectives with it: its icon, its name and how many you
 -- carry. A click uses it: a secure button over the line, on a layer of its
--- own on the strip, placed by numbers out of combat (ns.window.Over) and
--- hidden in combat by the game's driver, as the rows may move meanwhile.
+-- own on the strip, placed by numbers out of combat (ns.window.Over). It
+-- works in combat: while one is out, the rows stand still until combat ends
+-- (Refresh), the side panel's tabs and the controls' button do nothing, and
+-- an item row new in combat has the bags' padlock (ns.Padlock).
 --
 -- (2026-11-23) The sort button's third choice, Guide (quests/guide.lua):
 -- the list becomes what to do next for experience, the log's quests from
@@ -70,6 +72,8 @@ local rows, quests, lines = {}, {}, {}
 local open = {}                 -- quest ids whose objectives are shown
 local first, shown = 0, 0
 local layer                     -- the items' secure buttons (layer.buttons), over their lines
+-- what the rows were drawn with, kept while they stand frozen in combat
+local drawn = { first = 0, row = ROW, line = LINE, size = SIZE }
 
 -- ------------------------------------------------------------- the zone
 local function ZoneName()
@@ -238,8 +242,7 @@ local function Secure(i)
     return b
 end
 
--- Out of combat only: a button over each item line shown, the rest away;
--- the layer hidden in combat while any is out.
+-- Out of combat only: a button over each item line shown, the rest away.
 local function PlaceItems()
     if InCombatLockdown() then return end
     if not layer then
@@ -255,7 +258,7 @@ local function PlaceItems()
                 local b = Secure(n + 1)
                 if ns.window.Over(b, r) then
                     n = n + 1
-                    b.item = r.line.item
+                    b.item, b.atY, b.atH = r.line.item, r.atY, r.atH
                     b:SetAttribute("item", "item:" .. b.item)
                     b:Show()
                 end
@@ -268,12 +271,17 @@ local function PlaceItems()
         b:SetAttribute("item", nil)
         b:Hide()
     end
-    if n > 0 then
-        RegisterStateDriver(layer, "visibility", "[combat] hide; show")
-    else
-        UnregisterStateDriver(layer, "visibility")
-        layer:Hide()
+    -- (2026-11-23, the user's) usable in combat: the buttons stay out, and
+    -- the rows under them stand still until it ends (Refresh)
+    layer:SetShown(n > 0)
+end
+
+-- whether the items' buttons are out (in combat they cannot be moved)
+local function Armed()
+    for _, b in ipairs(layer and layer.buttons or {}) do
+        if b:IsShown() and b.item then return true end
     end
+    return false
 end
 
 -- ----------------------------------------------------------------- rows
@@ -314,7 +322,7 @@ local function Tip(r)
     if not q then return end
     if q.pick then PickTip(r, q) return end
     if r.line.item then
-        -- (in combat: the secure button is away, the line under it shows)
+        -- (a locked line in combat: no secure button over it)
         ItemTip(r, r.line.item, Tr["Usable here after combat."])
         return
     end
@@ -426,6 +434,10 @@ local function Row()
     r.sword:SetVertexColor(unpack(GOLD_D))
     r.icon = r:CreateTexture(nil, "ARTWORK")
     r.icon:SetSize(14, 14)
+    -- an item with no button over it (new in combat): the bags' padlock
+    r.lock = ns.Padlock(r, 14)
+    r.lock:ClearAllPoints()
+    r.lock:SetPoint("CENTER", r.icon, "CENTER", 0, 0)
     r.icon:SetPoint("LEFT", 20, 0)
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.text = ns.Text(r, 11)
@@ -490,7 +502,7 @@ local function Size()
     return math.max(SIZE_MIN, math.min(SIZE_MAX, math.floor(n)))
 end
 local function Sized(r)
-    local n = Size()
+    local n = drawn.size
     if r.size == n then return end
     r.size = n
     for _, fs in ipairs({ r.text, r.count, r.fold }) do fs:SetFont(ns.font, n, "") end
@@ -603,7 +615,7 @@ local function Lines()
     for _, q in ipairs(quests) do
         table.insert(out, { quest = q })
         if Shown(q) then
-            for _, o in ipairs(q.objectives) do table.insert(out, { quest = q, objective = o }) end
+            for n, o in ipairs(q.objectives) do table.insert(out, { quest = q, objective = o, n = n }) end
             if q.item then table.insert(out, { quest = q, item = q.item }) end
         end
     end
@@ -615,30 +627,97 @@ local function Header()
     place:SetText(Place())
 end
 
+-- the rows from first, as many as fit: { line, y, h }
+local function Plan(from)
+    local out, y, height = {}, HEAD, list:GetHeight()
+    for i = from + 1, #lines do
+        local l = lines[i]
+        local h = l.objective and LINE or ROW + GAP
+        if y + h - GAP > height then break end
+        out[#out + 1] = { line = l, y = y, h = h }
+        y = y + h
+    end
+    return out
+end
+
+-- whether each item button out would still stand over its item
+local function Keeps(plan)
+    for _, b in ipairs(layer and layer.buttons or {}) do
+        if b:IsShown() and b.item then
+            local ok = false
+            for _, p in ipairs(plan) do
+                if p.line.item == b.item and p.y == b.atY and p.h == b.atH then ok = true end
+            end
+            if not ok then return false end
+        end
+    end
+    return true
+end
+
+local function Key(l)
+    return (l.quest.pick and "p" or "q") .. l.quest.id
+        .. (l.item and (":i" .. l.item) or l.objective and (":o" .. l.n) or "")
+end
+
+-- frozen: the rows as they stand, each with its line now (counts, ticks)
+-- when it is still there, else as it was
+local function InPlace()
+    local now, out = {}, {}
+    for _, l in ipairs(lines) do now[Key(l)] = l end
+    for _, r in ipairs(rows) do
+        if r:IsShown() and r.line then out[#out + 1] = { line = now[Key(r.line)] or r.line, y = r.atY, h = r.atH } end
+    end
+    return out
+end
+
+-- an item row with no button over it: locked (in combat, until it ends)
+local function Locks()
+    for _, r in ipairs(rows) do
+        local item = r:IsShown() and r.line and r.line.item
+        local free = false
+        if item then
+            for _, b in ipairs(layer and layer.buttons or {}) do
+                if b:IsShown() and b.item == item and b.atY == r.atY then free = true end
+            end
+        end
+        r.lock:SetShown(item and not free and InCombatLockdown() or false)
+    end
+end
+
 function Refresh()
     if not body then return end
     Header()
     local head
-    ROW, LINE = Size() + 7, Size() + 2
     quests, head = Here()
     lines = Lines()
+    -- (2026-11-23, the user's) In combat the items' buttons cannot move: a
+    -- change that would move a row under one (a quest done, a fold, the
+    -- waypoint's quest opening, a scroll, the text size) waits for the end
+    -- of combat (PLAYER_REGEN_ENABLED draws again); the rows as they stand
+    -- take their new counts
+    local frozen = InCombatLockdown() and Armed()
+    if not frozen then drawn.size = Size() end
+    ROW, LINE = drawn.size + 7, drawn.size + 2
     if first > 0 and first >= #lines then first = math.max(0, #lines - 1) end
-    local y, n, odd = HEAD, 0, false
-    local height = list:GetHeight()
+    local plan = Plan(first)
+    if frozen and not Keeps(plan) then
+        first = drawn.first
+        plan = InPlace()
+    end
+    drawn.first = first
+    local n, odd = 0, false
     shown = 0
-    for i = first + 1, #lines do
-        local l = lines[i]
-        local h = l.objective and LINE or ROW + GAP
-        if y + h - GAP > height then break end
+    for _, p in ipairs(plan) do
+        local l = p.line
         n = n + 1
         local r = rows[n] or Row()
         rows[n] = r
         r:ClearAllPoints()
-        r:SetPoint("TOPLEFT", 0, -y)
-        r:SetPoint("TOPRIGHT", 0, -y)
+        r:SetPoint("TOPLEFT", 0, -p.y)
+        r:SetPoint("TOPRIGHT", 0, -p.y)
+        r.atY, r.atH = p.y, p.h
         if not (l.objective or l.item) then odd = not odd end
         Fill(r, l, odd, n == 1)
-        y = y + h
         shown = shown + 1
     end
     for i = n + 1, #rows do
@@ -653,6 +732,7 @@ function Refresh()
             or try and format(Tr["Nothing here at your level: try %s."], try) or Tr["Nothing here at your level."])
     end
     PlaceItems()
+    Locks()
     if ns.zoneControls then ns.zoneControls.Refresh() end
     ns.side.Changed()
     -- the waypoint after the plan's head (a change draws this again: the
@@ -755,7 +835,7 @@ function view.Build(f)
     f:HookScript("OnShow", Lend)
     f:HookScript("OnHide", function()
         Lend()
-        PlaceItems()                -- the items' buttons away (in combat: hidden already)
+        PlaceItems()                -- the items' buttons away (in combat they hold the panel: view.Holds)
     end)
     -- where you stand, twice a second while the tab is up
     -- and, sorted by distance, a look every RESORT seconds out of combat,
@@ -808,6 +888,12 @@ view.Size, view.SIZE_MIN, view.SIZE_MAX = Size, SIZE_MIN, SIZE_MAX
 
 function view.Shown()
     Lend()
+end
+
+-- in combat with any quest item out (here or on the controls' bar): the
+-- body holds (the side panel's tabs wait, strips/side.lua)
+function view.Holds()
+    return InCombatLockdown() and (Armed() or ns.zoneControls ~= nil and ns.zoneControls.Armed()) or false
 end
 
 function view.Scroll(by)
@@ -880,6 +966,9 @@ view.buttons = {
         lit = function() return ns.zoneControls ~= nil and ns.zoneControls.IsOpen() end,
         click = function() if ns.zoneControls then ns.zoneControls.Toggle() end end,
         tip = function()
+            if ns.zoneControls and ns.zoneControls.Holds() then
+                return Tr["Controls"], Tr["Its quest items are out: after combat."]
+            end
             return Tr["Controls"], ns.zoneControls and ns.zoneControls.IsOpen() and Tr["Hide the tab's controls."]
                 or Tr["Show the tab's controls over the panel: the quest items, the text size, where you stand "
                 .. "and the Guide's."]

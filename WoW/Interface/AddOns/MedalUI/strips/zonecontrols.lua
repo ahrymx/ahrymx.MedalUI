@@ -9,9 +9,10 @@
 --   the quest items   the usable items of the quests the tab lists, in its
 --                     order (the Guide's, when it is shown): a click uses
 --                     one. Secure buttons on a layer of their own on the
---                     strip, placed over the slots out of combat, hidden in
---                     combat as the list's are (a slot still shows its
---                     count and cooldown then)
+--                     strip, placed over the slots out of combat and
+--                     usable in it: while one is out the slots stand still
+--                     and the drawer stays (C.Holds); a slot laid out in
+--                     combat has the bags' padlock until it ends
 --   A A               the list's text a point smaller, a point larger
 --                     (zoneFontSize)
 --   x/y               where you stand after the subzone, or not (zoneCoords)
@@ -134,7 +135,11 @@ local function Slot(i)
     s.count = ns.Text(s, 10)
     s.count:SetPoint("BOTTOMRIGHT", -2, 2)
     s.count:SetTextColor(1, 1, 1)
-    -- (in combat: the secure button is away, this shows)
+    -- with no button over it in combat (laid out then): the bags' padlock
+    s.lock = ns.Padlock(s, SLOT - 2)
+    s.lock:ClearAllPoints()
+    s.lock:SetPoint("CENTER", s, "CENTER", 0, 0)
+    -- (in combat with no secure button over it: this shows)
     s:SetScript("OnEnter", function(self)
         if self.item then ItemTip(self, self.item, Tr["Usable here after combat."]) end
     end)
@@ -177,7 +182,7 @@ local function PlaceBar()
                 local b = Secure(n + 1)
                 if ns.window.Over(b, s) then
                     n = n + 1
-                    b.item = s.item
+                    b.item, b.slot = s.item, s
                     b:SetAttribute("item", "item:" .. s.item)
                     b:Show()
                 end
@@ -186,18 +191,36 @@ local function PlaceBar()
     end
     for i = n + 1, #layer.buttons do
         local b = layer.buttons[i]
-        b.item = nil
+        b.item, b.slot = nil, nil
         b:SetAttribute("item", nil)
         b:Hide()
     end
-    if n > 0 then
-        RegisterStateDriver(layer, "visibility", "[combat] hide; show")
-    else
-        UnregisterStateDriver(layer, "visibility")
-        layer:Hide()
-    end
+    -- (2026-11-23, the user's) usable in combat: out, the slots under them
+    -- standing still until it ends (C.Refresh, C.Toggle)
+    layer:SetShown(n > 0)
 end
 C.PlaceBar = PlaceBar
+
+-- whether the bar's buttons are out (in combat they cannot be moved)
+function C.Armed()
+    for _, b in ipairs(layer and layer.buttons or {}) do
+        if b:IsShown() and b.item then return true end
+    end
+    return false
+end
+-- in combat with them out: the drawer stays as it is
+function C.Holds() return InCombatLockdown() and C.Armed() end
+
+-- a slot shown with no button over it: locked until combat ends
+local function Locks()
+    local free = {}
+    for _, b in ipairs(layer and layer.buttons or {}) do
+        if b:IsShown() and b.slot then free[b.slot] = b.item end
+    end
+    for _, s in ipairs(slots) do
+        s.lock:SetShown(s:IsShown() and s.item ~= nil and free[s] ~= s.item and InCombatLockdown() or false)
+    end
+end
 
 -- ---------------------------------------------------------- the controls
 local function Guide() local v = View() return v and v.Guide() end
@@ -333,7 +356,7 @@ local function Build()
         end
     end)
     -- gone with the tab, the panel closed or hidden: the items' buttons away
-    -- (in combat: hidden already)
+    -- (in combat they hold the drawer and the panel: C.Holds, ns.side.Holds)
     drawer:SetScript("OnHide", function() PlaceBar() end)
     v.body:HookScript("OnHide", function() PlaceBar() end)
     drawer.growing = true
@@ -415,11 +438,19 @@ function C.Refresh()
     -- (only as it changes: shown again, it would open again from the corner)
     if drawer:IsShown() ~= C.IsOpen() then drawer:SetShown(C.IsOpen()) end
     if not drawer:IsShown() then return end
-    Layout()
-    PlaceBar()
+    if C.Holds() then
+        -- their slots stand still: only the counts and cooldowns
+        for _, s in ipairs(slots) do if s:IsShown() then Paint(s) end end
+    else
+        Layout()
+        PlaceBar()
+    end
+    Locks()
 end
 
+-- (in combat with the items out: nothing, its tooltip says so)
 function C.Toggle()
+    if C.Holds() then return end
     ns.db.zoneControls = not C.IsOpen()
     C.Refresh()
 end

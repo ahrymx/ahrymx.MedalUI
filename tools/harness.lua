@@ -7555,7 +7555,7 @@ if sidePass then
                         r.fold.text or "", r.line.objective and "  " or "",
                         r.sword and r.sword.shown and "(sword)" or "",
                         tostring(r.text.text), tostring(r.count.text), r.stripes.shown and " striped" or "",
-                        r.tick.shown and " tick" or "", r.h))
+                        r.tick.shown and " tick" or "", r.h) .. (r.lock and r.lock.shown and " lock" or ""))
                 end
             end
         end
@@ -8364,12 +8364,66 @@ if sidePass then
             "item=" .. tostring(use and use:GetAttribute("item")),
             "driver=" .. tostring(_G.MedalUIZoneItems and _G.MedalUIZoneItems.stateDrivers
                 and _G.MedalUIZoneItems.stateDrivers.visibility))
-        harnessHolds.combat = true
-        stateTick()
-        print("zone item in combat", "layer=" .. tostring(_G.MedalUIZoneItems.shown))
-        harnessHolds.combat = nil
-        stateTick()
-        print("zone item after combat", "layer=" .. tostring(_G.MedalUIZoneItems.shown))
+        -- (2026-11-23, the user's) usable in combat: the button stays out,
+        -- and the rows under it stand still: a fold and a scroll wait for
+        -- the end of combat, the count changes where it stands
+        local function combat(on)
+            harnessHolds.combat, inCombat = on or nil, on
+            if not on then fire("PLAYER_REGEN_ENABLED") end
+            stateTick()
+        end
+        local function button(tag)
+            print("zone item " .. tag, "layer=" .. tostring(_G.MedalUIZoneItems.shown),
+                "button=" .. tostring(use.shown) .. "@" .. tostring(use.atY) .. "/" .. tostring(use.atH))
+        end
+        combat(true)
+        button("in combat")
+        -- a quest below with the same item, opened: the rows above stand
+        -- as they are, its own row new and locked (the button out is the
+        -- other row's); closed again
+        local special = GetQuestLogSpecialItemInfo
+        function GetQuestLogSpecialItemInfo(i)
+            if i == 5 or i == 6 then return "|Hitem:5555|h[Night Lantern]|h", 1, 1, i == 6 end
+        end
+        local tall = select(2, z.body:GetChildren())
+        local was = tall.h
+        tall.h = was + 40
+        fold(6)
+        rows("item, a second one in combat")
+        fold(6)
+        tall.h = was
+        GetQuestLogSpecialItemInfo = special
+        z.Refresh()
+        fold(1)
+        rows("item, a fold in combat")
+        z.Scroll(1)
+        rows("item, a scroll in combat")
+        local count = C_Item.GetItemCount
+        C_Item.GetItemCount = function(id) return id == 5555 and 1 or 0 end
+        log[5].objectives[1].text = "Skeletal Fiend slain: 5/15"
+        fire("BAG_UPDATE_DELAYED")
+        rows("item, its count in combat")
+        log[5].objectives[1].text = fiend
+        ns.SetOption("zoneFontSize", 13)
+        print("zone item, larger in combat", "row h=" .. tostring(row(1).h))
+        combat(false)
+        print("zone item, larger after combat", "row h=" .. tostring(row(1).h))
+        ns.SetOption("zoneFontSize", 11)
+        rows("item, after combat")
+        button("after combat")
+        C_Item.GetItemCount = count
+        z.Scroll(-1)
+        fold(1)
+        -- nothing armed: rows move in combat, and an item that comes into
+        -- view then has no button: the bags' padlock on it until the end
+        fold(2)
+        combat(true)
+        fold(2)
+        rows("item, opened in combat")
+        button("opened in combat")
+        combat(false)
+        rows("item, opened, after combat")
+        button("opened, after combat")
         fold(2)
         print("zone item closed", "shown=" .. tostring(use and use.shown),
             "layer=" .. tostring(_G.MedalUIZoneItems and _G.MedalUIZoneItems.shown))
@@ -8394,7 +8448,8 @@ if sidePass then
                     elseif c.shown and c.icon then
                         out[#out + 1] = "[" .. tostring(c.item) .. " " .. tostring(c.icon.texture) .. " x"
                             .. tostring(c.count.text) .. (c.icon.desaturated and " grey" or "")
-                            .. (c.cooldown.duration and (" cd=" .. c.cooldown.duration) or "") .. "]"
+                            .. (c.cooldown.duration and (" cd=" .. c.cooldown.duration) or "")
+                            .. (c.lock.shown and " lock" or "") .. "]"
                     end
                 end
                 local layer = C.Layer()
@@ -8432,10 +8487,51 @@ if sidePass then
             harnessHolds.combat = true
             stateTick()
             drawer("in combat")
+            -- (2026-11-23, the user's) its button stays out: the drawer and
+            -- the panel stay as they are (their tooltips say why), a new
+            -- item waits for the end, a count changes where it stands
+            local function tipOf(f, enter)
+                local tip = {}
+                local st, al = GameTooltip.SetText, GameTooltip.AddLine
+                function GameTooltip:SetText(t) tip = { tostring(t) } end
+                function GameTooltip:AddLine(t) tip[#tip + 1] = tostring(t) end
+                enter(f)
+                GameTooltip.SetText, GameTooltip.AddLine = st, al
+                return table.concat(tip, " | ")
+            end
+            top.scripts.OnClick(top, "LeftButton")
+            print("zone controls toggled in combat", "db=" .. tostring(ns.db.zoneControls),
+                tipOf(top, top.scripts.OnEnter))
+            z.tab.scripts.OnClick(z.tab)
+            print("zone controls tab in combat", "closed=" .. tostring(ns.side.Closed()), tipOf(z.tab, z.tab.OnEnter))
+            local special, count = GetQuestLogSpecialItemInfo, C_Item.GetItemCount
+            function GetQuestLogSpecialItemInfo(i)
+                if i == 5 then return "|Hitem:5555|h[Night Lantern]|h", 1, 1, false end
+                if i == 3 then return "|Hitem:5556|h[Dark Lantern]|h", 1, 1, false end
+            end
+            C_Item.GetItemCount = function(id) return (id == 5555 or id == 5556) and 1 or 0 end
+            fire("QUEST_LOG_UPDATE")
+            z.Refresh()
+            drawer("a new item in combat")
             harnessHolds.combat = nil
             inCombat = false
             stateTick()
             fire("PLAYER_REGEN_ENABLED")
+            drawer("a new item, after combat")
+            -- with nothing out (closed in combat, opened in it): the slots locked
+            top.scripts.OnClick(top, "LeftButton")
+            inCombat, harnessHolds.combat = true, true
+            stateTick()
+            top.scripts.OnClick(top, "LeftButton")
+            open()
+            drawer("opened in combat")
+            harnessHolds.combat, inCombat = nil, false
+            stateTick()
+            fire("PLAYER_REGEN_ENABLED")
+            drawer("opened, after combat")
+            GetQuestLogSpecialItemInfo, C_Item.GetItemCount = special, count
+            fire("QUEST_LOG_UPDATE")
+            z.Refresh()
             C_Container.GetItemCooldown = cd
             fire("BAG_UPDATE_COOLDOWN")
             drawer("after combat")
@@ -20789,10 +20885,15 @@ if spellPass then
     function IsTradeskillTrainer() return true end
     function GetTrainerServiceSkillLine() return "Mining" end
     function GetTrainerServiceSkillReq(i) return "Mining", ({ 50, 65 })[i] end
+    -- (2026-11-23) what a service makes, kept for its row's tooltip
+    function GetTrainerServiceItemLink(i) return i == 2 and "|cffffffff|Hitem:3576::::|h[Tin Bar]|h|r" or nil end
     fire("TRAINER_SHOW")
+    GetTrainerServiceItemLink = nil
     local trade = {}
     for line, list in pairs(MedalUICharDB.trainer.trade) do
-        for key, e in pairs(list) do table.insert(trade, line .. ":" .. key .. "@" .. tostring(e.skill)) end
+        for key, e in pairs(list) do
+            table.insert(trade, line .. ":" .. key .. "@" .. tostring(e.skill) .. (e.item and ("=" .. e.item) or ""))
+        end
     end
     table.sort(trade)
     local class = 0
@@ -22408,11 +22509,31 @@ if profPass then
     local function hint(label)
         tipLines = {}
         local r = rowOf(label)
+        -- (2026-11-23) what the tooltip is of: the item made, else the spell
+        local shown = {}
+        local was = { GameTooltip.SetItemByID, GameTooltip.SetSpellByID, GameTooltip.SetHyperlink, GameTooltip.SetText }
+        function GameTooltip:SetItemByID(id) shown[#shown + 1] = "item=" .. tostring(id) end
+        function GameTooltip:SetSpellByID(id) shown[#shown + 1] = "spell=" .. tostring(id) end
+        function GameTooltip:SetHyperlink(l) shown[#shown + 1] = "link=" .. tostring(l) end
+        function GameTooltip:SetText(t) shown[#shown + 1] = "text=" .. tostring(t) end
         r.scripts.OnEnter(r)
         r.scripts.OnLeave(r)
-        print("prof.hint " .. label, table.concat(tipLines, ";"))
+        GameTooltip.SetItemByID, GameTooltip.SetSpellByID, GameTooltip.SetHyperlink, GameTooltip.SetText =
+            was[1], was[2], was[3], was[4]
+        print("prof.hint " .. label, table.concat(shown, ","), table.concat(tipLines, ";"))
     end
     hint("Copper Bracers")
+    -- one that makes an item: the item's tooltip
+    do
+        local schematic = C_TradeSkillUI.GetRecipeSchematic
+        C_TradeSkillUI.GetRecipeSchematic = function(id, ...)
+            local t = schematic(id, ...)
+            if id == 2663 then t.outputItemID = 2853 end
+            return t
+        end
+        hint("Copper Bracers")
+        C_TradeSkillUI.GetRecipeSchematic = schematic
+    end
     local function right(label)
         local r = rowOf(label)
         if not r then print("no row " .. label) return end
@@ -22442,7 +22563,7 @@ if profPass then
 
     -- 5c. at the trainer: the services not learned, those allowed first
     MedalUICharDB.trainer = { class = {}, trade = { Blacksmithing = {
-        ["Copper Mace|"] = { name = "Copper Mace", level = 1, skill = 15, cost = 100, icon = 11 },
+        ["Copper Mace|"] = { name = "Copper Mace", level = 1, skill = 15, cost = 100, icon = 11, item = 2844 },
         ["Copper Bracers|"] = { name = "Copper Bracers", level = 1, skill = 1, cost = 10, icon = 12 },
         ["Copper Axe|"] = { name = "Copper Axe", level = 1, skill = 35, cost = 50, icon = 13, known = true },
         ["Iron Buckle|"] = { name = "Iron Buckle", level = 1, skill = 150, cost = 900, icon = 14 },
@@ -22455,6 +22576,21 @@ if profPass then
     fire("TRAINER_UPDATE")
     frame()
     rows("prof.trainer")
+    -- (2026-11-23) a service's tooltip: the item it makes, kept from the
+    -- trainer; a list read before that, the item of its name if the game
+    -- knows it; else its name
+    do
+        local info = C_Item.GetItemInfo
+        C_Item.GetItemInfo = function(id)
+            if id == "Silver Rod" then return "Silver Rod", "|Hitem:6338|h[Silver Rod]|h" end
+            if type(id) == "string" then return nil end
+            return info(id)
+        end
+        hint("Copper Mace")
+        hint("Silver Rod")
+        hint("Iron Buckle")
+        C_Item.GetItemInfo = info
+    end
     row("Iron Buckle")
     rows("prof.trainer picked")
     foot("prof.trainer later")
@@ -23633,6 +23769,12 @@ if questPass and not questLogPass then
     frame()
     rows("quests.combat count")
     items("quests.combat items")
+    -- (2026-11-23) usable in combat: no driver takes the layer away unless
+    -- the view is hidden in combat (its option)
+    harnessHolds.combat = true
+    stateTick()
+    print("quests.combat layer", "shown=" .. tostring(layer.shown), "driver=" .. tostring(layer.stateDrivers
+        and layer.stateDrivers.visibility))
     W.watched[203] = nil
     if Z then Z.tracked[103] = nil end
     fire("QUEST_WATCH_LIST_CHANGED")
@@ -23648,7 +23790,8 @@ if questPass and not questLogPass then
     state("quests.combat")
     print("quests.combat folds", tostring(ns.db.questsFolded and ns.db.questsFolded["Elwynn Forest"]))
     items("quests.combat still")
-    inCombat = false
+    inCombat, harnessHolds.combat = false, nil
+    stateTick()
     fire("PLAYER_REGEN_ENABLED")
     frame()
     state("quests.after combat")

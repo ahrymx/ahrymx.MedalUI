@@ -6,8 +6,9 @@
 --   class   { name, rank, icon, level, cost, known } by "name|rank": every
 --           trainer that is not a profession's (the class's, a weapon
 --           master's), merged, never forgotten
---   trade   [profession] { ... skill, skillRank }: a profession trainer's,
---           by the skill line each service belongs to
+--   trade   [profession] { ... skill, skillRank, item }: a profession trainer's,
+--           by the skill line each service belongs to; item, what it makes
+--           (2026-11-23), for its row's tooltip
 --
 -- Read as the game sends the list: on TRAINER_SHOW (often still empty)
 -- and each TRAINER_UPDATE after. It lists the types its filter lets
@@ -52,6 +53,8 @@ local function Read()
                         local _, skill = GetTrainerServiceSkillReq(i)
                         e.skill = skill
                     end
+                    local link = GetTrainerServiceItemLink and GetTrainerServiceItemLink(i)
+                    e.item = type(link) == "string" and tonumber(link:match("item:(%d+)")) or nil
                 else
                     list = nil
                 end
