@@ -301,7 +301,11 @@ local function PickTip(r, q)
             g.steps, XPText(g.chainXP)) or format(Tr["A chain: %d more after it."], g.steps) })
     end
     if g.yards then table.insert(spec, { "body", format(Tr["%d yd away."], g.yards) }) end
+    if ns.questGuide.Ignored(q) then
+        table.insert(spec, { "body", Tr["Ignored: the Guide's waypoint passes it by."] })
+    end
     table.insert(spec, { "key", "left", nil, Tr["Waypoint"] })
+    table.insert(spec, { "key", "right", "Ctrl", ns.questGuide.Ignored(q) and Tr["Unignore"] or Tr["Ignore"] })
     ns.Tip(r, ns.side.Beside, spec)
 end
 
@@ -433,6 +437,14 @@ local function Row()
         if not q or self.line.item then return end
         -- a quest to take: the waypoint at its giver, or away
         if q.pick then
+            -- Ctrl+right-click: ignored, or not (stays put; the Guide's
+            -- waypoint passes it by)
+            if mouse == "RightButton" and IsControlKeyDown() then
+                ns.questGuide.Ignore(q)
+                Refresh()
+                if GameTooltip:IsOwned(self) then Tip(self) end
+                return
+            end
             local p = q.guide.where
             if mouse ~= "LeftButton" or not p then return end
             if ns.waypoint.IsPoint(p.map, p.x, p.y) then
@@ -526,6 +538,8 @@ local function Fill(r, line, odd, top)
         r.text:SetPoint("RIGHT", r.count, "LEFT", -4, 0)
         r.text:SetText(q.title)
         r.text:SetTextColor(unpack(LevelColor(q.level)))
+        -- ignored: striped, as a quest not tracked
+        r.stripes:SetShown(ns.questGuide.Ignored(q))
         r:EnableMouse(true)
         if Wash(r, q) then
             r.far = q.title

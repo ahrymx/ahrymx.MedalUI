@@ -3152,5 +3152,8 @@ L["The list's text, in points; its rows follow. The tab's controls step it too."
     "Размер текста списка в пунктах; строки подстраиваются под него. Меняется и управлением вкладки."
 L["The list's text: %d points."] = "Текст списка: %d пт."
 L["The waypoint to the quest below in the list."] = "Путевая точка к заданию ниже в списке."
+L["Ignore"] = "Игнорировать"
+L["Unignore"] = "Не игнорировать"
+L["Ignored: the Guide's waypoint passes it by."] = "Игнорируется: путевая точка Гида его пропускает."
 L["Where you stand, after the subzone over the list. The tab's controls switch it too."] =
     "Где вы стоите, после подзоны над списком. Переключается и управлением вкладки."

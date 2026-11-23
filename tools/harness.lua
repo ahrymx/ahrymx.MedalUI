@@ -8208,6 +8208,49 @@ if sidePass then
                 -- (the head held by the quick work led while they were off; a
                 -- level up lets go of it)
                 fire("PLAYER_LEVEL_UP")
+                -- (2026-11-23, the user's) Ctrl+right-click on a quest to take:
+                -- ignored; it stays where it is, striped, and the Guide's
+                -- waypoint passes it by; a step still lands on it; again: not
+                local function ignore(id, tag)
+                    local r = rowOf(id)
+                    modsDown.CTRL = true
+                    r.scripts.OnClick(r, "RightButton")
+                    modsDown.CTRL = nil
+                    settle()
+                    r = rowOf(id)
+                    local tip = {}
+                    local st, al = GameTooltip.SetText, GameTooltip.AddLine
+                    local adl = GameTooltip.AddDoubleLine
+                    function GameTooltip:SetText(t) tip = { tostring(t) } end
+                    function GameTooltip:AddLine(t) tip[#tip + 1] = tostring(t) end
+                    function GameTooltip:AddDoubleLine(x, y) tip[#tip + 1] = tostring(x) .. "~" .. tostring(y) end
+                    r.scripts.OnEnter(r)
+                    GameTooltip.SetText, GameTooltip.AddLine, GameTooltip.AddDoubleLine = st, al, adl
+                    r.scripts.OnLeave(r)
+                    print("zone guide " .. tag, "striped=" .. tostring(r.stripes.shown),
+                        "saved=" .. tostring(MedalUICharDB.guideIgnored[id]),
+                        (table.concat(tip, " | ", 2):gsub("|T[^|]*|t", "(mouse)")))
+                end
+                -- (the waypoint the Guide's own again, at the head: yours set, then cleared)
+                now = now + 2
+                C_SuperTrack.SetSuperTrackedQuestID(201)
+                settle()
+                now = now + 2
+                C_SuperTrack.SetSuperTrackedQuestID(0)
+                z.Refresh()
+                way("before ignoring")
+                heads("before ignoring")
+                ignore(304, "ignored")
+                way("ignored")
+                heads("ignored")
+                -- a right-click without Ctrl does nothing to it
+                local r304 = rowOf(304)
+                r304.scripts.OnClick(r304, "RightButton")
+                print("zone guide plain right-click", "saved=" .. tostring(MedalUICharDB.guideIgnored[304]))
+                press("<")
+                way("stepped onto the ignored")
+                heads("stepped onto the ignored")
+                ignore(304, "not ignored")
                 -- (the waypoint back at the head, for the cases after)
                 for _ = 1, 10 do press("<") end
                 way("back to the head")

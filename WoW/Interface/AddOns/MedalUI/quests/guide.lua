@@ -34,7 +34,9 @@
 --   G.Steer(entry)     the waypoint at the entry (zoneGuideWaypoint), unless
 --                      the player set another themselves
 --   G.Suggest()        the nearest zone at your level on this continent: its name
---   G.Head(list)       the entry the waypoint is for: the one stepped to, or the head
+--   G.Head(list)       the entry the waypoint is for: the one stepped to, or the
+--                      first not ignored
+--   G.Ignore(e), G.Ignored(e)  a quest to take ignored (Ctrl+right-click), or not
 --   G.Next(cur), G.Back(cur)  the waypoint a row down or up the list (the Zone
 --                      tab's controls; cur: the row it is at); G.CanNext(cur),
 --                      G.CanBack(cur) whether there is one
@@ -488,12 +490,33 @@ function G.Plan(frozen)
 end
 
 -- The entry the waypoint is for: the one stepped to, else the list's head
+-- (2026-11-23, the user's) Quests to take the player has ignored
+-- (Ctrl+right-click on the row): they stay in the list where they are, but
+-- the waypoint never goes to one by itself; a step or a click still does.
+-- This character's, in MedalUICharDB.guideIgnored (quest id -> true).
+local function Ignores()
+    MedalUICharDB = MedalUICharDB or {}
+    MedalUICharDB.guideIgnored = MedalUICharDB.guideIgnored or {}
+    return MedalUICharDB.guideIgnored
+end
+function G.Ignored(e)
+    return e ~= nil and e.pick and Ignores()[e.id] == true or false
+end
+function G.Ignore(e)
+    if not (e and e.pick) then return end
+    local t = Ignores()
+    t[e.id] = not t[e.id] or nil
+end
+
+-- the head: the one stepped to; else the first the waypoint may go to by itself
 function G.Head(list)
     list = list or order
     for _, e in ipairs(list) do
         if focus and EntryKey(e) == focus then return e end
     end
-    return list[1]
+    for _, e in ipairs(list) do
+        if not G.Ignored(e) then return e end
+    end
 end
 
 -- where a step goes from: the one stepped to; else cur (the tab's row the
