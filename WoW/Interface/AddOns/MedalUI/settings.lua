@@ -366,9 +366,11 @@ ns.LOOT_QUALITIES = { { 0, Tr["Poor"] }, { 1, Tr["Common"] }, { 2, Tr["Uncommon"
 -- were "light" and "default" until 0.44 (Migrate renames them).
 local PROFILES = {
     arena = {},
-    -- (2026-11-21) the Reticule's minimap stays in its bay until the
-    -- player asks it to move by itself (Console > Minimap)
-    reticule = { rows = 3, minimapAuto = false },
+    -- (2026-11-21) the Reticule's minimap stays where it is until the
+    -- player asks it to move by itself (Console > Minimap); (2026-11-23,
+    -- the user's) a new install has it in the screen's corner, not docked
+    -- in the console (an older one keeps its place: Migrate)
+    reticule = { rows = 3, minimapAuto = false, minimapStart = "corner" },
 }
 -- Arena is set aside (2026-11-17): not chosen, and an install on it moved to
 -- the Reticule once (Migrate), each character's bars with it at its next
@@ -803,6 +805,15 @@ local function Migrate(fresh)
     -- the overhead's (bossMine) go; last, after the moves above read them.
     for _, store in ipairs({ db, db.global }) do store.bossFrames, store.bossMine = nil, nil end
     for name in pairs(PROFILES) do db.profiles[name].bossFrames, db.profiles[name].bossMine = nil, nil end
+    -- The Reticule's minimap loads in the corner by default (2026-11-23):
+    -- an install from before that never chose keeps loading it as it
+    -- moves, its place until then. Once, as the moves above: set back to
+    -- the default later, it is the corner.
+    if not db.minimapCornerStart then
+        local here = db.profiles.reticule
+        if not fresh and here.minimapStart == nil then here.minimapStart = "auto" end
+        db.minimapCornerStart = true
+    end
 end
 
 -- "ffRRGGBB" -> r, g, b in 0..1, white for anything unreadable.

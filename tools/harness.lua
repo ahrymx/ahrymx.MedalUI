@@ -2529,6 +2529,8 @@ MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
         profiles = { default = { drawer = 2, topBoss = true, overheadAlpha = 0.3, topFocus = false },
             light = { rows = 2, topBoss = false, partyRange = 30, overheadAlpha = 0.7, detachPet = true,
             bossMine = false, bossFrames = "both",
+            -- the minimap's load place chosen: kept as chosen, not "auto"
+            minimapStart = "console",
             partyWidgetPoint = { "TOPLEFT", "TOPLEFT", 50, -60 } } },
         global = { lootMoney = false, bossFrames = "vertical" } }
     or profilesPass and { consoleProfile = "light", rows = 3, actionBar = true, bareIcons = true,
@@ -2550,6 +2552,8 @@ MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
     or mailPass and { mail = { Nordanaar = { alts = { "Thalassa" }, recent = { "Thalric", "Okun" } } } }
     -- an install from before the Reticule became the default: on Arena
     or { consoleProfile = "arena" }
+-- a new install: nothing saved (profiles new)
+if profilesPass and args[3] == "new" then MedalUIDB = nil end
 -- (2026-11-21) a dispel shows as Health colour by default: the passes that
 -- test the border glow tick it, as a player would (the dispel pass prints
 -- the default)
@@ -11772,6 +11776,12 @@ if profilesPass then
     print("profiles minimap auto", "profile=" .. ns.db.consoleProfile, "auto=" .. tostring(ns.db.minimapAuto),
         "default=" .. tostring(S.minimapAuto and S.minimapAuto:Default()),
         "corner=" .. tostring(ns.MinimapInCorner and ns.MinimapInCorner()))
+    -- where it loads: a new install's in the corner (the Reticule's own
+    -- default), an older one's as it moved, kept for it once
+    print("profiles minimap load place", "start=" .. tostring(ns.db.minimapStart),
+        "default=" .. tostring(S.minimapStart and S.minimapStart:Default()),
+        "kept=" .. tostring(MedalUIDB.profiles.reticule.minimapStart),
+        "once=" .. tostring(MedalUIDB.minimapCornerStart), "pin=" .. tostring(ns.MinimapPinned()))
     local heard = {}
     for _, key in ipairs({ "rows", "bareIcons", "drawer", "lootMoney", "sideTab", "bagsPoint", "bagsColumns" }) do
         ns.OnSetting(key, function(v) table.insert(heard, key .. "=" .. tostring(v)) end)
