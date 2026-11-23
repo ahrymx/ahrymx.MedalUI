@@ -657,7 +657,8 @@ end
 -- place (ResolveButtons resolves the ring, as "<radial>c<slot>"). No category goes in a category.
 -- Deeper, through a sub-radial, it acts as one: the wheel steps through its buttons.
 -- One may stand for a spell (spell = id, the Totem Bars' Calls): named and pictured as that spell
--- (unless renamed, or given a glyph), and gone while the spell isn't known.
+-- (unless renamed, or given a glyph), and gone while the spell isn't known. One may carry its own
+-- icon (Pet Commands'), shown unless a glyph is picked.
 ACTIONS.category = function(entry, depth, seen)
     local stands
     if entry.spell then
@@ -666,7 +667,13 @@ ACTIONS.category = function(entry, depth, seen)
         stands = { name = name, icon = icon }
     end
     if depth == 0 then
-        local icon = (stands and not entry.glyph) and stands.icon or RM.GlyphIcon(entry.glyph)
+        -- a ring with nothing in it now (Pet Commands without a pet) is gone
+        local any
+        for _, button in ipairs(entry.buttons or {}) do
+            if button.kind ~= "category" and ResolveEntry(button, 1, seen) then any = true break end
+        end
+        if not any then return nil end
+        local icon = (not entry.glyph) and (entry.icon or (stands and stands.icon)) or RM.GlyphIcon(entry.glyph)
         return entry.name or (stands and stands.name) or L["Category"], icon, {}, { category = true }
     end
     local children = {}
@@ -930,6 +937,74 @@ ACTIONS.consumable = function(entry)
         -- each child an item of its own, so it shows its cooldown and count like one
         children[#children + 1] = { name = name or L["Item"], icon = { texture = icon or kind.icon },
             entry = { kind = "item", id = id }, attributes = { type = "item", item = "item:" .. id } }
+    end
+    if #children == 0 then return nil end
+    local first = children[1]
+    return first.name, first.icon, first.attributes, { children = children, childIndex = 1 }
+end
+
+-- Pet commands: { kind = "petcommand", command = "attack" | ... }, the pet bar's /pet command as a
+-- macro; gone while you have no pet out (UNIT_PET redraws it)
+RM.PET_COMMANDS = {
+    attack = { slash = "/petattack", name = L["Attack"],
+        icon = PET_ATTACK_TEXTURE or "Interface\\Icons\\Ability_GhoulFrenzy" },
+    follow = { slash = "/petfollow", name = L["Follow"], icon = PET_FOLLOW_TEXTURE or "Interface\\Icons\\Ability_Tracking" },
+    stay = { slash = "/petstay", name = L["Stay"], icon = PET_WAIT_TEXTURE or "Interface\\Icons\\Spell_Nature_TimeStop" },
+    aggressive = { slash = "/petaggressive", name = L["Aggressive"],
+        icon = PET_AGGRESSIVE_TEXTURE or "Interface\\Icons\\Ability_Racial_BloodRage" },
+    defensive = { slash = "/petdefensive", name = L["Defensive"],
+        icon = PET_DEFENSIVE_TEXTURE or "Interface\\Icons\\Ability_Defend" },
+    passive = { slash = "/petpassive", name = L["Passive"], icon = PET_PASSIVE_TEXTURE or "Interface\\Icons\\Ability_Seal" },
+}
+ACTIONS.petcommand = function(entry)
+    local command = RM.PET_COMMANDS[entry.command]
+    if not (command and UnitExists("pet")) then return nil end
+    return command.name, { texture = command.icon }, { type = "macro", macrotext = command.slash }
+end
+
+-- Feed Pet: the food in your bags your pet eats (C_PetInfo.CanPetEatItem), highest item level
+-- first (a higher food pleases a Classic pet more), then by id
+RM.FEED_PET = 6991
+function RM.PetFoods()
+    local found, level = {}, {}
+    if not (C_Container and C_PetInfo and C_PetInfo.CanPetEatItem) then return found end
+    for bag = 0, 5 do
+        for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            local id = info and info.itemID
+            if id and not level[id] then
+                local eats = C_PetInfo.CanPetEatItem(id)
+                if ns.CanAccess(eats) and eats then
+                    local itemLevel = C_Item.GetItemInfo and select(4, C_Item.GetItemInfo(id))
+                    level[id] = type(itemLevel) == "number" and itemLevel or 0
+                    found[#found + 1] = id
+                end
+            end
+        end
+    end
+    table.sort(found, function(a, b)
+        if level[a] ~= level[b] then return level[a] > level[b] end
+        return a < b
+    end)
+    return found
+end
+-- { kind = "petfood" }: Feed Pet on the best of them, the rest its choices; gone without a pet,
+-- without Feed Pet, or with nothing it eats
+ACTIONS.petfood = function()
+    if not (UnitExists("pet") and Known(RM.FEED_PET)) then return nil end
+    local feed = C_Spell.GetSpellName(RM.FEED_PET)
+    if not feed then return nil end
+    local children = {}
+    for _, id in ipairs(RM.PetFoods()) do
+        if #children >= MAX_BUTTONS then break end
+        local name = C_Item.GetItemNameByID(id)
+        if not name then
+            awaitedItems[id] = true
+            C_Item.RequestLoadItemDataByID(id)
+        end
+        local icon = C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
+        children[#children + 1] = { name = name or L["Item"], icon = { texture = icon }, entry = { kind = "item", id = id },
+            attributes = { type = "macro", macrotext = "/cast " .. feed .. "\n/use item:" .. id } }
     end
     if #children == 0 then return nil end
     local first = children[1]

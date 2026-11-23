@@ -1500,6 +1500,99 @@ do
         GetActionInfo, UnitClass, MultiCastActionButton1 = was[1], was[2], was[3], was[4], was[5], was[6], was[7]
     RM.ForgetRanks()
 end
+-- Pet Utility (a hunter's): four rings, three standing for Call Pet, Mend Pet and Tame Beast (gone
+-- until learned), the fourth the pet's commands (gone without a pet); Feed in Mend's ring feeds the
+-- highest-level food the pet eats, its ring the rest
+do
+    local SPELLS = { [883] = "Call Pet", [2641] = "Dismiss Pet", [982] = "Revive Pet", [136] = "Mend Pet",
+        [6991] = "Feed Pet", [1515] = "Tame Beast", [1462] = "Beast Lore", [1002] = "Eyes of the Beast",
+        [5149] = "Beast Training" }
+    local learned = { [883] = true, [2641] = true, [982] = true, [136] = true, [6991] = true, [1515] = true,
+        [1462] = true }
+    local bag = { { itemID = 9501 }, { itemID = 9502 }, { itemID = 9503 }, { itemID = 9504 } }
+    local names = { [9501] = "Tough Jerky", [9502] = "Roasted Boar", [9503] = "Moonberry", [9504] = "Haunch" }
+    local levels = { [9501] = 5, [9502] = 25, [9503] = 30, [9504] = 25 }
+    local eats = { [9501] = true, [9502] = true, [9504] = true }
+    local petOut = true
+    local was = { C_Spell.GetSpellInfo, C_Spell.GetSpellName, C_Spell.GetSpellSubtext, C_SpellBook.IsSpellKnown,
+        UnitClass, UnitExists, C_PetInfo, C_Container, C_Item.GetItemNameByID, C_Item.GetItemIconByID,
+        C_Item.GetItemInfo }
+    C_Spell.GetSpellInfo = function(id) return SPELLS[id] and { name = SPELLS[id], iconID = 8000 + id } end
+    C_Spell.GetSpellName = function(id) return SPELLS[id] end
+    C_Spell.GetSpellSubtext = function() return nil end
+    C_SpellBook.IsSpellKnown = function(id) return learned[id] or false end
+    UnitClass = function() return "Hunter", "HUNTER" end
+    UnitExists = function(u) return u == "player" or (u == "pet" and petOut) end
+    C_PetInfo = { CanPetEatItem = function(id) return eats[id] or false end }
+    C_Container = { GetContainerNumSlots = function(b) return b == 0 and #bag or 0 end,
+        GetContainerItemInfo = function(b, slot) return b == 0 and bag[slot] or nil end }
+    C_Item.GetItemNameByID = function(id) return names[id] end
+    C_Item.GetItemIconByID = function(id) return "icon" .. id end
+    C_Item.GetItemInfo = function(id) return names[id], nil, 1, levels[id], 1 end
+    RM.ForgetRanks()
+    local shown = {}
+    for _, key in ipairs(RM.ShownPresets()) do shown[#shown + 1] = key end
+    print("radial pets shown, hunter", table.concat(shown, ","))
+    if not win:IsShown() then mdluiRadialToggleEditor() end
+    host.sideTabs.presets.scripts.OnClick(host.sideTabs.presets)
+    print("radial pets sidebar, hunter", listNames())
+    host.sideTabs.mine.scripts.OnClick(host.sideTabs.mine)
+    win:Hide()
+    local id = RM:AddPreset("pets")
+    runTimers()
+    local data = RM:GetRadial(id)
+    print("radial pets copy", "name=" .. data.name, "scope=" .. tostring(data.scope))
+    local function wheel(tag)
+        local out = {}
+        for _, b in ipairs(data.buttons) do
+            local info = RM:ResolveEntry(b)
+            if info then
+                out[#out + 1] = info.name .. "[" .. tostring(info.icon and info.icon.texture) .. "]"
+                    .. (info.category and "(ring)" or "")
+            end
+        end
+        print(tag, table.concat(out, " "))
+    end
+    local function ring(tag, n)
+        local out = {}
+        for _, b in ipairs(data.buttons[n].buttons) do
+            local info = RM:ResolveEntry(b)
+            if info then
+                local a = info.attributes
+                local kids = {}
+                for _, one in ipairs(info.children or {}) do
+                    kids[#kids + 1] = one.name .. "<" .. tostring(one.attributes.macrotext) .. ">"
+                end
+                out[#out + 1] = info.name .. "=" .. tostring(a.type) .. ":"
+                    .. tostring(a.spell or a.macrotext) .. (#kids > 0 and (" {" .. table.concat(kids, " ") .. "}") or "")
+            end
+        end
+        print(tag, (table.concat(out, " | "):gsub("\n", "\\n")))
+    end
+    wheel("radial pets wheel")
+    for n, tag in ipairs({ "call", "mend", "tame", "commands" }) do ring("radial pets " .. tag, n) end
+    -- no pet out: the commands and Feed go
+    petOut = false
+    wheel("radial pets no pet")
+    ring("radial pets mend, no pet", 2)
+    petOut = true
+    -- Feed Pet not learned; then nothing in the bags it eats
+    learned[6991] = nil
+    ring("radial pets mend, no feed", 2)
+    learned[6991] = true
+    eats = {}
+    ring("radial pets mend, nothing eaten", 2)
+    -- Tame Beast unlearned: its ring goes; a glyph on the commands: the glyph, not its icon
+    learned[1515] = nil
+    data.buttons[4].glyph = "battle"
+    wheel("radial pets untamed, glyph")
+    data.buttons[4].glyph = nil
+    RM:DeleteRadial(id)
+    C_Spell.GetSpellInfo, C_Spell.GetSpellName, C_Spell.GetSpellSubtext, C_SpellBook.IsSpellKnown,
+        UnitClass, UnitExists, C_PetInfo, C_Container, C_Item.GetItemNameByID, C_Item.GetItemIconByID,
+        C_Item.GetItemInfo = was[1], was[2], was[3], was[4], was[5], was[6], was[7], was[8], was[9], was[10], was[11]
+    RM.ForgetRanks()
+end
 local before = #RM:GetRadialOrder()
 local emo, voice = RM:AddPreset("emotes"), RM:AddPreset("voice")
 runTimers()

@@ -18,15 +18,15 @@ Runs on **WoW Forever** (`16001`) and **Retail** (`120105`).
 
 ## The console
 
-The console sits at the bottom: player and target on its wings, action bars in between. The overhead row at the top holds the boss, pet, focus and target-of-target frames.
+The console sits at the bottom: player and target on its wings, action bars in between. The overhead at the top holds your focus and target-of-target side by side, with your pet on a narrower deck beneath; with neither shown, the pet rises to the top.
 
-![The Reticule console with its action bars, and the overhead's boss, pet, focus and target-of-target frames above](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/console-overhead.png)
+![The Reticule console with its action bars; at the top, the overhead's focus and target-of-target over the pet; the party, boss and arena widgets at the sides](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/console-overhead.png)
 
 - **Two profiles:** the slim **Reticule** (default), or the round **Arena** below.
 - **Reticule:** the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console. Its Minimal OoC Mode fades the console away out of combat, leaving your player and target frames faint until combat brings it back; it can stay half-seen while your health or mana refills.
 - **Action bars:** one to three rows, with Blizzard's button art or **bare icons**. Empty buttons hide and reappear while you drag a spell, item or macro.
 - **Class power and cast bars** built into the console: combo points, holy power, runes, soul shards and the rest.
-- **Party, raid, boss and arena** frames: on the console's own row, or as draggable widgets. Offline and dead members get a look of their own: a plug icon, or wings and a timer.
+- **Party, raid and arena** frames: on the console's own row, or as draggable widgets. Bosses get their own movable widget. Offline and dead members get a look of their own: a plug icon, or wings and a timer.
 
 ### Arena
 
@@ -38,11 +38,11 @@ The medallion console: the party on wings around a large player and target, with
 
 ## The corner strips
 
-The bottom corners carry a strip each. The left one holds your portrait medallion and the micro menu under the chat box. The queue eye takes the portrait's place while you are queued, and a vehicle exit takes the backpack's on the right. Immersion Mode (Shared > Visibility & fading) leaves the idle chat bare, each message on a band of its own, with its box back while you type or point at it; it fades the side panel when idle too.
+The bottom corners carry a strip each, beside a medallion: your portrait on the left, under the chat box, and the backpack on the right. Each strip is a drawer: closed, it shows your durability (a hunter's ammo, as a gauge), your class reagents and your professions (secondary ones as pip gauges); the chevron by the medallion unrolls the menu buttons over it. The queue eye takes the portrait's place while you are queued, and a vehicle exit takes the backpack's on the right. Immersion Mode (Shared > Visibility & fading) leaves the idle chat bare, each message on a band of its own, with its box back while you type or point at it; it fades the side panel when idle too.
 
 The chat box names a speaker in their class colour, after their level in its difficulty colour against yours. A link's tooltip stands to the right of the box, hovered or clicked, as every docked window's does. Each window's last 500 lines come back at your next login, dimmed under a divider (Chat > History: Off to 1000, per character). The Log button in the chat's drawer opens a copyable log, with a tab for each chat window.
 
-![The chat box with its tabs, above the left strip's portrait and micro menu](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/chat.png)
+![The chat box with its General and Combat Log tabs, above the left strip: the portrait, the drawer's chevron, and the ammo gauge](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/chat.png)
 
 ### Side panel
 
@@ -50,7 +50,7 @@ The right strip opens a panel with tabs. **Zone** lends it the minimap beside th
 
 | Zone | Loot |
 |:---:|:---:|
-| ![The side panel's Zone tab: the minimap beside the zone's quests, with its controls, tracking and world map buttons](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/side-panel-zone.png) | ![The side panel's Loot tab: the group's loot with who won each roll](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/side-panel-loot.png) |
+| ![The side panel's Zone tab: the minimap beside the zone's quests, one opened to its objectives, the quest-items bar above and the controls, tracking, map and sort buttons at its side](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/side-panel-zone.png) | ![The side panel's Loot tab: the group's loot with who won each roll](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/side-panel-loot.png) |
 
 - **Meter** shows the game's own damage meter, on clients that have one; **Auras** lists your buffs and debuffs, live in combat.
 - In the Zone tab, click a quest for its objectives, or shift-click it to track it.
@@ -79,15 +79,15 @@ On WoW Forever, MedalUI turns on the game's hidden in-world marker (`showInGameN
 
 | Character | Bags |
 |:---:|:---:|
-| ![The character window: the model, gear slots with item levels, and stats](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/character.png) | ![The bags window in groups, with locked items and the free slots](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/bags.png) |
+| ![The character window: a hunter's model, gear slots with item levels, and stats](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/character.png) | ![The bags window in groups, with locked items and the free slots](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/bags.png) |
 
 | Spellbook | Macros |
 |:---:|:---:|
-| ![The spellbook's Restoration tab: spells not on your bars, on your bars and passive, with ranks, cast times, mana costs and click-cast bindings](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/spellbook.png) | ![The macros page, with a macro's editor](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/macros.png) |
+| ![The spellbook's Beast Mastery tab: spells not on your bars and on your bars, with ranks, cast times and mana costs](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/spellbook.png) | ![The macros page, with a macro's editor](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/macros.png) |
 
 | Professions |
 |:---:|
-| ![The professions overview: primary professions with their skill bars, the secondary ones, cooldowns to track, and the camping row](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/professions.png) |
+| ![The professions overview: two primary professions still to learn, First Aid and Cooking with their skill, cooldowns to track, and the camping row](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/professions.png) |
 
 - **Bags** (inspired by Baganator) put the backpack, bags and reagent bag in one window. Items are grouped (New, Equipment, Consumables, Quest items, Trade goods, Junk), and the equipped bags open in a drawer above.
 - **Alt+click** an item to lock it: it shows a padlock and can't be sold or destroyed.
@@ -104,7 +104,7 @@ A **plan** lays out a build by level. In plan mode the tree turns to a drafting 
 
 | Drafting a plan | Talent plans |
 |:---:|:---:|
-| ![Plan mode: the Enhancement tree on a drafting grid, the console with Exit plan, Checkpoint and Save plan, the talent being drafted glowing](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-planning.png) | ![A talent plan: each talent's levels, goal and progress, the next checkpoint lit](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-plans.png) |
+| ![Plan mode: the Survival tree on a drafting grid, the console with Exit plan, Checkpoint and Save plan, the first talents ready to take](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-planning.png) | ![A talent plan: each talent's levels, goal and progress, the next checkpoint lit](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-plans.png) |
 
 ---
 
@@ -141,7 +141,7 @@ Companions appear under the **MedalUI** category in the AddOn List, each with it
 | Addon | What it adds | Docs & license |
 |:---|:---|:---|
 | **[`mdlui_Tooltips`](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/README.md)** | An ornamented reskin of every tooltip: items, spells, units, auras, quests, mail and world objects. Forever and Retail. Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard. | [README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE) |
-| **[`mdlui_RadialMenu`](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md)** | Radial menus: hold a key, sweep the mouse towards a button and let go, in combat too. Spells, items, mounts, macros, markers, emotes and nested radials, built in an editor window. Forever. Based on [FlareUI](https://github.com/malkkav/FlareUI)'s radial menu by Malkkav. | [README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE) |
+| **[`mdlui_RadialMenu`](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md)** | Radial menus: hold a key, sweep the mouse towards a button and let go, in combat too. Spells, items, mounts, macros, markers, emotes and nested radials, built in an editor window, with presets such as Consumables, a shaman's Totem Bars and a hunter's Pet Utility. Forever. Based on [FlareUI](https://github.com/malkkav/FlareUI)'s radial menu by Malkkav. | [README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE) |
 
 ## Recommended addons
 

@@ -288,6 +288,8 @@ files["WoW/Interface/AddOns/mdlui_RadialMenu/**/*.lua"] = {
         "GetMacroItem", "MAXEMOTEINDEX", "strtrim", "C_ClassColor", "IsRaidMarkerActive",
         "SecureHandlerExecute", "SecureHandlerSetFrameRef", "SecureHandlerWrapScript",
         "MAX_ACCOUNT_MACROS", "CreateMacro", "EditMacro", "DeleteMacro", "FlareUI2_DB",
+        "C_PetInfo", "PET_ATTACK_TEXTURE", "PET_FOLLOW_TEXTURE", "PET_WAIT_TEXTURE", "PET_AGGRESSIVE_TEXTURE",
+        "PET_DEFENSIVE_TEXTURE", "PET_PASSIVE_TEXTURE",
         "GetBindingName", "tinsert", "NOT_BOUND", "ToggleBackpack",
         "Settings", "InterfaceOptions_AddCategory", "GetMinimapShape", "ITEM_SPELL_TRIGGER_ONUSE", "HEALTH", "MANA",
     },

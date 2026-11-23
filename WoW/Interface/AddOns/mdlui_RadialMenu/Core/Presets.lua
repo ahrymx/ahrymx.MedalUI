@@ -12,7 +12,9 @@ local L = ns.L
 -- A preset with a class (class = "SHAMAN") is shown to that class only, and its copy is for every
 -- character of it. Totem Bars: a category for each of the shaman's Calls, standing for its spell
 -- (gone until it is learned), its ring the Call and the four totems on its page of the totem bar,
--- read live (ACTIONS.totem).
+-- read live (ACTIONS.totem). Pet Utility (a hunter's): four rings, three standing for Call Pet,
+-- Mend Pet and Tame Beast (gone until learned), the fourth the pet's commands and stances; Feed in
+-- Mend's ring feeds the best food your pet eats (ACTIONS.petfood).
 --------------------------------------------------
 
 local function Emotes(...)
@@ -34,6 +36,24 @@ end
 -- Call of the Elements' own icon (the preset's), a stone totem's where the client can't say
 local CALLS_ICON = (C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(66842))
     or "Interface\\Icons\\Spell_Nature_StoneSkinTotem"
+
+-- a ring standing for its first spell, holding it and the rest; more buttons after them
+local function PetRing(ids, extra)
+    local t = {}
+    for i, id in ipairs(ids) do t[i] = { kind = "spell", id = id } end
+    for _, b in ipairs(extra or {}) do t[#t + 1] = b end
+    return { kind = "category", spell = ids[1], buttons = t }
+end
+local function PetCommands()
+    local t = {}
+    for i, command in ipairs({ "attack", "follow", "stay", "aggressive", "defensive", "passive" }) do
+        t[i] = { kind = "petcommand", command = command }
+    end
+    return { kind = "category", name = L["Pet Commands"],
+        icon = { texture = PET_ATTACK_TEXTURE or "Interface\\Icons\\Ability_GhoulFrenzy" }, buttons = t }
+end
+local CALL_PET_ICON = (C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(883))
+    or "Interface\\Icons\\Ability_Hunter_BeastCall"
 
 local function Markers()
     local t = {}
@@ -75,12 +95,18 @@ ns.PRESETS = {
     totems = { name = L["Totem Bars"], class = "SHAMAN", icon = { texture = CALLS_ICON }, buttons = {
         TotemBar(1, 66842), TotemBar(2, 66843), TotemBar(3, 66844),
     } },
+    -- the hunter's: Call / Dismiss / Revive Pet; Mend and Feed; Tame Beast, Beast Lore, Eyes of the
+    -- Beast, Beast Training; the pet's commands and stances
+    pets = { name = L["Pet Utility"], class = "HUNTER", icon = { texture = CALL_PET_ICON }, buttons = {
+        PetRing({ 883, 2641, 982 }), PetRing({ 136 }, { { kind = "petfood" } }),
+        PetRing({ 1515, 1462, 1002, 5149 }), PetCommands(),
+    } },
 }
 -- the sidebar's order
-ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping", "consumables", "totems" }
+ns.PRESET_ORDER = { "markers", "emotes", "voice", "camping", "consumables", "totems", "pets" }
 -- (2026-11-22) the built-in category each is listed under in the sidebar (RM.CATEGORIES); only
 -- the list's sub-headings: a copy is put in no category
 for key, category in pairs({ markers = "group", emotes = "social", voice = "social", camping = "items",
-    consumables = "items", totems = "combat" }) do
+    consumables = "items", totems = "combat", pets = "combat" }) do
     ns.PRESETS[key].category = category
 end

@@ -1,3 +1,9 @@
+# mdlui_RadialMenu 0.73.0
+
+- **Pet Utility preset (hunters):** four rings, each opened by clicking it or turning the mouse wheel on it. **Call Pet** holds Call, Dismiss and Revive Pet. **Mend Pet** holds Mend Pet and **Feed**. **Tame Beast** holds Tame Beast, Beast Lore, Eyes of the Beast and Beast Training. **Pet Commands** holds Attack, Follow, Stay, Aggressive, Defensive and Passive. A ring stands for its first spell and is gone until you learn it. Pet Commands is gone while you have no pet out.
+- **Feed** feeds your pet the highest-level food it eats from your bags, in one press. Turn the wheel on it for the other foods your pet eats. It is gone without a pet, before you learn Feed Pet, or while you carry nothing your pet eats.
+- A ring with nothing in it now drops off the wheel.
+
 # mdlui_RadialMenu 0.67.0
 
 - **Consumables preset:** four buttons that fill themselves from your bags: **Health**, **Mana**, **Food** and **Drink**. Each shows the best one you carry; turn the mouse wheel on it to step through the rest, best first. Anything above your level is left out, and a button is gone while you carry none of its kind.
