@@ -20346,9 +20346,16 @@ if spellPass then
             for _, t in ipairs(p.specs.cells) do
                 if t.shown then
                     local g = t.gem.stone.color
+                    -- a glyph's: @icon(x0-x1) for its name and gem
+                    if t.icon.shown then
+                        local pt = t.points and t.points.TOPLEFT
+                        table.insert(tabs, string.format("@%s(%s+%s){%s}%s", tostring(t.icon.texture),
+                            tostring(pt and pt[3]), tostring(t.w), t.count.text, t.wash.shown and "*" or ""))
+                    else
                     table.insert(tabs, string.format("%s{%s}<%s>%s%s", t.name.text, t.count.text,
                         g and string.format("%.2f,%.2f,%.2f", g[1], g[2], g[3]) or "-",
                         t.wash.shown and "*" or "", t.name.font and t.name.font[2] ~= 12 and ("~" .. t.name.font[2]) or ""))
+                    end
                 end
             end
             table.insert(list, "#[" .. table.concat(tabs, " | ") .. "]")
@@ -20630,6 +20637,19 @@ if spellPass then
     frame()
     tabs("book.pet tabs")
     rows("book.pet", 13)
+    -- (2026-11-23, the user's) General's and the pet's tabs glyphs, side
+    -- by side on the left; the specs share the rest: each tab's x+width
+    rows("book.pet glyphs", 1, 1)
+    do
+        local out = {}
+        for _, t in ipairs(book.specs.cells) do
+            if t.shown then
+                local pt = t.points and t.points.TOPLEFT
+                table.insert(out, string.format("%s@%s+%s", t.section.name, tostring(pt and pt[3]), tostring(t.w)))
+            end
+        end
+        print("book.pet glyph places", table.concat(out, " "), "panel=" .. tostring(book.specs:GetWidth()))
+    end
     -- and goes
     bookWorld.pet = 0
     fire("UNIT_PET", "player")

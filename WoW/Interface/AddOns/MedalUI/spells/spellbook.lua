@@ -144,10 +144,12 @@ local function Rank(src, top)
 end
 
 -- a section, for its tab: { name, list, count, now (the trainer's: to
--- learn now), role, icon }; none when it has nothing
-local function Section(out, name, list, now, role, icon)
+-- learn now), role, icon, glyph (General's and the pet's: an icon for a
+-- tab, on the left) }; none when it has nothing
+local function Section(out, name, list, now, role, icon, glyph)
     if #list == 0 then return end
-    table.insert(out, { name = name, list = list, count = #list, now = now, role = role, icon = icon })
+    table.insert(out, { name = name, list = list, count = #list, now = now, role = role, icon = icon,
+        glyph = glyph })
 end
 
 -- a section's entries: each spell, and under one unfolded its ranks
@@ -252,7 +254,7 @@ local function Sections(p)
     for l = 1, SB.GetNumSpellBookSkillLines() do
         local line = SB.GetSpellBookSkillLineInfo(l)
         if line and not line.shouldHide then
-            Section(out, line.name, Line(line), nil, Role(line, l), line.iconID)
+            Section(out, line.name, Line(line), nil, Role(line, l), line.iconID, l == 1)
         end
     end
     local pet = {}
@@ -260,7 +262,7 @@ local function Sections(p)
         local info = SB.GetSpellBookItemInfo(slot, BANK.Pet)
         if info then table.insert(pet, { slot = slot, bank = BANK.Pet, info = info }) end
     end
-    Section(out, Tr["Pet"], pet, nil, nil, GetPetIcon and GetPetIcon() or nil)
+    Section(out, Tr["Pet"], pet, nil, nil, GetPetIcon and GetPetIcon() or nil, true)
     return out
 end
 
@@ -984,6 +986,10 @@ local function Cell(p, i)
     t.count:SetPoint("CENTER", 6, -9)
     t.gem = Gem(t)
     t.gem.rim:SetPoint("RIGHT", t.count, "LEFT", -6, 0)
+    -- a glyph's tab: its section's icon over its count, for its name
+    t.icon = t:CreateTexture(nil, "ARTWORK")
+    t.icon:SetSize(20, 20)
+    t.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     local glow = t:CreateTexture(nil, "HIGHLIGHT")
     glow:SetAllPoints()
     glow:SetColorTexture(1, 1, 1, 0.06)
@@ -997,6 +1003,8 @@ local function Cell(p, i)
         local sec = self.section
         if not sec then return end
         ns.Tip(self, ns.window.OutsideTop, { title = sec.name, color = GOLD,
+            sec.glyph and { "body", p.trainer and format("%d/%d", sec.now or 0, sec.count)
+                or ns.Plural(sec.count, format(Tr["%d |4spell:spells;"], sec.count)) } or nil,
             sec.role and { "body", ROLE_WORD[sec.role] } or nil })
     end)
     t:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1005,19 +1013,33 @@ local function Cell(p, i)
 end
 
 -- the tabs as the sections now are, each a share of the panel's width;
--- a name too wide drops a size or three (the gem is on the count's line)
+-- a name too wide drops a size or three (the gem is on the count's line).
+-- (2026-11-23, the user's: cramped with a pet's) General's and the pet's
+-- are glyphs, side by side on the left, GLYPH_W each: their icon over
+-- their count; the rest share what is left.
+local GLYPH_W = 46
 function Tabs(p)
     local panel = p.specs
     if not panel then return end
-    local list = p.sections or {}
+    local list = {}
+    for _, sec in ipairs(p.sections or {}) do if sec.glyph then table.insert(list, sec) end end
+    local glyphs = #list
+    for _, sec in ipairs(p.sections or {}) do if not sec.glyph then table.insert(list, sec) end end
     local width = (panel:GetWidth() or 0) > 0 and panel:GetWidth() or (W.width + 2 * ns.window.pad)
     -- the medallion and its step stand over the inner end (the left: the
     -- book is on the right): that cell's words centred in what they leave
     local clear = (W.step or 40) + 6    -- the step under the head, from the inner edge
+    local left = glyphs > 0 and clear + glyphs * GLYPH_W or 0
     for i, sec in ipairs(list) do
         local t = panel.cells[i] or Cell(p, i)
-        local x0 = math.floor((i - 1) * width / #list)
-        local x1 = math.floor(i * width / #list)
+        local x0, x1
+        if sec.glyph then
+            x0, x1 = i == 1 and 0 or clear + (i - 1) * GLYPH_W, clear + i * GLYPH_W
+        else
+            local k, n = i - glyphs, #list - glyphs
+            x0 = left + math.floor((k - 1) * (width - left) / n)
+            x1 = left + math.floor(k * (width - left) / n)
+        end
         t:ClearAllPoints()
         t:SetPoint("TOPLEFT", panel, "TOPLEFT", x0, 0)
         t:SetSize(x1 - x0, SPECS_H)
@@ -1027,10 +1049,27 @@ function Tabs(p)
         t.line:SetShown(held)
         t.split:SetShown(i > 1)
         local shift = i == 1 and clear / 2 or 0
+        t.icon:SetShown(sec.glyph and true or false)
+        t.name:SetShown(not sec.glyph)
+        t.gem.rim:SetShown(not sec.glyph)
+        t.gem.stone:SetShown(not sec.glyph)
+        if sec.glyph then
+            -- its icon over its count, in the cell's GLYPH_W beyond the step
+            local mid = (x1 - x0) - GLYPH_W / 2
+            t.icon:ClearAllPoints()
+            t.icon:SetPoint("CENTER", t, "LEFT", mid, 6)
+            t.icon:SetTexture(sec.icon or 134400)
+            t.icon:SetDesaturated(not held)
+            t.icon:SetAlpha(held and 1 or 0.7)
+            t.count:ClearAllPoints()
+            t.count:SetPoint("CENTER", t, "LEFT", mid, -12)
+        end
         t.name:ClearAllPoints()
         t.name:SetPoint("CENTER", shift, 7)
-        t.count:ClearAllPoints()
-        t.count:SetPoint("CENTER", shift + 6, -9)
+        if not sec.glyph then
+            t.count:ClearAllPoints()
+            t.count:SetPoint("CENTER", shift + 6, -9)
+        end
         local room = (x1 - x0) - 10 - (i == 1 and clear or 0)
         local size = 12
         t.name:SetFont(ns.font, size, "")
@@ -1047,6 +1086,7 @@ function Tabs(p)
         -- (2026-11-22) a trainer's tab: what can be learned now of all
         -- still to learn, as "2/7" (the words were cramped)
         local words = p.trainer and format("%d/%d", sec.now or 0, sec.count)
+            or sec.glyph and tostring(sec.count)
             or ns.Plural(sec.count, format(Tr["%d |4spell:spells;"], sec.count))
         t.count:SetText(words)
         local cc = held and ns.colors.dim or OFF
