@@ -28,6 +28,13 @@
 --   W.IsPoint(map, x, y) whether it is pointed to there
 --   W.PointTag()        its distance, as Tag's
 --
+-- (2026-11-23, the user's) The game's own marker in the world at the
+-- waypoint, a diamond with its distance (the showInGameNavigation CVar,
+-- "/console showInGameNavigation 1"): turned on at login while
+-- questsNavigation is on. Switched off, the CVar is set off once and left
+-- alone after, so a /console of the player's own still holds.
+--   W.Navigation()      whether this client has the marker
+--
 -- Retail's and Forever's (C_SuperTrack). A client without it has none:
 -- Toggle does nothing, Quest is nil.
 local _, ns = ...
@@ -163,3 +170,21 @@ end
 ns.On("SUPER_TRACKING_CHANGED", Changed)
 ns.On("PLAYER_ENTERING_WORLD", Changed)
 ns.On("USER_WAYPOINT_UPDATED", Changed)
+
+local NAV = "showInGameNavigation"
+local function CVar(set)
+    if set then return C_CVar and C_CVar.SetCVar or SetCVar end
+    return C_CVar and C_CVar.GetCVar or GetCVar
+end
+function W.Navigation()
+    local get = CVar()
+    return get ~= nil and CVar(true) ~= nil and get(NAV) ~= nil
+end
+-- switched: the option was just switched (so off is written too)
+local function Navigate(switched)
+    if not W.Navigation() then return end
+    local want = ns.db.questsNavigation and "1" or "0"
+    if (ns.db.questsNavigation or switched) and CVar()(NAV) ~= want then pcall(CVar(true), NAV, want) end
+end
+ns.On("PLAYER_LOGIN", function() Navigate(false) end)
+ns.OnSetting("questsNavigation", function() Navigate(true) end)

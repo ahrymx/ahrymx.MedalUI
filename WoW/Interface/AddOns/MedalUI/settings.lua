@@ -140,6 +140,7 @@ local DEFAULTS = {
     questsPlace = false,    -- the minimal view's place, size and scale: { point, relative, x, y, w, h, scale }
     questsFullMouseover = false, questsFullCombat = false,       -- each view hidden until the pointer is
     questsMinimalMouseover = false, questsMinimalCombat = false, -- over it, and in combat
+    questsNavigation = true, -- the game's marker in the world (showInGameNavigation, quests/waypoint.lua)
     questsTree = false,     -- objectives on a tree's branches, the finished risen to the top; bulleted otherwise
     questsHidden = false,   -- hidden by the tray's tab (strips/tray.lua), until shown again (not on the page)
     questLog = true,        -- MedalUI's quest log, a window on the right strip, instead of Blizzard's

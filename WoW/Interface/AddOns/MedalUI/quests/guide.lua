@@ -10,6 +10,9 @@
 -- it the Guide has nothing to show and says so.
 --
 -- The order (the user's, 2026-11-23), tier by tier:
+--   0 near    quests done whose hand-in is within NEAR yards, or NEAR_CHAIN
+--             when their chain goes on after them: before anything else
+--             ("prioritise quest turn ins when they're close to the player")
 --   1 pick    quests to take: in reach, at your level (a green one only when
 --             its chain comes back to your level)
 --     small   and quests whose work left is one of each, or all in one spot
@@ -63,8 +66,11 @@ local KEEP_RATIO, KEEP_SECONDS = 2, 60  -- clearly better: twice as near and a m
 local BELOW, ABOVE = 2, 3               -- the levels of quests to take, from yours
 local ZONE_BELOW, ZONE_ABOVE = 5, 5     -- a zone's middle level, from yours
 local MOST = 60                         -- places kept of each creature or object
+local NEAR, NEAR_CHAIN = 300, 700      -- yards to a hand-in that goes first; its chain going on
 local TIER = { pick = 1, small = 1, turnin = 2, large = 3 }
 G.TIER = TIER
+-- a hand-in near enough goes ahead of every tier
+local function Tier(g) return g.near and 0 or TIER[g.kind] end
 local floor, sqrt, huge = math.floor, math.sqrt, math.huge
 
 local function Try(fn, ...)
@@ -370,6 +376,10 @@ local function Held(q, cont, wx, wy)
         if OneEach(q) or (spread and spread <= SMALL) then g.kind = "small" end
     end
     if not g.yards then g.yards = ns.questSource.Distance(q.id) end     -- the game's marker, at least
+    if g.kind == "turnin" and g.yards then
+        g.steps = Ahead(q.id)
+        g.near = g.yards <= (g.steps > 0 and NEAR_CHAIN or NEAR)
+    end
     q.guide = g
     return q
 end
@@ -379,7 +389,7 @@ local rank, lead = {}, nil      -- the last order (key -> place); its head's key
 
 local function Before(a, b)
     local ga, gb = a.guide, b.guide
-    local ta, tb = TIER[ga.kind], TIER[gb.kind]
+    local ta, tb = Tier(ga), Tier(gb)
     if ta ~= tb then return ta < tb end
     local ka, kb = ga.yards and floor(ga.yards / STEP), gb.yards and floor(gb.yards / STEP)
     if (ka == nil) ~= (kb == nil) then return kb == nil end
@@ -473,7 +483,7 @@ function G.Plan(frozen)
         for i = 2, #out do
             local e = out[i]
             if e.id == lead then
-                if TIER[e.guide.kind] == TIER[out[1].guide.kind] and not Better(out[1], e) then
+                if Tier(e.guide) == Tier(out[1].guide) and not Better(out[1], e) then
                     table.remove(out, i)
                     table.insert(out, 1, e)
                 end

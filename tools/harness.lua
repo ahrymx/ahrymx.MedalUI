@@ -1457,6 +1457,20 @@ function UnregisterStateDriver(f, state)
 end
 local inCombat = false
 function InCombatLockdown() return inCombat end
+-- a frame's first anchor in a fixed order, not next()'s (which moves with
+-- the table's layout: 2026-11-23, a new global reordered a frame's two)
+function harnessFirstPoint(points)
+    for _, a in ipairs({ "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM",
+        "BOTTOMRIGHT" }) do
+        if points[a] then return a, points[a] end
+    end
+    return next(points)
+end
+-- the game's settings by name: the in-world quest marker's (quests/waypoint.lua),
+-- the rest unset (passes put their own in)
+harnessCVars = { showInGameNavigation = "0" }
+function GetCVar(k) return harnessCVars[k] end
+function SetCVar(k, v) harnessCVars[k] = tostring(v) end
 -- an error handed to the handler is raised again: the harness never hides one
 function geterrorhandler() return error end
 function GetBuildInfo() return "1.0.0", "0", "Nov 13 2026", 16001 end
@@ -5775,7 +5789,21 @@ for line in io.lines(ADDON .. "MedalUI.toc") do
     if only and not only:find(GetLocale(), 1, true) then file = nil end
     if file then
         local chunk = assert(loadfile(ADDON .. file:gsub("\\", "/")))
+        harnessFile = file
         chunk("MedalUI", ns)
+        -- each file's own ns.On handlers, to fire one file's alone
+        -- (harnessOnBy["quests\\waypoint.lua"].PLAYER_LOGIN, as the .toc spells it)
+        if file == "core.lua" then
+            local on = ns.On
+            harnessOnBy = {}
+            ns.On = function(e, fn)
+                local by = harnessOnBy[harnessFile] or {}
+                harnessOnBy[harnessFile] = by
+                by[e] = by[e] or {}
+                table.insert(by[e], fn)
+                return on(e, fn)
+            end
+        end
     end
 end
 -- (2026-11-19) the face for the client's letters, when a locale is asked
@@ -6313,6 +6341,11 @@ if barPass then
     page.settings.side:Set(false)
     dump("side")
     page.settings.side:Set(true)
+    -- (2026-11-23) the Quests page: the game's marker in the world, live
+    -- with the tracker off
+    page.settings.quests:Set(false)
+    dump("quests")
+    page.settings.quests:Set(true)
     -- a section's switch greys its rows: the console's Visibility
     page.settings.consoleFade:Set(true)
     dump("console/general")
@@ -7955,7 +7988,7 @@ if sidePass then
             local npcs = {
                 [1001] = npc("Skeletal Fiend", { 10, 10 }, { 90, 90 }),          -- all over: wide
                 [1002] = npc("Kobold", { 50, 50 }, { 52, 51 }),                  -- one spot
-                [1003] = npc("Commander Althea", { 74, 45 }),                     -- the hand-in, near
+                [1003] = npc("Commander Althea", { 74, 100 }),                    -- the hand-in, 559 yd
                 [2001] = npc("Calor", { 80, 44.1 }),                              -- 66 yd
                 [2002] = npc("Madame Eva", { 90, 44.1 }),                         -- 166 yd
                 [2003] = npc("Jitters", { 75, 44.1 }),
@@ -8323,6 +8356,51 @@ if sidePass then
             local gone = table.remove(log, 6)
             plan("handed in")
             table.insert(log, 6, gone)
+            -- (2026-11-23, the user's) a hand-in near you goes first of all:
+            -- within 300 yd, or 700 when its chain goes on after it
+            local althea = npcs[1003].spawns[10]
+            G.Reset()
+            plan("hand-in far")
+            althea[1] = { 74, 73 }          -- 289 yd
+            G.Reset()
+            plan("hand-in near")
+            -- another hand-in near too, nearer but not clearly: the head is
+            -- held (two near hand-ins are one tier; its kind is not enough)
+            npcs[1004] = npc("Brother Malach", { 74, 63 })      -- 189 yd
+            quests[203].finishedBy = { { 1004 } }
+            log[7].complete = true
+            plan("hand-in near, another nearer")
+            log[7].complete, quests[203].finishedBy, npcs[1004] = nil, nil, nil
+            althea[1] = { 74, 75 }          -- 309 yd
+            G.Reset()
+            plan("hand-in just out")
+            -- a hand-in out of reach at the head, another coming near: the
+            -- near one leads at once (the head is held only in its own tier)
+            local l203, l102, l101 = table.remove(log, 7), table.remove(log, 3), table.remove(log, 2)
+            G.Reset()
+            plan("hand-in at the head")
+            npcs[1004] = npc("Brother Malach", { 74, 63 })      -- 189 yd
+            quests[203].finishedBy = { { 1004 } }
+            l203.complete = true
+            table.insert(log, l203)
+            plan("hand-in at the head, another near")
+            l203.complete, quests[203].finishedBy, npcs[1004] = nil, nil, nil
+            table.remove(log)
+            table.insert(log, 2, l101)
+            table.insert(log, 3, l102)
+            table.insert(log, 7, l203)
+            althea[1] = { 74, 100 }
+            quests[202].nextQuestInChain, quests[205] = 205, { questLevel = 26, preQuestSingle = { 202 } }
+            fire("QUEST_TURNED_IN")         -- (the chains looked at again)
+            G.Reset()
+            plan("hand-in, its chain goes on")
+            althea[1] = { 74, 115 }         -- 709 yd
+            G.Reset()
+            plan("hand-in, its chain goes on, too far")
+            althea[1] = { 74, 100 }
+            quests[202].nextQuestInChain, quests[205] = nil, nil
+            fire("QUEST_TURNED_IN")
+            G.Reset()
             -- nothing at all: the log empty, nothing to take; the zone at your level named
             local was = {}
             for i = #log, 1, -1 do was[i] = table.remove(log, i) end
@@ -20131,7 +20209,7 @@ if spellPass then
     if not (w and B.layer) then return end
     local layer = B.layer
     local function where(r)
-        local point, p = next(r.points)
+        local point, p = harnessFirstPoint(r.points)
         if not point then return "nowhere" end
         return string.format("%s %s %s %d,%d", point, p[1] and (p[1].name or (p[1] == r.parent and "parent")
             or "?") or "-", p[2] or "-", p[3] or 0, p[4] or 0)
@@ -20375,7 +20453,7 @@ if spellPass then
     end
     local edges = {}
     for _, e in ipairs(book.panel.edges) do
-        local a1 = next(e.points)
+        local a1 = harnessFirstPoint(e.points)
         edges[#edges + 1] = tostring(a1)
     end
     table.sort(edges)
@@ -23797,6 +23875,48 @@ if questPass and not questLogPass then
     state("quests.after combat")
     rows("quests.after combat")
     items("quests.after combat items")
+
+    -- (2026-11-23, the user's) the game's marker in the world at the
+    -- waypoint: on at login while the option is; switched off, off once,
+    -- then left alone (a /console of the player's own holds); a client
+    -- without the CVar is left alone and the option hidden
+    ;(function()
+        local P = ns.waypoint
+        local get, set, cc = GetCVar, SetCVar, C_CVar
+        local cv, writes = { showInGameNavigation = "0" }, 0
+        C_CVar = nil
+        function GetCVar(k) return cv[k] end
+        function SetCVar(k, v) writes = writes + 1; cv[k] = tostring(v) end
+        -- the login as waypoint.lua heard it (its own handlers, not the rest)
+        local function login()
+            for _, fn in ipairs(harnessOnBy["quests\\waypoint.lua"].PLAYER_LOGIN) do fn("PLAYER_LOGIN") end
+        end
+        local function nav(tag)
+            print("quests.navigation " .. tag, "cvar=" .. tostring(cv.showInGameNavigation),
+                "option=" .. tostring(ns.db.questsNavigation), "writes=" .. writes,
+                "has=" .. tostring(P.Navigation()))
+        end
+        login()
+        nav("login")
+        login()
+        nav("login again")
+        ns.SetOption("questsNavigation", false)
+        nav("switched off")
+        cv.showInGameNavigation = "1"
+        login()
+        nav("on by hand, login with it off")
+        ns.SetOption("questsNavigation", true)
+        cv.showInGameNavigation = "0"
+        login()
+        nav("on again, login")
+        cv.showInGameNavigation = nil
+        login()
+        nav("a client without it")
+        cv.showInGameNavigation, SetCVar = "0", nil
+        login()
+        nav("reads it but cannot set it")
+        GetCVar, SetCVar, C_CVar = get, set, cc
+    end)()
 
     -- 7. the character window stands over it, and its items go
     ToggleCharacter("PaperDollFrame")

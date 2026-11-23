@@ -38,8 +38,8 @@
 --
 -- (2026-11-23) The sort button's third choice, Guide (quests/guide.lua):
 -- the list becomes what to do next for experience, the log's quests from
--- anywhere and quests to take near you ("!" before them, their experience
--- on the right), in the Guide's order, looked at again every RESORT
+-- anywhere and quests to take near you ("!" before them; their experience
+-- in their tooltip only, 2026-11-23, the user's), in the Guide's order, looked at again every RESORT
 -- seconds out of combat. A quest to take clicks to the waypoint at its
 -- giver. With zoneGuideWaypoint the waypoint follows the list's head (or
 -- the row the controls stepped it to), unless you set one yourself (until
@@ -537,14 +537,14 @@ local function Fill(r, line, odd, top)
         r:EnableMouse(true)
         Wash(r, q)
     elseif q.pick then
-        -- a quest to take: "!", its title in its level's colour, its experience
+        -- a quest to take: "!", its title in its level's colour (its
+        -- experience in its tooltip, not on the row: the user's, 2026-11-23)
         r:SetHeight(ROW)
         r.stripe:SetColorTexture(odd and 0 or 0.102, odd and 0 or 0.078, odd and 0 or 0.039, 0.45)
         r.stripe:Show()
         r.fold:SetText("!")
         r.tick:Hide()
-        r.count:SetText(q.guide.xp > 0 and XPText(q.guide.xp) or "")
-        r.count:SetTextColor(unpack(GOLD))
+        r.count:SetText("")
         r.rule:SetShown(not top)
         r.text:SetPoint("LEFT", 14, 0)
         r.text:SetPoint("RIGHT", r.count, "LEFT", -4, 0)

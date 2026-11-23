@@ -1668,6 +1668,17 @@ function ns.OptionPages()
                         Tr["Hidden until the pointer is over the box."]),
                     Check("questsMinimalCombat", Tr["Hidden in combat"],
                         Tr["Gone in combat, items too, and clicks go through to what is behind it."]))),
+                -- (not the tracker's: live while it is off; last, as it is
+                -- left out where the game has no such marker)
+                ns.waypoint.Navigation() and On("behaviour", Group(Tr["Navigation"],
+                    (function()
+                        local c = Check("questsNavigation", Tr["Marker in the world"],
+                            Tr["The game's own marker at your tracked quest's objective, or your waypoint: a "
+                            .. "diamond in the world with its distance. MedalUI turns it on at each login; "
+                            .. "switched off here, it is turned off once."])
+                        c.always = true
+                        return c
+                    end)())) or nil,
             },
         },
         {
