@@ -872,9 +872,48 @@ function view.Build(f)
     -- the items' counts and names; their buttons placed again after a fight
     ns.On("PLAYER_REGEN_ENABLED", function() if ns.side.IsCurrent(view) then Refresh() else PlaceItems() end end)
     for _, e in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA",
-        "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED" }) do
+        "BAG_UPDATE_DELAYED", "GET_ITEM_INFO_RECEIVED", "PLAYER_LEVEL_UP", "QUEST_TURNED_IN" }) do
         ns.On(e, Update)
     end
+end
+
+-- (2026-11-23, the user's: "smarter about updating itself") While the
+-- tab is not on the screen (the panel shut, another tab up) its look every
+-- RESORT seconds does not run, and the waypoint stood still: so the Guide
+-- plans out of sight too, every RESORT seconds out of combat and soon
+-- (SOON) after a quest event, and moves the waypoint to the head. The list
+-- is drawn when the tab shows. On the screen the tab's own look does it.
+local SOON = 0.3
+local away = CreateFrame("Frame")
+local awayIn = RESORT
+view.away = away                -- (the harness's way in)
+local function Unseen() return not (body and body:IsVisible()) end
+function view.Soon()
+    awayIn = math.min(awayIn, SOON)
+end
+away:SetScript("OnUpdate", function(_, elapsed)
+    awayIn = awayIn - elapsed
+    if awayIn > 0 then return end
+    awayIn = RESORT
+    if not (Guide() and Unseen()) or InCombatLockdown() then return end
+    if not ns.questGuide.Ready() then return end
+    local plan = ns.questGuide.Plan(false)
+    local head = ns.questGuide.Head(plan)
+    if head then ns.questGuide.Steer(head) end
+end)
+-- shown only while it has something to do: the Guide, its waypoint on
+local function Away()
+    away:SetShown(Guide() and ns.db.zoneGuideWaypoint and true or false)
+end
+for _, key in ipairs({ "zoneSort", "zoneGuideWaypoint" }) do ns.OnSetting(key, Away) end
+-- (the quests' source loads after this file)
+ns.On("PLAYER_LOGIN", function()
+    ns.questSource.Listen(view.Soon)
+    Away()
+end)
+for _, e in ipairs({ "QUEST_TURNED_IN", "QUEST_ACCEPTED", "PLAYER_LEVEL_UP", "PLAYER_REGEN_ENABLED",
+    "ZONE_CHANGED", "ZONE_CHANGED_INDOORS" }) do
+    ns.On(e, view.Soon)
 end
 
 view.Refresh = function() Refresh() end

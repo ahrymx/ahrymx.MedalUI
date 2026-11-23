@@ -8362,8 +8362,9 @@ if sidePass then
             -- quests to take all taken or done: quick work by its markers,
             -- the head kept until another is clearly nearer
             for _, id in ipairs({ 301, 302, 304 }) do done[id] = true end
-            fire("PLAYER_LEVEL_UP")
             zoneDist[101], zoneDist[203] = 50, 70
+            -- (a level up draws the tab again: its plan first)
+            fire("PLAYER_LEVEL_UP")
             plan("no picks")
             zoneDist[101], zoneDist[203] = 60, 40
             plan("near not clearly")
@@ -8392,6 +8393,70 @@ if sidePass then
             way("relook")
             rows("guide relook, waypoint moved")
             plan("after combat")
+            -- (2026-11-23, the user's: "smarter about updating itself
+            -- dynamically") a quest's work done where it stands in the list
+            -- (Skeletal Fiends handed in far, after Althea's): drawn again
+            do
+                local fiends
+                for _, q in ipairs(log) do if q.questID == 201 then fiends = q end end
+                npcs[1005] = npc("Far Captain", { 74, 140 })            -- 959 yd
+                quests[201].finishedBy = { { 1005 } }
+                fiends.complete = true
+                plan("done in place")
+                fiends.complete, quests[201].finishedBy, npcs[1005] = nil, nil, nil
+                plan("done in place, back")
+            end
+            -- the panel shut: the Guide still looks every two seconds out
+            -- of combat and the waypoint follows the head; soon after a
+            -- quest event; not in combat, not with the switch off, and not
+            -- while the tab is up (its own look does it)
+            do
+                local away = z.away
+                -- (as the game: only while it is shown)
+                local function tick(t) if away.shown then away.scripts.OnUpdate(away, t) end end
+                tick(2.1)
+                way("away, as it was")
+                z.body:Hide()
+                zoneDist[101], zoneDist[203] = 900, 40
+                tick(1)
+                way("away, 1s")
+                tick(1.1)
+                way("away, 2.1s")
+                zoneDist[101], zoneDist[203] = 10, 900
+                fire("QUEST_ACCEPTED", 9, 999)
+                tick(0.35)
+                way("away, soon after a quest event")
+                zoneDist[101], zoneDist[203] = 900, 40
+                inCombat = true
+                tick(2.1)
+                way("away, in combat")
+                inCombat = false
+                ns.SetOption("zoneGuideWaypoint", false)
+                tick(2.1)
+                way("away, switch off")
+                print("zone guide away ticking", "switch off=" .. tostring(away.shown))
+                ns.SetOption("zoneGuideWaypoint", true)
+                z.body:Show()
+                tick(2.1)
+                way("away, the tab up")
+                zoneDist[101], zoneDist[203] = 10, 900
+                tick(2.1)
+                z.body.scripts.OnUpdate(z.body, 2.1)
+                way("away, back")
+                ns.SetOption("zoneSort", "log")
+                print("zone guide away ticking", "log order=" .. tostring(away.shown))
+                ns.SetOption("zoneSort", "guide")
+                print("zone guide away ticking", "guide=" .. tostring(away.shown))
+                way("away, guide again")
+            end
+            -- handed in a moment ago, the game's flag not yet set: not one
+            -- to take again (Low Zone, its giver's)
+            do
+                local before = G.Offered(311, {})
+                fire("QUEST_TURNED_IN", 311, 0, 0)
+                print("zone guide handed in, flag not yet set", "offered=" .. tostring(before)
+                    .. "->" .. tostring(G.Offered(311, {})))
+            end
             -- a failed quest is left out
             local failed = C_QuestLog.IsFailed
             C_QuestLog.IsFailed = function(id) return id == 203 end

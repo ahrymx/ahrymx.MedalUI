@@ -287,7 +287,12 @@ local function Index(cont)
     return out
 end
 
+-- (2026-11-23) handed in this session: done at once, though the game's
+-- flag may come a moment after the log's update (else the quest just
+-- handed in is one to take again until it does)
+local handed = {}
 local function Done(id)
+    if handed[id] then return true end
     return C_QuestLog and C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(id) and true
         or false
 end
@@ -386,6 +391,7 @@ end
 
 -- ------------------------------------------------------------- the order
 local rank, lead = {}, nil      -- the last order (key -> place); its head's key
+local seen = {}                 -- the last order's kinds (id -> EntryKey, ! when near)
 
 local function Before(a, b)
     local ga, gb = a.guide, b.guide
@@ -427,13 +433,16 @@ end
 local function Ranked(out)
     order = out
     if not Place(focus) then focus = nil end     -- gone from the list, or of another kind now
-    local now, moved = {}, false
+    local now, moved, kinds = {}, false, {}
     for i, e in ipairs(out) do
         now[e.id] = i
-        if rank[e.id] ~= i then moved = true end
+        -- (2026-11-23) its place, or what it is: its work done (a hand-in
+        -- now), or near enough to hand in first
+        kinds[e.id] = EntryKey(e) .. (e.guide.near and "!" or "")
+        if rank[e.id] ~= i or seen[e.id] ~= kinds[e.id] then moved = true end
     end
     for id in pairs(rank) do if not now[id] then moved = true end end
-    rank = now
+    rank, seen = now, kinds
     lead = out[1] and out[1].id
     return out, moved
 end
@@ -675,10 +684,11 @@ end
 -- (the harness's way back to a first look)
 function G.Reset()
     db, areas, spotsOf, workOf, index, middles = nil, nil, {}, {}, {}, {}
-    rank, lead, last, mine = {}, nil, {}, nil
+    rank, lead, last, mine, seen, handed = {}, nil, {}, nil, {}, {}
     want, tried, wroteAt, yielded, foreign, pending = nil, nil, nil, false, false, false
     focus, claim, order = nil, false, {}
 end
 
 -- what can be taken changes with what was handed in, and with your level
 ns.On("PLAYER_LEVEL_UP", function() lead = nil end)
+ns.On("QUEST_TURNED_IN", function(_, id) if type(id) == "number" then handed[id] = true end end)
