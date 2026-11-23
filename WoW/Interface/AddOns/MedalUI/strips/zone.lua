@@ -24,7 +24,9 @@
 -- distance after its title), Alt Questie's focus, right click tracked or
 -- not, middle click the map; an objective's row the same, but Shift puts
 -- its line in the chat box. Its + or - on the left, a button of its own,
--- opens its objectives under it or closes them.
+-- opens its objectives under it or closes them. The waypoint's quest has
+-- them open without a click (2026-11-23): closed by hand, they stay closed
+-- while it is the waypoint's.
 --
 -- A quest with a usable item (quests/source.lua's q.item, as the tracker's)
 -- ends its open objectives with it: its icon, its name and how many you
@@ -118,6 +120,15 @@ local function OnWay(q)
         return p ~= nil and W.IsPoint(p.map, p.x, p.y)
     end
     return W.Is(q.id)
+end
+
+-- (2026-11-23, the user's) The waypoint's quest shows its objectives
+-- without a click; its - closes them while it stays the waypoint's (shut),
+-- and a quest opened by hand stays open as before.
+local shut                      -- the waypoint's quest, closed by hand
+local function Shown(q)
+    if open[q.id] then return true end
+    return not q.pick and shut ~= q.id and OnWay(q)
 end
 
 local function Here()
@@ -359,7 +370,12 @@ local function Row()
     r.folder:SetScript("OnClick", function()
         local q = r.line and r.line.quest
         if not q then return end
-        open[q.id] = not open[q.id] or nil
+        if Shown(q) then
+            open[q.id] = nil
+            if Shown(q) then shut = q.id end
+        else
+            open[q.id], shut = true, nil
+        end
         Refresh()
         if GameTooltip:GetOwner() == r.folder then r.folder:GetScript("OnEnter")(r.folder) end
     end)
@@ -368,7 +384,7 @@ local function Row()
         if not q then return end
         Light(q.id)
         r.fold:SetTextColor(unpack(GOLD))
-        ns.Tip(self, ns.side.Beside, { title = open[q.id] and Tr["Hide its objectives."] or Tr["Show its objectives."],
+        ns.Tip(self, ns.side.Beside, { title = Shown(q) and Tr["Hide its objectives."] or Tr["Show its objectives."],
             color = ns.colors.white, wrap = true })
     end)
     r.folder:SetScript("OnLeave", function()
@@ -540,7 +556,7 @@ local function Fill(r, line, odd, top)
         r.stripe:SetColorTexture(odd and 0 or 0.102, odd and 0 or 0.078, odd and 0 or 0.039, 0.45)
         r.stripe:Show()
         local folds = (#q.objectives > 0 or q.item) and true or false
-        r.fold:SetText(folds and (open[q.id] and "-" or "+") or "")
+        r.fold:SetText(folds and (Shown(q) and "-" or "+") or "")
         r.folder:SetShown(folds)
         r.tick:SetShown(done)
         r.count:SetText(done and "" or need > 0 and (have .. "/" .. need) or "")
@@ -562,9 +578,17 @@ end
 
 local function Lines()
     local out = {}
+    -- closed by hand while the waypoint's: forgotten once it is not
+    if shut then
+        local still = false
+        for _, q in ipairs(quests) do
+            if q.id == shut and OnWay(q) then still = true end
+        end
+        if not still then shut = nil end
+    end
     for _, q in ipairs(quests) do
         table.insert(out, { quest = q })
-        if open[q.id] then
+        if Shown(q) then
             for _, o in ipairs(q.objectives) do table.insert(out, { quest = q, objective = o }) end
             if q.item then table.insert(out, { quest = q, item = q.item }) end
         end

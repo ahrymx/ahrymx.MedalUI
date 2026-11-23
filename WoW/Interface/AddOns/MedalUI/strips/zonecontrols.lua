@@ -44,19 +44,46 @@ local function View() return ns.side and ns.side.zone end
 function C.IsOpen() return ns.db.zoneControls and true or false end
 
 -- ------------------------------------------------------------- the items
--- the list's quests' items, once each, in the list's order
+local function Count(id) return C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id) or 0 end
+
+-- whether an item in the bags does something when used: a spell, or loot
+-- inside it (a necklace to open)
+local function Usable(id)
+    local spell = (C_Item and C_Item.GetItemSpell) or GetItemSpell
+    if spell and spell(id) then return true end
+    local info = C_Container and C_Container.GetContainerItemInfo
+    local slotsOf = C_Container and C_Container.GetContainerNumSlots
+    if not (info and slotsOf) then return false end
+    for bag = 0, NUM_BAG_SLOTS or 4 do
+        for slot = 1, slotsOf(bag) or 0 do
+            local it = info(bag, slot)
+            if it and it.itemID == id and it.hasLoot then return true end
+        end
+    end
+    return false
+end
+
+-- the list's quests' items, once each, in the list's order: the game's (or
+-- Questie's) quest item, then any other the quest needs that is in the bags
+-- and can be used (ns.questChains.Needs)
 local function Items()
     local v, out, seen = View(), {}, {}
+    local function Add(id)
+        if id and not seen[id] then
+            seen[id] = true
+            out[#out + 1] = id
+        end
+    end
     for _, q in ipairs(v and v.Quests() or {}) do
-        if not q.pick and q.item and not seen[q.item] then
-            seen[q.item] = true
-            out[#out + 1] = q.item
+        if not q.pick then
+            Add(q.item)
+            for _, id in ipairs(ns.questChains.Needs(q.id) or {}) do
+                if not seen[id] and Count(id) > 0 and Usable(id) then Add(id) end
+            end
         end
     end
     return out
 end
-
-local function Count(id) return C_Item and C_Item.GetItemCount and C_Item.GetItemCount(id) or 0 end
 
 local function Icon(id)
     local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)

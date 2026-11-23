@@ -7768,6 +7768,24 @@ if sidePass then
         C_SuperTrack.SetSuperTrackedQuestID(203)
         fire("SUPER_TRACKING_CHANGED")
         rows("waypoint here, last")
+        -- (2026-11-23) the waypoint's quest opens by itself; its - closes it
+        -- while it stays the waypoint's; moved away and back, open again
+        fold(1)
+        rows("waypoint's closed by hand")
+        z.Refresh()
+        rows("waypoint's closed, drawn again")
+        C_SuperTrack.SetSuperTrackedQuestID(101)
+        fire("SUPER_TRACKING_CHANGED")
+        C_SuperTrack.SetSuperTrackedQuestID(203)
+        fire("SUPER_TRACKING_CHANGED")
+        rows("waypoint's again, open")
+        -- one opened by hand stays open when the waypoint leaves it
+        fold(1)
+        fold(1)
+        C_SuperTrack.SetSuperTrackedQuestID(0)
+        fire("SUPER_TRACKING_CHANGED")
+        rows("opened by hand, waypoint gone")
+        fold(4)
         C_SuperTrack.SetSuperTrackedQuestID(0)
         fire("SUPER_TRACKING_CHANGED")
         rows("waypoint gone")
@@ -8407,6 +8425,37 @@ if sidePass then
             GetQuestLogSpecialItemInfo = special
             fire("QUEST_LOG_UPDATE")
             drawer("items again")
+            -- (2026-11-23, the user's) an item the quest needs that the game
+            -- does not call its quest item: from QuestieDB, on the bar when in
+            -- the bags and usable (a spell, or loot inside: the Gnarlpine
+            -- Necklace); one with neither, or not carried, is not
+            ;(function()
+                local was = { lib = LibQuestieDB, db = QuestDB, cont = C_Container, count = C_Item.GetItemCount,
+                    spell = C_Item.GetItemSpell, gspell = GetItemSpell }
+                local rows = { [202] = { requiredSourceItems = { 8049, 7000, 7002 } },
+                    [201] = { sourceItemId = 7001, requiredSourceItems = { 7001 } } }
+                LibQuestieDB = { RequireContract = function(n) return n == 4 end }
+                QuestDB = { Exists = function(id) return rows[id] ~= nil end,
+                    Get = function(id, key) return rows[id] and rows[id][key] end }
+                local bags = { [5555] = 3, [8049] = 1, [7000] = 1, [7001] = 2 }
+                C_Item.GetItemCount = function(id) return bags[id] or 0 end
+                C_Item.GetItemSpell = function(id) return id == 7001 and "Read Orders" or nil end
+                GetItemSpell = nil
+                C_Container = { GetContainerNumSlots = function(bag) return bag == 0 and 3 or 0 end,
+                    GetContainerItemInfo = function(bag, slot)
+                        if bag ~= 0 then return nil end
+                        return ({ { itemID = 8049, hasLoot = true }, { itemID = 7000, hasLoot = false } })[slot]
+                    end }
+                fire("QUEST_LOG_UPDATE")
+                drawer("needed items")
+                bags[8049] = nil
+                fire("BAG_UPDATE_DELAYED")
+                drawer("necklace opened")
+                LibQuestieDB, QuestDB, C_Container = was.lib, was.db, was.cont
+                C_Item.GetItemCount, C_Item.GetItemSpell, GetItemSpell = was.count, was.spell, was.gspell
+                fire("QUEST_LOG_UPDATE")
+                drawer("without QuestieDB")
+            end)()
             -- another tab: it goes with the tab, and comes back open
             pick(views.loot)
             drawer("loot picked")

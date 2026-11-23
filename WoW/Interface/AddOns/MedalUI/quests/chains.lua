@@ -120,6 +120,26 @@ function qc.Of(id)
     return c
 end
 
+-- (2026-11-23, the user's) The items a quest needs that are not its
+-- objectives and that the game does not call its quest item: QuestieDB's
+-- sourceItemId (handed over by the giver) and requiredSourceItems (one
+-- found on the way: the Gnarlpine Necklace, opened for the Missing Jewel).
+function qc.Needs(id)
+    if type(id) ~= "number" or ns.IsSecret(id) then return nil end
+    local db = DB()
+    if not db or not db.Exists(id) then return nil end
+    local out = {}
+    local given = Get(db, id, "sourceItemId")
+    if type(given) == "number" and given > 0 then out[1] = given end
+    local need = Get(db, id, "requiredSourceItems")
+    if type(need) == "table" then
+        for _, i in ipairs(need) do
+            if type(i) == "number" and i > 0 and i ~= given then out[#out + 1] = i end
+        end
+    end
+    return out
+end
+
 function qc.Title(id)
     local db = DB()
     if not db then return nil end

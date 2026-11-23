@@ -55,7 +55,7 @@ The right strip opens a panel with tabs. **Zone** lends it the minimap beside th
 - **Meter** shows the game's own damage meter, on clients that have one; **Auras** lists your buffs and debuffs, live in combat.
 - In the Zone tab, click a quest for its objectives, or shift-click it to track it.
 - The Zone tab's sort button also has a **Guide**: what to do next for experience. Quests to take near you come first, ranked by their experience and their chain's. Then come quick objectives, hand-ins and objectives spread over a wide area, nearest first. The waypoint follows the top of the list. It needs [QuestieDB](https://www.curseforge.com/wow/addons/questiedb).
-- The Zone tab's top button opens its **controls** over the panel: a bar of the listed quests' usable items, the list's text size, coordinates on or off, and, with the Guide shown, quests to take on or off and the waypoint moved a row down or up its list (the rows stay put). The mouse wheel on the minimap zooms.
+- The Zone tab's top button opens its **controls** over the panel: a bar of the listed quests' usable items (with QuestieDB, also the ones a quest needs that the game does not mark, such as a necklace to open, once they are in your bags), the list's text size, coordinates on or off, and, with the Guide shown, quests to take on or off and the waypoint moved a row down or up its list (the rows stay put). The mouse wheel on the minimap zooms.
 - Addons' minimap buttons gather in a **drawer** at the end of the action bar, instead of crowding the minimap.
 
 ---
