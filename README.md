@@ -69,7 +69,7 @@ The right strip opens a panel with tabs. **Zone** lends it the minimap beside th
 
 A quest's own page spells out where it sits in its chain, step by step, with its giver, objectives and rewards.
 
-On WoW Forever, MedalUI turns on the game's hidden in-world marker (`showInGameNavigation`) at each login. The marker is a diamond with its distance, shown at your tracked quest's objective or at your waypoint. To leave it off, untick **Marker in the world** under Quests > Behaviour.
+On WoW Forever, MedalUI turns on the game's hidden in-world marker (`showInGameNavigation`) at each login. The marker is a diamond with its distance, shown at your tracked quest's objective or at your waypoint. To leave it off, untick **Marker in the world** under Quests > Behaviour. WoW Forever's update of 21 November broke the marker, even when typed by hand, so the option stays greyed with a note until the game has it again.
 
 ![A quest's page: its level, zone, giver, step in its chain and status, the chain spelt out, then its objectives, description and rewards](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/quest-page.png)
 

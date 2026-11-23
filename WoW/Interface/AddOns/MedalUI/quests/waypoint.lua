@@ -33,7 +33,14 @@
 -- "/console showInGameNavigation 1"): turned on at login while
 -- questsNavigation is on. Switched off, the CVar is set off once and left
 -- alone after, so a /console of the player's own still holds.
---   W.Navigation()      whether this client has the marker
+--   W.Navigation()      whether this client lets an addon set CVars (the
+--                       option shows)
+--   W.NavigationWorks() and has the marker's: it reads back (the option is
+--                       live, and only then written)
+-- (2026-11-23, in game) Forever's update of 21 November broke it: the CVar
+-- reads nil and /console sets nothing, by hand too (Blizzard's forums,
+-- "showInGameNavigation"). The option stays, greyed with a note, until the
+-- client has it again.
 --
 -- Retail's and Forever's (C_SuperTrack). A client without it has none:
 -- Toggle does nothing, Quest is nil.
@@ -177,12 +184,15 @@ local function CVar(set)
     return C_CVar and C_CVar.GetCVar or GetCVar
 end
 function W.Navigation()
+    return CVar(true) ~= nil
+end
+function W.NavigationWorks()
     local get = CVar()
-    return get ~= nil and CVar(true) ~= nil and get(NAV) ~= nil
+    return W.Navigation() and get ~= nil and get(NAV) ~= nil
 end
 -- switched: the option was just switched (so off is written too)
 local function Navigate(switched)
-    if not W.Navigation() then return end
+    if not W.NavigationWorks() then return end
     local want = ns.db.questsNavigation and "1" or "0"
     if (ns.db.questsNavigation or switched) and CVar()(NAV) ~= want then pcall(CVar(true), NAV, want) end
 end

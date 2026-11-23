@@ -721,6 +721,11 @@ L["The game's own marker at your tracked quest's objective, or your waypoint: a 
     "Собственная метка игры у цели отслеживаемого задания или у вашей путевой точки: ромб в мире с "
     .. "расстоянием до него. MedalUI включает её при каждом входе в игру; если выключить здесь, она "
     .. "выключается один раз."
+L["Off for now: the game's own marker has not worked since WoW Forever's update "
+    .. "of 21 November, even turned on by hand. It comes back here once the game has it "
+    .. "again."] =
+    "Пока выключено: собственная метка игры не работает с обновления WoW Forever от 21 ноября, "
+    .. "даже если включить её вручную. Опция снова заработает здесь, когда игра её вернёт."
 L["Its quest items are out: after combat."] = "Предметы заданий выставлены: после боя."
 L["Complete."] = "Выполнено."
 L["Failed."] = "Провалено."

@@ -1468,7 +1468,9 @@ function harnessFirstPoint(points)
 end
 -- the game's settings by name: the in-world quest marker's (quests/waypoint.lua),
 -- the rest unset (passes put their own in)
-harnessCVars = { showInGameNavigation = "0" }
+-- (the marker's reads nil to an addon, as it did in game on 2026-11-23,
+-- while /console sets it: the option must show all the same)
+harnessCVars = {}
 function GetCVar(k) return harnessCVars[k] end
 function SetCVar(k, v) harnessCVars[k] = tostring(v) end
 -- an error handed to the handler is raised again: the harness never hides one
@@ -6341,11 +6343,31 @@ if barPass then
     page.settings.side:Set(false)
     dump("side")
     page.settings.side:Set(true)
-    -- (2026-11-23) the Quests page: the game's marker in the world, live
-    -- with the tracker off
+    -- (2026-11-23) the Quests page: the game's marker in the world, greyed
+    -- with why while the game's reads nil (as Forever's since 21 November)
     page.settings.quests:Set(false)
     dump("quests")
     page.settings.quests:Set(true)
+    do
+        local seen = {}
+        local function find(t)
+            if type(t) ~= "table" or seen[t] then return end
+            seen[t] = true
+            if t.key == "questsNavigation" and t.tip then return t end
+            for _, v in pairs(t) do
+                local got = find(v)
+                if got then return got end
+            end
+        end
+        local spec = find(ns.OptionPages())
+        print("quests navigation note", spec and spec.tip, "can=" .. tostring(spec and spec.can and spec.can()))
+        -- the game's back (it reads): live, the tracker off or not
+        harnessCVars.showInGameNavigation = "0"
+        page.settings.quests:Set(false)
+        dump("quests")
+        page.settings.quests:Set(true)
+        harnessCVars.showInGameNavigation = nil
+    end
     -- a section's switch greys its rows: the console's Visibility
     page.settings.consoleFade:Set(true)
     dump("console/general")
@@ -23878,8 +23900,9 @@ if questPass and not questLogPass then
 
     -- (2026-11-23, the user's) the game's marker in the world at the
     -- waypoint: on at login while the option is; switched off, off once,
-    -- then left alone (a /console of the player's own holds); a client
-    -- without the CVar is left alone and the option hidden
+    -- then left alone (a /console of the player's own holds); a CVar that
+    -- reads nil (Forever's since its 21 November update) is never written,
+    -- the option shown greyed; a client that cannot set CVars hides it
     ;(function()
         local P = ns.waypoint
         local get, set, cc = GetCVar, SetCVar, C_CVar
@@ -23894,7 +23917,7 @@ if questPass and not questLogPass then
         local function nav(tag)
             print("quests.navigation " .. tag, "cvar=" .. tostring(cv.showInGameNavigation),
                 "option=" .. tostring(ns.db.questsNavigation), "writes=" .. writes,
-                "has=" .. tostring(P.Navigation()))
+                "has=" .. tostring(P.Navigation()), "works=" .. tostring(P.NavigationWorks()))
         end
         login()
         nav("login")
@@ -23909,9 +23932,19 @@ if questPass and not questLogPass then
         cv.showInGameNavigation = "0"
         login()
         nav("on again, login")
+        -- Forever's since 21 November: reads nil, nothing written
         cv.showInGameNavigation = nil
         login()
-        nav("a client without it")
+        nav("broken, login")
+        ns.SetOption("questsNavigation", false)
+        nav("broken, switched off")
+        ns.SetOption("questsNavigation", true)
+        nav("broken, switched on")
+        local read = GetCVar
+        GetCVar = nil
+        login()
+        nav("no reader, login")
+        GetCVar = read
         cv.showInGameNavigation, SetCVar = "0", nil
         login()
         nav("reads it but cannot set it")

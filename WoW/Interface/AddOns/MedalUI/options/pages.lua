@@ -1672,11 +1672,18 @@ function ns.OptionPages()
                 -- left out where the game has no such marker)
                 ns.waypoint.Navigation() and On("behaviour", Group(Tr["Navigation"],
                     (function()
-                        local c = Check("questsNavigation", Tr["Marker in the world"],
-                            Tr["The game's own marker at your tracked quest's objective, or your waypoint: a "
+                        -- greyed, with why, while the game's is broken (Forever's
+                        -- update of 21 November 2026); live again once it reads back
+                        local works = ns.waypoint.NavigationWorks()
+                        local c = Check("questsNavigation", Tr["Marker in the world"], works
+                            and Tr["The game's own marker at your tracked quest's objective, or your waypoint: a "
                             .. "diamond in the world with its distance. MedalUI turns it on at each login; "
-                            .. "switched off here, it is turned off once."])
+                            .. "switched off here, it is turned off once."]
+                            or Tr["Off for now: the game's own marker has not worked since WoW Forever's update "
+                            .. "of 21 November, even turned on by hand. It comes back here once the game has it "
+                            .. "again."])
                         c.always = true
+                        c.can = ns.waypoint.NavigationWorks
                         return c
                     end)())) or nil,
             },
