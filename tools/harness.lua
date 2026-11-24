@@ -7596,7 +7596,8 @@ if sidePass then
         end
         local function rows(tag)
             local list = select(2, z.body:GetChildren())
-            print("zone head " .. tag, tostring(list.all_[1].text), tostring(list.all_[2].text))
+            print("zone head " .. tag, "name=" .. tostring(z.nameBand.text.text):gsub("\n", " / "),
+                tostring(z.place.text), "counts=" .. tostring(z.counts and z.counts.text))
             for _, r in ipairs(list.all_) do
                 if r.kind == "Button" and r.shown then
                     print("", string.format("%s%s%s%s|%s|%s%s%s h=%d", r.rule.shown and "~ " or "",
@@ -7622,6 +7623,60 @@ if sidePass then
         pick(z)
         where("tab picked")
         rows("tab picked")
+        -- (2026-11-24, the user's) the counts at the heading's left, the
+        -- coordinates right of them, flush right; the counts' tip; the
+        -- zone's name over the map, under the pointer only
+        do
+            local list = select(2, z.body:GetChildren())
+            local place, c = z.place, z.counts
+            local function at(r)
+                local out = {}
+                for _, k in ipairs({ "TOPLEFT", "TOPRIGHT", "LEFT" }) do
+                    local p = r.points[k]
+                    if p then
+                        out[#out + 1] = k .. ">" .. (p[1] == c and "counts" or p[1] == list and "list" or tostring(p[1]))
+                            .. " " .. p[2] .. " " .. p[3]
+                    end
+                end
+                return table.concat(out, ",") .. " " .. tostring(r.justifyH)
+            end
+            local tip = {}
+            local st, al = GameTooltip.SetText, GameTooltip.AddLine
+            function GameTooltip:SetText(t) tip = { tostring(t) } end
+            function GameTooltip:AddLine(t) tip[#tip + 1] = tostring(t) end
+            c.hold.scripts.OnEnter(c.hold)
+            GameTooltip.SetText, GameTooltip.AddLine = st, al
+            c.hold.scripts.OnLeave(c.hold)
+            print("zone counts", "place@" .. at(place), "counts@" .. at(c), "hold=" .. tostring(c.hold.w),
+                table.concat(tip, " | "))
+            local well, label = z.nameBand:GetParent(), z.nameBand
+            local function look(tag)
+                well.scripts.OnUpdate(well, 1)
+                print("zone name " .. tag, "shown=" .. tostring(label.shown), tostring(label.text.text):gsub("\n", " / "),
+                    "h=" .. tostring(label.h), "over the map=" .. tostring(label:GetFrameLevel() > well:GetFrameLevel() + 3))
+            end
+            look("at rest")
+            local was = mouseOver
+            mouseOver = well
+            look("under the pointer")
+            local sub = GetSubZoneText
+            function GetSubZoneText() return "" end
+            z.Refresh()
+            look("no subzone")
+            GetSubZoneText = sub
+            z.Refresh()
+            -- into another subzone, no quest event: the half-second look
+            -- names it while the name is up
+            function GetSubZoneText() return "" end
+            z.Refresh()
+            function GetSubZoneText() return "Raven Hill" end
+            z.body.scripts.OnUpdate(z.body, 1)
+            look("walked on")
+            GetSubZoneText = sub
+            z.body.scripts.OnUpdate(z.body, 1)
+            mouseOver = was
+            look("pointer gone")
+        end
         -- (2026-11-22) in a dungeon of Elwynn's name whose best map is
         -- Duskwood outside (no map of its own): Elwynn's quests only, none
         -- of Duskwood's nor those marked on its map; a dungeon's own map
@@ -8056,6 +8111,11 @@ if sidePass then
             end
             lib()
             G.Reset()
+            -- the log's quests all tracked here: one not tracked is skipped
+            -- (its own lines, after the ignored), the old set back at the end
+            local watchedBefore = {}
+            for k, v in pairs(watched) do watchedBefore[k] = v end
+            for _, id in ipairs({ 101, 102, 201, 202, 203 }) do watched[id] = true end
             local function plan(tag, frozen)
                 local list, moved = G.Plan(frozen)
                 local o = {}
@@ -8299,6 +8359,42 @@ if sidePass then
                 way("stepped onto the ignored")
                 heads("stepped onto the ignored")
                 ignore(304, "not ignored")
+                -- (2026-11-24, the user's) a quest in the log not tracked: at
+                -- the list's foot, and passed by as an ignored one is, by the
+                -- waypoint and by steps; tracked again, back in its place
+                for _ = 1, 10 do press("<") end
+                watched[203] = nil
+                z.Refresh()
+                way("203 not tracked")
+                heads("203 not tracked")
+                for _ = 1, 10 do press(">") end
+                way("stepped to the end, 203 not tracked")
+                heads("stepped to the end, 203 not tracked")
+                watched[203] = true
+                z.Refresh()
+                heads("203 tracked again")
+                -- in combat the order holds: the head ignored stays first,
+                -- but the waypoint goes on to the next, and Back has nowhere
+                for _ = 1, 10 do press("<") end
+                inCombat = true
+                ignore(301, "ignored in combat")
+                way("head ignored in combat")
+                heads("head ignored in combat")
+                -- (only a frozen order puts one skipped above: Back has
+                -- nowhere to go; the head passes a log quest not tracked)
+                press(">")
+                print("zone guide frozen skips", "back=" .. tostring(G.CanBack(G.Head())),
+                    "head=" .. tostring(G.Head({ { id = 1, tracked = false, guide = { kind = "small" } },
+                        { id = 2, tracked = true, guide = { kind = "small" } } }).id))
+                inCombat = false
+                ignore(301, "not ignored after combat")
+                -- the last one untracked: in its place still, but a change (its stripes)
+                for _ = 1, 10 do press("<") end
+                z.Refresh()
+                watched[201] = nil
+                plan("201 not tracked, already last")
+                watched[201] = true
+                z.Refresh()
                 -- (the waypoint back at the head, for the cases after)
                 for _ = 1, 10 do press("<") end
                 way("back to the head")
@@ -8507,17 +8603,19 @@ if sidePass then
             for i = #log, 1, -1 do was[i] = table.remove(log, i) end
             for _, id in ipairs({ 303, 306, 307, 308, 309, 310 }) do done[id] = true end
             z.Refresh()
-            print("zone guide empty", tostring(select(2, z.body:GetChildren()).all_[3].text))
+            print("zone guide empty", tostring(z.empty.text))
             -- without QuestieDB
             LibQuestieDB, QuestDB, NpcDB, ObjectDB, ItemDB = nil, nil, nil, nil, nil
             G.Reset()
             for i, e in ipairs(was) do log[i] = e end
             z.Refresh()
             rows("guide, no QuestieDB")
-            print("zone guide no db", tostring(select(2, z.body:GetChildren()).all_[3].text))
-            -- back to the log's order
+            print("zone guide no db", tostring(z.empty.text))
+            -- back to the log's order, and its tracked set
             ns.SetOption("zoneSort", "log")
             G.Reset()
+            for k in pairs(watched) do watched[k] = nil end
+            for k, v in pairs(watchedBefore) do watched[k] = v end
             CreateVector2D, C_Map.GetWorldPosFromMapPos, UnitLevel, UnitRace, UnitClass,
                 C_QuestLog.IsQuestFlaggedCompleted, C_SuperTrack, C_Map.SetUserWaypoint, C_Map.GetUserWaypoint,
                 C_Map.ClearUserWaypoint, UiMapPoint, C_Map.GetPlayerMapPosition, C_Map.GetMapInfo, C_Timer
@@ -8778,10 +8876,10 @@ if sidePass then
             local list = select(2, z.body:GetChildren())
             local xy = ctl("x/y", 10)
             xy.scripts.OnClick(xy)
-            print("zone controls no coords", tostring(list.all_[2].text), "db=" .. tostring(ns.db.zoneCoords))
+            print("zone controls no coords", tostring(z.place.text), "db=" .. tostring(ns.db.zoneCoords))
             drawer("no coords")
             xy.scripts.OnClick(xy)
-            print("zone controls coords", tostring(list.all_[2].text))
+            print("zone controls coords", tostring(z.place.text))
             -- no quest with an item: the bar says so, its buttons away
             local special = GetQuestLogSpecialItemInfo
             GetQuestLogSpecialItemInfo = function() end
@@ -24664,6 +24762,10 @@ if questPass and not questLogPass then
     state("quests.minimised")
     rows("quests.minimised")
     print("quests.minimised shade", "h=" .. T.shade.h)
+    -- (2026-11-24) the counts under the heading: shown folded too, and the
+    -- list's top under them
+    print("quests.counts", tostring(T.counts.text), "shown=" .. tostring(T.counts:IsVisible()),
+        "top=" .. tostring(T.top), "body=" .. tostring(list.body.points.TOPLEFT and list.body.points.TOPLEFT[4]))
     items("quests.minimised items")
     T.head.scripts.OnClick(T.head, "LeftButton")
     frame()
@@ -25581,6 +25683,51 @@ if questLogPass then (function()
     rows("questlog rows")
     print("questlog foot", segState(QL.foot))
     print("questlog tips", "eye=" .. tipOf(row("Elwynn Forest").eye), "row=" .. tipOf(row("The Defias Brotherhood")))
+    -- (2026-11-24, the user's: Forever tracks 25 of the log's 40) the
+    -- log's count and the tracked count, a half red when full; with no
+    -- limit known the tracked count alone; the tip says both
+    do
+        local function counts(tag)
+            QL.Refresh()
+            print("questlog counts " .. tag, tostring(QL.count.text), "hold=" .. tostring(QL.count.hold.w))
+        end
+        counts("under")
+        -- (2026-11-24, the user's) under the list, over the margin's
+        -- buttons; the search box takes the head's left
+        do
+            local c, b = QL.count.points.BOTTOMLEFT, QL.body.points.BOTTOMRIGHT
+            local sl = QL.search.points.LEFT
+            print("questlog counts placed", "count=" .. (c and (tostring(c[1] == QL.body:GetParent()) .. " " .. c[2]
+                .. " " .. c[3] .. "," .. c[4]) or "-"), "body foot=" .. (b and tostring(b[4]) or "-"),
+                "search left=" .. (sl and tostring(sl[3]) or "-"))
+        end
+        print("questlog counts tip", tipOf(QL.count.hold))
+        -- the tracked count is the rows' ticks (Questie's set while it keeps
+        -- one), not the game's own count of its watch
+        local num = C_QuestLog.GetNumQuestWatches
+        C_QuestLog.GetNumQuestWatches = function() return 2 end
+        counts("the game's watch says 2")
+        C_QuestLog.GetNumQuestWatches = num
+        W.limit = 6
+        counts("tracking full")
+        W.limit = nil
+        local was = MAX_WATCHABLE_QUESTS
+        MAX_WATCHABLE_QUESTS = nil
+        -- (2026-11-24) Forever says neither limit (nil nil in game) but stops at 25
+        counts("no limit given")
+        MAX_WATCHABLE_QUESTS = was
+        local accept = C_QuestLog.GetMaxNumQuestsCanAccept
+        C_QuestLog.GetMaxNumQuestsCanAccept = function() return 7 end
+        W.limit = 25
+        counts("log full")
+        C_QuestLog.GetMaxNumQuestsCanAccept = nil
+        local most = MAX_QUESTLOG_QUESTS
+        MAX_QUESTLOG_QUESTS = 20
+        counts("the old limit")
+        MAX_QUESTLOG_QUESTS = most
+        C_QuestLog.GetMaxNumQuestsCanAccept = accept
+        QL.Refresh()
+    end
     -- 3. a fold, and every zone folded and opened
     row("Westfall").scripts.OnClick(row("Westfall"), "LeftButton")
     rows("questlog folded westfall")

@@ -489,10 +489,49 @@ end
 ns.On("PLAYER_LOGIN", MapClicks)
 ns.On("ADDON_LOADED", MapClicks)
 
--- How many quests the game lets be watched at once (none known: no limit).
+-- How many quests the game lets be watched at once. (2026-11-24) Forever
+-- says neither (both nil in game, the user's) but stops at 25: so 25.
 function Q.WatchLimit()
-    if C_QuestLog.GetMaxNumQuestsCanWatch then return C_QuestLog.GetMaxNumQuestsCanWatch() end
-    return MAX_WATCHABLE_QUESTS
+    local most = C_QuestLog.GetMaxNumQuestsCanWatch and C_QuestLog.GetMaxNumQuestsCanWatch()
+    return most or MAX_WATCHABLE_QUESTS or 25
+end
+
+-- How many quests the log holds at most.
+function Q.LogLimit()
+    return C_QuestLog.GetMaxNumQuestsCanAccept and C_QuestLog.GetMaxNumQuestsCanAccept()
+        or MAX_QUESTLOG_QUESTS or 25
+end
+
+-- (2026-11-24, the user's: Forever tracks 25 of the log's 40) the log's
+-- count and the tracked count: in the log, its limit, tracked (as the rows
+-- say it: Questie's set while it keeps one), the tracking limit. list:
+-- the log as Q.Log or Q.All gave it, else read now.
+function Q.Counts(list)
+    list = list or Q.Log()
+    local tracked = 0
+    for _, q in ipairs(list) do
+        if q.tracked == nil then q.tracked = Tracked(q.id) end
+        if q.tracked then tracked = tracked + 1 end
+    end
+    return #list, Q.LogLimit(), tracked, Q.WatchLimit()
+end
+
+local FULL = "|cffdb4538"
+-- "32/40 · 18/25" (word: "· 18/25 tracked"); a half red when full
+function Q.CountText(word, list)
+    local n, most, tracked, cap = Q.Counts(list)
+    local logPart = (n >= most and FULL or "") .. n .. "/" .. most .. (n >= most and "|r" or "")
+    local trackPart = (tracked >= cap and FULL or "") .. tracked .. "/" .. cap .. (tracked >= cap and "|r" or "")
+    if word then trackPart = string.format(Tr["%s tracked"], trackPart) end
+    return logPart .. "  \194\183  " .. trackPart
+end
+
+-- the counts' tip lines, for a spec of ns.Tip's
+function Q.CountLines(list)
+    local n, most, tracked, cap = Q.Counts(list)
+    return { { "body", string.format(Tr["Quests in the log: %d of %d."], n, most) },
+        { "body", string.format(Tr["Tracked: %d of %d."], tracked, cap) },
+        { "hint", string.format(Tr["The game tracks at most %d quests."], cap) } }
 end
 
 -- How many the game watches now.

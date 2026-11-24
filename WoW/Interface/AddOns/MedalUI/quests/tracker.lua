@@ -82,7 +82,8 @@ local GOLD_D = { 0.541, 0.439, 0.204 }
 local DIM = "|cff8c8473"
 local WIDTH = L.chatLeft + L.chatWidth   -- the character window's width
 local PAD, HEAD, CONTROL, GLYPH = 8, 14, 22, 16
-local TOP = PAD + HEAD + 6              -- the list's top, under the heading
+local COUNTS = 12                       -- the counts' line, under the heading
+local TOP = PAD + HEAD + COUNTS + 6     -- the list's top, under the heading and its counts
 local FOOT = 4 + CONTROL                -- the footer: a gap under the list, and its buttons
 local GRIP = 14                         -- the grip's size
 local ITEM = 20
@@ -115,7 +116,7 @@ local MARKS = {
 }
 local LEAD = 12                         -- an objective's bullet or branch (character/list.lua)
 
-local frame, list, layer, sortButton, foldAll, viewButton, head, grip, footer, ink, measure, shade
+local frame, list, layer, sortButton, foldAll, viewButton, head, grip, footer, ink, measure, shade, counts
 local dress, chatRule
 local wide = WIDTH                      -- the width the rows have now
 local quests = {}
@@ -468,6 +469,8 @@ function Refresh()
     dirty = false
     if not frame then return end
     quests = Q.Read()
+    -- (2026-11-24) the log's count and the tracked count, under the heading
+    counts:SetText(Q.CountText(true))
     local rows = Rows()
     local shape = Shape(rows)
     if InCombatLockdown() and shape ~= drawn then
@@ -662,6 +665,9 @@ local function Build()
     ornament:SetPoint("LEFT")
     ornament:SetPoint("RIGHT")
     ornament.mid:SetFont(ns.font, HEAD, "")
+    counts = ns.Text(frame, 10)
+    counts:SetPoint("TOP", head, "BOTTOM", 0, 0)
+    counts:SetTextColor(0.549, 0.518, 0.451)
     head:SetScript("OnClick", function()
         if InCombatLockdown() then return end
         ns.db.questsMinimised = not ns.db.questsMinimised
@@ -684,7 +690,9 @@ local function Build()
         end
     end)
     head:SetScript("OnEnter", function(self)
+        local c = Q.CountLines()
         ns.Tip(self, ns.window.Outside, { title = Tr["Quests"], color = GOLD,
+            c[1], c[2], c[3] or false,
             { "body", ns.db.questsMinimised and Tr["Click: show the quests."]
                 or Tr["Click: fold the tracker to this heading."] },
             not Full() and { "body",
@@ -798,7 +806,8 @@ local function Build()
     layer:SetAllPoints(frame)
     layer.buttons = {}
     ns.quests = { frame = frame, list = list, layer = layer, sort = sortButton, foldAll = foldAll,
-        view = viewButton, head = head, grip = grip, footer = footer, ink = ink, shade = shade, top = TOP,
+        view = viewButton, head = head, counts = counts, grip = grip, footer = footer, ink = ink, shade = shade,
+        top = TOP,
         dress = dress, chatRule = chatRule, gear = gear, book = book, measure = measure,
         Refresh = Refresh, Layout = Layout }
 

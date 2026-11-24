@@ -52,7 +52,8 @@ local DIM = { 0.55, 0.52, 0.45 }
 local XP = { 0.63, 0.55, 0.9 }
 local RED = { 0.86, 0.27, 0.22 }
 local NONE = { 0.47, 0.24, 0.2 }
-local HEAD = 26                         -- the count, the search and the fold, over the columns
+local HEAD = 26                         -- the search and the fold, over the columns
+local COUNTS = 18                       -- the counts' line under the list, over the margin's buttons
 local COLUMNS, ROW, FOLD = 18, 20, 26   -- the columns' heading, a quest's row, a zone's
 local GUTTER = 10                       -- the scroll bar, left of the rows
 local CONTROL = 18
@@ -503,8 +504,9 @@ function log.Refresh()
     if not body then return end
     dirty = false
     lines = Lines()
-    count:SetText(#quests .. " / " .. (C_QuestLog.GetMaxNumQuestsCanAccept and C_QuestLog.GetMaxNumQuestsCanAccept()
-        or MAX_QUESTLOG_QUESTS or 25))
+    -- (2026-11-24) the log's count and the tracked count
+    count:SetText(Q.CountText(true, quests))
+    count.hold:SetWidth(count:GetStringWidth())
     if first > 0 and first >= #lines then first = math.max(0, #lines - 1) end
     local height = body:GetHeight()
     local y, used, n = 0, 0, 0
@@ -583,9 +585,23 @@ local function Build(pageBody, _, band)
     head:SetPoint("TOPLEFT")
     head:SetPoint("TOPRIGHT")
     head:SetHeight(HEAD)
-    count = ns.Text(head, 12)
-    count:SetPoint("LEFT", 4, 0)
+    -- (2026-11-24, the user's) the log's count and the tracked count: under
+    -- the list, over the margin's buttons
+    count = ns.Text(pageBody, 12)
+    count:SetPoint("BOTTOMLEFT", GUTTER + 4, 3)
     count:SetTextColor(unpack(DIM))
+    -- the counts' tip
+    count.hold = CreateFrame("Frame", nil, pageBody)
+    count.hold:SetPoint("LEFT", count)
+    count.hold:SetHeight(COUNTS)
+    count.hold:SetWidth(1)
+    count.hold:EnableMouse(true)
+    count.hold:SetScript("OnEnter", function(self)
+        local spec = { title = Tr["Quests"], color = GOLD }
+        for _, l in ipairs(Q.CountLines(quests)) do spec[#spec + 1] = l end
+        ns.Tip(self, ns.window.Outside, spec)
+    end)
+    count.hold:SetScript("OnLeave", function() GameTooltip:Hide() end)
     foldAll = Control(head, "chevron-double", function()
         return log.AnyOpen() and Tr["Fold every zone."] or Tr["Open every zone."]
     end, function(self)
@@ -601,7 +617,7 @@ local function Build(pageBody, _, band)
     foldAll:SetPoint("RIGHT", 0, 0)
     search = CreateFrame("EditBox", "MedalUIQuestLogSearch", head, "SearchBoxTemplate")
     search:SetHeight(20)
-    search:SetPoint("LEFT", count, "RIGHT", 16, 0)
+    search:SetPoint("LEFT", 10, 0)
     search:SetPoint("RIGHT", foldAll, "LEFT", -10, 0)
     search:SetAutoFocus(false)
     search:HookScript("OnTextChanged", function()
@@ -665,7 +681,7 @@ local function Build(pageBody, _, band)
     -- the list, and its scroll bar in the gutter
     body = CreateFrame("Frame", nil, pageBody)
     body:SetPoint("TOPLEFT", 0, -(HEAD + 4 + COLUMNS + 4))
-    body:SetPoint("BOTTOMRIGHT")
+    body:SetPoint("BOTTOMRIGHT", 0, COUNTS)
     body:EnableMouseWheel(true)
     body:SetScript("OnMouseWheel", function(_, delta) Wheel(delta) end)
     body:SetScript("OnSizeChanged", function() if log.IsShown() then log.Refresh() end end)

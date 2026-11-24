@@ -38,11 +38,14 @@
 --                      the player set another themselves
 --   G.Suggest()        the nearest zone at your level on this continent: its name
 --   G.Head(list)       the entry the waypoint is for: the one stepped to, or the
---                      first not ignored
+--                      first not skipped
 --   G.Ignore(e), G.Ignored(e)  a quest to take ignored (Ctrl+right-click), or not
---   G.Next(cur), G.Back(cur)  the waypoint a row down or up the list (the Zone
---                      tab's controls; cur: the row it is at); G.CanNext(cur),
---                      G.CanBack(cur) whether there is one
+--   G.Skipped(e)       ignored, or a quest in the log not tracked: last in the
+--                      list, and the waypoint passes it by (by itself and in
+--                      steps; a click on its row still points at it)
+--   G.Next(cur), G.Back(cur)  the waypoint to the next row down or up the list
+--                      not skipped (the Zone tab's controls; cur: the row it
+--                      is at); G.CanNext(cur), G.CanBack(cur) whether there is one
 --
 -- Steps (2026-11-23, the user's: "the list should be static, but the
 -- focused quest should move"): Next and Back move the waypoint a row down
@@ -389,11 +392,40 @@ local function Held(q, cont, wx, wy)
     return q
 end
 
+-- ------------------------------------------------------------- skipped
+-- (2026-11-23, the user's) Quests to take the player has ignored
+-- (Ctrl+right-click on the row). This character's, in
+-- MedalUICharDB.guideIgnored (quest id -> true).
+local function Ignores()
+    MedalUICharDB = MedalUICharDB or {}
+    MedalUICharDB.guideIgnored = MedalUICharDB.guideIgnored or {}
+    return MedalUICharDB.guideIgnored
+end
+function G.Ignored(e)
+    return e ~= nil and e.pick and Ignores()[e.id] == true or false
+end
+function G.Ignore(e)
+    if not (e and e.pick) then return end
+    local t = Ignores()
+    t[e.id] = not t[e.id] or nil
+end
+-- (2026-11-24, the user's) passed by as an ignored one is: a quest in the
+-- log not tracked too. Both go to the list's foot, and the waypoint goes to
+-- neither by itself nor by a step; a click on the row still points at it.
+local function Skipped(e)
+    if e == nil then return false end
+    if e.pick then return G.Ignored(e) end
+    return e.tracked == false
+end
+G.Skipped = Skipped
+
 -- ------------------------------------------------------------- the order
 local rank, lead = {}, nil      -- the last order (key -> place); its head's key
 local seen = {}                 -- the last order's kinds (id -> EntryKey, ! when near)
 
 local function Before(a, b)
+    local sa, sb = Skipped(a), Skipped(b)
+    if sa ~= sb then return sb end
     local ga, gb = a.guide, b.guide
     local ta, tb = Tier(ga), Tier(gb)
     if ta ~= tb then return ta < tb end
@@ -437,8 +469,8 @@ local function Ranked(out)
     for i, e in ipairs(out) do
         now[e.id] = i
         -- (2026-11-23) its place, or what it is: its work done (a hand-in
-        -- now), or near enough to hand in first
-        kinds[e.id] = EntryKey(e) .. (e.guide.near and "!" or "")
+        -- now), near enough to hand in first, or skipped now or no longer
+        kinds[e.id] = EntryKey(e) .. (e.guide.near and "!" or "") .. (Skipped(e) and "~" or "")
         if rank[e.id] ~= i or seen[e.id] ~= kinds[e.id] then moved = true end
     end
     for id in pairs(rank) do if not now[id] then moved = true end end
@@ -488,11 +520,11 @@ function G.Plan(frozen)
     end
     table.sort(out, Before)
     -- the head keeps its place while none of its tier is clearly better
-    if lead and out[1] and out[1].id ~= lead then
+    if lead and out[1] and out[1].id ~= lead and not Skipped(out[1]) then
         for i = 2, #out do
             local e = out[i]
             if e.id == lead then
-                if Tier(e.guide) == Tier(out[1].guide) and not Better(out[1], e) then
+                if not Skipped(e) and Tier(e.guide) == Tier(out[1].guide) and not Better(out[1], e) then
                     table.remove(out, i)
                     table.insert(out, 1, e)
                 end
@@ -508,33 +540,15 @@ function G.Plan(frozen)
     return Ranked(out)
 end
 
--- The entry the waypoint is for: the one stepped to, else the list's head
--- (2026-11-23, the user's) Quests to take the player has ignored
--- (Ctrl+right-click on the row): they stay in the list where they are, but
--- the waypoint never goes to one by itself; a step or a click still does.
--- This character's, in MedalUICharDB.guideIgnored (quest id -> true).
-local function Ignores()
-    MedalUICharDB = MedalUICharDB or {}
-    MedalUICharDB.guideIgnored = MedalUICharDB.guideIgnored or {}
-    return MedalUICharDB.guideIgnored
-end
-function G.Ignored(e)
-    return e ~= nil and e.pick and Ignores()[e.id] == true or false
-end
-function G.Ignore(e)
-    if not (e and e.pick) then return end
-    local t = Ignores()
-    t[e.id] = not t[e.id] or nil
-end
-
--- the head: the one stepped to; else the first the waypoint may go to by itself
+-- the head: the one stepped to (unless skipped since: ignored or untracked
+-- while the waypoint was on it); else the first the waypoint may go to by itself
 function G.Head(list)
     list = list or order
     for _, e in ipairs(list) do
-        if focus and EntryKey(e) == focus then return e end
+        if focus and EntryKey(e) == focus and not Skipped(e) then return e end
     end
     for _, e in ipairs(list) do
-        if not G.Ignored(e) then return e end
+        if not Skipped(e) then return e end
     end
 end
 
@@ -547,12 +561,19 @@ local function From(cur)
     return 1
 end
 
-function G.CanNext(cur) return From(cur) < #order end
-function G.CanBack(cur) return #order > 0 and From(cur) > 1 end
+-- the next row down the list (by 1) or up (-1) that is not skipped
+local function Toward(cur, by)
+    local i = From(cur) + by
+    while order[i] and Skipped(order[i]) do i = i + by end
+    return order[i]
+end
 
--- the waypoint a row down the list, or up (the list drawn again by the caller)
+function G.CanNext(cur) return Toward(cur, 1) ~= nil end
+function G.CanBack(cur) return #order > 0 and Toward(cur, -1) ~= nil end
+
+-- the waypoint to it (the list drawn again by the caller)
 local function Step(cur, by)
-    local e = order[From(cur) + by]
+    local e = Toward(cur, by)
     if not e then return false end
     focus, claim = EntryKey(e), true
     return true

@@ -67,7 +67,7 @@ local GOLD_D = { 0.541, 0.439, 0.204 }
 local DIM = { 0.70, 0.66, 0.55 }
 local STRIPES, RULE = 0.3, 0.6      -- an untracked quest's stripes (the quest log's); the hairline's alpha
 
-local body, well, hold, list, title, place, empty
+local body, well, hold, list, place, counts, empty, label
 local rows, quests, lines = {}, {}, {}
 local open = {}                 -- quest ids whose objectives are shown
 local first, shown = 0, 0
@@ -84,9 +84,10 @@ local function MapID()
     return C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
 end
 
--- The subzone, and where in the zone's map you stand (none in an instance).
+-- (2026-11-24, the user's) where in the zone's map you stand, at the
+-- heading's right (none in an instance, or with the coordinates off); the
+-- zone's name and the subzone are the map's, under the pointer
 local function Place()
-    local sub = GetSubZoneText and GetSubZoneText() or ""
     local map, at = MapID(), ""
     local pos = map and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(map, "player")
     if pos then
@@ -95,8 +96,23 @@ local function Place()
             at = string.format("%.0f, %.0f", x * 100, y * 100)
         end
     end
-    if sub ~= "" and at ~= "" then return sub .. "  " .. at end
-    return sub ~= "" and sub or at
+    return at
+end
+
+-- the zone's name over the map, the subzone under it
+local function Label()
+    local sub = GetSubZoneText and GetSubZoneText() or ""
+    local name = ZoneName()
+    if sub ~= "" and sub ~= name then
+        return name .. "\n|cff8c8473" .. sub .. "|r"
+    end
+    return name
+end
+
+-- the band over the map: the name, and its height for one line or two
+local function Name()
+    label.text:SetText(Label())
+    label:SetHeight(label.text:GetStringHeight() + 8)
 end
 
 -- The log's quests here: its heading is this zone (or the map's name for
@@ -630,8 +646,11 @@ local function Lines()
 end
 
 local function Header()
-    title:SetText(ZoneName())
     place:SetText(Place())
+    Name()
+    -- (2026-11-24) the log's count and the tracked count, at the right
+    counts:SetText((C_QuestLog and C_QuestLog.GetNumQuestLogEntries) and ns.questSource.CountText(false) or "")
+    counts.hold:SetWidth(counts:GetStringWidth())
 end
 
 -- the rows from first, as many as fit: { line, y, h }
@@ -824,21 +843,65 @@ function view.Build(f)
     list:SetPoint("TOPLEFT", well, "TOPRIGHT", 8, 0)
     list:SetPoint("BOTTOMRIGHT")
     list:SetSize(f:GetWidth() - side - 8, side)
-    title = ns.Text(list, 13)
-    title:SetPoint("TOPLEFT", 2, -3)
-    title:SetJustifyH("LEFT")
-    title:SetWordWrap(false)
-    title:SetTextColor(unpack(GOLD))
     place = ns.Text(list, 10)
     place:SetPoint("TOPRIGHT", -2, -5)
     place:SetJustifyH("RIGHT")
     place:SetWordWrap(false)
     place:SetTextColor(unpack(DIM))
-    title:SetPoint("RIGHT", place, "LEFT", -6, 0)
     empty = ns.Text(list, 10)
     empty:SetPoint("TOPLEFT", 4, -HEAD - 4)
     empty:SetTextColor(unpack(DIM))
     empty:SetText(Tr["No quests in this zone."])
+    -- (2026-11-24, the user's) the log's count and the tracked count at the
+    -- heading's left, the coordinates at its right
+    counts = ns.Text(list, 10)
+    counts:SetPoint("TOPLEFT", 2, -5)
+    counts:SetJustifyH("LEFT")
+    counts:SetWordWrap(false)
+    counts:SetTextColor(unpack(DIM))
+    counts.hold = CreateFrame("Frame", nil, list)
+    counts.hold:SetPoint("TOPLEFT", 2, -2)
+    counts.hold:SetHeight(14)
+    counts.hold:SetWidth(1)
+    counts.hold:EnableMouse(true)
+    counts.hold:SetScript("OnEnter", function(self)
+        if (counts:GetText() or "") == "" then return end        -- not drawn yet
+        local spec = { title = Tr["Quests"], color = GOLD }
+        for _, l in ipairs(ns.questSource.CountLines()) do spec[#spec + 1] = l end
+        ns.Tip(self, ns.side.Beside, spec)
+    end)
+    counts.hold:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    place:SetPoint("LEFT", counts, "RIGHT", 8, 0)
+    view.counts, view.place, view.empty = counts, place, empty
+    -- the zone's name (and the subzone) over the map's top, under the
+    -- pointer only (2026-11-24, the user's)
+    label = CreateFrame("Frame", nil, well)
+    label:SetPoint("TOPLEFT", 1, -1)
+    label:SetPoint("TOPRIGHT", -1, -1)
+    label:SetHeight(20)
+    label:SetFrameLevel(well:GetFrameLevel() + 10)
+    label.bg = label:CreateTexture(nil, "BACKGROUND")
+    label.bg:SetAllPoints()
+    label.bg:SetColorTexture(0.078, 0.067, 0.047, 0.82)
+    label.rule = label:CreateTexture(nil, "ARTWORK")
+    label.rule:SetPoint("BOTTOMLEFT")
+    label.rule:SetPoint("BOTTOMRIGHT")
+    label.rule:SetHeight(1)
+    label.rule:SetColorTexture(0.353, 0.29, 0.157, 1)
+    label.text = ns.Text(label, 12)
+    label.text:SetPoint("TOPLEFT", 6, -4)
+    label.text:SetPoint("TOPRIGHT", -6, -4)
+    label.text:SetJustifyH("LEFT")
+    label.text:SetTextColor(unpack(GOLD))
+    label:Hide()
+    view.nameBand = label
+    local look = 0
+    well:SetScript("OnUpdate", function(_, elapsed)
+        look = look - elapsed
+        if look > 0 then return end
+        look = 0.1
+        label:SetShown(well:IsMouseOver())
+    end)
     f:HookScript("OnShow", Lend)
     f:HookScript("OnHide", function()
         Lend()
@@ -858,6 +921,7 @@ function view.Build(f)
         if wait > 0 then return end
         wait = 0.5
         place:SetText(Place())
+        if label:IsShown() then Name() end
     end)
     local function Update()
         if ns.side.IsCurrent(view) then Refresh() end
