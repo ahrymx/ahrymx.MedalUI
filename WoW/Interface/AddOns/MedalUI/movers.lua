@@ -52,8 +52,12 @@ local CONSOLES = {
         place = function() if ns.PlaceMinimap then ns.PlaceMinimap() end end,
         minY = -REACH_Y, maxY = 40,
         shown = function() return ns.MinimapMoves and ns.MinimapMoves() end,
-        -- console/minimap.lua places it on these itself
+        -- console/minimap.lua places it on these itself, and keeps it on the screen
         placesItself = true,
+        clamp = function(x, y)
+            if ns.ClampMinimap then return ns.ClampMinimap(x, y) end
+            return x, y
+        end,
     },
 }
 -- the Cooldown Manager's viewers, each on its own (cooldowns/display.lua):
@@ -216,8 +220,15 @@ local function Dragger(c)
         local dx, dy = x - from[1], y - from[2]
         if not d.dragged and math.abs(dx) + math.abs(dy) < 4 then return end
         d.dragged = true
-        d.at = { Clamp(math.floor(from[3] + dx + 0.5), -REACH_X, REACH_X),
-            Clamp(math.floor(from[4] + dy + 0.5), c.minY, c.maxY) }
+        -- one that knows its own edges keeps to them in place of the reach
+        -- (the corner minimap: anywhere on the screen, however wide)
+        if c.clamp then
+            local cx, cy = c.clamp(from[3] + dx, from[4] + dy)
+            d.at = { math.floor(cx + 0.5), math.floor(cy + 0.5) }
+        else
+            d.at = { Clamp(math.floor(from[3] + dx + 0.5), -REACH_X, REACH_X),
+                Clamp(math.floor(from[4] + dy + 0.5), c.minY, c.maxY) }
+        end
         -- straight onto the saved table's layer, so the console's placement reads
         -- it; ns.SetOption tells everyone else once, on release
         ns.db[Key(c, "X")], ns.db[Key(c, "Y")] = d.at[1], d.at[2]

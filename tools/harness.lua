@@ -896,6 +896,13 @@ function Region:GetJustifyH() return self.justifyH or "CENTER" end
 UIParent = new("Frame", nil, "UIParent")
 UIParent.isScreen = true
 function UIParent:GetHeight() return 768 end
+-- the minimap pass measures the corner against the screen's edges: 16:9 to
+-- that height there, unless it pins one (UIParent.w; the stub's anchors read
+-- .w, which stays 0 for them). Other passes keep the width-less screen they
+-- were written on (window/shell.lua's tooltip side falls back on it).
+if minimapPass then
+    function UIParent:GetWidth() return (self.w or 0) > 0 and self.w or 768 * 16 / 9 end
+end
 -- Edit Mode tells addons it opened and closed through EventRegistry (movers.lua)
 EventRegistry = { registered = {} }
 function EventRegistry:RegisterCallback(event, fn, owner)
@@ -15349,6 +15356,66 @@ function MinimapPass()
         print("minimap grip dragged 60 left, 30 down", "x=" .. tostring(ns.db.minimapX),
             "y=" .. tostring(ns.db.minimapY))
         corner("grip dragged")
+        -- the screen's edges hold the whole frame (header, map, footer, the
+        -- lines round them): a drag past one stops at it, and so does a saved
+        -- place past one; the gaps are each side's room, in the bezel's units
+        local function edges(tag)
+            local _, _, _, ox, oy = bezel:GetPoint()
+            local per = UIParent:GetEffectiveScale() / bezel:GetEffectiveScale()
+            local sw, sh = UIParent:GetWidth() * per, UIParent:GetHeight() * per
+            local head, foot = grip:GetHeight(), ns.minimapFoot:GetHeight()
+            print("minimap edges " .. tag, string.format("x=%s y=%s gaps right=%.0f top=%.0f left=%.0f bottom=%.0f",
+                tostring(ns.db.minimapX), tostring(ns.db.minimapY), -ox - 2, -oy - head - 2,
+                sw + ox - bezel.w - 2, sh + oy - bezel.h - foot - 2))
+        end
+        local function drag(dx, dy)
+            local cx, cy = 500, 500
+            local was = GetCursorPosition
+            function GetCursorPosition() return cx, cy end
+            grip.scripts.OnMouseDown(grip, "LeftButton")
+            cx, cy = 500 + dx * us, 500 + dy * us
+            grip.scripts.OnUpdate(grip, 0.01)
+            grip.scripts.OnMouseUp(grip, "LeftButton")
+            GetCursorPosition = was
+        end
+        drag(3000, 3000)
+        edges("dragged past the top right")
+        drag(-5000, -5000)
+        edges("dragged past the bottom left")
+        set("minimapScale", 1.5)
+        edges("bigger, there")
+        set("minimapX", 900)
+        set("minimapY", -2000)
+        edges("saved past the right and the bottom")
+        set("minimapScale", 1)
+        set("minimapX", -60)
+        set("minimapY", -30)
+        corner("put back")
+        -- tooltips stand outside the frame, towards the screen's middle: the
+        -- map's (the game's blips), a pin's on it, the header's
+        local pin = CreateFrame("Button", nil, Minimap)
+        local function tip(tag, owner)
+            GameTooltip:ClearAllPoints()
+            GameTooltip:SetOwner(owner, "ANCHOR_CURSOR")
+            local p, rel, rp, x, y = GameTooltip:GetPoint()
+            print("minimap tip " .. tag, string.format("%s>%s %s %+.0f,%+.0f", tostring(p),
+                rel == bezel.edge and "frame" or rel == nil and "none" or "other", tostring(rp), x or 0, y or 0))
+            GameTooltip:Hide()
+        end
+        tip("map", Minimap)
+        tip("pin", pin)
+        tip("header", grip)
+        set("minimapX", -5000)
+        tip("map, the corner at the left", Minimap)
+        set("minimapX", -60)
+        -- lent to the side panel's well, the corner's rule is off: the
+        -- well's place rules its tooltips
+        local well = CreateFrame("Frame", nil, UIParent)
+        well:SetSize(200, 200)
+        ns.LendMinimap(well)
+        tip("map, lent to the side panel", Minimap)
+        ns.LendMinimap(nil)
+        tip("map, given back", Minimap)
         ns.UpdateGroupMovers()
         gripLine("on mouseover, pointer away")
         mouseOver = bezel                   -- the map, in the corner's square
@@ -15402,6 +15469,7 @@ function MinimapPass()
         subzone = wasZone
         ns.ToggleMinimap()
         gripLine("in the bay")
+        tip("map, in the bay", Minimap)
         -- the bay's label, showing when the key takes the map to the corner
         mouseOver = _G.MedalUIMinimapClip
         Minimap.scripts.OnEnter(Minimap)

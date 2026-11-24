@@ -436,6 +436,29 @@ ns.On("PLAYER_LOGIN", function()
             ns.On(e, Name)
         end
 
+        -- The screen's edges hold the whole frame: the map's square, the
+        -- header over it, the footer under it and the lines round them. The
+        -- place (minimapX, minimapY: the TOPRIGHT's offset from the corner's
+        -- own) is kept to what leaves all of it on the screen; the dragger
+        -- asks too (movers.lua), so a drag past an edge stops at it.
+        function ns.ClampMinimap(x, y)
+            local k = tonumber(ns.db.consoleScale) or 1
+            if k <= 0 then k = 1 end
+            local side = mmCfg.topRightSize * (tonumber(ns.db.minimapScale) or 1)
+            -- the screen in the bezel's units (its scale is the console's / k)
+            local per = UIParent:GetEffectiveScale() / (console:GetEffectiveScale() / k)
+            local sw, sh = (UIParent:GetWidth() or 0) * per, (UIParent:GetHeight() or 0) * per
+            -- a screen not measured (yet) holds nothing back
+            if not (sw > 0 and sh > 0) then return x, y end
+            local inset, line = mmCfg.topRightInset, 2
+            local function Clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
+            -- right edge: -inset + x <= -line; left: sw - inset + x - size >= line
+            x = Clamp(x, side + line + inset - sw, inset - line)
+            -- top: -inset + y + HEAD_H + line <= 0; bottom: the footer's foot on it
+            y = Clamp(y, side + FOOT_H + line + inset - sh, inset - HEAD_H - line)
+            return x, y
+        end
+
         -- The corner, at the player's size and place (Console > Minimap, or
         -- its Edit Mode mover): in design units, whatever the console's own
         -- scale, as the corner strips are. The minimap is the console's child,
@@ -447,8 +470,8 @@ ns.On("PLAYER_LOGIN", function()
             bezel:SetScale(1 / k)
             bezel:SetSize(mmCfg.topRightSize * s, mmCfg.topRightSize * s)
             bezel:ClearAllPoints()
-            bezel:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -mmCfg.topRightInset + (tonumber(ns.db.minimapX) or 0),
-                -mmCfg.topRightInset + (tonumber(ns.db.minimapY) or 0))
+            local x, y = ns.ClampMinimap(tonumber(ns.db.minimapX) or 0, tonumber(ns.db.minimapY) or 0)
+            bezel:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -mmCfg.topRightInset + x, -mmCfg.topRightInset + y)
             return mmCfg.topRightSize * s / k        -- the map fills the plate's square
         end
 
@@ -474,6 +497,20 @@ ns.On("PLAYER_LOGIN", function()
             else
                 Place(console, "TOP", 0, -(rTop + rBottom) / 2, w, h)
                 bezel:Hide()
+            end
+            -- In the corner, tooltips stand outside the frame (header to
+            -- footer), on the side towards the screen's middle: the map's
+            -- (its pins, the buttons on it, the game's blips) and the header's.
+            -- In the bay the console's place rules them, as before.
+            local win = ns.window
+            if win and win.Mark then
+                if corner and not lent then
+                    win.Mark(Minimap, 1, bezel.edge)
+                    win.Mark(bezel, 1, bezel.edge)
+                else
+                    win.Unmark(Minimap)
+                    win.Unmark(bezel)
+                end
             end
             if ns.UpdateConsoleArt then ns.UpdateConsoleArt() end
             if ns.UpdateBar7Visibility then ns.UpdateBar7Visibility(corner) end
