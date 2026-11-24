@@ -72,6 +72,13 @@ def travel(d):
     line(d, [(7, 3.5), (8.4, 7), (7, 10.5), (5.6, 7)], True)
 
 
+def unfiled(d):
+    # (2026-11-24) an inbox tray: the radials in no category
+    line(d, [(2, 8), (3.5, 3), (10.5, 3), (12, 8)])
+    line(d, [(2, 8), (2, 12), (12, 12), (12, 8)])
+    line(d, [(2, 8), (5, 8), (5.75, 9.75), (8.25, 9.75), (9, 8), (12, 8)])
+
+
 def cog(d):
     circle(d, 7, 7, 2.3)
     for a in range(0, 360, 45):
@@ -80,7 +87,7 @@ def cog(d):
 
 
 for name, draw in [("CatCombat", combat), ("CatHealing", healing), ("CatSocial", social), ("CatGroup", group),
-                   ("CatItems", items), ("CatTravel", travel), ("Cog", cog)]:
+                   ("CatItems", items), ("CatTravel", travel), ("CatUnfiled", unfiled), ("Cog", cog)]:
     mask = Image.new("L", (SIZE * SS, SIZE * SS), 0)
     draw(ImageDraw.Draw(mask))
     # the 14-unit grid centred in 32 px with a 1-unit margin each side is built in: K spans the

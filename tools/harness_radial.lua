@@ -619,6 +619,11 @@ local function listNames()
     end
     return table.concat(out, ", ")
 end
+-- (2026-11-24) a tile clicked: its list alone (one is always lit)
+local function pickTile(id)
+    for _, t in ipairs(host.tiles) do if t.cat == id then t.scripts.OnClick(t, "LeftButton") return end end
+    error("no tile " .. id)
+end
 local function lit()
     for _, c in ipairs(host.radialList.cells) do
         if c.item and c.Bar:IsShown() then return tostring(c.Text.text) end
@@ -642,6 +647,11 @@ local function slotsOf()
         .. " lit=" .. tostring(chosen and c.wheel.buttons[chosen].lit or false)
 end
 print("radial editor list", listNames(), "lit=" .. lit())
+-- (2026-11-24, the user's) a tile is always lit, each session from the first, Combat; the radials
+-- in no category are Unfiled's
+print("radial editor starts on", "tile=" .. tostring(host.sideCategory))
+pickTile("unfiled")
+print("radial editor list, unfiled", listNames(), "lit=" .. lit())
 print("radial editor selected", "name=" .. tostring(host.nameText.text), "key=" .. tostring(host.keyButton.text),
     "slots=" .. slotsOf(), "undo=" .. tostring(host.undoButton.enabled))
 print("radial editor overview", plain(host.overview.text))
@@ -990,21 +1000,36 @@ do
         "name=" .. tostring(combat.name.text), "colour=" .. colour(combat.name), "glyph=" .. tostring(combat.glyph.texture),
         "every=" .. tostring(host.everyButton:IsShown()) .. ":" .. tostring(host.everyButton.label.text)
         .. ":lit=" .. tostring(host.everyButton.lit:IsShown()), "tip=" .. tip(combat))
-    -- an empty one: no menu
+    -- an empty one: no menu; Unfiled has none, and is as wide as two
     menu = nil
     combat.scripts.OnClick(combat, "RightButton")
     print("radial categories empty menu", "menu=" .. menuText())
-    -- a radial's menu: the categories first, then the groups of your own
+    local unfiled = tileOf("unfiled")
+    unfiled.scripts.OnClick(unfiled, "RightButton")
+    print("radial categories unfiled", "menu=" .. menuText(), "wide=" .. tostring(unfiled.w) .. "/" .. tostring(combat.w),
+        "glyph=" .. tostring(unfiled.glyph.texture), "tip=" .. tip(unfiled))
+    -- a radial's menu: the categories first, then the groups of your own; moved, it leaves Unfiled
     local emotesCell = cellOf(function(item) return item.id == emotes end)
     emotesCell.scripts.OnClick(emotesCell, "RightButton")
     print("radial categories radial menu", menuText())
     pick("Move to Social")
+    print("radial categories moved", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order())
+    -- a tile clicked: its radials alone; again, it stays lit
+    local social = tileOf("social")
+    social.scripts.OnClick(social, "LeftButton")
+    print("radial categories tile", "tiles=" .. tiles(), "list=" .. listNames(), "colour=" .. colour(social.name), "tip=" .. tip(social))
     emotesCell = cellOf(function(item) return item.id == emotes end)
     emotesCell.scripts.OnClick(emotesCell, "LeftButton")
-    print("radial categories moved", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order(), "crumb=" .. plain(win.crumb.text))
+    print("radial categories in one", "lit=" .. lit(), "crumb=" .. plain(win.crumb.text))
     emotesCell.scripts.OnClick(emotesCell, "RightButton")
     print("radial categories radial menu in one", menuText())
-    -- dragged onto a tile
+    social.scripts.OnClick(social, "LeftButton")
+    print("radial categories tile again", "tiles=" .. tiles(), "list=" .. listNames())
+    local healing = tileOf("healing")
+    healing.scripts.OnClick(healing, "LeftButton")
+    print("radial categories tile empty", "tiles=" .. tiles(), "list=" .. listNames())
+    -- dragged onto a tile, from Unfiled's list
+    unfiled.scripts.OnClick(unfiled, "LeftButton")
     local first = RM:GetRadialOrder()[2]
     local firstCell = cellOf(function(item) return item.id == first end)
     firstCell.scripts.OnDragStart(firstCell)
@@ -1012,16 +1037,7 @@ do
     firstCell.scripts.OnDragStop(firstCell)
     H.pointAt(nil)
     print("radial categories dragged", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order())
-    -- a tile clicked: its radials alone, then the ones in none (Not filed); again, every one
-    local social = tileOf("social")
-    social.scripts.OnClick(social, "LeftButton")
-    print("radial categories tile", "tiles=" .. tiles(), "list=" .. listNames(), "colour=" .. colour(social.name), "tip=" .. tip(social))
-    local healing = tileOf("healing")
-    healing.scripts.OnClick(healing, "LeftButton")
-    print("radial categories tile empty", "tiles=" .. tiles(), "list=" .. listNames())
-    healing.scripts.OnClick(healing, "LeftButton")
-    print("radial categories tile off", "tiles=" .. tiles(), "list=" .. listNames())
-    -- Presets: sub-headed by category; the tiles count presets; a tile narrows them
+    -- Presets: the tiles count presets; the lit one's alone, Unfiled's the ones in no category
     host.sideTabs.presets.scripts.OnClick(host.sideTabs.presets)
     print("radial categories presets", "tabs=" .. tabs(), "tiles=" .. tiles(), "list=" .. listNames())
     local items = tileOf("items")
@@ -1029,7 +1045,13 @@ do
     print("radial categories presets tile", "list=" .. listNames())
     healing.scripts.OnClick(healing, "LeftButton")
     print("radial categories presets tile empty", "list=" .. listNames())
-    healing.scripts.OnClick(healing, "LeftButton")
+    unfiled.scripts.OnClick(unfiled, "LeftButton")
+    -- a preset in no category: Unfiled's
+    local campCat = ns.PRESETS.camping.category
+    ns.PRESETS.camping.category = nil
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    print("radial categories presets unfiled", "tiles=" .. tiles(), "list=" .. listNames())
+    ns.PRESETS.camping.category = campCat
     -- (a radial dropped on a tile from the Presets tab is still put in it; none is draggable there)
     host.sideTabs.mine.scripts.OnClick(host.sideTabs.mine)
     -- the key in a chip, a mouse button short
@@ -1039,39 +1061,72 @@ do
     local kc = cellOf(function(item) return item.id == keyed end)
     print("radial categories key chip", "key=" .. tostring(kc.Key.text), "chip=" .. tostring(kc.KeyBg[1]:IsShown()))
     RM:SetRadialKey(keyed, nil)
-    -- a category's heading stays put; a group of your own goes nowhere among them
-    -- (no drag starts: the heading's tooltip stays up, where a drag hides it)
-    local socialHead = headOf("social")
-    GameTooltip:Show()
-    socialHead.scripts.OnDragStart(socialHead)
-    local dragging = not GameTooltip:IsShown()
-    socialHead.scripts.OnDragStop(socialHead)
-    GameTooltip:Hide()
+    -- a category stays put; a group of your own goes nowhere among them
     local mine = RM:CreateGroupWith(RM:GetRadialOrder()[3], "Mine")
-    print("radial categories fixed", "drag=" .. tostring(dragging), "group onto one=" .. tostring(RM:MoveGroup(mine, "group:social")),
+    print("radial categories fixed", "group onto one=" .. tostring(RM:MoveGroup(mine, "group:social")),
         "onto its radial=" .. tostring(RM:MoveGroup(mine, emotes)), "one moved=" .. tostring(RM:MoveGroup("social", "group:" .. mine)),
         "renamed=" .. tostring((function() RM:RenameGroup("social", "Chat") return RM:GetGroup("social").name end)()),
         "order=" .. order())
-    -- a group of your own dropped on a tile: nothing
+    -- a group of your own: under Unfiled; dropped on a tile, nothing
     host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    print("radial categories own group", "list=" .. listNames())
     local mineHead = headOf(mine)
     mineHead.scripts.OnDragStart(mineHead)
     H.pointAt(tileOf("items"))
     mineHead.scripts.OnDragStop(mineHead)
     H.pointAt(nil)
     print("radial categories group on a tile", "tiles=" .. tiles(), "order=" .. order())
+    -- one of its radials dropped on Unfiled: stays in it (it is in no category already)
+    local mineCell = cellOf(function(item) return item.id == RM:GetRadialOrder()[3] end)
+    mineCell.scripts.OnDragStart(mineCell)
+    H.pointAt(unfiled)
+    mineCell.scripts.OnDragStop(mineCell)
+    H.pointAt(nil)
+    print("radial categories own group on unfiled", "order=" .. order())
     RM:Ungroup(mine)
-    -- a full one: open and close; its menu (the heading's or the tile's) is Empty; emptied, the tile stays
-    socialHead = headOf("social")
-    print("radial categories full", "tip=" .. tip(socialHead))
-    socialHead.scripts.OnClick(socialHead, "LeftButton")
-    print("radial categories folded", listNames())
-    socialHead = headOf("social")
-    socialHead.scripts.OnClick(socialHead, "LeftButton")
-    social.scripts.OnClick(social, "RightButton")
+    -- a tile's menu: Empty; emptied, the tile stays
+    local groupTile = tileOf("group")
+    groupTile.scripts.OnClick(groupTile, "RightButton")
     print("radial categories tile menu", menuText())
     pick("Empty")
     print("radial categories emptied", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order())
+    -- found by the search and opened: its tile lit
+    host.sideSearch.text = "emo"
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    local found = cellOf(function(item) return item.id == emotes end)
+    found.scripts.OnClick(found, "LeftButton")
+    host.sideSearch.text = ""
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    print("radial categories found", "tiles=" .. tiles(), "lit=" .. lit())
+    unfiled.scripts.OnClick(unfiled, "LeftButton")
+    -- dragged onto Unfiled: out of its category
+    social.scripts.OnClick(social, "LeftButton")
+    emotesCell = cellOf(function(item) return item.id == emotes end)
+    emotesCell.scripts.OnDragStart(emotesCell)
+    H.pointAt(unfiled)
+    emotesCell.scripts.OnDragStop(emotesCell)
+    H.pointAt(nil)
+    print("radial categories dragged out", "tiles=" .. tiles(), "list=" .. listNames(), "order=" .. order())
+    -- not on this character: folded at the foot of its own tile's list, none in another's
+    local away = RM:CreateRadial("Away", "class:WARRIOR")
+    RM:SetRadialGroup(away, "social")
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    local socialList = listNames()
+    unfiled.scripts.OnClick(unfiled, "LeftButton")
+    print("radial categories away", "social=" .. socialList, "unfiled=" .. listNames())
+    -- every one filed: Unfiled says so
+    local filed = {}
+    for _, id in ipairs(RM:GetRadialOrder()) do
+        local data = RM:GetRadial(id)
+        if not data.group then filed[#filed + 1] = data; data.group = "travel" end
+    end
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    print("radial categories none unfiled", "list=" .. listNames())
+    for _, data in ipairs(filed) do data.group = nil end
+    RM:DeleteRadial(away)
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    markersCell = cellOf(function(item) return item.id == RM:GetRadialOrder()[2] end)
+    markersCell.scripts.OnClick(markersCell, "LeftButton")
     RM:Ungroup("group")
     MenuUtil = was
 end
@@ -1083,6 +1138,25 @@ print("radial editor sidebar search", listNames())
 host.sideSearch.text = ""
 host.sideSearch.scripts.OnTextChanged(host.sideSearch)
 host.everyButton.scripts.OnClick(host.everyButton)
+-- (2026-11-24) from Every radial, a radial found by the search: the Radial page, its tile lit
+do
+    local function tileLit() return tostring(host.sideCategory) end
+    RM:GetRadial(emotes).group = "social"
+    host.sideSearch.text = "emo"
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    for _, c in ipairs(host.radialList.cells) do
+        if c.item and c.item.id == emotes then c.scripts.OnClick(c, "LeftButton") break end
+    end
+    host.sideSearch.text = ""
+    host.sideSearch.scripts.OnTextChanged(host.sideSearch)
+    print("radial editor found from options", "page=" .. tostring(win.page), "tile=" .. tileLit(), "lit=" .. lit())
+    RM:GetRadial(emotes).group = nil
+    pickTile("unfiled")
+    for _, c in ipairs(host.radialList.cells) do
+        if c.item and c.item.id == RM:GetRadialOrder()[1] then c.scripts.OnClick(c, "LeftButton") break end
+    end
+    host.everyButton.scripts.OnClick(host.everyButton)
+end
 local opt = win.look
 local function rowOf(key) return win.lookRows[key] end
 print("radial options tab", "tab=" .. shownTabs(), "look=" .. tostring(opt:IsShown()), "wheel=" .. tostring(win.sheets.wheel:IsShown()),
@@ -1451,6 +1525,7 @@ do
     -- (2026-11-22) a shaman's sidebar: Totem Bars under its Combat sub-heading, the first
     if not win:IsShown() then mdluiRadialToggleEditor() end
     host.sideTabs.presets.scripts.OnClick(host.sideTabs.presets)
+    pickTile("combat")
     print("radial totems sidebar, shaman", listNames())
     host.sideTabs.mine.scripts.OnClick(host.sideTabs.mine)
     win:Hide()
@@ -1535,6 +1610,7 @@ do
     print("radial pets shown, hunter", table.concat(shown, ","))
     if not win:IsShown() then mdluiRadialToggleEditor() end
     host.sideTabs.presets.scripts.OnClick(host.sideTabs.presets)
+    pickTile("combat")
     print("radial pets sidebar, hunter", listNames())
     host.sideTabs.mine.scripts.OnClick(host.sideTabs.mine)
     win:Hide()
@@ -1714,11 +1790,15 @@ print("radial preset marks old", "as it came=" .. tostring(RM:GetRadial(old1).pr
 -- one from the Catalog, Reset on the Radial sheet; a preset viewed read-only, and added
 win:Show()
 win.ShowPage("radial", "wheel")
--- (a row on the other tab of My radials | Presets: that tab, then the row)
+-- (a row on the other tab of My radials | Presets, or under another tile: that tab and tile, then
+-- the row)
 local function navTo(test)
     for _ = 1, 2 do
-        for _, c in ipairs(host.radialList.cells) do
-            if c.item and test(c.item) then c.scripts.OnClick(c, "LeftButton") return true end
+        for _, t in ipairs(host.tiles) do
+            pickTile(t.cat)
+            for _, c in ipairs(host.radialList.cells) do
+                if c.item and test(c.item) then c.scripts.OnClick(c, "LeftButton") return true end
+            end
         end
         local other = host.sideTab == "mine" and host.sideTabs.presets or host.sideTabs.mine
         other.scripts.OnClick(other)

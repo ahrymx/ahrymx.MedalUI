@@ -411,8 +411,9 @@ local function Sidebar()
     end)
     frame.sideSearch:SetPoint("TOPLEFT", 11, -10)
     -- (2026-11-22) under the search, the editor's My radials | Presets switch and its six category
-    -- tiles (SIDE_TILES_TOP down to SIDE_LIST_TOP); Every radial at the foot (SIDE_FOOT high)
-    frame.sideTilesTop, frame.sideListTop, frame.sideFoot = 83, 206, 32
+    -- tiles, Unfiled under them as wide as two (2026-11-24) (SIDE_TILES_TOP down to SIDE_LIST_TOP);
+    -- Every radial at the foot (SIDE_FOOT high)
+    frame.sideTilesTop, frame.sideListTop, frame.sideFoot = 83, 246, 32
     local nav = CreateFrame("Frame", nil, side)
     nav:SetPoint("TOPLEFT", 0, -frame.sideListTop)
     nav:SetPoint("BOTTOMRIGHT", -1, frame.sideFoot)

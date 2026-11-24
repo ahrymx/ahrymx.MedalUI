@@ -33,6 +33,26 @@ local snapshot, dirty
 
 local function RM() return ns.RadialMenu end
 
+-- (2026-11-24, the user's) the sidebar's tiles: the categories, then Unfiled (BuildSideChrome)
+local UNFILED = "unfiled"           -- the Unfiled tile's id, among the categories'
+-- the tiles: the categories, then Unfiled
+local function Tiles()
+    local out = {}
+    for i, c in ipairs(RM().CATEGORIES) do out[i] = c end
+    out[#out + 1] = { id = UNFILED, name = L["Unfiled"], art = "CatUnfiled" }
+    return out
+end
+-- the tile a radial is listed under: its category, or Unfiled
+local function TileOf(id)
+    local data = id and RM():GetRadial(id)
+    local g = data and data.group
+    return RM().IsCategory(g) and g or UNFILED
+end
+-- the editor shows a radial opened from elsewhere (made, copied, added): its tile lit
+local function Follow(id)
+    if editor and id and RM():GetRadial(id) then editor.sideCategory = TileOf(id) end
+end
+
 --------------------------------------------------
 -- 1. PIECES
 --------------------------------------------------
@@ -947,6 +967,7 @@ local function ShowNamePopup(renaming)
                 RM():RenameRadial(editingID, name)
             else
                 editingID, selectedButton = RM():CreateRadial(name, popup.scope), nil
+                Follow(editingID)
             end
             ns.ButtonSound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
             popup:Hide()
@@ -1054,8 +1075,9 @@ local function Hover(control, rowKey)
 end
 
 local function SelectRadial(id)
-    if id == editingID and not viewPreset then return end
-    editingID, selectedButton, openSlot, viewPreset = id, nil, nil, nil
+    -- (2026-11-24) its tile lit, even the one open already (found by the search)
+    Follow(id)
+    if id ~= editingID or viewPreset then editingID, selectedButton, openSlot, viewPreset = id, nil, nil, nil end
     Refresh()
 end
 
@@ -1096,8 +1118,14 @@ function RadialDrag.Stop(list)
     for _, tile in ipairs(editor.tiles or {}) do
         if tile:IsShown() and tile:IsMouseOver() then
             local data = not gid and RM():GetRadial(payload)
-            if data and data.group ~= tile.cat then
-                RM():SetRadialGroup(payload, tile.cat)
+            -- Unfiled: out of its category (one in a group of your own stays there)
+            local into = tile.cat
+            if into == UNFILED then
+                into = data and data.group
+                if RM().IsCategory(into) then into = nil end
+            end
+            if data and data.group ~= into then
+                RM():SetRadialGroup(payload, into)
                 ns.ButtonSound()
                 Refresh()
             end
@@ -1319,6 +1347,7 @@ local function BuildNav(win)
                         if item.id ~= editingID or viewPreset then
                             editingID, selectedButton, openSlot, viewPreset = item.id, nil, nil, nil
                         end
+                        Follow(item.id)
                         win.ShowPage("radial")
                     end
                 end
@@ -1461,13 +1490,17 @@ local function BuildNav(win)
 end
 
 -- (2026-11-22, mockup C) above the list: My radials | Presets, then the six categories as tiles
--- (2 x 3), each its glyph, name and count; one clicked shows only its radials (or presets), clicked
--- again every one; a radial dragged onto one is put in it. At the sidebar's foot, Every radial.
--- win.sideTab ("mine" or "presets") and win.sideCategory (nil: all) last the session.
+-- (2 x 3), each its glyph, name and count; one clicked shows only its radials (or presets); a
+-- radial dragged onto one is put in it. At the sidebar's foot, Every radial.
+-- (2026-11-24, the user's) One is always lit: the list of every group is gone. Under the six, as
+-- wide as two, Unfiled: the radials in no category (your own groups, and none). Each session
+-- starts on the first, Combat. win.sideTab ("mine" or "presets") and win.sideCategory last the
+-- session.
 local TILE_H, TILE_GAP = 36, 4
 function BuildSideChrome(win)
     local side = win.side
     win.sideTab = "mine"
+    win.sideCategory = RM().CATEGORIES[1].id
     local seg = CreateFrame("Frame", nil, side)
     seg:SetPoint("TOPLEFT", 11, -42)
     seg:SetPoint("TOPRIGHT", -12, -42)
@@ -1515,10 +1548,10 @@ function BuildSideChrome(win)
     divider:SetPoint("TOPRIGHT", -12, -(win.sideTilesTop - 8))
     local tileW = (200 - 11 - 12 - TILE_GAP) / 2
     win.tiles = {}
-    for i, c in ipairs(RM().CATEGORIES) do
+    for i, c in ipairs(Tiles()) do
         local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
         local t = CreateFrame("Button", nil, side)
-        t:SetSize(tileW, TILE_H)
+        t:SetSize(c.id == UNFILED and (2 * tileW + TILE_GAP) or tileW, TILE_H)
         t:SetPoint("TOPLEFT", 11 + col * (tileW + TILE_GAP), -(win.sideTilesTop + row * (TILE_H + TILE_GAP)))
         t.bg = Panel.Fill(t, "BACKGROUND", UI.raised, 1)
         t.bg:SetAllPoints()
@@ -1541,17 +1574,24 @@ function BuildSideChrome(win)
         t.cat = c.id
         t:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         t:SetScript("OnClick", function(self, mouseButton)
+            -- (Unfiled is no group: no menu)
             if mouseButton == "RightButton" then GroupMenu(self, c.id) return end
+            if win.sideCategory == c.id then return end
             ns.ButtonSound()
-            win.sideCategory = win.sideCategory ~= c.id and c.id or nil
+            win.sideCategory = c.id
             Refresh()
         end)
         t:SetScript("OnEnter", function(self)
             ns.OwnGameTooltip(self, "ANCHOR_RIGHT")
             GameTooltip:AddLine(c.name, 1, 1, 1)
-            GameTooltip:AddLine(win.sideCategory == c.id and L["Click to show every one again."]
-                or L["Click to show only these."], 0.8, 0.8, 0.8, true)
-            GameTooltip:AddLine(L["Drag a radial here to put it in. Right-click to empty it."], 0.6, 0.6, 0.6, true)
+            if c.id == UNFILED then
+                GameTooltip:AddLine(L["The radials in no category: your own groups, and the rest."], 0.8, 0.8, 0.8, true)
+            end
+            if win.sideCategory ~= c.id then
+                GameTooltip:AddLine(L["Click to show only these."], 0.8, 0.8, 0.8, true)
+            end
+            GameTooltip:AddLine(c.id == UNFILED and L["Drag a radial here to take it out of its category."]
+                or L["Drag a radial here to put it in. Right-click to empty it."], 0.6, 0.6, 0.6, true)
             GameTooltip:Show()
         end)
         t:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1600,13 +1640,15 @@ local function RefreshSideChrome()
     local counts = {}
     if presets then
         for _, key in ipairs(rm.ShownPresets()) do
-            local c = ns.PRESETS[key].category
-            if c then counts[c] = (counts[c] or 0) + 1 end
+            local c = rm.IsCategory(ns.PRESETS[key].category) and ns.PRESETS[key].category or UNFILED
+            counts[c] = (counts[c] or 0) + 1
         end
     else
         for _, id in ipairs(rm:GetRadialOrder()) do
-            local data = rm:GetRadial(id)
-            if data and data.group and rm:IsRadialAvailable(id) then counts[data.group] = (counts[data.group] or 0) + 1 end
+            if rm:IsRadialAvailable(id) then
+                local c = TileOf(id)
+                counts[c] = (counts[c] or 0) + 1
+            end
         end
     end
     for key, b in pairs(win.sideTabs) do
@@ -1899,6 +1941,7 @@ local function BuildPresetCard(host, sheet)
         local id = RM():AddPreset(viewPreset)
         if not id then return end
         editingID, viewPreset, openSlot, selectedButton = id, nil, nil, nil
+        Follow(id)
         Changed()
         Refresh()
     end)
@@ -1998,6 +2041,7 @@ local function BuildRadialSheet(host, sheet)
         local radial = editingID and RM():GetRadial(editingID)
         if not radial then return end
         editingID, selectedButton = RM():CopyRadial(editingID, L["%s (copy)"]:format(radial.name)), nil
+        Follow(editingID)
         Changed()
         Refresh()
     end)
@@ -2208,62 +2252,36 @@ local function NavItems(perRadial)
         if #out == 0 then out[1] = { head = L["Nothing matches"], faint = true } end
         return out
     end
-    local only = editor.sideCategory
-    -- (2026-11-22) Presets (the switch): under a sub-heading per category, in the categories' order,
-    -- one in none last, without; with a tile lit, its category's alone. Another class's not shown.
+    -- (2026-11-24, the user's) a tile is always lit: its radials (or presets) alone; Unfiled's, the
+    -- ones in no category
+    local only = editor.sideCategory or rm.CATEGORIES[1].id
+    local unfiled = only == UNFILED
+    local category = rm.CATEGORY_BY_ID[only]
+    -- (2026-11-22) Presets (the switch): under the category's sub-heading; Unfiled's, the ones in
+    -- none. Another class's not shown.
     if editor.sideTab == "presets" then
-        local shown = rm.ShownPresets()
-        for _, c in ipairs(rm.CATEGORIES) do
-            if not only or only == c.id then
-                local headed = false
-                for _, key in ipairs(shown) do
-                    if ns.PRESETS[key].category == c.id then
-                        if not headed then out[#out + 1], headed = { sub = c.name }, true end
-                        out[#out + 1] = { preset = key }
-                    end
-                end
-            end
+        if category then out[#out + 1] = { sub = category.name } end
+        for _, key in ipairs(rm.ShownPresets()) do
+            local c = ns.PRESETS[key].category
+            if (unfiled and not rm.IsCategory(c)) or (not unfiled and c == only) then out[#out + 1] = { preset = key } end
         end
-        if not only then
-            for _, key in ipairs(shown) do
-                if not rm.CATEGORY_BY_ID[ns.PRESETS[key].category or ""] then out[#out + 1] = { preset = key } end
-            end
-        end
-        if #out == 0 then out[1] = { head = L["No presets here"], faint = true } end
+        if #out <= (category and 1 or 0) then out[#out + 1] = { head = L["No presets here"], faint = true } end
         return out
     end
+    -- My radials: a category's under its name; Unfiled's, a group of your own as a heading that
+    -- folds (its radials hung off it), then the ones in none. Those not on this character, of this
+    -- tile, folded at the foot.
     local counts, placed = {}, {}
     for _, id in ipairs(rm:GetRadialOrder()) do
         local data = rm:GetRadial(id)
         if data and data.group and rm:IsRadialAvailable(id) then counts[data.group] = (counts[data.group] or 0) + 1 end
     end
-    -- My radials: the categories first (their radials lead radialOrder, so the loop below finds them
-    -- already placed). With a tile lit, its radials under its name, then the rest as "Not filed"
-    -- (what can be dragged onto a tile); else each category with radials as a heading that folds
-    -- (an empty one is only its tile).
-    for _, c in ipairs(rm.CATEGORIES) do
-        local n = counts[c.id] or 0
-        placed[c.id] = true
-        if only == c.id then
-            out[#out + 1] = { sub = c.name }
-            if n == 0 then out[#out + 1] = { head = L["Nothing in it yet"], faint = true } end
-        elseif not only and n > 0 then
-            out[#out + 1] = { group = c.id, count = n, open = rm:IsGroupOpen(c.id) }
-        end
-        if only == c.id or (not only and n > 0 and rm:IsGroupOpen(c.id)) then
-            for _, id in ipairs(rm:GetRadialOrder()) do
-                local data = rm:GetRadial(id)
-                if data and data.group == c.id and rm:IsRadialAvailable(id) then out[#out + 1] = Item(id, not only) end
-            end
-        end
-    end
-    local rest = #out + 1
+    out[#out + 1] = { sub = category and category.name or L["Unfiled"] }
     for _, id in ipairs(rm:GetRadialOrder()) do
         local data = rm:GetRadial(id)
         local available = data and rm:IsRadialAvailable(id)
-        -- (one in a category is listed under it, above)
-        if data and not (available and rm.IsCategory(data.group)) then
-            local gid = available and data.group and rm:GetGroup(data.group) and data.group
+        if data and TileOf(id) == only then
+            local gid = unfiled and available and data.group and rm:GetGroup(data.group) and data.group
             if gid then
                 local open = rm:IsGroupOpen(gid)
                 if not placed[gid] then
@@ -2278,12 +2296,13 @@ local function NavItems(perRadial)
             end
         end
     end
-    if only and #out >= rest then table.insert(out, rest, { sub = L["Not filed"], quiet = true }) end
+    if #out == 1 then
+        out[#out + 1] = { head = unfiled and L["None outside a category"] or L["Nothing in it yet"], faint = true }
+    end
     if #other > 0 then
         out[#out + 1] = { head = L["Not on This Character"], fold = true, open = otherOpen, count = #other, faint = true }
         if otherOpen then for _, item in ipairs(other) do out[#out + 1] = item end end
     end
-    if #out == 0 then out[1] = { head = L["No radials yet"], faint = true } end
     return out
 end
 
