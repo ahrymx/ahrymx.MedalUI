@@ -8670,7 +8670,9 @@ if sidePass then
                     if c.shown and c.spec then
                         out[#out + 1] = c.spec.text .. (c.mark.shown and "*" or "") .. (c.label.alpha == 1 and "" or "~")
                     elseif c.shown and c.icon then
-                        out[#out + 1] = "[" .. tostring(c.item) .. " " .. tostring(c.icon.texture) .. " x"
+                        local at = c.points and c.points.LEFT
+                        out[#out + 1] = "[" .. (at and (at[2] .. "+" .. at[3] .. " ") or "") .. tostring(c.item) .. " "
+                            .. tostring(c.icon.texture) .. " x"
                             .. tostring(c.count.text) .. (c.icon.desaturated and " grey" or "")
                             .. (c.cooldown.duration and (" cd=" .. c.cooldown.duration) or "")
                             .. (c.lock.shown and " lock" or "") .. "]"
@@ -8681,9 +8683,11 @@ if sidePass then
                 for _, b in ipairs(layer and layer.buttons or {}) do
                     if b.shown then secure[#secure + 1] = tostring(b:GetAttribute("item")) end
                 end
+                local none = d.none.points and d.none.points.LEFT
                 print("zone controls " .. tag, "open=" .. tostring(d.shown) .. " db=" .. tostring(ns.db.zoneControls)
                     .. " lit=" .. tostring(top.mark.shown), string.format("w=%.0f full=%.0f", d.w or 0, d.full or 0),
-                    table.concat(out, " "), "none=" .. tostring(d.none.shown),
+                    table.concat(out, " "), "none=" .. tostring(d.none.shown)
+                    .. (d.none.shown and none and (" at " .. none[2] .. "+" .. none[3]) or ""),
                     "secure=" .. (#secure > 0 and table.concat(secure, ",") or "none")
                     .. " layer=" .. tostring(layer and layer.shown))
             end
@@ -8702,6 +8706,44 @@ if sidePass then
             print("zone controls growing", "w=" .. tostring(C.Drawer().w), "secure=" .. placed())
             open()
             drawer("opened")
+            -- (2026-11-24, the user's: look C) the panel's ink fading in from
+            -- the left, each slot and button in the chamfered engraved frame,
+            -- the faces inside it; a lit control a shade of gold
+            ;(function()
+                local d = C.Drawer()
+                local slot, x = nil, ctl("x/y", 10)
+                for _, c in ipairs(d.inner.all_) do if c.icon and c.shown then slot = c break end end
+                local function frame(f)
+                    local a, m, b = f.frame[1], f.frame[2], f.frame[3]
+                    return tostring(a.texture):match("[^\\]+$") .. string.format(" ends %d/%d h%d %.3f-%.3f,%.3f-%.3f,%.3f-%.3f",
+                        a.w, b.w, a.h, a.coords[1], a.coords[2], m.coords[1], m.coords[2], b.coords[1], b.coords[2])
+                        .. " " .. a.points.TOPLEFT[2] .. "/" .. b.points.TOPRIGHT[2] .. " " .. m.points.TOPLEFT[2]
+                        .. "-" .. m.points.TOPRIGHT[2]
+                end
+                local function inset(t)
+                    local tl, br = t.points.TOPLEFT, t.points.BOTTOMRIGHT
+                    return tl[3] .. "," .. tl[4] .. "/" .. br[3] .. "," .. br[4]
+                end
+                -- (2026-11-24, the user's) slimmer, the controls spaced out, the
+                -- ink solid under the controls and fading to nothing leftward
+                local edges = 0
+                for _, t in ipairs(d.all_) do
+                    if t.color and t.color[4] == 1 and (t.w == 1 or t.h == 1) then edges = edges + 1 end
+                end
+                local ink = { "h=" .. tostring(d.h), "edges=" .. edges,
+                    string.format("solid w=%s a=%.2f", tostring(d.solid.w), d.solid.color[4]),
+                    "fade to " .. tostring(d.fade.points.BOTTOMRIGHT[1] == d.solid and d.fade.points.BOTTOMRIGHT[2]) }
+                ink[#ink + 1] = d.fade.gradient and string.format("fade %.2f-%.2f", d.fade.gradient[2][4],
+                    d.fade.gradient[3][4]) or string.format("ink %.2f", d.fade.color[4])
+                local xs = {}
+                for _, c in ipairs(d.inner.all_) do
+                    if c.spec and c.shown then xs[#xs + 1] = tostring(c.points.RIGHT[3]) end
+                end
+                ink[#ink + 1] = "controls at " .. table.concat(xs, ",")
+                print("zone controls look", "slot " .. frame(slot) .. " icon " .. inset(slot.icon),
+                    "button " .. frame(x) .. string.format(" mark %s %.2f", inset(x.mark), x.mark.color[4]),
+                    table.concat(ink, " "))
+            end)()
             -- the item on cooldown; in combat the secure buttons hide, the slot stays
             local cd = C_Container and C_Container.GetItemCooldown
             C_Container = C_Container or {}
@@ -8802,6 +8844,16 @@ if sidePass then
             side.panel:SetWidth(140)
             z.Refresh()
             drawer("narrow")
+            -- (2026-11-24) the panel's width changed alone: the tray follows
+            side.panel:SetWidth(200)
+            side.panel.scripts.OnSizeChanged(side.panel, 200, side.panel.h)
+            drawer("panel resized")
+            -- twenty items: from the left edge, as many as fit before the controls
+            GetQuestLogSpecialItemInfo = function(i)
+                if i <= 20 then return "|Hitem:" .. (6000 + i) .. "|h[Thing]|h", 1, 1, false end
+            end
+            fire("QUEST_LOG_UPDATE")
+            drawer("many items")
             side.panel:SetWidth(pw)
             GetQuestLogSpecialItemInfo = special
             fire("QUEST_LOG_UPDATE")

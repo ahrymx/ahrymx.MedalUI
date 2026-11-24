@@ -941,24 +941,34 @@ TAB_FRAME = ('<path d="M5.5 5.4H58.5L62.5 9.4V24.4L58.5 28.4H5.5L1.5 24.4V9.4Z" 
              'stroke="#050403" stroke-opacity="0.95" stroke-width="1"/>')
 
 
-def tab_part():
-    """assets/strips/cell-tab.png and media/strips/cell-tab.tga, and a look
-    at it at 4x over the channel's ink in render/cell-tab.png."""
+# (2026-11-24) the Zone tab's controls tray (strips/zonecontrols.lua): the
+# same chamfered engraving cut round a slot or button exactly, its dark line
+# on the slot's outermost pixels (rows 0-25 of a 26 tall slot) and the gold
+# lip a row under it; the rest of the 64x32 left clear
+TRAY_FRAME = ('<path d="M3.5 1.5H60.5L63.5 4.5V23.5L60.5 26.5H3.5L0.5 23.5V4.5Z" fill="none" '
+              'stroke="#ffe8aa" stroke-opacity="0.22" stroke-width="1"/>'
+              '<path d="M3.5 0.5H60.5L63.5 3.5V22.5L60.5 25.5H3.5L0.5 22.5V3.5Z" fill="none" '
+              'stroke="#050403" stroke-opacity="0.95" stroke-width="1"/>')
+
+
+def tab_part(name="cell-tab", body=TAB_FRAME):
+    """assets/strips/<name>.png and media/strips/<name>.tga, and a look
+    at it at 4x over the channel's ink in render/<name>.png."""
     parts = os.path.join(ROOT, "assets", "strips")
     os.makedirs(parts, exist_ok=True)
-    png = os.path.join(parts, "cell-tab.png")
-    doc = svg(TAB_FRAME).replace(f'width="{W}" height="{H}"', 'width="64" height="32"')
+    png = os.path.join(parts, name + ".png")
+    doc = svg(body).replace(f'width="{W}" height="{H}"', 'width="64" height="32"')
     subprocess.run(["rsvg-convert", "-o", png], input=doc.encode(), check=True)
     im = Image.open(png).convert("RGBA")
-    media = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "strips", "cell-tab.tga")
+    media = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "strips", name + ".tga")
     os.makedirs(OUT, exist_ok=True)
-    tmp = os.path.join(OUT, "cell-tab-tga.png")
+    tmp = os.path.join(OUT, name + "-tga.png")
     im.save(tmp)
     subprocess.run(["magick", tmp, "-define", "tga:compression=none", media], check=True)
     os.remove(tmp)
     sheet = Image.new("RGBA", (64, 32), (20, 17, 11, 255))
     sheet.alpha_composite(im)
-    sheet.resize((256, 128), Image.NEAREST).save(os.path.join(OUT, "cell-tab.png"))
+    sheet.resize((256, 128), Image.NEAREST).save(os.path.join(OUT, name + ".png"))
     print(media)
 
 
@@ -984,5 +994,7 @@ if __name__ == "__main__":
         bay_part()
     elif sys.argv[1:2] == ["tab"]:
         tab_part()
+    elif sys.argv[1:2] == ["trayframe"]:
+        tab_part("tray-frame", TRAY_FRAME)
     else:
         main()

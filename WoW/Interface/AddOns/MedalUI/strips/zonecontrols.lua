@@ -1,10 +1,15 @@
 -- The Zone tab's controls (strips/zone.lua): a drawer over the side panel,
 -- as the bags' drawer stands over the bags window (inventory/bags.lua),
 -- opened and closed by the column's top button. It opens out of the
--- panel's top-right corner, over that button, and grows to the left:
+-- panel's top-right corner, over that button, and grows to the left until
+-- it is as wide as the panel (2026-11-24, the user's: look C, "engraved"):
 --
---   [item][item][item] | [A][A] [x/y] | [!] [<][>]     <- over the panel
---   ------------------------------------------- [=]   <- the column's button
+--   [item][item][item]          | [A][A] [x/y] | [!] [<][>]   <- over the panel
+--   ---------------------------------------------------- [=]  <- the column's button
+--
+-- The panel's ink fading in from the left and its gold edge; each slot and
+-- button cut into it in a chamfered engraved frame (media/strips/tray-frame,
+-- art/strips/gen_strips.py trayframe), a lit control filled a shade of gold.
 --
 --   the quest items   the usable items of the quests the tab lists, in its
 --                     order (the Guide's, when it is shown): a click uses
@@ -25,13 +30,19 @@
 local _, ns = ...
 local Tr = ns.L
 
-local SLOT, PAD, GAP = 26, 5, 2         -- an item's slot; the drawer's padding; between slots
+local SLOT, PAD, GAP = 26, 5, 4         -- an item's slot; the drawer's padding; between slots
+local EDGE = 2                          -- above and below the slots: the gold edge and a pixel
 local BUTTON = 24                       -- a control's width (as tall as a slot)
 local SPLIT = 6                         -- room each side of a group's divider
 local GROW = 0.15                       -- seconds to open
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local DIM = { 0.70, 0.66, 0.55 }
+-- the ink: solid under the controls, at the screen's edge, then fading
+-- away towards the screen's middle, to nothing at the tray's left end
+local FADE = { 0, 1 }
+local FRAME_TEX, FRAME_END = 64, 8      -- tray-frame: 64x32, the ends sliced 8 wide
+local IN = 2                            -- a slot's face, inside its frame's chamfer
 
 local C = {}
 ns.zoneControls = C
@@ -118,17 +129,43 @@ local function Paint(slot)
     end
 end
 
+-- the chamfered engraved frame round a slot or a button: its dark line on
+-- the outermost pixels, a faint gold lip a row under (the texture's own
+-- 32 rows hang from the top: the frame's 27, then clear)
+local function Engrave(f)
+    f.frame = {}
+    local cut = FRAME_TEX - FRAME_END
+    for k, u in ipairs({ { 0, FRAME_END }, { FRAME_END, cut }, { cut, FRAME_TEX } }) do
+        local t = f:CreateTexture(nil, "BORDER")
+        t:SetTexture(ns.media .. "strips\\tray-frame")
+        t:SetTexCoord(u[1] / FRAME_TEX, u[2] / FRAME_TEX, 0, 1)
+        t:SetHeight(FRAME_TEX / 2)
+        f.frame[k] = t
+    end
+    f.frame[1]:SetWidth(FRAME_END)
+    f.frame[3]:SetWidth(FRAME_END)
+    f.frame[1]:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+    f.frame[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
+    f.frame[2]:SetPoint("TOPLEFT", f.frame[1], "TOPRIGHT")
+    f.frame[2]:SetPoint("TOPRIGHT", f.frame[3], "TOPLEFT")
+end
+
+-- a texture inside the frame's chamfer
+local function Inside(f, draw, sub)
+    local t = f:CreateTexture(nil, draw, nil, sub)
+    t:SetPoint("TOPLEFT", IN, -IN)
+    t:SetPoint("BOTTOMRIGHT", -IN, IN)
+    return t
+end
+
 local function Slot(i)
     local s = slots[i]
     if s then return s end
     s = CreateFrame("Button", nil, drawer.inner)
     s:SetSize(SLOT, SLOT)
-    local edge = s:CreateTexture(nil, "BACKGROUND")
-    edge:SetAllPoints()
-    edge:SetColorTexture(0, 0, 0)
-    s.icon = s:CreateTexture(nil, "ARTWORK")
-    s.icon:SetPoint("TOPLEFT", 1, -1)
-    s.icon:SetPoint("BOTTOMRIGHT", -1, 1)
+    Engrave(s)
+    Inside(s, "BACKGROUND"):SetColorTexture(0, 0, 0)
+    s.icon = Inside(s, "ARTWORK")
     s.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     s.cooldown = CreateFrame("Cooldown", nil, s, "CooldownFrameTemplate")
     s.cooldown:SetAllPoints(s.icon)
@@ -154,9 +191,8 @@ local function Secure(i)
     b = CreateFrame("Button", "MedalUIZoneControlItem" .. i, layer, "SecureActionButtonTemplate")
     b:RegisterForClicks("AnyUp", "AnyDown")
     b:SetAttribute("type", "item")
-    local glow = b:CreateTexture(nil, "HIGHLIGHT")
-    glow:SetAllPoints()
-    glow:SetColorTexture(1, 1, 1, 0.15)
+    -- (b sits over its slot: the glow inside the slot's frame)
+    Inside(b, "HIGHLIGHT"):SetColorTexture(1, 1, 1, 0.15)
     b:SetScript("OnEnter", function(self)
         if self.item then ItemTip(self, self.item, Tr["Click: use it."]) end
     end)
@@ -294,7 +330,12 @@ local function Control(spec)
     local b = CreateFrame("Button", nil, drawer.inner)
     b.spec = spec
     b:SetSize(BUTTON, SLOT)
-    ns.window.Face(b)
+    Engrave(b)
+    Inside(b, "BACKGROUND", 1):SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
+    b.mark = Inside(b, "BACKGROUND", 2)
+    b.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.45)
+    b.mark:Hide()
+    Inside(b, "HIGHLIGHT"):SetColorTexture(1, 1, 1, 0.12)
     b.label = ns.Text(b, spec.size)
     b.label:SetPoint("CENTER", 0, 0)
     b.label:SetText(spec.text)
@@ -324,18 +365,37 @@ local function Build()
     local v = View()
     drawer = CreateFrame("Frame", "MedalUIZoneControls", v.body)
     drawer:SetPoint("BOTTOMRIGHT", ns.side.panel, "TOPRIGHT", 0, 2)
-    drawer:SetHeight(SLOT + 2 * PAD)
+    drawer:SetHeight(SLOT + 2 * EDGE)
     drawer:SetClipsChildren(true)
     drawer:EnableMouse(true)
     drawer.inner = CreateFrame("Frame", nil, drawer)
     drawer.inner:SetPoint("TOPRIGHT")
-    local edge = drawer:CreateTexture(nil, "BACKGROUND", nil, 1)
-    edge:SetAllPoints()
-    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    local bg = drawer:CreateTexture(nil, "BACKGROUND", nil, 2)
-    bg:SetPoint("TOPLEFT", 1, -1)
-    bg:SetPoint("BOTTOMRIGHT", -1, 1)
-    bg:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.94)
+    -- the gold edge: four lines, so the faded ink shows what is behind
+    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", "SetHeight" }, { "BOTTOMLEFT", "BOTTOMRIGHT", "SetHeight" },
+        { "TOPLEFT", "BOTTOMLEFT", "SetWidth" }, { "TOPRIGHT", "BOTTOMRIGHT", "SetWidth" } }) do
+        local t = drawer:CreateTexture(nil, "BACKGROUND", nil, 1)
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        t:SetPoint(side[1])
+        t:SetPoint(side[2])
+        t[side[3]](t, 1)
+    end
+    -- the ink, on the row (full width, clipped while the tray grows): solid
+    -- under the controls (Layout sizes it), then the fade
+    local tint = ns.colors.ink
+    drawer.solid = drawer.inner:CreateTexture(nil, "BACKGROUND", nil, 1)
+    drawer.solid:SetPoint("TOPRIGHT", -1, -1)
+    drawer.solid:SetPoint("BOTTOMRIGHT", -1, 1)
+    drawer.solid:SetColorTexture(tint[1], tint[2], tint[3], FADE[2])
+    drawer.fade = drawer.inner:CreateTexture(nil, "BACKGROUND", nil, 1)
+    drawer.fade:SetPoint("TOPLEFT", 1, -1)
+    drawer.fade:SetPoint("BOTTOMRIGHT", drawer.solid, "BOTTOMLEFT")
+    if drawer.fade.SetGradient and CreateColor then
+        drawer.fade:SetColorTexture(1, 1, 1, 1)
+        drawer.fade:SetGradient("HORIZONTAL", CreateColor(tint[1], tint[2], tint[3], FADE[1]),
+            CreateColor(tint[1], tint[2], tint[3], FADE[2]))
+    else
+        drawer.fade:SetColorTexture(tint[1], tint[2], tint[3], 0.5)
+    end
     drawer.none = ns.Text(drawer.inner, 10)
     drawer.none:SetTextColor(unpack(DIM))
     drawer.none:SetText(Tr["No quest items."])
@@ -361,11 +421,13 @@ local function Build()
     v.body:HookScript("OnHide", function() PlaceBar() end)
     drawer.growing = true
     drawer:Hide()
+    -- the panel's width changed (the chat's): the tray's with it
+    ns.side.panel:HookScript("OnSizeChanged", function() C.Refresh() end)
 end
 
--- the drawer's row, right to left from its corner: the Guide's group (with
--- the Guide shown), the list's group, the items; as wide as that, up to the
--- panel's width (the items that do not fit left off)
+-- the drawer's row: as wide as the panel; right to left from its corner the
+-- Guide's group (with the Guide shown), the list's group and a divider; the
+-- items from the left edge, as many as fit before the divider
 local function Layout()
     local guide = Guide()
     local x = PAD                       -- from the right edge
@@ -398,14 +460,17 @@ local function Layout()
     t:Show()
     x = x + 2 * SPLIT + 1 - GAP
     for i = nsplit + 1, #splits do splits[i]:Hide() end
-    local room = math.floor((ns.side.panel:GetWidth() - x - PAD + GAP) / (SLOT + GAP))
+    -- the solid ink as far as the items' divider
+    drawer.solid:SetWidth(x - SPLIT - 1)
+    local full = ns.side.panel:GetWidth()
+    local room = math.floor((full - x - PAD + GAP) / (SLOT + GAP))
     items = Items()
     local n = math.max(0, math.min(#items, room))
     for i = 1, n do
         local s = Slot(i)
         s.item = items[i]
         s:ClearAllPoints()
-        s:SetPoint("RIGHT", drawer.inner, "RIGHT", -(x + (n - i) * (SLOT + GAP)), 0)
+        s:SetPoint("LEFT", drawer.inner, "LEFT", PAD + (i - 1) * (SLOT + GAP), 0)
         Paint(s)
         s:Show()
     end
@@ -416,13 +481,10 @@ local function Layout()
     drawer.none:SetShown(n == 0)
     if n == 0 then
         drawer.none:ClearAllPoints()
-        drawer.none:SetPoint("RIGHT", drawer.inner, "RIGHT", -x, 0)
-        x = x + (drawer.none:GetStringWidth() or 0) + GAP
-    else
-        x = x + n * (SLOT + GAP)
+        drawer.none:SetPoint("LEFT", drawer.inner, "LEFT", PAD, 0)
     end
-    drawer.full = x - GAP + PAD
-    drawer.inner:SetSize(drawer.full, SLOT + 2 * PAD)
+    drawer.full = full
+    drawer.inner:SetSize(drawer.full, SLOT + 2 * EDGE)
     if not drawer.growing then drawer:SetWidth(drawer.full) end
 end
 
