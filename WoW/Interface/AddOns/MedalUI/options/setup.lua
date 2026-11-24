@@ -1,8 +1,8 @@
--- The setup wizard: three questions a new character starts with, in one
+-- The setup wizard: two questions a new character starts with, in one
 -- small window in the settings window's look.
 --
 --   +--------------------------------------------------+
---   | MedalUI   Setup · 1 of 3                    [x] |
+--   | MedalUI   Setup · 1 of 2                    [x] |
 --   |--------------------------------------------------|
 --   | Choose your console                              |
 --   | what it is for                                   |
@@ -14,8 +14,7 @@
 --
 --   1  the console (Console > General's Profile; account-wide);
 --   2  Immersion Mode: each part's switch, all ticked to start (the
---      console's only on the Reticule);
---   3  the party frames: docked to the console, or the widget.
+--      console's only on the Reticule).
 --
 -- Its answers are its own until Finish, which writes them all
 -- (ns.ApplySetup, settings.lua). Skip, the cross and Esc write nothing but
@@ -34,7 +33,7 @@ local C = UI.colors
 local W, PAD, HEAD, FOOT = 520, 18, 40, 48
 local INNER = W - 2 * PAD
 local CARD_GAP = 8
-local STEPS = 3
+local STEPS = 2
 
 local frame, stepText, title, intro, body, back, nextButton
 local step, answers, finished
@@ -42,7 +41,7 @@ local views = {}        -- per step: { frame, Refresh() }
 
 -- The answers to start from: what is set now, every Immersion switch on.
 local function Fresh()
-    local a = { console = ns.db.consoleProfile, partyLayout = ns.db.partyLayout, immersion = {} }
+    local a = { console = ns.db.consoleProfile, immersion = {} }
     for _, key in ipairs(ns.SETUP_IMMERSION) do a.immersion[key] = true end
     return a
 end
@@ -170,22 +169,6 @@ local STEP = {
                 end
             end
             return y
-        end,
-    },
-    {
-        title = Tr["Party frames"],
-        intro = Tr["Where the party frames sit. You can change it later under Console > Layout."],
-        Build = function(view)
-            view.pick = function(id)
-                answers.partyLayout = id
-                view.Refresh()
-            end
-        end,
-        Refresh = function(view)
-            local list = ns.PartyLayoutText(answers.console)
-            -- the first is the console's own: docked to it
-            list[1][2] = Tr["Docked to the console"]
-            return Stack(view, list, answers.partyLayout)
         end,
     },
 }

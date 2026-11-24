@@ -14,9 +14,8 @@
 -- A group sits on a sheet (On): a tab under its page's header, one of
 -- OPTION_SHEETS, in their order. A page whose groups are on two sheets or
 -- more shows the tabs, one column of cards each; others show every group,
--- in two columns. A page with variants (Party: the console's frames, or
--- the widget's) has a switch beside its tabs, each group of one variant
--- (Variant) shown only with it.
+-- in two columns. A page with variants has a switch beside its tabs, each
+-- group of one variant (its .variant) shown only with it; none has now.
 local _, ns = ...
 local Tr = ns.L
 
@@ -97,10 +96,9 @@ local function AllOn(sheet, groups)
     for _, g in ipairs(groups) do g.sheet = sheet end
     return groups
 end
--- A group of one variant of its page, and the chip on its band saying
--- where its options are kept.
-local function Variant(variant, chip, g)
-    g.variant, g.chip = variant, chip
+-- A group and the chip on its band saying where its options are kept.
+local function Kept(chip, g)
+    g.chip = chip
     return g
 end
 -- A section headed by the switch its rows need: on its heading's line, the
@@ -230,24 +228,6 @@ end
 -- the one built (ns.consoleBuilt), as a list for Concat; else none.
 local function ForConsole(id, g)
     return ns.consoleBuilt == id and { g } or {}
-end
-
--- Where the party sits: on the console (the Reticule's row, or the
--- Arena's wings), or the widget.
--- (the setup wizard, options/setup.lua, says the same of the two)
-function ns.PartyLayoutText(id)
-    return {
-        { "console", Tr["Console"], id == "reticule"
-            and (Tr["A row of four frames under the Reticule, each member's pet hanging under its frame. While you "
-                .. "are in a group the minimap stays in the top right corner and the centre grid stays out."])
-            or Tr["The medallion's party wings, each member's pet hanging under its frame."] },
-        { "widget", Tr["Widget"],
-            Tr["A box of party frames, under a Party tab, that you can drag anywhere: hold the tab "
-            .. "to move it. In a raid it gives way to the raid frames."] },
-    }
-end
-local function PartyLayout(id)
-    return Choice("partyLayout", Tr["Party layout"], ns.PartyLayoutText(id), Tr["Where the party frames sit."])
 end
 
 local function Concat(...)
@@ -566,10 +546,6 @@ local function BossDebuffs(key)
         Tr["Show a critical boss debuff in the middle of the frame, where crowd control would be; crowd control "
         .. "comes first."])
 end
-local function Pets(key)
-    return Check(key, Tr["Show party pets"],
-        Tr["Show pet unit frames directly below party members who have active pets."])
-end
 local function Buffs(key)
     return Check(key, Tr["Buffs"],
         Tr["Show a compact row of buffs on the outer corner of the health bar: your own (buffs and HoTs), or every "
@@ -592,10 +568,10 @@ local function MinimapCorner()
     return groups
 end
 local MOVER_TIPS = {
-    Party = Tr["Hide the Party widget's tab, the grip that moves it, until the pointer is over the widget."],
-    Raid = Tr["Hide the Raid widget's tab, the grip that moves it, until the pointer is over the widget."],
-    Boss = Tr["Hide the Boss widget's tab, the grip that moves it, until the pointer is over the widget."],
-    Arena = Tr["Hide the Arena widget's tab, the grip that moves it, until the pointer is over the widget."],
+    Party = Tr["Hide the party frames' tab, the grip that moves them, until the pointer is over them."],
+    Raid = Tr["Hide the raid frames' tab, the grip that moves them, until the pointer is over them."],
+    Boss = Tr["Hide the boss frames' tab, the grip that moves them, until the pointer is over them."],
+    Arena = Tr["Hide the arena frames' tab, the grip that moves them, until the pointer is over them."],
 }
 local function Movers(key, what)
     return Check(key, Tr["Movers only on mouseover"],
@@ -633,23 +609,23 @@ local function Specs(list)
     return specs
 end
 
-local AURA_COLS = { { label = Tr["All"] }, { label = Tr["Console"] }, { label = Tr["Widget"] }, { label = Tr["Raid"] },
+local AURA_COLS = { { label = Tr["All"] }, { label = Tr["Console"] }, { label = Tr["Party"] }, { label = Tr["Raid"] },
     { label = Tr["BG"] }, { label = Tr["Boss"] }, { label = Tr["Arena"] } }
 -- a row per piece: the shared key, then each frame set's (false: it has none)
 local AURA_ROWS = {
     { label = Tr["Dispel glow"], tip = Tr["The frame's border in the debuff's colour while an ally has one you can "
-        .. "dispel."], keys = { "sharedGlow", "auraGlow", "partyWidgetGlow", "raidGlow", "bgGlow", false, false } },
+        .. "dispel."], keys = { "sharedGlow", "auraGlow", "partyGlow", "raidGlow", "bgGlow", false, false } },
     { label = Tr["Aggro glow"], tip = Tr["The frame's border while that unit has aggro."],
-        keys = { "sharedThreat", "auraThreat", "partyWidgetThreat", "raidThreat", "bgThreat", false, false } },
+        keys = { "sharedThreat", "auraThreat", "partyThreat", "raidThreat", "bgThreat", false, false } },
     { label = Tr["Crowd control"], tip = Tr["A large icon in the middle of the frame while the unit is crowd "
-        .. "controlled."], keys = { "sharedCC", "auraCC", "partyWidgetCC", "raidCC", "bgCC", false, "arenaCC" } },
+        .. "controlled."], keys = { "sharedCC", "auraCC", "partyCC", "raidCC", "bgCC", false, "arenaCC" } },
     { label = Tr["Buffs"], tip = Tr["A row of buffs on the frame."],
-        keys = { "sharedBuffs", "auraBuffs", "partyWidgetBuffs", false, false, false, false } },
+        keys = { "sharedBuffs", "auraBuffs", "partyBuffs", false, false, false, false } },
     { label = Tr["Debuffs"], tip = Tr["A row of debuffs on the frame."],
-        keys = { "sharedDebuffs", "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs", "bgDebuffs",
-            "bossWidgetMine", "arenaMine" } },
+        keys = { "sharedDebuffs", "auraDebuffs", "partyDebuffs", "raidDebuffs", "bgDebuffs",
+            "bossMine", "arenaMine" } },
     { label = Tr["Boss debuffs"], tip = Tr["A critical boss debuff in the middle of the frame."],
-        keys = { "sharedBoss", "auraBoss", "partyWidgetBoss", "raidBoss", false, false, false } },
+        keys = { "sharedBoss", "auraBoss", "partyBoss", "raidBoss", false, false, false } },
 }
 
 -- Minimal OoC Mode for the whole Cooldown Manager (cooldowns/display.lua):
@@ -674,12 +650,12 @@ local function CdmMinimal()
                 tip = Tr["Whole again while the pointer is over a viewer."] }))
 end
 
--- the party and raid boxes' Minimal OoC Mode (widgets/box.lua)
+-- the party and raid boxes' Minimal OoC Mode (groups/box.lua)
 local function GroupMinimal()
     return Tip(Tr["Out of combat, the party and raid boxes fade away. Kept per profile."],
         Switched(Check("groupMinimal", Tr["Minimal OoC Mode"],
-                Tr["Out of combat, fade the Party widget and the Raid widget (a battleground's too) away. Combat "
-                .. "always brings them back. The console's party frames follow the console instead."]),
+                Tr["Out of combat, fade the party and raid frames (a battleground's too) away. Combat always "
+                    .. "brings them back."]),
             Tr["Group frames: Minimal OoC Mode"],
             Opacity("groupMinimalAlpha", Tr["Opacity out of combat"],
                 Tr["How much of the boxes shows out of combat. 0%: gone, and out of the pointer's way unless "
@@ -885,11 +861,10 @@ function ns.OptionPages()
             groups = {
                 Group(Tr["Preview"],
                     Check("simParty", Tr["Simulate party frames"],
-                        Tr["Show the console's party frame layer and simulated party members to preview "
-                        .. "party frames while solo. The group boxes show too. A small panel on the left sets "
-                        .. "what they show, a tab each for the party, the raid, the enemies and the "
-                        .. "overhead frames: members and their health, deaths, range, pets, auras, "
-                        .. "ready and role checks."]),
+                        Tr["Show simulated party members to preview the party frames while solo. The other "
+                            .. "group frames show too. A small panel on the left sets what they show, a tab each "
+                            .. "for the party, the raid, the enemies and the overhead frames: members and their "
+                            .. "health, deaths, range, pets, auras, ready and role checks."]),
                     Check("simCdm", Tr["Simulate cooldowns"],
                         Tr["Show each Cooldown Manager viewer's icons as its options (Cooldowns) draw them, "
                         .. "without a fight: your own spells or a random full set, cooling down, with charges "
@@ -946,10 +921,10 @@ function ns.OptionPages()
             tabs = {
                 {
                     id = "general", name = Tr["General"],
-                    intro = Tr["Each profile keeps its Console, console party, skills and keys."],
-                    more = Tr["That is everything under Console but the Overhead, the console's party under Unit "
-                        .. "Frames, its skills on the bars and their keys. The overhead, the widgets, Chat, Side "
-                        .. "panel and Bags are shared. What the frames show is under Unit Frames."],
+                    intro = Tr["Each profile keeps its Console, skills and keys."],
+                    more = Tr["That is everything under Console but the Overhead, its skills on the bars and their "
+                        .. "keys. The overhead, the group frames, Chat, Side panel and Bags are shared. What the "
+                        .. "frames show is under Unit Frames."],
                     groups = Concat(AllOn("general", {
                         Group(Tr["Profile"],
                             Choice("consoleProfile", Tr["Console profile"], ns.PROFILE_NAMES,
@@ -959,9 +934,8 @@ function ns.OptionPages()
                                 .. "put down, and their icons flash on the cursor. Then it asks to reload the "
                                 .. "interface, which builds the console (switched in combat, once combat ends)."]),
                             Button(Tr["Reset profile"], function() StaticPopup_Show("MEDALUI_RESET_PROFILE") end,
-                                Tr["This profile's options under Console but the Overhead, and its console party under "
-                                .. "Unit Frames, back to its own. The overhead, the widgets, Chat, Side panel and Bags "
-                                .. "are left as they are."]),
+                                Tr["This profile's options under Console but the Overhead, back to its own. The "
+                                    .. "overhead, the group frames, Chat, Side panel and Bags are left as they are."]),
                             Button(Tr["Run setup again"], function()
                                 if ns.CloseOptions then ns.CloseOptions() end
                                 if ns.OpenSetup then ns.OpenSetup() end
@@ -1030,13 +1004,6 @@ function ns.OptionPages()
                             .. "faded. The corner strips and the corner minimap keep their own."]),
                         Seconds("consoleFadeIn", Tr["Fade in"], Tr["How long it takes to come back."]),
                         Seconds("consoleFadeOut", Tr["Fade out"], Tr["How long it takes to fade."])) }))),
-                },
-                {
-                    -- where the console's parts sit: the console's own card
-                    id = "layout", name = Tr["Layout"], intro = Tr["Kept per profile. Where the console's parts sit."],
-                    groups = Concat(
-                        ForConsole("reticule", Group(Tr["Party frames"], PartyLayout("reticule"))),
-                        ForConsole("arena", Group(Tr["Party frames"], PartyLayout("arena")))),
                 },
                 {
                     id = "bar", name = Tr["Action Bars"], intro = Tr["Kept per profile."],
@@ -1215,9 +1182,8 @@ function ns.OptionPages()
                         Group(Tr["Editor"], Editor(nil, Tr["Edit unit frames"])),
                         Group(Tr["Dead and offline"],
                             Color("deadColor", Tr["Dead frame colour"],
-                                Tr["A dead or offline friend's frame: the player's, the party's (console or widget) "
-                                .. "and the raid's. It shows the status icon, time or disconnection, and their "
-                                    .. "name."])),
+                                Tr["A dead or offline friend's frame: the player's, the party's and the raid's. "
+                                    .. "It shows the status icon, time or disconnection, and their name."])),
                         Glows(),
                         Group(Tr["Blizzard's auras (shared by every profile)"],
                             Check("blizzardAuras", Tr["Blizzard's buff and debuff rows"],
@@ -1227,44 +1193,30 @@ function ns.OptionPages()
                     },
                 },
                 {
-                    -- a set of options for each party: the console's, or the
-                    -- widget's; Editing (beside the tabs) picks which, and
-                    -- opens on the one Party layout shows
                     id = "party", name = Tr["Party"],
-                    intro = Tr["Editing, at the tabs' right, picks the console's party frames or the widget's."],
-                    more = Tr["Party layout (Console > Layout) picks which of the two show. The console's are kept "
-                        .. "per profile, and are on the player and target frames too; the widget's are shared by "
-                        .. "every profile."],
-                    variants = { { "console", Tr["Console"] }, { "widget", Tr["Widget"] } },
-                    variantKey = "partyLayout",
+                    intro = Tr["Shared by every profile. The party frames, under their Party tab; in a raid they "
+                        .. "give way to the raid frames."],
                     sheetNames = { position = Tr["Position & look"] },
                     groups = {
-                        On("position", Group(Tr["Editor"], Editor(nil, Tr["Edit unit frames"]))),
-                        On("position", Variant("widget", Tr["Shared"], Group(Tr["The widget"],
-                            Movers("partyWidgetMoverHover", "Party")))),
-                        On("visibility", Variant("console", Tr["Per profile"], Group(Tr["Range"],
+                        On("position", Group(Tr["Editor"], Editor("party", Tr["Edit the party frames"]))),
+                        On("position", Kept(Tr["Shared"], Group(Tr["Party frames"],
+                            Movers("partyMoverHover", "Party")))),
+                        On("visibility", Kept(Tr["Shared"], Group(Tr["Range"],
                             Range("partyRange", "party")))),
-                        On("visibility", Variant("widget", Tr["Shared"], Group(Tr["Range"],
-                            Range("partyWidgetRange", "party")))),
-                        On("visibility", Variant("widget", Tr["Per profile"], GroupMinimal())),
-                        On("elements", Variant("console", Tr["Per profile"], Group(Tr["Frames"], Pets("partyPets")))),
-                        On("elements", Variant("widget", Tr["Shared"], Group(Tr["Frames"],
-                            Check("partyWidgetPlayer", Tr["Include yourself"],
-                                Tr["Show your own unit frame as the first row of the Party widget."])))),
-                        On("auras", Variant("console", Tr["Per profile"], Group(Tr["Glows and icons"],
-                            Glow("auraGlow"), Threat("auraThreat"), CC("auraCC", "the")))),
-                        On("auras", Variant("console", Tr["Per profile"], Group(Tr["Aura rows"],
-                            Buffs("auraBuffs"), Debuffs("auraDebuffs"), BossDebuffs("auraBoss")))),
-                        On("auras", Variant("widget", Tr["Shared"], Group(Tr["Glows and icons"],
-                            Glow("partyWidgetGlow"), Threat("partyWidgetThreat"), CC("partyWidgetCC", "the")))),
-                        On("auras", Variant("widget", Tr["Shared"], Group(Tr["Aura rows"],
-                            Buffs("partyWidgetBuffs"), Debuffs("partyWidgetDebuffs"),
-                            BossDebuffs("partyWidgetBoss")))),
+                        On("visibility", Kept(Tr["Per profile"], GroupMinimal())),
+                        On("elements", Kept(Tr["Shared"], Group(Tr["Frames"],
+                            Check("partyPlayer", Tr["Include yourself"],
+                                Tr["Show your own unit frame as the first row of the party frames."])))),
+                        On("auras", Kept(Tr["Shared"], Group(Tr["Glows and icons"],
+                            Glow("partyGlow"), Threat("partyThreat"), CC("partyCC", "the")))),
+                        On("auras", Kept(Tr["Shared"], Group(Tr["Aura rows"],
+                            Buffs("partyBuffs"), Debuffs("partyDebuffs"),
+                            BossDebuffs("partyBoss")))),
                     },
                 },
                 {
                     id = "raid", name = Tr["Raid"],
-                    intro = Tr["Shared by every profile. The Raid widget, out of battlegrounds; in one, the "
+                    intro = Tr["Shared by every profile. The raid frames, out of battlegrounds; in one, the "
                         .. "Battleground tab's options take over."],
                     groups = {
                         Group(Tr["Raid"], Range("raidRange", "raid"), Movers("raidMoverHover", "Raid")),
@@ -1277,7 +1229,7 @@ function ns.OptionPages()
                 },
                 {
                     id = "battleground", name = Tr["Battleground"],
-                    intro = Tr["Shared by every profile. The Raid widget while you are in a battleground."],
+                    intro = Tr["Shared by every profile. The raid frames while you are in a battleground."],
                     groups = {
                         Group(Tr["Battleground"], Range("bgRange", "battleground team"),
                             Movers("bgMoverHover", "Raid")),
@@ -1288,17 +1240,16 @@ function ns.OptionPages()
                 },
                 {
                     id = "boss", name = Tr["Boss"],
-                    intro = Tr["Shared by every profile. The Boss widget's frames, one for each of the "
-                        .. "encounter's bosses."],
+                    intro = Tr["Shared by every profile. The boss frames, one for each of the encounter's bosses."],
                     groups = {
-                        Group(Tr["Widget"], Mine("bossWidgetMine", "a boss"),
+                        Group(Tr["Boss frames"], Mine("bossMine", "a boss"),
                             Movers("bossMoverHover", "Boss")),
-                        Group(Tr["Editor"], Editor("boss", Tr["Edit the Boss widget"])),
+                        Group(Tr["Editor"], Editor("boss", Tr["Edit the boss frames"])),
                     },
                 },
                 {
                     id = "arena", name = Tr["Arena"],
-                    intro = Tr["Shared by every profile. The Arena widget's enemy frames."],
+                    intro = Tr["Shared by every profile. The arena's enemy frames."],
                     groups = {
                         Group(Tr["Arena"], Movers("arenaMoverHover", "Arena")),
                         Group(Tr["Auras"], CC("arenaCC", "an enemy's"), Mine("arenaMine", "an enemy")),
@@ -1784,7 +1735,7 @@ function ns.OptionCategories()
         { name = Tr["Shared"], glyph = "channels", scope = Tr["Every part's, in one place"],
             items = { "shared/visibility", "shared/auras", "shared/look", "shared/tools" } },
         { name = Tr["Console"], glyph = "skills", scope = Tr["Kept per profile"],
-            items = { "console/general", "console/layout", "console/bar", "console/paging", "console/minimap" } },
+            items = { "console/general", "console/bar", "console/paging", "console/minimap" } },
         -- shared by every profile, unlike the console (2026-11-15): its own
         -- heading, its one page opened by it (window.lua's Single)
         { name = Tr["Overhead"], glyph = "chevron-up", scope = Tr["Shared by every profile"],

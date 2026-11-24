@@ -3,10 +3,10 @@
 -- pieces are, and each piece placed, sized, set in its font and formatted
 -- as the player left it.
 --
--- Six frames. The console's: the player and the target (one layout, the
--- two mirrored) and the console's party, kept per profile, as the console
--- shapes them. The group widgets': the party in its widget, the raid, the
--- bosses and the arena, shared by every profile.
+-- Five frames. The console's: the player and the target (one layout, the
+-- two mirrored), kept per profile, as the console shapes them. The group
+-- frames': the party, the raid, the bosses and the arena, shared by every
+-- profile.
 --
 -- What the player changed is an option per frame (editUnit ... editArena),
 -- false until something is: { [piece] = { field = value } }. A piece no
@@ -17,7 +17,7 @@
 --
 -- Places are mirrored on the console: a piece sits at the frame's outer or
 -- inner end, not its left or right, and moves inward, so the left copy and
--- the right one stay each other's mirror. A widget's cells are all the
+-- the right one stay each other's mirror. A group frame's cells are all the
 -- left copy: outer is left.
 local _, ns = ...
 local Tr = ns.L
@@ -70,51 +70,46 @@ local PIECES = {
 }
 E.PIECES = PIECES
 
-local function Party(which)
-    return function()
-        local list = {}
-        for i = 1, 4 do
-            local b = ns.units and ns.units["party" .. i]
-            if b and (b.inWidget and true or false) == which then table.insert(list, b) end
-        end
-        local p = which and ns.partyWidgetPlayer
-        if p and p.inWidget then table.insert(list, p) end
-        return list
+-- the party's buttons, once its box has them (groups/party.lua)
+local function Party()
+    local list = {}
+    for i = 1, 4 do
+        local b = ns.units and ns.units["party" .. i]
+        if b and b.inBox then table.insert(list, b) end
     end
+    local p = ns.partyPlayer
+    if p and p.inBox then table.insert(list, p) end
+    return list
 end
 
--- The cells a widget registered (ns.EditableCell), in the order they came.
-local cells = { partyWidget = {}, raid = {}, boss = {}, arena = {} }
+-- The cells a group frame registered (ns.EditableCell), in the order they came.
+local cells = { party = {}, raid = {}, boss = {}, arena = {} }
 local function Cells(id)
     return function() return cells[id] end
 end
 
 -- The frames, in the window's order. A piece whose Shown is an option the
 -- Unit Frames page has too names it (shows): the editor's Shown is that
--- option, not a second one. A widget's cell has its size from cell.
+-- option, not a second one. A group frame's cell has its size from cell.
 E.FRAMES = {
     { id = "unit", key = "editUnit", name = Tr["Player · Target"], buttons = function()
         return { ns.units.player, ns.units.target }
     end, pieces = { "name", "level", "leader", "value", "powerValue", "power", "cc", "boss", "buffs", "mine" },
       shows = { cc = "auraCC", boss = "auraBoss", buffs = "auraBuffs", mine = "auraDebuffs" } },
-    { id = "party", key = "editParty", name = Tr["Party"], buttons = Party(false),
-      pieces = { "name", "level", "value", "power", "role", "leader", "status", "cc", "boss", "buffs", "mine" },
-      hidden = { value = true },
-      shows = { cc = "auraCC", boss = "auraBoss", buffs = "auraBuffs", mine = "auraDebuffs" } },
-    { id = "partyWidget", key = "editPartyWidget", name = Tr["Party widget"], buttons = Party(true),
+    { id = "party", key = "editParty", name = Tr["Party"], buttons = Party,
       cell = { 160, 40 },
       pieces = { "cell", "name", "level", "value", "power", "role", "leader", "status", "cc", "boss", "buffs",
           "mine" },
       hidden = { value = true },
-      shows = { cc = "partyWidgetCC", boss = "partyWidgetBoss", buffs = "partyWidgetBuffs",
-          mine = "partyWidgetDebuffs" } },
+      shows = { cc = "partyCC", boss = "partyBoss", buffs = "partyBuffs",
+          mine = "partyDebuffs" } },
     { id = "raid", key = "editRaid", name = Tr["Raid"], buttons = Cells("raid"), cell = { 112, 36 },
       pieces = { "cell", "name", "level", "value", "power", "leader", "cc", "boss", "mine" },
       hidden = { level = true },
       shows = { cc = "raidCC", boss = "raidBoss", mine = "raidDebuffs" } },
     { id = "boss", key = "editBoss", name = Tr["Boss"], buttons = Cells("boss"), cell = { 180, 40 },
       pieces = { "cell", "name", "level", "value", "power", "mine" },
-      shows = { mine = "bossWidgetMine" } },
+      shows = { mine = "bossMine" } },
     { id = "arena", key = "editArena", name = Tr["Arena"], buttons = Cells("arena"), cell = { 160, 40 },
       pieces = { "cell", "name", "level", "value", "power", "cc", "mine" },
       hidden = { level = true },
@@ -124,27 +119,25 @@ local byId = {}
 for _, frame in ipairs(E.FRAMES) do byId[frame.id] = frame end
 E.byId = byId
 
--- A widget's cell, given to the editor as one of its frame's.
+-- A group frame's cell, given to the editor as one of its frame's.
 function ns.EditableCell(b, id)
     if not cells[id] then return end
     b.editFrame = id
     table.insert(cells[id], b)
 end
 
--- The frame a button is drawn as now: the party's by where its layout put it.
+-- The frame a button is drawn as.
 function E.FrameOf(b)
     if b.editFrame then return byId[b.editFrame] end
-    if b == ns.partyWidgetPlayer then return byId.partyWidget end
+    if b == ns.partyPlayer then return byId.party end
     local unit = b.unit or ""
     if unit == "player" or unit == "target" then return byId.unit end
-    if unit:match("^party%d$") then return byId[b.inWidget and "partyWidget" or "party"] end
+    if unit:match("^party%d$") then return byId.party end
 end
 
 -- Which way a button's outer end is: -1 left, 1 right. The console's copies
--- by their slot (the light console's party row by its half); every widget
--- cell is a left copy.
+-- by their slot; every group frame cell is a left copy.
 local function Side(b, frame)
-    if frame.id == "party" then return ns.PartySide(b.unit) end
     if frame.id == "unit" then
         local slot = ns.slots[b.unit]
         return slot and slot[2] or -1
@@ -291,7 +284,7 @@ local function Unwrite(b, piece, shot, done)
 end
 
 -- A button's own code laid these pieces again (a party moving between the
--- console and its widget): their places are the button's own now. Its
+-- console and its group frame): their places are the button's own now. Its
 -- code sets no size or font there, so the editor's go back first, or the
 -- next snapshot would take them for the button's.
 function E.Relaid(b, ...)
@@ -432,9 +425,9 @@ local function Row(b, regions, shot, e, side)
 end
 
 -- The way to the screen's nearer side edge from button b: its outer end
--- on the console (mirrored), else the half of the screen a widget is in.
+-- on the console (mirrored), else the half of the screen a group frame is in.
 local function EdgeSide(b, frame)
-    if frame.id == "unit" or frame.id == "party" then return Side(b, frame) end
+    if frame.id == "unit" then return Side(b, frame) end
     local x = b:GetCenter()
     local w = UIParent and UIParent:GetWidth()
     if not (Plain(x) and Plain(w)) then return -1 end
@@ -445,7 +438,7 @@ end
 -- Outside: true, toward the screen's edge; "left" or "right", that side.
 -- The console's frames go outward only (inward runs over the ring).
 local function OutEdge(b, frame, e)
-    if frame.id ~= "unit" and frame.id ~= "party" then
+    if frame.id ~= "unit" then
         if e.out == "left" then return -1 end
         if e.out == "right" then return 1 end
     end
@@ -488,7 +481,7 @@ end
 -- Where the debuffs go while both rows are out on one side of button b
 -- (their Next to buffs): "below", "above", "outer" (past the buffs) or
 -- "inner" (between the frame and the buffs, which move out); nil while
--- the two are not out together on one side. A widget's Left and Right
+-- the two are not out together on one side. A group frame's Left and Right
 -- are outer or inner by the side they hang on.
 function E.Stacked(frame, b)
     local mine, buffs = E.Edits(frame, "mine"), E.Edits(frame, "buffs")
@@ -567,7 +560,7 @@ E.FROM = {
 
 -- (2026-11-22) Whether a right click on one of the player's buffs takes it
 -- off: the Player · Target frame's buffs row says (its Auras tab), on
--- unless turned off; the Party widget's own row of yours follows it.
+-- unless turned off; the party frames' own row of yours follows it.
 function ns.BuffsCancel()
     local all = ns.db.editUnit
     local e = type(all) == "table" and all.buffs
@@ -697,7 +690,7 @@ function ns.CutName(name, len)
 end
 
 -- ------------------------------------------------------------ cells
--- A widget's cell size: the player's, or its own.
+-- A group frame's cell size: the player's, or its own.
 -- A frame's power bar height: the editor's, else def (its own code's).
 function ns.PowerHeight(id, def)
     local frame = byId[id]
@@ -727,7 +720,7 @@ local function Retext(frame)
     for _, b in ipairs(frame.buttons()) do
         if b.unit and (b.stub or UnitExists(b.unit)) then
             if b.editFrame then
-                if ns.UpdateWidgetCell then ns.UpdateWidgetCell(b) end
+                if ns.UpdateGroupCell then ns.UpdateGroupCell(b) end
             elseif ns.unitEvents then
                 ns.unitEvents.UNIT_NAME_UPDATE(b)
                 ns.unitEvents.UNIT_HEALTH(b)
@@ -738,7 +731,7 @@ local function Retext(frame)
     end
 end
 
--- The widgets hear about their own frame's option; every frame's pieces
+-- The group frames hear about their own frame's option; every frame's pieces
 -- follow theirs, and its rows show again what their Max and From say.
 for _, frame in ipairs(E.FRAMES) do
     ns.OnSetting(frame.key, function()
@@ -747,7 +740,6 @@ for _, frame in ipairs(E.FRAMES) do
         if ns.UpdateAllAuras then ns.UpdateAllAuras() end
     end)
 end
-ns.OnSetting("partyLayout", function() E.ApplyAll() end)
 ns.On("PLAYER_LOGIN", function() E.ApplyAll() end)
 
 -- ------------------------------------------------------------ previews

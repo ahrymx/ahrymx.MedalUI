@@ -15,7 +15,7 @@ import os
 
 from PIL import Image, ImageDraw
 
-from gen_widgets import GOLD, GOLD_D, font
+from gen_groups import GOLD, GOLD_D, font
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "render")

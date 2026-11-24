@@ -7,12 +7,14 @@ windows into Lua.
 assets/layer0.png (solo) and assets/layer1.png (in a group) are 1920x1081
 screen mockups with the frame's windows cut out as transparency. This script:
 
-  * crops both to the frame's bounding box and pads them to power-of-two
-    32-bit uncompressed TGA (media/console-solo.tga, media/console-group.tga);
+  * crops the solo art to the frame's bounding box and pads it to a
+    power-of-two 32-bit uncompressed TGA (media/console-solo.tga); the group
+    art (layer1) is read only for its windows, the party's wings, which the
+    party's buttons are made in before their box takes them;
   * writes media/bar.tga, the white status-bar fill the units tint;
   * writes media/vial.tga, the glassy empty vial backing for the player and
     target frames;
-  * writes media/console-solo-tint.tga and media/console-group-tint.tga:
+  * writes media/console-solo-tint.tga:
     a vein texture of glowing lava cracks across each art's grey surface
     (its blue-grey stone, never the gold trim), radiating outward from the
     ring's centre and falling off to the frame's ends, for the combat colour
@@ -576,7 +578,7 @@ def main():
     tw, th = pow2(w), pow2(h)
     # the art is drawn in the suite's old navy, which the tint below reads
     # its stone by; what ships is brown (art/brown.py)
-    for img, name in ((solo, "console-solo"), (group, "console-group")):
+    for img, name in ((solo, "console-solo"),):
         canvas = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
         canvas.paste(brown(img.crop(box)), (0, 0))
         to_tga(canvas, os.path.join(MEDIA, f"{name}.tga"))
@@ -606,7 +608,7 @@ def main():
     ring = named["ring"]
     centre = (CENTRE_X, y0 + (ring[2] + ring[3]) / 2)
     veins = generate_vein_field(w, h, w / 2, centre[1] - y0)
-    for img, name in ((solo, "console-solo"), (group, "console-group")):
+    for img, name in ((solo, "console-solo"),):
         canvas = Image.new("RGBA", (tw, th), (255, 255, 255, 0))
         canvas.paste(tint_mask(img, box, centre, veins), (0, 0))
         to_tga(canvas, os.path.join(MEDIA, f"{name}-tint.tga"))

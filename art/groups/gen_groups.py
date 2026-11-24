@@ -1,4 +1,4 @@
-r"""Draft: the draggable group widgets (party, raid, boss, arena) in the format of
+r"""Draft: the draggable group frames (party, raid, boss, arena) in the format of
 the user's 2026-11-01_23-10-17.png: one box, a title over each column, the
 column's units stacked under it. The title is the grip that drags the box.
 
@@ -117,9 +117,9 @@ def sheet(style):
 # ------------------------------------------------------------ the game's art
 # The tab, in three slices: a slanted end, a middle that stretches to the
 # word, the mirrored end. Its bottom TAB_OVER rows lie over the box's gold
-# edge, so the tab opens into the box (widgets/box.lua reads TAB_*).
+# edge, so the tab opens into the box (groups/box.lua reads TAB_*).
 TAB_W, TAB_H, TAB_END, TAB_OVER = 64, 20, 8, 2
-MEDIA = os.path.join(HERE, "..", "..", "WoW", "Interface", "AddOns", "MedalUI", "media", "widgets")
+MEDIA = os.path.join(HERE, "..", "..", "WoW", "Interface", "AddOns", "MedalUI", "media", "groups")
 
 
 def tab_svg():
@@ -162,7 +162,7 @@ def main():
     out.alpha_composite(a, (0, 0))
     out.alpha_composite(b, (0, a.height))
     out = out.resize((out.width * 2, out.height * 2), Image.LANCZOS)
-    path = os.path.join(OUT, "widgets-draft.png")
+    path = os.path.join(OUT, "groups-draft.png")
     out.save(path)
     print(path)
 

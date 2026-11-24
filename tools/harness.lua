@@ -202,13 +202,6 @@ local keybindPass = args[2] == "keybind" or args[3] == "keybind"
 -- combat holding a change back, and the options kept per profile.
 local pagingPass = args[2] == "paging" or args[3] == "paging"
 -- "row" (after "light") plays the horizontal party row (console/party_row.lua):
--- the Party layout option saved on the light profile, each member's frame by
--- its pet's state driver, the snippet run from the game's secure update (in
--- combat too), pets turned off, the row with no group, and the option played
--- out to the widget and back again. Seeded with the retired "horizontal",
--- which the migration turns into the console's own; the light pass alone
--- is seeded with the retired "vertical", which comes to the same.
-local rowPass = args[3] == "row"
 -- "minimap" (alone: the Medallion; after "light": the Central Console) plays
 -- Console > Minimap: the rule's triggers, the key's pin, the corner's size and place.
 -- "light minimap corner" (or "console") is saved with that place for the load.
@@ -712,7 +705,7 @@ function Region:ClearFocus()
     focused = nil
     if self.scripts.OnEditFocusLost then self.scripts.OnEditFocusLost(self) end
 end
--- a restricted snippet's self:GetParent():CallMethod(name, ...) (widgets/raid.lua)
+-- a restricted snippet's self:GetParent():CallMethod(name, ...) (groups/raid.lua)
 function Region:CallMethod(name, ...) return self[name](self, ...) end
 -- the first of a region's points, as GetPoint() gives it; GetPoint(i) the
 -- i-th, in the order they were set
@@ -1629,7 +1622,7 @@ function HarnessCrowns(tag)
     end
     print(tag, table.concat(o, " "))
 end
--- a raid: none, unless the widgets pass makes one (widgets/raid.lua)
+-- a raid: none, unless the widgets pass makes one (groups/raid.lua)
 raidRoster = {}
 function IsInRaid() return #raidRoster > 0 end
 -- the instance the player stands in: "none", "party", "raid", "pvp" (a battleground), "arena"
@@ -2531,8 +2524,14 @@ MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
             bossMine = false, bossFrames = "both",
             -- the minimap's load place chosen: kept as chosen, not "auto"
             minimapStart = "console",
-            partyWidgetPoint = { "TOPLEFT", "TOPLEFT", 50, -60 } } },
-        global = { lootMoney = false, bossFrames = "vertical" } }
+            partyWidgetPoint = { "TOPLEFT", "TOPLEFT", 50, -60 },
+            -- the console's party, gone 2026-11-24: its options go
+            partyLayout = "console", partyPets = false, editParty = { cell = { w = 170 } } } },
+        -- the group frames' old names (groupKeys): each moves to its new
+        -- one; a stray new name with no old one to move is not taken for
+        -- the party's
+        global = { lootMoney = false, bossFrames = "vertical", partyWidgetGlow = false,
+            editParty = { cell = { w = 150 } } } }
     or profilesPass and { consoleProfile = "light", rows = 3, actionBar = true, bareIcons = true,
         artColor = "ffffffff", drawer = 2, sideTab = "loot", bagsPoint = { "TOP", "TOP", 4, -8 },
         bagsColumns = 12, retired = "kept" }
@@ -2540,7 +2539,7 @@ MedalUIDB = args[2] == "face" and { global = { medaluiFace = "forum" } }
     -- would, since the Reticule ships with them off; the profiles pass
     -- prints that default)
     or lightPass and { consoleProfile = "light", bareIcons = true, simParty = grouped,
-        partyLayout = rowPass and "horizontal" or "vertical", minimapStart = savedStart, minimapAuto = true }
+        minimapStart = savedStart, minimapAuto = true }
     or barOff and { actionBar = false } or savedRows and { rows = savedRows }
     or pagingPass and { rows = 3 }
     or savedBare and { bareIcons = true } or savedNoChat and { chat = false }
@@ -5873,48 +5872,6 @@ function optionsStale()
     table.sort(stale)
     return table.concat(stale, " ")
 end
--- The Party layout's list, as this profile shows it: each choice and its tip.
--- Console > Layout as the pages describe it: its cards, the console's own
--- first.
-function layoutCards()
-    for _, page in ipairs(ns.OptionPages()) do
-        for _, tab in ipairs(page.id == "console" and page.tabs or {}) do
-            if tab.id == "layout" then
-                local o = {}
-                for _, g in ipairs(tab.groups) do
-                    local first = g.items[1]
-                    table.insert(o, g.title .. "[" .. (first.key or "?") .. "]")
-                end
-                return table.concat(o, " ")
-            end
-        end
-    end
-    return "none"
-end
-function partyLayoutMenu(tag)
-    ns.OpenOptions("console/layout")
-    print("options.layout " .. tag, "built=" .. tostring(ns.consoleBuilt), layoutCards())
-    local layout = ns.optionControls.partyLayout
-    -- segmented: each answer's button and its tip, as the list would show them
-    if layout.segment then
-        for i, b in ipairs(layout.buttons) do
-            local tip = layout.spec.choices[i][3]
-            if type(tip) == "function" then tip = tip() end
-            print("party layout menu " .. tag, (b.chosen and "*" or "") .. b.name, tip)
-        end
-        ns.CloseOptions()
-        return
-    end
-    layout.button.scripts.OnClick(layout.button)
-    for _, row in ipairs(MedalUIOptionsMenu.rows) do
-        if row.shown then
-            print("party layout menu " .. tag, (row.mark.shown and "*" or "") .. row.text.text, row.tip)
-        end
-    end
-    layout.button.scripts.OnClick(layout.button)
-    ns.CloseOptions()
-end
-
 local function menuRow(value)
     for _, row in ipairs(MedalUIOptionsMenu and MedalUIOptionsMenu.rows or {}) do
         if row.shown and row.value == value then return row end
@@ -6268,12 +6225,12 @@ if barPass then
         table.sort(off)
         print("shared defaults differ", #off == 0 and "none" or table.concat(off, ","))
         local heard = {}
-        for _, k in ipairs({ "raidDebuffs", "arenaMine", "auraDebuffs", "bossWidgetMine" }) do
+        for _, k in ipairs({ "raidDebuffs", "arenaMine", "auraDebuffs", "bossMine" }) do
             ns.OnSetting(k, function(v) table.insert(heard, k .. "=" .. tostring(v)) end)
         end
         local function state(tag)
             local o = {}
-            for _, k in ipairs({ "auraDebuffs", "raidDebuffs", "bossWidgetMine", "arenaMine" }) do
+            for _, k in ipairs({ "auraDebuffs", "raidDebuffs", "bossMine", "arenaMine" }) do
                 table.insert(o, k .. "=" .. tostring(ns.db[k]) .. (ns.OptionOwn(k) and " own" or ""))
             end
             print("shared " .. tag, "all=" .. tostring(ns.db.sharedDebuffs), table.concat(o, " "),
@@ -6297,7 +6254,7 @@ if barPass then
         end
         local mark = own("units/raid", "raidDebuffs")
         print("shared own mark", "raid=" .. tostring(mark and mark.shown),
-            "party's=" .. tostring(own("units/party", "auraDebuffs").shown))
+            "party's=" .. tostring(own("units/party", "partyDebuffs").shown))
         mark = own("units/raid", "raidDebuffs")
         mark.scripts.OnClick(mark)
         ns.RefreshOptions()
@@ -6640,8 +6597,7 @@ if barPass then
         end
         rows("arch")
         ns.SetOption("cdmELayout", lay)
-        -- Party's Editing switch: the auras sheet's rows edit the other
-        -- layout's keys; the layout in use stays as it was
+        -- Party: one set of rows, the party frames', no Editing switch
         ns.OpenOptions("units/party#auras")
         local party = ns.optionPages["units/party"]
         local function keys(label)
@@ -6654,22 +6610,14 @@ if barPass then
                 end
                 if shown and c.spec and c.spec.key then table.insert(o, c.spec.key) end
             end
-            print("options.party " .. label, "editing=" .. tostring(party.variant), "sheet=" .. tostring(party.sheet),
-                "layout=" .. tostring(ns.db.partyLayout), "keys=" .. table.concat(o, ","))
+            print("options.party " .. label, "switch=" .. tostring(party.variantSeg ~= nil),
+                "sheet=" .. tostring(party.sheet), "keys=" .. table.concat(o, ","))
         end
-        keys("console")
-        for _, b in ipairs(party.variantSeg.buttons) do
-            if b.value == "widget" then b.scripts.OnClick(b) end
-        end
-        keys("widget")
+        keys("auras")
         for _, b in ipairs(party.tabs) do
             if b.sheet == "position" then b.scripts.OnClick(b) end
         end
-        keys("widget position")
-        for _, b in ipairs(party.variantSeg.buttons) do
-            if b.value == "console" then b.scripts.OnClick(b) end
-        end
-        keys("console position")
+        keys("position")
         -- the window's head: its name, the version, a close that goes red
         -- under the pointer; the head is the grip
         local x = win.closeX
@@ -6796,7 +6744,6 @@ if barPass then
     menu:SetSize(0, 0)
     fonts("menu fonts plain")
     page.settings.partyRange:Set(40)
-    partyLayoutMenu("medallion")
     -- the Game menu's medallion choice, being built: "(WIP)", dimmed, its
     -- click picks nothing (a segment or the dropdown, whichever it drew)
     ;(function()
@@ -11823,6 +11770,30 @@ end
 
 if profilesPass then
     local S = page.settings
+    -- the group frames' keys renamed, the console's party gone: read before
+    -- the resets below clear the profiles
+    local function groupKeys(tag)
+        local g, o = MedalUIDB.global, {}
+        for _, k in ipairs({ "partyRange", "partyGlow", "bossMine", "partyPoint" }) do
+            table.insert(o, k .. "=" .. (type(g[k]) == "table" and table.concat(g[k], ",") or tostring(g[k])))
+        end
+        table.insert(o, "editParty=" .. tostring(type(g.editParty) == "table" and g.editParty.cell.w))
+        local old = {}
+        local stores = { db = MedalUIDB, global = MedalUIDB.global }
+        for name, t in pairs(MedalUIDB.profiles or {}) do stores[name] = t end
+        for name, t in pairs(stores) do
+            for k in pairs(t) do
+                if k:match("Widget") and k ~= "widgetsShared" or k == "partyLayout" or k == "partyPets"
+                    or name ~= "global" and name ~= "db" and (k == "partyRange" or k == "editParty") then
+                    table.insert(old, name .. "." .. k)
+                end
+            end
+        end
+        table.sort(old)
+        print("profiles group keys " .. tag, table.concat(o, " "), "once=" .. tostring(MedalUIDB.groupKeys),
+            "old=" .. (#old == 0 and "none" or table.concat(old, ",")), "db.partyRange=" .. tostring(ns.db.partyRange))
+    end
+    if args[3] == "saved" then groupKeys("migrated") end
     -- the Reticule's minimap stays in its bay by default: it moves by
     -- itself only when ticked on (and the Arena's never moves)
     print("profiles minimap auto", "profile=" .. ns.db.consoleProfile, "auto=" .. tostring(ns.db.minimapAuto),
@@ -11869,8 +11840,7 @@ if profilesPass then
     S.consoleProfile:Set("arena")
     state("switched to arena")
     -- the window still describes the console built, until the reload
-    print("options.layout after a switch", "profile=" .. ns.db.consoleProfile, "built=" .. tostring(ns.consoleBuilt),
-        layoutCards())
+    print("options after a switch", "profile=" .. ns.db.consoleProfile, "built=" .. tostring(ns.consoleBuilt))
     ns.SetOption("drawer", 2)
     ns.db.sideTab = "auras"
     -- the overhead's are shared: set on arena, kept through switches and resets
@@ -11895,21 +11865,22 @@ if profilesPass then
     for name, t in pairs(MedalUIDB.profiles or {}) do stores[name] = t end
     for name, t in pairs(stores) do
         for _, k in ipairs({ "bossFrames", "bossMine", "topBoss" }) do
-            if t[k] ~= nil then table.insert(left, name .. "." .. k .. "=" .. tostring(t[k])) end
+            -- (bossMine is the Boss frames' own now, kept in the global store)
+            if t[k] ~= nil and not (name == "global" and k == "bossMine") then table.insert(left, name .. "." .. k .. "=" .. tostring(t[k])) end
         end
     end
     table.sort(left)
     print("profiles boss options left", #left == 0 and "none" or table.concat(left, " "))
     if args[3] == "saved" then
         -- the widgets' options came from the profile in use once (see
-        -- "migrated"): with the party's saved in it and the raid's back to
-        -- the default (so not saved), the raid's stays the default at the
-        -- next login
+        -- "migrated"): with the raid's back to the default (so not saved),
+        -- the raid's stays the default at the next login
         print("  widgets shared", "once=" .. tostring(rawget(MedalUIDB, "widgetsShared")),
             "profile=" .. MedalUIDB.consoleProfile)
-        MedalUIDB.profiles[MedalUIDB.consoleProfile].partyRange, MedalUIDB.global.raidRange = 30, nil
+        MedalUIDB.global.raidRange = nil
         for _, f in ipairs(events.ADDON_LOADED or {}) do f.scripts.OnEvent(f, "ADDON_LOADED", "MedalUI") end
         print("  widgets shared, next login", "raid=" .. tostring(MedalUIDB.global.raidRange))
+        groupKeys("next login")
     end
     -- the profiles' names and ids: Reticule the default, first; Arena the
     -- medallion. Each login below is ADDON_LOADED again, on saved data of
@@ -12037,7 +12008,7 @@ if profilesPass then
         enter(true, false)
         print("setup old character", "shown=" .. shown(), "owed=" .. tostring(ns.SetupOwed()),
             "marked=" .. tostring(MedalUICharDB.setup))
-        -- Arena and the widget: the reload asked once, every per-profile
+        -- Arena: the reload asked once, every per-profile
         -- answer on Arena's, none on the Reticule's; no console Minimal
         newChar("reticule")
         enter(true, false)
@@ -12051,15 +12022,10 @@ if profilesPass then
             if c:IsShown() then table.insert(rows, c.key .. (c.spec.get() and ":on" or ":off")) end
         end
         click(frame.next)
-        local party = {}
-        for _, c in ipairs(views[3].cards) do table.insert(party, c.id .. (c.on and "*" or "")) end
-        click(views[3].cards[2])
-        click(frame.next)
         local a, r = MedalUIDB.profiles.arena, MedalUIDB.profiles.reticule
-        print("setup arena widget", "cards=" .. table.concat(cards, ","), "rows=" .. table.concat(rows, ","),
-            "party=" .. table.concat(party, ","), "shown=" .. shown(), "profile=" .. ns.db.consoleProfile,
-            "reloads=" .. asked, "arena layout=" .. tostring(a.partyLayout),
-            "reticule layout=" .. tostring(r.partyLayout), "arena consoleMinimal=" .. tostring(a.consoleMinimal),
+        print("setup arena", "cards=" .. table.concat(cards, ","), "rows=" .. table.concat(rows, ","),
+            "shown=" .. shown(), "profile=" .. ns.db.consoleProfile,
+            "reloads=" .. asked, "arena consoleMinimal=" .. tostring(a.consoleMinimal),
             "arena group=" .. tostring(a.groupMinimal), "arena cdm=" .. tostring(a.cdmMinimal),
             "reticule group=" .. tostring(r.groupMinimal), "chat=" .. tostring(MedalUIDB.global.chatImmersion),
             "side=" .. tostring(MedalUIDB.global.sideImmersion), "done=" .. tostring(MedalUICharDB.setup))
@@ -12075,11 +12041,9 @@ if profilesPass then
         click(frame.next)
         local chatAfterBack = tostring(box.spec.get())
         click(frame.next)
-        click(frame.next)
         r = MedalUIDB.profiles.reticule
         print("setup reticule kept", "reloads=" .. asked, "consoleMinimal=" .. tostring(r.consoleMinimal),
             "group=" .. tostring(r.groupMinimal), "cdm=" .. tostring(r.cdmMinimal),
-            "layout=" .. tostring(r.partyLayout), "db layout=" .. tostring(ns.db.partyLayout),
             "chat=" .. tostring(MedalUIDB.global.chatImmersion), "chat after back=" .. chatAfterBack,
             "side=" .. tostring(MedalUIDB.global.sideImmersion))
         -- Skip, and the cross: nothing written but that it was gone through
@@ -12237,11 +12201,10 @@ if args[2] == "skills" then
     fire("PLAYER_LOGIN")
     state("login: the account's arena keys")
 end
--- ------------------------------------------------------------ group widgets
+-- ------------------------------------------------------------- group frames
 -- "widgets" (after "group", alone or after "light") plays the draggable
--- group boxes (widgets/): the Party layout's Widget taking the console's
--- party buttons and giving them back, the tab dragged (and not in combat),
--- pets off, the raid's columns by the groups in use (a header filled as the
+-- group boxes (groups/): the party box holding the console's party
+-- buttons, the tab dragged (and not in combat), the raid's columns by the groups in use (a header filled as the
 -- game fills it), the preview, the Boss column (overhead, vertical, both;
 -- one boss or more), a boss in combat lengthening the skin, and the arena;
 -- then the cells' auras by their tabs (Raid, Battleground, Boss, Arena), in
@@ -12321,16 +12284,15 @@ if args[2] == "widgets" or args[3] == "widgets" then
     end
     local function party(tag)
         local o = {}
-        local pb = ns.partyWidgetPlayer
-        if pb and pb.inWidget then
-            table.insert(o, "player:box " .. at(pb, ns.partyWidget))
+        local pb = ns.partyPlayer
+        if pb and pb.inBox then
+            table.insert(o, "player:box " .. at(pb, ns.partyBox))
         end
         for i = 1, 4 do
             local b = ns.units["party" .. i]
-            local where = b.parent == ns.partyWidget and "box " .. at(b, ns.partyWidget)
+            local where = b.parent == ns.partyBox and "box " .. at(b, ns.partyBox)
                 or "console " .. at(b, ns.console)
-            table.insert(o, i .. ":" .. where .. (b.pet.shown and " pet " .. (b.pet.parent == ns.partyWidget
-                and at(b.pet, ns.partyWidget) or "console") or ""))
+            table.insert(o, i .. ":" .. where)
         end
         print("  party " .. tag, table.concat(o, " | "), "role1=" .. tostring(ns.units.party1.roleFrame.points.CENTER
             and ns.units.party1.roleFrame.points.CENTER[2]), "reverse2=" .. tostring(ns.units.party2.health.reverse))
@@ -12345,13 +12307,13 @@ if args[2] == "widgets" or args[3] == "widgets" then
     local function state(tag)
         stateTick()
         watchTick()
-        print("widgets " .. tag, "layout=" .. tostring(ns.db.partyLayout),
+        print("widgets " .. tag,
             "sim=" .. tostring(ns.db.simParty), "art=" .. art())
-        widget("party", ns.partyWidget)
+        widget("party", ns.partyBox)
         party("buttons")
-        widget("raid", ns.raidWidget)
-        widget("boss", ns.bossWidget)
-        widget("arena", ns.arenaWidget)
+        widget("raid", ns.raidBox)
+        widget("boss", ns.bossBox)
+        widget("arena", ns.arenaBox)
         -- the level: party1's where its layout put it, the first boss's
         local function level(b)
             local r = b and b.levelText
@@ -12363,7 +12325,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
                 tostring(rp), tostring(x), tostring(y), tostring(r.text), c[1] or 0, c[2] or 0, c[3] or 0,
                 tostring(b.shown))
         end
-        print("  level " .. tag, "party1 " .. level(ns.units.party1), "| boss1 " .. level(MedalUIBossWidgetUnit1))
+        print("  level " .. tag, "party1 " .. level(ns.units.party1), "| boss1 " .. level(MedalUIBossUnit1))
     end
     -- the game's header: a button per member of its group, configured by
     -- its initialConfigFunction, then given its unit
@@ -12394,7 +12356,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
         for g, h in ipairs(ns.raidHeaders) do
             for _, b in ipairs(h.all_ or {}) do
                 if made[b] and b.shown then
-                    table.insert(o, g .. ":" .. tostring(b.unit) .. "@" .. at(b, ns.raidWidget) .. " "
+                    table.insert(o, g .. ":" .. tostring(b.unit) .. "@" .. at(b, ns.raidBox) .. " "
                         .. tostring(b.name.text))
                 end
             end
@@ -12434,18 +12396,14 @@ if args[2] == "widgets" or args[3] == "widgets" then
         member("after combat")
     end
     HarnessCrowns("  crowns")
-    S.partyLayout:Set("widget")
-    state("party layout: widget")
-    HarnessCrowns("  crowns")
-    -- the skin to the last member shown, in combat too: one joins, a pet
-    -- comes (the widget has none: the skin stays), they go; then the
-    -- editor's taller cell
+    -- the skin to the last member shown, in combat too: one joins, then
+    -- goes; then the editor's taller cell
     inCombat = true
     exists.party3 = true
     fire("GROUP_ROSTER_UPDATE")
     watchTick()
     stateTick()
-    widget("party joined in combat", ns.partyWidget)
+    widget("party joined in combat", ns.partyBox)
     do
         local b = ns.units.party3
         local lo, hi = b.health:GetMinMaxValues()
@@ -12453,14 +12411,11 @@ if args[2] == "widgets" or args[3] == "widgets" then
             "alpha=" .. tostring(b.alpha), "name=" .. tostring(b.name.text), "level=" .. tostring(b.levelText.text),
             "health=" .. tostring(b.health.value) .. "/" .. tostring(lo) .. "-" .. tostring(hi),
             "colour=" .. table.concat(b.health.statusColor or b.health.color or {}, ","),
-            "inWidget=" .. tostring(b.inWidget), "parent=" .. tostring(b.parent == ns.partyWidget and "box" or "other"))
+            "inBox=" .. tostring(b.inBox), "parent=" .. tostring(b.parent == ns.partyBox and "box" or "other"))
     end
-    exists.partypet3 = true
+    exists.party3 = nil
     watchTick()
-    widget("party pet in combat", ns.partyWidget)
-    exists.party3, exists.partypet3 = nil, nil
-    watchTick()
-    widget("party left in combat", ns.partyWidget)
+    widget("party left in combat", ns.partyBox)
     -- the whole party gone (the player left a party of four, 2026-11-11,
     -- [group:party] held on): the box hides, the skin down to the player
     local function four(on)
@@ -12471,28 +12426,28 @@ if args[2] == "widgets" or args[3] == "widgets" then
     end
     harnessHolds["group:party"] = true
     four(true)
-    widget("party of four in combat", ns.partyWidget)
+    widget("party of four in combat", ns.partyBox)
     grouped = false
     four(nil)
-    widget("party gone in combat", ns.partyWidget)
-    print("  party gone in combat", "player=" .. tostring(ns.partyWidgetPlayer.shown),
-        "visible=" .. tostring(ns.partyWidgetPlayer:IsVisible()))
+    widget("party gone in combat", ns.partyBox)
+    print("  party gone in combat", "player=" .. tostring(ns.partyPlayer.shown),
+        "visible=" .. tostring(ns.partyPlayer:IsVisible()))
     harnessHolds["group:party"] = nil
     grouped = true
     watchTick()
     stateTick()
     inCombat = false
-    local wasCell = ns.db.editPartyWidget
-    ns.SetOption("editPartyWidget", { cell = { w = 160, h = 50 } })
-    widget("party taller cell", ns.partyWidget)
-    ns.SetOption("editPartyWidget", wasCell)
+    local wasCell = ns.db.editParty
+    ns.SetOption("editParty", { cell = { w = 160, h = 50 } })
+    widget("party taller cell", ns.partyBox)
+    ns.SetOption("editParty", wasCell)
     -- the group frames' Minimal OoC Mode (Shared > Immersion Mode): out of
     -- combat the party box fades, back in combat, while someone is hurt
     -- (not the dead), on mouseover; at nothing without mouseover, out of
     -- the pointer's way. Health secret (modern always): hurt while it
     -- changed in the last 3s. Each step 4s after the last, so none is recent
     do
-        local GM, box = ns.groupMinimal, ns.partyWidget
+        local GM, box = ns.groupMinimal, ns.partyBox
         local was = { UnitHealth, UnitIsDeadOrGhost, issecretvalue, box.skin.IsMouseOver, now }
         local hp = {}
         if not modern then UnitHealth = function(u) return hp[u] or 100 end end
@@ -12510,7 +12465,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
         local function show(tag)
             settle()
             local t = GM.touches[box]
-            print("group minimal " .. tag, string.format("party=%.2f raid=%.2f", box:GetAlpha(), ns.raidWidget:GetAlpha()),
+            print("group minimal " .. tag, string.format("party=%.2f raid=%.2f", box:GetAlpha(), ns.raidBox:GetAlpha()),
                 "untouchable=" .. tostring(t and t.want), "watch=" .. tostring(GM.watch.shown))
             now = now + 4
         end
@@ -12567,11 +12522,11 @@ if args[2] == "widgets" or args[3] == "widgets" then
         UnitHealth, now = was[1], was[5]
         for _, u in ipairs({ "player", "target", "party1", "party2" }) do fire("UNIT_HEALTH", u) end
     end
-    S.partyWidgetPlayer:Set(false)
-    widget("party without player", ns.partyWidget)
+    S.partyPlayer:Set(false)
+    widget("party without player", ns.partyBox)
     party("without player")
-    S.partyWidgetPlayer:Set(true)
-    widget("party with player back", ns.partyWidget)
+    S.partyPlayer:Set(true)
+    widget("party with player back", ns.partyBox)
     party("with player back")
     -- the lead passes to the first member: no roster change comes with it
     harnessLeader = "party1"
@@ -12585,11 +12540,11 @@ if args[2] == "widgets" or args[3] == "widgets" then
     fire("PARTY_LEADER_CHANGED")
     -- the tab is the grip
     harnessDropAt = { "TOPLEFT", "TOPLEFT", 300.4, -200.6 }
-    local tab = ns.partyWidget.tabs[1]
+    local tab = ns.partyBox.tabs[1]
     tab.scripts.OnDragStart(tab)
     tab.scripts.OnDragStop(tab)
-    print("  dragged", "saved=" .. table.concat(MedalUIDB.global.partyWidgetPoint or {}, ","),
-        "in a profile=" .. tostring(MedalUIDB.profiles[ns.db.consoleProfile].partyWidgetPoint))
+    print("  dragged", "saved=" .. table.concat(MedalUIDB.global.partyPoint or {}, ","),
+        "in a profile=" .. tostring(MedalUIDB.profiles[ns.db.consoleProfile].partyPoint))
     inCombat = true
     harnessDropAt = { "TOPLEFT", "TOPLEFT", 10, -10 }
     tab.scripts.OnDragStart(tab)
@@ -12597,22 +12552,22 @@ if args[2] == "widgets" or args[3] == "widgets" then
     inCombat = false
     state("dragged in combat: stays")
     -- back to front: the tab, the skin over its foot, the cells
-    local pb = ns.partyWidget
+    local pb = ns.partyBox
     print("  levels", "box=" .. pb.level, "tab=" .. tab.level, "skin=" .. pb.skin.level,
-        "cell=" .. ns.units.party1.level, "pet=" .. ns.units.party1.pet.level)
+        "cell=" .. ns.units.party1.level)
     -- movers only on mouseover: clear until the pointer is over the box or
     -- a tab, or the box is being dragged; each box by its own option
     local function movers(tag)
-        ns.UpdateWidgetMovers()
+        ns.UpdateGroupMovers()
         local o = {}
-        for _, w in ipairs({ { "party", pb }, { "raid", ns.raidWidget }, { "boss", ns.bossWidget },
-            { "arena", ns.arenaWidget } }) do
+        for _, w in ipairs({ { "party", pb }, { "raid", ns.raidBox }, { "boss", ns.bossBox },
+            { "arena", ns.arenaBox } }) do
             table.insert(o, w[1] .. "=" .. tostring(w[2].tabs[1] and w[2].tabs[1].alpha))
         end
         print("  movers " .. tag, table.concat(o, " "))
     end
     movers("default")
-    S.partyWidgetMoverHover:Set(true)
+    S.partyMoverHover:Set(true)
     movers("party on mouseover")
     mouseOver = pb.skin
     movers("pointer on the box")
@@ -12622,7 +12577,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
     pb.moving = true
     movers("dragging")
     pb.moving = nil
-    S.partyWidgetMoverHover:Set(false)
+    S.partyMoverHover:Set(false)
     movers("party off")
     -- the raid's: the Raid tab's, and in a battleground the Battleground tab's
     S.raidMoverHover:Set(true)
@@ -12641,27 +12596,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
     S.arenaMoverHover:Set(true)
     movers("arena on mouseover")
     S.arenaMoverHover:Set(false)
-    -- the console's pets option: the widget has no pets either way
-    S.partyPets:Set(false)
-    state("console pets off")
-    S.partyPets:Set(true)
-    -- a member's pet: none in the widget, shown on the console
-    exists.partypet1 = true
-    ns.UpdatePartyFrames()
-    watchTick()
-    print("  party pet in the widget", "shown=" .. tostring(ns.units.party1.pet.shown))
-    S.partyLayout:Set("console")
-    watchTick()
-    print("  party pet on the console", "shown=" .. tostring(ns.units.party1.pet.shown))
-    S.partyPets:Set(false)
-    watchTick()
-    print("  party pet, console's off", "shown=" .. tostring(ns.units.party1.pet.shown))
-    S.partyPets:Set(true)
-    S.partyLayout:Set("widget")
-    exists.partypet1 = nil
-    ns.UpdatePartyFrames()
-    watchTick()
-    -- the range the party fades at: the widget's, not the console's
+    -- the range the party fades at
     local wasSim = ns.db.simParty
     S.simParty:Set(true)
     stateTick()
@@ -12684,20 +12619,15 @@ if args[2] == "widgets" or args[3] == "widgets" then
             return "row alpha=" .. tostring(r.alpha)
         end
         ns.units.party2.stub.inRange = false
+        print("  party faded, in range at 40", faded(), rangeRow())
         S.partyRange:Set(0)
-        print("  party faded, console's range off", faded(), rangeRow())
-        S.partyWidgetRange:Set(0)
-        print("  party faded, widget's range off", faded(), rangeRow())
+        print("  party faded, range off", faded(), rangeRow())
         S.partyRange:Set(40)
-        S.partyWidgetRange:Set(40)
         ns.units.party2.stub.inRange = nil
         ns.UpdatePartyRange()
     end
     S.simParty:Set(wasSim)
     stateTick()
-    S.partyLayout:Set("console")
-    state("back to the console")
-    S.partyLayout:Set("widget")
 
     -- a raid of seven: groups 1 and 3
     raidRoster = { { "A", 1 }, { "B", 1 }, { "C", 1 }, { "D", 3 }, { "E", 3 }, { "F", 3 }, { "G", 3 } }
@@ -12746,18 +12676,18 @@ if args[2] == "widgets" or args[3] == "widgets" then
     end
     UnitInRange = function(u) return u ~= "raid2", true end
     S.raidRange:Set(0)
-    ns.widgetFade.scripts.OnUpdate(ns.widgetFade, 1)
+    ns.groupFade.scripts.OnUpdate(ns.groupFade, 1)
     print("raid faded, raid's range off", faded())
     harnessInstance = "pvp"
-    ns.widgetFade.scripts.OnUpdate(ns.widgetFade, 1)
+    ns.groupFade.scripts.OnUpdate(ns.groupFade, 1)
     print("raid faded, in a battleground at 40", faded())
     harnessInstance = "none"
     S.raidRange:Set(40)
-    ns.widgetFade.scripts.OnUpdate(ns.widgetFade, 1)
+    ns.groupFade.scripts.OnUpdate(ns.groupFade, 1)
     -- the modern client's answer, a secret: applied untested, by the client
     if issecretvalue then
         UnitInRange = function(u) return setmetatable({ v = u ~= "raid2" }, getmetatable(secret())), secret() end
-        ns.widgetFade.scripts.OnUpdate(ns.widgetFade, 1)
+        ns.groupFade.scripts.OnUpdate(ns.groupFade, 1)
         local bySecret = 0
         for _, h in ipairs(ns.raidHeaders) do
             for _, b in ipairs(h.all_ or {}) do
@@ -12942,20 +12872,20 @@ if args[2] == "widgets" or args[3] == "widgets" then
     fire("GROUP_ROSTER_UPDATE")
     state("preview")
     local p = {}
-    for _, f in ipairs(ns.raidWidget.all_ or {}) do
-        if f.stub and f.shown then table.insert(p, f.stub.name .. "@" .. at(f, ns.raidWidget)) end
+    for _, f in ipairs(ns.raidBox.all_ or {}) do
+        if f.stub and f.shown then table.insert(p, f.stub.name .. "@" .. at(f, ns.raidBox)) end
     end
     print("  raid preview", table.concat(p, " | "))
     -- a dead raid member wears the dead look; an enemy's cell has none
-    for _, f in ipairs(ns.raidWidget.all_ or {}) do
+    for _, f in ipairs(ns.raidBox.all_ or {}) do
         if f.stub and f.shown then
             f.stub.dead = true
-            ns.UpdateWidgetCell(f)
+            ns.UpdateGroupCell(f)
             print("  raid dead", f.stub.name, "shown=" .. tostring(f.dead and f.dead.shown),
                 "name=" .. tostring(f.dead and f.dead.name.text), "texts=" .. tostring(f.text.alpha or 1),
-                "wings=" .. tostring(f.dead and f.dead.wings.w), "boss cell=" .. tostring(_G.MedalUIBossWidgetUnit1.dead))
+                "wings=" .. tostring(f.dead and f.dead.wings.w), "boss cell=" .. tostring(_G.MedalUIBossUnit1.dead))
             f.stub.dead = nil
-            ns.UpdateWidgetCell(f)
+            ns.UpdateGroupCell(f)
             print("  raid alive", f.stub.name, "shown=" .. tostring(f.dead and f.dead.shown))
             break
         end
@@ -12971,7 +12901,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
         return table.concat(o, " ")
     end)())
     ns.sim.enemies.bosses = 1
-    ns.UpdateWidgets()
+    ns.UpdateGroups()
     state("one boss")
     S.simParty:Set(false)
     fire("GROUP_ROSTER_UPDATE")
@@ -12989,7 +12919,7 @@ if args[2] == "widgets" or args[3] == "widgets" then
     inCombat = false
     -- the old choice, left in a save the migration missed, hides it no more
     ns.db.bossFrames = "overhead"
-    ns.UpdateWidgets()
+    ns.UpdateGroups()
     state("bosses with a stale bossFrames=overhead")
     ns.db.bossFrames = nil
     exists.boss1, exists.boss2 = nil, nil
@@ -13021,23 +12951,23 @@ if args[2] == "widgets" or args[3] == "widgets" then
     end
     local function cells(tag)
         local o = {}
-        for i, f in ipairs(ns.raidWidget.all_ or {}) do
+        for i, f in ipairs(ns.raidBox.all_ or {}) do
             if f.stub and f.shown then table.insert(o, f.stub.name .. ":" .. auras(f)) end
         end
         print("auras " .. tag, "raid", table.concat(o, " | "), "range=" .. tostring(ns.RaidRange()))
         o = {}
-        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIBossWidgetUnit" .. i])) end
+        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIBossUnit" .. i])) end
         print("auras " .. tag, "boss widget", table.concat(o, " | "))
         o = {}
-        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIArenaWidgetUnit" .. i])) end
+        for i = 1, 3 do table.insert(o, i .. ":" .. auras(_G["MedalUIArenaUnit" .. i])) end
         print("auras " .. tag, "arena", table.concat(o, " | "))
     end
-    -- the party's frames answer to the console's options or the widget's,
-    -- by where they stand (Unit Frames > Party)
+    -- the party's frames answer to their own options (Unit Frames > Party),
+    -- never the player's and target's
     local function party(tag)
         local o = {}
         for i = 1, 4 do table.insert(o, i .. ":" .. auras(ns.units["party" .. i])) end
-        print("auras " .. tag, "party (" .. ns.db.partyLayout .. ")", table.concat(o, " | "))
+        print("auras " .. tag, "party", table.concat(o, " | "))
     end
     -- the fight above ended without the game's word: the overhead's layout
     -- held back for it runs now
@@ -13048,33 +12978,31 @@ if args[2] == "widgets" or args[3] == "widgets" then
     stateTick()
     watchTick()
     cells("preview")
-    for _, f in ipairs(ns.raidWidget.all_ or {}) do
+    for _, f in ipairs(ns.raidBox.all_ or {}) do
         if f.stub and f.shown then
-            print("  raid preview cell over the skin", "cell=" .. f.level, "skin=" .. ns.raidWidget.skin.level)
+            print("  raid preview cell over the skin", "cell=" .. f.level, "skin=" .. ns.raidBox.skin.level)
             break
         end
     end
-    local m = _G.MedalUIBossWidgetUnit1.mineWidgets
-    print("auras mine row", "size=" .. n(m[1].w) .. "x" .. n(m[1].h), "at=" .. at(m[1], _G.MedalUIBossWidgetUnit1)
-        .. " " .. at(m[3], _G.MedalUIBossWidgetUnit1))
-    for _, key in ipairs({ "bossWidgetMine", "arenaCC", "arenaMine", "raidGlow", "raidCC", "raidBoss" }) do
+    local m = _G.MedalUIBossUnit1.mineWidgets
+    print("auras mine row", "size=" .. n(m[1].w) .. "x" .. n(m[1].h), "at=" .. at(m[1], _G.MedalUIBossUnit1)
+        .. " " .. at(m[3], _G.MedalUIBossUnit1))
+    for _, key in ipairs({ "bossMine", "arenaCC", "arenaMine", "raidGlow", "raidCC", "raidBoss" }) do
         S[key]:Set(false)
         cells(key .. " off")
         S[key]:Set(true)
     end
     party("preview")
-    for _, pair in ipairs({ { "auraGlow", "partyWidgetGlow" }, { "auraCC", "partyWidgetCC" },
-        { "auraBuffs", "partyWidgetBuffs" }, { "auraBoss", "partyWidgetBoss" } }) do
-        local console, widget = pair[1], pair[2]
-        S[console]:Set(false)
+    for _, pair in ipairs({ { "auraGlow", "partyGlow" }, { "auraCC", "partyCC" },
+        { "auraBuffs", "partyBuffs" }, { "auraBoss", "partyBoss" } }) do
+        local console, own = pair[1], pair[2]
+        ns.SetOption(console, false)
         party(console .. " off")
-        S[widget]:Set(false)
-        party(widget .. " off")
-        S[console]:Set(true)
-        S.partyLayout:Set("console")
-        party(widget .. " off, back to the console")
-        S[widget]:Set(true)
-        S.partyLayout:Set("widget")
+        S[own]:Set(false)
+        party(own .. " off")
+        ns.SetOption(console, true)
+        party(own .. " off, " .. console .. " on")
+        S[own]:Set(true)
     end
     -- in a battleground the raid answers to the Battleground tab
     S.raidRange:Set(20)
@@ -13541,113 +13469,6 @@ local function PagingPass()
     print("extraButton.restored", "extraAlpha=" .. tostring(bExtra:GetAlpha()))
 end
 
-local function RowPass()
-    local S = page.settings
-    local function fire(e, ...)
-        for _, f in ipairs(events[e] or {}) do f.scripts.OnEvent(f, e, ...) end
-    end
-    local function shown(r) return tostring(r and r.shown) end
-    local function console(tag)
-        print(tag, "row=" .. tostring(ns.PartyRowShown()), "band=" .. shown(ns.partyRowBand),
-            "art=" .. tostring(ns.consoleTex.texture):match("[^\\]+$"),
-            "minimapRelocated=" .. tostring(Minimap.points.CENTER[1] == _G.MedalUIMinimapBezel),
-            "bar7Alpha=" .. tostring(ns.bar7Frame.alpha))
-    end
-    local function members(tag)
-        for i = 1, 4 do
-            local b = ns.units["party" .. i]
-            out(tag .. " party" .. i, b, string.format("health=%s power=%s", tostring(b.health.h),
-                tostring(b.power.h)))
-            -- the pet in its bracket under its owner, its name at its outer end
-            local p, rel, rp = b.pet:GetPoint(1)
-            local np = b.pet.name:GetPoint(1)
-            out(tag .. " partypet" .. i, b.pet, string.format("shown=%s bracket=%s under=%s name=%s", shown(b.pet),
-                shown(b.pet.bracket), tostring(rel == b and p .. ">" .. rp), tostring(np)))
-            out(tag .. " partypet" .. i .. ".health", b.pet.health)
-        end
-    end
-    print("row option", "saved=" .. tostring(ns.db.partyLayout), "profile=" .. ns.db.consoleProfile,
-        "stored=" .. tostring(MedalUIDB.profiles.reticule.partyLayout))
-    hasTarget = false
-    inCombat = false
-    fire("PLAYER_TARGET_CHANGED")
-    fire("PLAYER_REGEN_ENABLED")
-    console("row, no target")
-    out("row band", ns.partyRowBand)
-    for i, bg in ipairs(ns.partyRowBackings) do out("row backing " .. i, bg, "shown=" .. shown(bg)) end
-    stateTick()
-    members("row")
-    HarnessCrowns("row crowns")
-    -- which way each member faces: the row mirrors across its centre, as
-    -- the console's windows do (ns.PartySide)
-    local function faces(tag)
-        local function pt(r)
-            local p, _, rp, x, y = r:GetPoint(1)
-            return string.format("%s>%s,%d,%d", p, rp, x, y)
-        end
-        for i = 1, 4 do
-            local b = ns.units["party" .. i]
-            print(tag .. " faces party" .. i, string.format(
-                "fill=%s,%s,%s name=%s,%s role=%s value=%s buff=%s,%s", tostring(b.health.reverse),
-                tostring(b.power.reverse), tostring(b.pet.health.reverse), tostring(b.name.justifyH), pt(b.name),
-                pt(b.roleFrame), pt(b.value), pt(b.buffWidgets[1]), pt(b.buffWidgets[2])))
-        end
-    end
-    faces("row")
-    -- an edited row (two to a line, its own way) is laid from a snapshot
-    -- of how the button had it: a side change must take a fresh one
-    ns.SetOption("editParty", { buffs = { cols = 2 } })
-    ns.SetOption("editPartyWidget", { buffs = { cols = 2 } })
-    for i = 1, 4 do ns.ApplyEdits(ns.units["party" .. i]) end
-    faces("row, two to a line")
-    -- pets off
-    S.partyPets:Set(false)
-    stateTick()
-    members("row, pets off")
-    S.partyPets:Set(true)
-    stateTick()
-    -- no group and no preview: the row folds and the minimap comes back. The
-    -- group leaving and the preview going each tell the row on their own.
-    local wasGrouped, wasSim = grouped, ns.db.simParty
-    S.simParty:Set(false)
-    console("row, preview off")
-    grouped = false
-    fire("GROUP_ROSTER_UPDATE")
-    console("row, solo")
-    for i, bg in ipairs(ns.partyRowBackings) do print("row solo backing " .. i, shown(bg)) end
-    S.simParty:Set(true)
-    console("row, solo, preview on")
-    S.simParty:Set(false)
-    console("row, solo, preview off")
-    grouped = true
-    fire("GROUP_ROSTER_UPDATE")
-    console("row, group again")
-    grouped = wasGrouped
-    S.simParty:Set(wasSim)
-    fire("GROUP_ROSTER_UPDATE")
-    -- the option, played out to the widget and back again
-    S.partyLayout:Set("widget")
-    stateTick()
-    console("widget")
-    members("widget")
-    faces("widget")
-    S.partyLayout:Set("console")
-    stateTick()
-    console("console again")
-    members("console again")
-    faces("console again")
-    ns.SetOption("editParty", false)
-    ns.SetOption("editPartyWidget", false)
-    for i = 1, 4 do ns.ApplyEdits(ns.units["party" .. i]) end
-    -- a change asked for in combat waits for it to end
-    inCombat = true
-    S.partyLayout:Set("widget")
-    out("widget asked in combat party1", ns.units.party1)
-    inCombat = false
-    fire("PLAYER_REGEN_ENABLED")
-    out("widget after combat party1", ns.units.party1)
-end
-
 local editorPass = args[2] == "editor" or args[3] == "editor" or args[4] == "editor"
 -- the unit-frame editor (editor.lua, options/editor.lua): untouched it
 -- moves nothing; a place is mirrored across the console's copies; sizes,
@@ -13920,7 +13741,7 @@ local function EditorPass()
             cancel("on again")
             ns.SetOption("editUnit", keep)
         end
-        tabs("row widget", "partyWidget", "buffs")
+        tabs("row widget", "party", "buffs")
         tabs("bar", "party", "power")
         tabs("cell", "raid", "cell")
         choose("unit", "name")
@@ -13967,7 +13788,7 @@ local function EditorPass()
     -- debuffs then take the buffs' size, and follow it; a row brought in
     -- leaves the tick stored and idle; a widget's sides stay its own
     ;(function()
-        local keptUnit, keptWidget = ns.db.editUnit, ns.db.editPartyWidget
+        local keptUnit, keptWidget = ns.db.editUnit, ns.db.editParty
         local function w1(b, id)
             local list = E.PIECES[id].get(b)
             return list and list[1] and string.format("%.0f", list[1]:GetWidth()) or "?"
@@ -14000,7 +13821,7 @@ local function EditorPass()
         set("match", false)
         state("unticked", P, "unit")
         ns.SetOption("editUnit", keptUnit)
-        ns.SetOption("editPartyWidget", keptWidget)
+        ns.SetOption("editParty", keptWidget)
         choose("unit", "name")
         pickTab("place")
         print("  match restored", "debuffs=" .. w1(P, "mine"), "buffs=" .. w1(P, "buffs"))
@@ -14173,7 +13994,7 @@ local function EditorPass()
     print("  boss len0", stored("editBoss"))
 
     -- cells
-    for _, id in ipairs({ "raid", "boss", "arena", "partyWidget" }) do
+    for _, id in ipairs({ "raid", "boss", "arena", "party" }) do
         choose(id, "cell")
         local cw, ch = ns.CellSize(id)
         set("w", cw + 20)
@@ -14200,49 +14021,33 @@ local function EditorPass()
     ns.SetOption("consoleProfile", ns.db.consoleProfile == "reticule" and "arena" or "reticule")
     piece("player back", P, "name")
 
-    -- the party's layout: the widget's edits, the console's
-    -- party2's buffs two to a line: its console copy is a right one, its
-    -- cell a left one, so each place must snapshot the row afresh
-    local wasEdits, wasWidgetEdits = ns.db.editParty, ns.db.editPartyWidget
-    local function plus(was)
-        local t = {}
-        for k, v in pairs(type(was) == "table" and was or {}) do t[k] = v end
-        t.buffs = { cols = 2 }
-        return t
-    end
-    -- the console's crown moved and made bigger: in the widget, it is its
-    -- own size in its own place (a stale snapshot would put it back on the
-    -- console's corner)
-    local console = plus(wasEdits)
-    console.leader = { size = 22, h = "inner", v = "middle", x = 30, y = 0 }
-    ns.SetOption("editParty", console)
-    ns.SetOption("editPartyWidget", plus(wasWidgetEdits))
+    -- the party's edits: party2's buffs two to a line, a left copy in its
+    -- cell; the crown moved and made bigger, its own size in its own place
+    local wasEdits = ns.db.editParty
+    local edits = {}
+    for k, v in pairs(type(wasEdits) == "table" and wasEdits or {}) do edits[k] = v end
+    edits.buffs = { cols = 2 }
+    edits.leader = { size = 18, h = "inner", v = "middle", x = 30, y = 0 }
+    ns.SetOption("editParty", edits)
     local function buffs2(tag)
         local r = ns.units.party2.buffWidgets
         local p1, _, _, x1 = r[1]:GetPoint(1)
         local _, _, _, x2 = r[2]:GetPoint(1)
         print("  party2 buffs " .. tag, p1 .. "," .. x1, "second " .. x2)
     end
-    ns.SetOption("partyLayout", "widget")
-    buffs2("in widget")
-    ns.OpenEditor("partyWidget")
-    window("layout widget")
+    buffs2("in the box")
+    ns.OpenEditor("party")
+    window("party")
     choose("party", "name")
     print("  party scope", w.stage.scope.text)
-    choose("partyWidget", "cell")
-    piece("party1 in widget", ns.units.party1, "role")
-    piece("party1 in widget", ns.units.party1, "leader")
-    -- then the widget's instead: on the console, its own
-    ns.SetOption("editParty", plus(wasEdits))
-    local widget = plus(wasWidgetEdits)
-    widget.leader = { size = 18, h = "inner", v = "middle", x = 30, y = 0 }
-    ns.SetOption("editPartyWidget", widget)
-    piece("party1 in widget, its own edit", ns.units.party1, "leader")
-    print("  party1 cell", n(ns.units.party1.w) .. "x" .. n(ns.units.party1.h), "buttons=" .. #E.byId.partyWidget.buttons())
+    choose("party", "cell")
+    piece("party1 in the box", ns.units.party1, "role")
+    piece("party1 in the box", ns.units.party1, "leader")
+    print("  party1 cell", n(ns.units.party1.w) .. "x" .. n(ns.units.party1.h), "buttons=" .. #E.byId.party.buttons())
     -- Outside on a widget: a side to choose (Place), or toward the screen's
     -- edge (0.35's Outside); on the console's frames, outward only
     ;(function()
-        local pw = E.byId.partyWidget
+        local pw = E.byId.party
         local cell = pw.buttons()[1]
         local function controls()
             local shown = {}
@@ -14257,7 +14062,7 @@ local function EditorPass()
             end
             print("  widget outside " .. tag, table.concat(o, " | "))
         end
-        choose("partyWidget", "buffs")
+        choose("party", "buffs")
         print("  widget outside controls", controls(), "place=" .. tostring(get("side")))
         rows("inside", cell)
         set("side", "left")
@@ -14274,13 +14079,13 @@ local function EditorPass()
         local width = UIParent.GetWidth
         UIParent.GetWidth = function() return 2 end
         Region.GetCenter = function() return 1.5, 0 end
-        ns.SetOption("editPartyWidget", ns.db.editPartyWidget)
+        ns.SetOption("editParty", ns.db.editParty)
         rows("buffs to the edge, right half", cell)
         Region.GetCenter = nil
         UIParent.GetWidth = width
-        ns.SetOption("editPartyWidget", ns.db.editPartyWidget)
+        ns.SetOption("editParty", ns.db.editParty)
         set("side", "left")
-        choose("partyWidget", "mine")
+        choose("party", "mine")
         set("side", "left")
         rows("both left", cell)
         -- Next to buffs, both on the left: Left is past the buffs, Right
@@ -14299,18 +14104,18 @@ local function EditorPass()
         rows("buffs left, debuffs right", cell)
         -- Match buffs size across the two sides: the debuffs as large as the
         -- buffs, each still on its own side
-        choose("partyWidget", "buffs")
+        choose("party", "buffs")
         set("size", 18)
-        choose("partyWidget", "mine")
+        choose("party", "mine")
         set("match", true)
         local function first(id) return string.format("%.0f", E.PIECES[id].get(cell)[1]:GetWidth()) end
         print("  widget match, left and right", "buffs=" .. first("buffs") .. " " .. tostring(get("side") and
             E.Edits(pw, "buffs").out), "debuffs=" .. first("mine") .. " " .. tostring(get("side")))
         rows("matched, left and right", cell)
         set("match", false)
-        choose("partyWidget", "buffs")
+        choose("party", "buffs")
         set("size", E.NIL)
-        choose("partyWidget", "mine")
+        choose("party", "mine")
         set("side", "in")
         rows("debuffs back in", cell)
         print("  widget outside in stored", tostring(E.Edits(pw, "mine") and E.Edits(pw, "mine").out))
@@ -14330,9 +14135,8 @@ local function EditorPass()
         ns.SetOption("editUnit", { buffs = { out = "right" }, mine = { out = "right" } })
         rows("console, stored right", P)
         ns.SetOption("editUnit", was)
-        choose("partyWidget", "cell")
+        choose("party", "cell")
     end)()
-    ns.SetOption("partyLayout", "console")
     -- Unit Frames > General: one shortcut, on the editor's first tab
     ;(function()
     ns.OpenOptions("units/general")
@@ -14348,13 +14152,7 @@ local function EditorPass()
     chosen = E.ui.Chosen()
     print("  editor default", "frame=" .. tostring(chosen and chosen.id))
     end)()
-    ns.OpenEditor("party")
-    window("layout console")
-    piece("party1 on console", ns.units.party1, "role")
-    piece("party1 on console", ns.units.party1, "leader")
-    buffs2("on console")
     ns.SetOption("editParty", wasEdits)
-    ns.SetOption("editPartyWidget", wasWidgetEdits)
 
     -- the canvas: the middle of the editor's window, the chosen piece boxed
     -- and nothing else
@@ -14843,7 +14641,7 @@ local function EditorPass()
     print("  raid cc off", "copy alpha=" .. tostring(cv.proxies[1].pieces.cc.alpha), ns.db.raidCC)
     set("shown", true)
     print("  raid cc on", "copy alpha=" .. tostring(cv.proxies[1].pieces.cc.alpha), ns.db.raidCC)
-    choose("partyWidget", "cc")
+    choose("party", "cc")
     canvas("party widget, layout console")
     choose("party", "cc")
     canvas("party")
@@ -15345,14 +15143,8 @@ function MinimapPass()
         fire("PLAYER_REGEN_ENABLED")
         fire("PLAYER_TARGET_CHANGED")
         where("pinned, out of combat")
-        -- a party row wins over a pin: it needs the bay's foot
-        local realRow = ns.PartyRowShown
-        ns.PartyRowShown = function() return true end
-        ns.UpdateMinimapLocation()
-        where("pinned, party row")
-        ns.PartyRowShown = realRow
         ns.ToggleMinimap()
-        where("key, the row gone")
+        where("key, the pin let go")
         ns.ToggleMinimap()
         where("key, back")
         -- the grid's buttons take the pointer only while it shows. Combat's
@@ -15423,27 +15215,27 @@ function MinimapPass()
         grip.scripts.OnUpdate(grip, 0.01)
         set("minimapMoverHover", true)
         mouseOver = false
-        ns.UpdateWidgetMovers()
+        ns.UpdateGroupMovers()
         gripLine("dragging, on mouseover, pointer away")
         grip.scripts.OnMouseUp(grip, "LeftButton")
         GetCursorPosition = realCursor
         print("minimap grip dragged 60 left, 30 down", "x=" .. tostring(ns.db.minimapX),
             "y=" .. tostring(ns.db.minimapY))
         corner("grip dragged")
-        ns.UpdateWidgetMovers()
+        ns.UpdateGroupMovers()
         gripLine("on mouseover, pointer away")
         mouseOver = bezel                   -- the map, in the corner's square
-        ns.UpdateWidgetMovers()
+        ns.UpdateGroupMovers()
         gripLine("on mouseover, pointer on the map")
         mouseOver = grip
-        ns.UpdateWidgetMovers()
+        ns.UpdateGroupMovers()
         gripLine("on mouseover, pointer on it")
         -- the console's hover label is the bay's: not over the corner
         mouseOver = _G.MedalUIMinimapClip
         Minimap.scripts.OnEnter(Minimap)
         print("minimap grip, area in the corner", "shown=" .. tostring(_G.MedalUIMinimapArea.shown))
         mouseOver = false
-        ns.UpdateWidgetMovers()
+        ns.UpdateGroupMovers()
         set("minimapMoverHover", false)
         ns.ResetConsolePlace("minimap")
         gripLine("mouseover off")
@@ -15637,17 +15429,6 @@ function FadePass()
         function() mouseOver = false end)
     tick("mouse over the bar", "consoleShowMouse", function() mouseOver = ns.actionBar end,
         function() mouseOver = false end)
-    if ns.partyRowBand then
-        -- the row hangs under the console while there is a party
-        grouped = true
-        fire("GROUP_ROSTER_UPDATE")
-        set("consoleShowGroup", false)
-        tick("mouse over the party row", "consoleShowMouse", function() mouseOver = ns.partyRowBand end,
-            function() mouseOver = false end)
-        print("fade party row shown=" .. tostring(ns.partyRowBand:IsVisible()))
-        grouped = false
-        fire("GROUP_ROSTER_UPDATE")
-    end
     grouped = true
     print("fade tick group, not ticked", "shows=" .. tostring(ns.ConsoleWanted()))
     set("consoleShowGroup", true)
@@ -16535,10 +16316,8 @@ if lightPass then
     inCombat = false
     fire("PLAYER_REGEN_ENABLED")
     aura("out of combat")
-    -- the party frames: the row, which the retired "vertical" seed became
-    print("party layout", "saved=" .. tostring(ns.db.partyLayout), "row=" .. tostring(ns.PartyRowLayout()))
+    -- the party frames, in their box
     for i = 1, 4 do out("party" .. i, ns.units["party" .. i]) end
-    partyLayoutMenu("light")
     -- the light profile's windows are rectangles: no glow traces a cut
     local cuts = {}
     for _, u in ipairs({ "player", "target", "party1", "party2", "party3", "party4" }) do
@@ -16549,7 +16328,6 @@ if lightPass then
     print("glow cuts", table.concat(cuts, " "))
     if keybindPass then KeybindPass() end
     if pagingPass then PagingPass() end
-    if rowPass then RowPass() end
     if editorPass then EditorPass() end
     if minimapPass then MinimapPass() end
     if fadePass then FadePass() end
@@ -16609,10 +16387,6 @@ if savedSimParty then
     local p2 = ns.units.party2
     print("party2.cc", tostring(p2.ccWidget and p2.ccWidget.shown),
         tostring(p2.ccWidget and p2.ccWidget.timer and p2.ccWidget.timer.text))
-    if p2.pet then
-        print("party2.pet", tostring(p2.pet.shown), tostring(p2.pet.name and p2.pet.name.text),
-            tostring(p2.pet.value and p2.pet.value.text))
-    end
     local p3 = ns.units.party3
     local bCount = 0
     bCount = bCount + #harnessRowShows(p3.buffWidgets)
@@ -16787,10 +16561,15 @@ if savedSimParty then
         marks("5s on, party2 still to answer")
         fire("ROLE_CHANGED_INFORM", "Okun", "Okun", "HEALER", "HEALER")
         marks("party2 answered")
+        -- the player's own cell, first in the party's box, waits for the
+        -- player's answer too
+        wait(5)
+        marks("5s on, the player still to answer")
+        fire("ROLE_CHANGED_INFORM", UnitName("player"), UnitName("player"), "HEALER", "HEALER")
         wait(2.5)
-        marks("2.5s after the last")
+        marks("2.5s after the player's")
         wait(1)
-        marks("3.5s after the last")
+        marks("3.5s after the player's")
         -- one who never answers: the marks go after a minute
         fire("ROLE_POLL_BEGIN")
         fire("ROLE_CHANGED_INFORM", "Okun", "Okun", "HEALER", "HEALER")
@@ -16806,15 +16585,6 @@ if savedSimParty then
         marks("a role chosen in a ready check")
         fire("PLAYER_REGEN_DISABLED")
         fire("PLAYER_REGEN_ENABLED")
-        -- a member's pet come: its frame, from UNIT_PET alone
-        local pet = ns.units.party1.pet
-        if pet then
-            local before = tostring(pet.watched) .. "/" .. tostring(pet.name.text)
-            UnitExists = function(u) return u == "party1" or u == "party2" or u == "partypet1" or exists(u) end
-            fire("UNIT_PET", "party1")
-            print("roleCheck party1's pet", "before=" .. before,
-                "after=" .. tostring(pet.watched) .. "/" .. tostring(pet.name.text))
-        end
         UnitExists = exists
     end)()
 
@@ -17271,16 +17041,15 @@ if savedSimParty then
             local b = ns.units["party" .. i]
             local st = b.statusWidget
             local s = st.shown and st.icon.coords and string.format("%.2f", st.icon.coords[1]) or "-"
-            local pet = b.pet and b.pet.shown and "pet" or "-"
-            table.insert(out, string.format("p%d:%s,hp=%s,value=%s,dead=%s,a=%.2f,check=%s,%s", i,
+            table.insert(out, string.format("p%d:%s,hp=%s,value=%s,dead=%s,a=%.2f,check=%s", i,
                 tostring(b.shown), tostring(b.health.value), tostring(b.value.text), tostring(b.dead.shown),
-                b.alpha or 1, s, pet))
+                b.alpha or 1, s))
         end
         print(tag, table.concat(out, " "))
     end
     local function raid(tag)
         local out = {}
-        for _, f in ipairs(ns.raidWidget.all_ or {}) do
+        for _, f in ipairs(ns.raidBox.all_ or {}) do
             if f.stub and f.shown then
                 table.insert(out, string.format("%s:hp=%s,%s%s%s%s%s%sa=%.2f", f.stub.name, tostring(f.health.value),
                     f.stub.dead and "dead," or "", f.stub.offline and "offline," or "",
@@ -17296,7 +17065,7 @@ if savedSimParty then
         local out = {}
         for _, kind in ipairs({ "Boss", "Arena" }) do
             for i = 1, 5 do
-                local b = _G["MedalUI" .. kind .. "WidgetUnit" .. i]
+                local b = _G["MedalUI" .. kind .. "GroupUnit" .. i]
                 if b and b.shown and b.stub then
                     table.insert(out, string.format("%s%d:hp=%s%s", kind, i, tostring(b.health.value),
                         b.stub.dead and ",dead" or ""))
@@ -17331,15 +17100,11 @@ if savedSimParty then
     press("party.dead.1")
     press("party.away.2")
     press("party.offline.3")
-    press("party.pet.2")
-    press("party.pet.4")
-    panelState("simPanel.dead1 away2 offline3 pets2,4")
+    panelState("simPanel.dead1 away2 offline3")
     members("simPanel.members set")
     press("party.dead.1")
     press("party.away.2")
     press("party.offline.3")
-    press("party.pet.2")
-    press("party.pet.4")
     members("simPanel.members restored")
     -- health, click by click: 85 is not in the cycle, so 100, then 60, 25, 100
     for k = 1, 4 do
@@ -20474,7 +20239,7 @@ if (args[2] == "auraguard" or args[3] == "auraguard") and C_UnitAuras then
     end
     local savedTimed = C_UnitAuras.DoesAuraHaveExpirationTime
     C_UnitAuras.DoesAuraHaveExpirationTime = function() return true end
-    page.settings.auraBuffs:Set(true)
+    ns.SetOption("auraBuffs", true)
     local b = ns.units.player
     local function state(tag, ok, err)
         local n = 0

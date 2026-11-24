@@ -308,7 +308,7 @@ local function Header(f, content, path, page, tab)
             table.insert(f.tabs, b)
         end
         -- at the tabs' right: which variant the rows edit (Party: the
-        -- console's or the widget's), or the page's aside (Simulate)
+        -- console's or the group frame's), or the page's aside (Simulate)
         local aside
         if content.variants then
             local spec = { kind = "choice", label = Tr["Editing"], choices = content.variants, line = false,
@@ -556,7 +556,7 @@ local function Build(content, path, page, tab, width)
         if has[sh[1]] then table.insert(sheets, sh[1]) end
     end
     if #sheets >= 2 then f.sheets, f.sheet = sheets, sheets[1] end
-    -- its variants: first the one its key shows (Party layout)
+    -- its variants: first the one its key shows
     if content.variants then
         f.variant = content.variants[1][1]
         local now = content.variantKey and ns.db[content.variantKey]
@@ -808,7 +808,7 @@ function ShowSheet(f, sheet)
     Thumb()
 end
 
--- A variant shown (Party's console or widget): its cards, on the sheet
+-- A variant shown (Party's console or group frame): its cards, on the sheet
 -- shown, or the first that has some.
 function SetVariant(f, v)
     f.variant = v

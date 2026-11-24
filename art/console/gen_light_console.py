@@ -19,9 +19,6 @@ Layout architecture:
      and flush against the sides of the Minimap / Center Bay.
   4. Action Bars 2 and 3 (`30x30` buttons, `38px` frame height) attached directly below
      the Exp and Rep bars (`42 + 8 + 38 = 88px`, locking flush with the bottom of Bar 7!).
-  5. Party frames, on the console (Party layout: Console): a horizontal row hanging under the console
-     (one band, four `156px` slots, `80deg` outer ends; drafted in gen_party_row.py). A pet hangs
-     under its owner in the stone bracket (gen_party_row_pets.py).
 
 Usage:
     python3 art/console/gen_light_console.py          -> render/light-console-*.png
@@ -185,34 +182,6 @@ BOTTOM_GAP = H - (FLUSH_TOP_Y + CONSOLE_H)          # 1080 - 1060 = 20
 
 # Top-right relocated minimap size
 TR_MINIMAP_SIZE = 188
-# Horizontal party row: one band under the console's bottom edge (tucked 1px
-# under it), cut into four equal slots. Only its two outer ends slant. Every
-# window is a rectangle the bars fill: the outer ones stop short of the slant's
-# FOOT, so no bar corner pokes past it, and the art inks the rest of the band.
-ROW_TOP = UNIT_H + XP_H + BAR23_H - 1                # 87 below the console's top
-ROW_H = 32
-ROW_ANGLE = 80
-ROW_RUN = ROW_H / np.tan(np.radians(ROW_ANGLE))     # 5.64: how far an outer end slants in
-ROW_SLOT = CONSOLE_W // 4                           # 156
-ROW_INSET = 2                                       # window edge to gold
-ROW_OUTER = int(np.ceil(ROW_RUN)) + ROW_INSET       # 8: window edge to the band's outer corner
-
-
-def party_row_boxes():
-    """Per member, the frame's box: x signed from the console's centre and y
-    up from its top (negative below), as the grid's slots are. A pet hangs
-    under its frame in the stone bracket (gen_pet_bracket.py), off the band."""
-    left = -CONSOLE_W // 2
-    top, bottom = -(ROW_TOP + ROW_INSET), -(ROW_TOP + ROW_H - ROW_INSET)
-    frames = []
-    for i in range(4):
-        a, b = left + i * ROW_SLOT, left + (i + 1) * ROW_SLOT
-        fl = a + (ROW_OUTER if i == 0 else ROW_INSET)
-        fr = b - (ROW_OUTER if i == 3 else ROW_INSET)
-        frames.append((fl, fr, top, bottom))
-    return frames
-
-
 def svg_defs():
     return f'''
     <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
@@ -303,7 +272,7 @@ def render_tint_piece():
 # (yellow in combat, red with threat), and drawn under all of the console's
 # art, so only what lies outside the pieces shows. One texture per piece,
 # as the pieces come and go on their own: Bar 1 and the wings fade, the
-# party row shows in a group, the bay is the minimap's or the grid's.
+# bay is the minimap's or the grid's.
 AURA_FADE = 10
 AURA_MARGIN = AURA_FADE + 2
 
@@ -318,7 +287,6 @@ def aura_pieces():
     wings = rect(left_x, FLUSH_TOP_Y, right_x + WING_W, FLUSH_TOP_Y + UNIT_H + XP_H)
     bar1_bot = BAR1_Y + BAR1_H
     hyb_t, hyb_b = HYBRID_Y, HYBRID_Y + HYBRID_H
-    row_l, row_t = CX - CONSOLE_W / 2, FLUSH_TOP_Y + ROW_TOP
     return {
         "explore": [wings, rect(bay_l, FLUSH_TOP_Y, bay_l + BAY_W, FLUSH_TOP_Y + MINIMAP_H)],
         "combat": [wings, rect(bay_l, FLUSH_TOP_Y, bay_l + BAY_W, FLUSH_TOP_Y + BAR7_H)],
@@ -327,8 +295,6 @@ def aura_pieces():
                   (CX + BAR1_BOT_W / 2, bar1_bot), (CX - BAR1_BOT_W / 2, bar1_bot)]],
         "hybrid": [[(CX - HYBRID_TOP_W / 2, hyb_t), (CX + HYBRID_TOP_W / 2, hyb_t),
                     (CX + HYBRID_BOT_W / 2, hyb_b), (CX - HYBRID_BOT_W / 2, hyb_b)]],
-        "row": [[(row_l, row_t), (row_l + CONSOLE_W, row_t),
-                 (row_l + CONSOLE_W - ROW_RUN, row_t + ROW_H), (row_l + ROW_RUN, row_t + ROW_H)]],
     }
 
 
@@ -356,12 +322,12 @@ def render_aura(polys, ss=4):
     return img, box
 
 
-def aura_mockup(mode, colour, alpha=0.85, party=False):
+def aura_mockup(mode, colour, alpha=0.85):
     """The console as composite_mockup draws it, its aura round it: the glow
     shows only outside the pieces, as the art covers the rest in game."""
     canvas = composite_mockup(mode=mode)
     pieces = aura_pieces()
-    keys = [mode, "bar1", "hybrid", "wing", "wing+"] + (["row"] if party else [])
+    keys = [mode, "bar1", "hybrid", "wing", "wing+"]
     glow = np.zeros((H, W))
     inside = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(inside)
@@ -552,31 +518,6 @@ def export_minimap_mask():
     to_tga(render_minimap_mask(), os.path.join(MEDIA, "minimap-light-mask.tga"))
 
 
-def render_party_row():
-    """The horizontal party row's band: gold edge and slot seams, and ink over
-    everything the windows leave (the slants' slivers, the seams' margins).
-    Transparent in the windows, where the party buttons and their backing are."""
-    w, h, run = CONSOLE_W, ROW_H, ROW_RUN
-    band = f"0,0.8 {w},0.8 {w - run:.2f},{h - 0.8} {run:.2f},{h - 0.8}"
-    frames = party_row_boxes()
-    holes = "".join(f'<rect x="{l + w // 2}" y="{-t - ROW_TOP}" width="{r - l}" height="{t - b}" fill="#000"/>'
-                    for l, r, t, b in frames)
-    # rectangles, not lines: a gradient has no box to stretch over on a line
-    seams = "".join(f'<rect x="{i * ROW_SLOT - 0.8}" y="0" width="1.6" height="{h}" fill="url(#goldGrad)"/>'
-                    for i in range(1, 4))
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}">'
-           f'<defs>{svg_defs()}<mask id="rowcut"><rect width="{w}" height="{h}" fill="#fff"/>{holes}</mask>'
-           f'<clipPath id="rowclip"><polygon points="{band}"/></clipPath></defs>'
-           f'<polygon points="{band}" fill="{INK}" mask="url(#rowcut)"/>'
-           f'<g clip-path="url(#rowclip)">{seams}</g>'
-           f'<polygon points="{band}" fill="none" stroke="url(#goldGrad)" stroke-width="1.6"/></svg>')
-    tmp = os.path.join(OUT, "_tmp_row.png")
-    img = rsvg(svg, tmp)
-    if os.path.exists(tmp):
-        os.remove(tmp)
-    return img
-
-
 def export_all():
     """Export all TGA textures to media/ and generate console/light_profile.lua."""
     os.makedirs(OUT, exist_ok=True)
@@ -591,7 +532,6 @@ def export_all():
     hyb_bg = render_hybrid_piece(bg_only=True)
     wing_plate = render_wing_piece()
     mm_bezel = render_minimap_bezel()
-    party_row = render_party_row()
 
     cw_tex, ch_tex = to_tga(c_explore, os.path.join(MEDIA, "console-light-explore.tga"))
     to_tga(c_combat, os.path.join(MEDIA, "console-light-combat.tga"))
@@ -602,9 +542,7 @@ def export_all():
     to_tga(hyb_bg, os.path.join(MEDIA, "hybrid-light-bg.tga"))
     ww_tex, wh_tex = to_tga(wing_plate, os.path.join(MEDIA, "bar-wing-light.tga"))
     mw_tex, mh_tex = to_tga(mm_bezel, os.path.join(MEDIA, "minimap-light.tga"))
-    rw_tex, rh_tex = to_tga(party_row, os.path.join(MEDIA, "party-row-light.tga"))
     export_minimap_mask()
-    row_frames = party_row_boxes()
 
     auras = []
     for key, polys in aura_pieces().items():
@@ -679,8 +617,7 @@ def export_all():
     lua = f"""-- Generated by art/console/gen_light_console.py; do not edit.
 -- Built-in "light" console profile: WeakTextures 2x5 center grid (Action Bar 7),
 -- dynamic square minimap, compact Action Bar 1 on top with drawer/pager/slim hybrid
--- castbar, attached Exp/Rep bars and Bar 2/3 wings, and the party frames in a
--- horizontal row under the console (console/party_row.lua).
+-- castbar, attached Exp/Rep bars and Bar 2/3 wings.
 local _, ns = ...
 
 ns.lightProfile = {{
@@ -712,15 +649,6 @@ ns.lightProfile = {{
         }},
         party = {{
             power = 5, seam = 1, nameSize = 11, textInset = 6,
-            detached = true,
-            -- the horizontal row: x from the console's centre, y up from its top
-            row = {{
-                file = "party-row-light", top = {-ROW_TOP}, width = {CONSOLE_W}, height = {ROW_H},
-                texWidth = {rw_tex}, texHeight = {rh_tex},
-                frames = {{
-                    {fmt_slots(row_frames, 20)}
-                }},
-            }},
         }},
         minimapBleed = 0,
         minimap = {{

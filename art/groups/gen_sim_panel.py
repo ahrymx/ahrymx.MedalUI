@@ -21,7 +21,7 @@ import os
 
 from PIL import Image, ImageDraw
 
-from gen_widgets import BG, GOLD, GOLD_BRIGHT, GOLD_D, INK, TEXT, font
+from gen_groups import BG, GOLD, GOLD_BRIGHT, GOLD_D, INK, TEXT, font
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCALE = 2

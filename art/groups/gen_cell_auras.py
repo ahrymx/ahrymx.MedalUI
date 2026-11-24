@@ -1,4 +1,4 @@
-r"""Draft: auras on the group widgets' cells (Unit Frames > Raid, Battleground,
+r"""Draft: auras on the group frames' cells (Unit Frames > Raid, Battleground,
 Boss, Arena). The party's frames already carry them: a glow on the border
 for a debuff you can dispel, a centre icon for crowd control or a boss
 debuff, your own buffs in a corner. The widget cells are smaller (raid
@@ -19,7 +19,7 @@ import os
 
 from PIL import Image, ImageDraw
 
-from gen_widgets import (BG, CLASSES, EDGE, GAP, GOLD, GOLD_BRIGHT, GOLD_D, INK, NAMES, PAD, TEXT, WELL,
+from gen_groups import (BG, CLASSES, EDGE, GAP, GOLD, GOLD_BRIGHT, GOLD_D, INK, NAMES, PAD, TEXT, WELL,
                          font)
 
 HERE = os.path.dirname(os.path.abspath(__file__))

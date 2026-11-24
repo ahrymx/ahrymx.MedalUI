@@ -3,10 +3,10 @@
 -- and a two-row stack in its middle:
 --   Dead:     [Icon] [Time]  over  [Name]   (dead-wings, dead-bar)
 --   Offline:     [Icon]      over  [Name]   (disconnected, offline-bar)
--- The player's frame, the console's party, the party widget and the raid
--- cells have it (ns.DeadLook); a dead enemy keeps its grey bar. One base
--- colour for all of them (General). The time counts from when
--- MedalUI first saw the death, so a reload starts it again.
+-- The player's frame, the party frames and the raid cells have it
+-- (ns.DeadLook); a dead enemy keeps its grey bar. One base colour for all
+-- of them (General). The time counts from when MedalUI first saw the
+-- death, so a reload starts it again.
 local _, ns = ...
 
 local EDGE = 6                                -- how far in the edges darken
@@ -137,7 +137,7 @@ function ns.DeadLook(b)
 end
 
 -- The stack's sizes by the button's height: a raid cell, a party window or
--- widget cell, the player's frame.
+-- group frame cell, the player's frame.
 local SIZES = { { 50, 20, 11, 13 }, { 40, 18, 10, 11 }, { 0, 16, 9, 10 } }
 
 local function Fit(o, b)

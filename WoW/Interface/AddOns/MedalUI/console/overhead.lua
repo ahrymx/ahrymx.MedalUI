@@ -3,8 +3,8 @@
 --   the upper deck: focus, target of target
 --   the pet's deck: the pet
 --   the tray:       the stance bar, the pet bar and the totem bar, one centred row of bare icons
--- (2026-11-23: the boss deck is gone, bosses are the Boss widget's alone,
--- widgets/enemies.lua; focus and target of target moved up off the pet's
+-- (2026-11-23: the boss deck is gone, bosses are the boss frames' alone,
+-- groups/enemies.lua; focus and target of target moved up off the pet's
 -- deck onto one of their own over it.)
 -- Each deck is an inverted trapezoid; a lower one is narrower than the floor
 -- above it, so the stack reads as an upside-down ziggurat. When a lower deck

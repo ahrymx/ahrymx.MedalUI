@@ -44,13 +44,13 @@ ns.On("DISPLAY_SIZE_CHANGED", Rescale)
 ns.On("PLAYER_ENTERING_WORLD", Rescale)
 
 -- Backing: an ink rectangle under every window except the ring (the
--- minimap fills that). The player and target frames wear a glassy vial
--- backing so an empty bar reads as a depleted vial; party backings only
--- show with the group art.
-local backings = { solo = {}, group = {}, byName = {} }
+-- minimap fills that) and the party's (the medallion's wings, empty: the
+-- party is in its box, groups/party.lua). The player and target frames
+-- wear a glassy vial backing so an empty bar reads as a depleted vial.
+local backings = { byName = {} }
 local vialU, vialV = art.vialWidth / art.vialTexWidth, art.vialHeight / art.vialTexHeight
 for name in pairs(ns.windows) do
-    if name ~= "ring" then
+    if name ~= "ring" and not name:match("^party") then
         for _, side in ipairs({ -1, 1 }) do
             local t = console:CreateTexture(nil, "BACKGROUND")
             if name == "unit" then
@@ -60,7 +60,6 @@ for name in pairs(ns.windows) do
                 t:SetColorTexture(unpack(ns.colors.ink))
             end
             ns.PlaceOn(t, console, name, side)
-            table.insert(name:match("^party") and backings.group or backings.solo, t)
             table.insert(backings.byName, { tex = t, name = name, side = side })
         end
     end
@@ -96,7 +95,7 @@ ns.tint = tint
 -- Each glow is full inside its piece and drawn on the console itself, under
 -- everything the console holds, so the art covers all but what lies
 -- outside. A glow follows its piece: the bay's shape (the minimap's or the
--- grid's), Bar 1 and the wings as they fade, the party row in a group.
+-- grid's), Bar 1 and the wings as they fade.
 local AURA_ALPHA = 0.85
 local auras                 -- key -> texture, once the Reticule has them
 local bayActive = false     -- the bay is the grid's (UpdateGroup)
@@ -142,7 +141,7 @@ function ns.UpdateConsoleAura()
     if not spec then return end
     if not auras then
         auras = {}
-        for _, key in ipairs({ "explore", "combat", "bar1", "hybrid", "wing", "row" }) do
+        for _, key in ipairs({ "explore", "combat", "bar1", "hybrid", "wing" }) do
             auras[key] = AuraTexture(spec[key])
         end
         auras.wing2 = AuraTexture(spec.wing, spec.wingShift)
@@ -155,7 +154,6 @@ function ns.UpdateConsoleAura()
         hybrid = Shown(ns.hybridBar),
         wing = wings[1] and Shown(ns.extraBars) or 0,
         wing2 = wings[2] and Shown(ns.extraBars) or 0,
-        row = Shown(ns.partyRowBand),
     }
     local c = Threatened() and TINT.threat or TINT.combat
     for key, t in pairs(auras) do
@@ -190,12 +188,10 @@ local threat = CreateFrame("Frame")
 ns.RegisterUnitEvent(threat, "UNIT_THREAT_SITUATION_UPDATE", "player")
 threat:SetScript("OnEvent", UpdateTint)
 
--- The group art adds the party row. Textures are not protected, so this
--- can swap in combat too; the party buttons themselves follow their units.
--- In the Reticule, party frames are detached (a row under the
--- console: party_row.lua), and the console plate swaps between
--- its exploration (minimap bay) and combat/target (2x5 Bar 7 bay) textures;
--- the bay is the grid's while the minimap is in the corner (console/minimap.lua).
+-- The console's art. The Reticule's plate swaps between its exploration
+-- (minimap bay) and combat/target (2x5 Bar 7 bay) textures; the bay is the
+-- grid's while the minimap is in the corner (console/minimap.lua). The
+-- medallion has its one art.
 UpdateGroup = function()
     if ns.art.exploreFile then
         -- the bay shows what is in it: the minimap's one rule (console/minimap.lua)
@@ -203,25 +199,17 @@ UpdateGroup = function()
         if ns.MinimapInCorner then
             active = ns.MinimapInCorner()
         else
-            local row = ns.PartyRowShown and ns.PartyRowShown()
-            active = fighting or (UnitExists and UnitExists("target")) or ns.skyriding or row
+            active = fighting or (UnitExists and UnitExists("target")) or ns.skyriding
         end
         bayActive = active and true or false
         local file = ns.media .. (active and ns.art.combatFile or ns.art.exploreFile)
         tex:SetTexture(file)
         tint:SetTexture(ns.media .. ns.art.tintFile)
-        for _, t in ipairs(backings.group) do t:SetShown(false) end
-        if ns.ShowPartyRow then ns.ShowPartyRow() end
         ns.UpdateConsoleAura()
         return
     end
-    -- the party in its widget leaves the wings empty (widgets/party.lua)
-    local grouped = (IsInGroup() or (ns.db and ns.db.simParty))
-        and not (ns.PartyWidgetLayout and ns.PartyWidgetLayout())
-    local file = ns.media .. (grouped and "console-group" or "console-solo")
-    tex:SetTexture(file)
-    tint:SetTexture(file .. "-tint")
-    for _, t in ipairs(backings.group) do t:SetShown(grouped and true or false) end
+    tex:SetTexture(ns.media .. "console-solo")
+    tint:SetTexture(ns.media .. "console-solo-tint")
 end
 ns.UpdateConsoleArt = UpdateGroup
 UpdateGroup()

@@ -17,13 +17,11 @@ local AREA_FADE_IN, AREA_FADE_OUT = 0.5, 1      -- seconds it takes to come and 
 -- top-right corner while the 2x5 grid takes the bay (console/bar7.lua). One
 -- rule decides, and the console's art follows it (console/frame.lua):
 --
---   1. a party row under the console takes the bay's foot, so in a group
---      the minimap is in the corner, always (party_row.lua)
---   2. a pin, from the minimap key, holds it where the key put it (for
+--   1. a pin, from the minimap key, holds it where the key put it (for
 --      this session). The place chosen for the game's load (Console >
 --      Minimap: When the game loads) is a pin too, held only until the
 --      automatic moves change their answer
---   3. otherwise, with Move automatically on, it goes to the corner on each
+--   2. otherwise, with Move automatically on, it goes to the corner on each
 --      trigger ticked on Console > Minimap: combat, a target, skyriding
 local inCombat = UnitAffectingCombat and UnitAffectingCombat("player") or false
 local pin                                   -- nil, "corner" or "console"
@@ -45,7 +43,6 @@ end
 
 function ns.MinimapInCorner()
     if not ns.MinimapMoves() then return false end
-    if ns.PartyRowShown and ns.PartyRowShown() then return true end
     if pin then return pin == "corner" end
     return Auto()
 end
@@ -287,14 +284,14 @@ ns.On("PLAYER_LOGIN", function()
         -- alpha while it fades (console/fade.lua)
         if bezel.SetIgnoreParentAlpha then bezel:SetIgnoreParentAlpha(true) end
 
-        -- The grip: a widget's tab on the corner's top edge, with the area's
+        -- The grip: a group frame's tab on the corner's top edge, with the area's
         -- name on it (the console's hover label stays in the bay). A drag
         -- moves the corner, as its mover does (Console > Minimap: In the
         -- corner); nothing in it is protected, so in combat too. It shows
         -- with the corner, and with Movers only on mouseover only while the
         -- pointer is over the minimap or it.
-        local grip = ns.WidgetTab(bezel, bezel:GetFrameLevel())
-        grip:SetPoint("BOTTOM", bezel, "TOP", 0, -ns.WIDGET_TAB_OVER)
+        local grip = ns.GroupTab(bezel, bezel:GetFrameLevel())
+        grip:SetPoint("BOTTOM", bezel, "TOP", 0, -ns.GROUP_TAB_OVER)
         local drag = ns.ConsoleDragger("minimap")
         grip:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then drag.Start() end end)
         grip:SetScript("OnUpdate", drag.Update)
@@ -311,7 +308,7 @@ ns.On("PLAYER_LOGIN", function()
         -- the area's name, no wider than the corner
         local function Name()
             grip.label:SetText(GetMinimapZoneText())
-            ns.WidgetTabWidth(grip, bezel:GetWidth())
+            ns.GroupTabWidth(grip, bezel:GetWidth())
         end
         for _, e in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
             ns.On(e, Name)

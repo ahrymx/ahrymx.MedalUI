@@ -48,7 +48,7 @@ local DEFAULTS = {
     -- keeps it until the pointer leaves (console/minimap.lua)
     minimapAreaTime = 3,
     -- the corner minimap's grip only while the pointer is over it, as the
-    -- widgets' movers (widgets/box.lua)
+    -- group frames' movers (groups/box.lua)
     minimapMoverHover = false,
     -- fading (console/fade.lua): the console fades while idle, which is what
     -- is ticked here not being so; its opacity shown and faded, and how long a
@@ -207,15 +207,10 @@ local DEFAULTS = {
     simParty = false,       -- simulate party frames and show the group art layer
     simRolls = false,       -- simulate rolls in the Roll window (strips/rolls_sim.lua)
     simCdm = false,         -- simulate the Cooldown Manager's viewers in their options (cooldowns/simulate.lua)
-    partyPets = true,       -- show pet frames directly below party members with pets
-    partyLayout = "console", -- "console": on the console, Arena's medallion wings or the Reticule's row
-                             -- under it (console/party_row.lua); "widget": a box dragged anywhere
-                             -- (widgets/party.lua)
-    partyRange = 40,        -- distance in yards to fade out-of-range party frames (0 = off)
     overhead = true,        -- top-of-screen cascading trapezoid structure
-    -- where each group widget was dragged to: { point, relativePoint, x, y } (widgets/; not on the
+    -- where each group frame was dragged to: { point, relativePoint, x, y } (group frames/; not on the
     -- page), shared by every profile
-    partyWidgetPoint = false, raidWidgetPoint = false, bossWidgetPoint = false, arenaWidgetPoint = false,
+    partyPoint = false, raidPoint = false, bossPoint = false, arenaPoint = false,
     topPet = true,          -- player pet unit frame, its deck under focus and target of target
     topFocus = true,        -- focus unit frame on the top deck
     topToT = true,          -- target of target frame on the top deck
@@ -235,12 +230,13 @@ local DEFAULTS = {
     auraBuffs = true,       -- row of buffs on outer health corner (yours; the editor's From)
     auraDebuffs = true,     -- row of debuffs on inner health corner (all; the editor's From)
     auraBoss = true,        -- boss debuffs on inner health corner
-    -- The widgets' (Unit Frames' Widget groups and the Raid, Battleground and
-    -- Arena tabs; console/auras.lua), shared by every profile: the Party
-    -- widget's own range and auras (ns.PartyOption; it has no pets), the raid's out of
-    -- battlegrounds and in one, the Boss widget's and the arena's
-    partyWidgetPlayer = true, partyWidgetRange = 40, partyWidgetGlow = true, partyWidgetCC = true,
-    partyWidgetBuffs = true, partyWidgetBoss = true, partyWidgetThreat = true, partyWidgetDebuffs = true,
+    -- (the aura* are the player's and the target's; the party has its own)
+    -- The group frames' (Unit Frames' Party, Raid, Battleground, Boss and
+    -- Arena tabs; console/auras.lua), shared by every profile: the party's
+    -- range and auras, the raid's out of battlegrounds and in one, the boss
+    -- frames' and the arena's
+    partyPlayer = true, partyRange = 40, partyGlow = true, partyCC = true,
+    partyBuffs = true, partyBoss = true, partyThreat = true, partyDebuffs = true,
     raidRange = 40, raidGlow = true, raidCC = true, raidBoss = true, raidThreat = true, raidDebuffs = true,
     bgRange = 40, bgGlow = true, bgCC = true, bgThreat = true, bgDebuffs = true,
     -- the dispel glow, type by type (console/auras.lua): on, and its colour;
@@ -251,16 +247,16 @@ local DEFAULTS = {
     dispelStyle = "health", -- a dispel shown as "health": the health bar in its colour (the default since
                             -- 2026-11-21), or "glow": the border's glow
     threatColor = "ffe63c28",
-    bossWidgetMine = true,
+    bossMine = true,
     arenaCC = true, arenaMine = true,
-    -- each box's movers (its tabs) only on mouseover (widgets/box.lua)
-    partyWidgetMoverHover = false, raidMoverHover = false, bgMoverHover = false, bossMoverHover = false,
+    -- each box's movers (its tabs) only on mouseover (groups/box.lua)
+    partyMoverHover = false, raidMoverHover = false, bgMoverHover = false, bossMoverHover = false,
     arenaMoverHover = false,
     -- what the unit-frame editor (editor.lua) changed on each frame, piece
     -- by piece: false until something is; the console's per profile, the
-    -- widgets' shared
-    editUnit = false, editParty = false,
-    editPartyWidget = false, editRaid = false, editBoss = false, editArena = false,
+    -- group frames' shared
+    editUnit = false,
+    editParty = false, editRaid = false, editBoss = false, editArena = false,
     blizzardAuras = false,  -- Blizzard's own buff and debuff rows, top right (blizzard.lua)
     consoleProfile = "reticule", -- "reticule": the slim console, square minimap & bar 7; "arena": the medallion
     -- which page each bar shows (bars/paging.lua): "default", "stances", "page1".."page10" or
@@ -317,7 +313,7 @@ DEFAULTS.cdmMinimal, DEFAULTS.cdmMinimalAlpha = false, 0
 DEFAULTS.cdmMinimalTarget, DEFAULTS.cdmMinimalHurt = false, false
 DEFAULTS.cdmMinimalGroup, DEFAULTS.cdmMinimalMouse = false, true
 -- Minimal OoC Mode for the party and raid boxes (Shared > Immersion Mode,
--- widgets/box.lua): out of combat at groupMinimalAlpha, back for what is ticked
+-- groups/box.lua): out of combat at groupMinimalAlpha, back for what is ticked
 DEFAULTS.groupMinimal, DEFAULTS.groupMinimalAlpha = false, 0
 DEFAULTS.groupMinimalHurt, DEFAULTS.groupMinimalMouse = true, true
 -- The fourth viewer, the tracked bars (BuffBarCooldownViewer): a bar each,
@@ -395,11 +391,11 @@ local OLD_IDS = { default = "arena", light = "reticule" }
 -- is saved.
 --
 -- What shapes the console (every page under Console but the Overhead; under
--- Unit Frames the console's party; the editor's player, target and console
--- party) is remembered per profile, in MedalUIDB.profiles[name]:
+-- Unit Frames the player's and target's auras; the editor's player and
+-- target) is remembered per profile, in MedalUIDB.profiles[name]:
 -- each profile keeps its own choices, so a switch brings back the ones made
 -- on the profile switched to. Everything else (the overhead and its bosses,
--- the group widgets, the chat, the side panel, the bags, where windows were
+-- the group frames, the chat, the side panel, the bags, where windows were
 -- left, the party preview) has nothing to do with the console and is one
 -- set, MedalUIDB.global.
 -- Reset profile clears the current profile's choices and nothing else.
@@ -423,9 +419,9 @@ for _, key in ipairs({
     "consoleShowMouse", "consoleAlpha", "consoleFadedAlpha", "consoleFadeIn", "consoleFadeOut",
     "consoleMinimal", "consoleMinimalUnits", "consoleMinimalRest", "consoleMinimalRegen", "consoleMinimalTarget",
     "consoleMinimalHurt", "consoleMinimalGroup", "consoleMinimalMouse",
-    "partyPets", "partyLayout", "partyRange", "auraGlow", "auraThreat", "auraCC", "auraBuffs", "auraBoss",
+    "auraGlow", "auraThreat", "auraCC", "auraBuffs", "auraBoss",
     "auraDebuffs",
-    "editUnit", "editParty",
+    "editUnit",
     "xpCast", "repCast",
     "cdmMinimal", "cdmMinimalAlpha", "cdmMinimalTarget", "cdmMinimalHurt", "cdmMinimalGroup", "cdmMinimalMouse",
     "groupMinimal", "groupMinimalAlpha", "groupMinimalHurt", "groupMinimalMouse",
@@ -446,37 +442,21 @@ for _, key in ipairs({ "bar1Paging", "bar1PagingCustom", "row2Paging", "row2Pagi
     "gridPageForm3", "gridPageStealth" }) do PER_CLASS[key] = true end
 ns.PER_CLASS = PER_CLASS
 
--- The party's options: the console's (per profile, shaped and placed by
--- it), or, while the Party layout is the widget, the widget's own (shared).
--- The player's and target's frames keep the console's.
-local PARTY_WIDGET = {
-    partyRange = "partyWidgetRange", auraGlow = "partyWidgetGlow", auraThreat = "partyWidgetThreat",
-    auraCC = "partyWidgetCC", auraBuffs = "partyWidgetBuffs", auraBoss = "partyWidgetBoss",
-    auraDebuffs = "partyWidgetDebuffs",
-}
-function ns.PartyKey(key)
-    return ns.db.partyLayout == "widget" and PARTY_WIDGET[key] or key
-end
-function ns.PartyOption(key) return ns.db[ns.PartyKey(key)] end
--- The party's pets: the console's option; the widget shows none (it is for
--- competitive play, where they are not wanted).
-function ns.PartyPets() return ns.db.partyLayout ~= "widget" and ns.db.partyPets ~= false end
-
 -- Options many frames have, one value for them all (Settings > Shared):
 -- a frame's option the player has not set is the shared one; one set is
 -- the frame's own, and wins. Set back to the shared value, it follows it
 -- again (a choice equal to its base is not saved). Each family's defaults
 -- are the same, so the shared value changes nothing until it is changed.
 local SHARED = {
-    moverHover = { "minimapMoverHover", "partyWidgetMoverHover", "raidMoverHover", "bgMoverHover",
+    moverHover = { "minimapMoverHover", "partyMoverHover", "raidMoverHover", "bgMoverHover",
         "bossMoverHover", "arenaMoverHover" },
-    rangeFade = { "partyRange", "partyWidgetRange", "raidRange", "bgRange" },
-    sharedGlow = { "auraGlow", "partyWidgetGlow", "raidGlow", "bgGlow" },
-    sharedThreat = { "auraThreat", "partyWidgetThreat", "raidThreat", "bgThreat" },
-    sharedCC = { "auraCC", "partyWidgetCC", "raidCC", "bgCC", "arenaCC" },
-    sharedBuffs = { "auraBuffs", "partyWidgetBuffs" },
-    sharedDebuffs = { "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs", "bgDebuffs", "bossWidgetMine", "arenaMine" },
-    sharedBoss = { "auraBoss", "partyWidgetBoss", "raidBoss" },
+    rangeFade = { "partyRange", "raidRange", "bgRange" },
+    sharedGlow = { "auraGlow", "partyGlow", "raidGlow", "bgGlow" },
+    sharedThreat = { "auraThreat", "partyThreat", "raidThreat", "bgThreat" },
+    sharedCC = { "auraCC", "partyCC", "raidCC", "bgCC", "arenaCC" },
+    sharedBuffs = { "auraBuffs", "partyBuffs" },
+    sharedDebuffs = { "auraDebuffs", "partyDebuffs", "raidDebuffs", "bgDebuffs", "bossMine", "arenaMine" },
+    sharedBoss = { "auraBoss", "partyBoss", "raidBoss" },
 }
 local SHARED_OF = {}
 for shared, keys in pairs(SHARED) do
@@ -660,7 +640,7 @@ end
 -- the reload); then each other answer through SetOption, so the parts hear
 -- it. A console that cannot be chosen is refused as on Profiles, and the
 -- console's Minimal OoC Mode is the Reticule's only.
---   answers = { console = id, immersion = { [key] = on }, partyLayout = "console" | "widget" }
+--   answers = { console = id, immersion = { [key] = on } }
 ns.SETUP_IMMERSION = { "consoleMinimal", "chatImmersion", "sideImmersion", "groupMinimal", "cdmMinimal" }
 function ns.ApplySetup(answers)
     if answers.console and answers.console ~= Profile() then ns.SetOption("consoleProfile", answers.console) end
@@ -668,7 +648,6 @@ function ns.ApplySetup(answers)
         local on = answers.immersion and answers.immersion[key]
         if on ~= nil and (key ~= "consoleMinimal" or Profile() == "reticule") then ns.SetOption(key, on) end
     end
-    if answers.partyLayout then ns.SetOption("partyLayout", answers.partyLayout) end
     ns.SetupDone()
 end
 -- This character has been through setup (finished, skipped or closed): it
@@ -701,6 +680,16 @@ local function RenameIds(t)
     end
 end
 
+-- The group frames' options by their names before 2026-11-24 (Migrate's
+-- groupKeys): the Party, Raid, boss and arena frames became group frames.
+local GROUP_KEYS = {
+    partyWidgetRange = "partyRange", partyWidgetGlow = "partyGlow", partyWidgetThreat = "partyThreat",
+    partyWidgetCC = "partyCC", partyWidgetBuffs = "partyBuffs", partyWidgetDebuffs = "partyDebuffs",
+    partyWidgetBoss = "partyBoss", partyWidgetPlayer = "partyPlayer", partyWidgetMoverHover = "partyMoverHover",
+    partyWidgetPoint = "partyPoint", raidWidgetPoint = "raidPoint", bossWidgetPoint = "bossPoint",
+    arenaWidgetPoint = "arenaPoint", bossWidgetMine = "bossMine", editPartyWidget = "editParty",
+}
+
 local function Migrate(fresh)
     local db = MedalUIDB
     db.global = db.global or {}
@@ -728,12 +717,8 @@ local function Migrate(fresh)
     for name in pairs(PROFILES) do db.profiles[name] = db.profiles[name] or {} end
     local stores = { db }
     for name in pairs(PROFILES) do table.insert(stores, db.profiles[name]) end
-    -- the party layout was Vertical (the medallion's wings, the light
-    -- profile's stack on the left), Horizontal (the Reticule's row) or
-    -- Widget; the stack is gone, and both others are now the console's own
-    for _, store in ipairs(stores) do
-        if store.partyLayout == "vertical" or store.partyLayout == "horizontal" then store.partyLayout = nil end
-    end
+    -- (the party layout, Vertical, Horizontal or Widget, then Console or
+    -- Widget, is gone: see groupKeys at the end)
     -- the overhead's Boss frames checkbox (topBoss), then its Boss frames
     -- choice, are gone with its boss deck: see the end
     for _, store in ipairs(stores) do store.topBoss = nil end
@@ -767,12 +752,12 @@ local function Migrate(fresh)
         if hid.clock == nil then hid.clock = hid.session end
         hid.session = nil
     end
-    -- The widgets became shared by every profile, the console's party staying
-    -- per profile. A widget's place, kept per profile until then, comes from
-    -- the profile in use; the widgets' own options start from what the party
+    -- The group frames became shared by every profile, the console's party staying
+    -- per profile. A group frame's place, kept per profile until then, comes from
+    -- the profile in use; the group frames' own options start from what the party
     -- (and Your debuffs, the boss's) had there, which was theirs until then.
     -- Once: an option set back to its default is not saved, and must not be
-    -- copied again.
+    -- copied again. (The names then: groupKeys, below, renames them.)
     if not db.widgetsShared then
         local here = db.profiles[Profile()]
         for _, key in ipairs({ "partyWidgetPoint", "raidWidgetPoint", "bossWidgetPoint", "arenaWidgetPoint" }) do
@@ -791,7 +776,7 @@ local function Migrate(fresh)
     end
     -- The overhead became shared by every profile (2026-11-15): its options,
     -- its frames' places and its bosses', kept per profile until then, come
-    -- from the profile in use. Once, as the widgets' move was.
+    -- from the profile in use. Once, as the group frames' move was.
     if not db.overheadShared then
         local here = db.profiles[Profile()]
         for _, key in ipairs(OVERHEAD_KEYS) do
@@ -801,10 +786,32 @@ local function Migrate(fresh)
         db.overheadShared = true
     end
     -- The overhead's boss deck is gone (2026-11-23): bosses are the Boss
-    -- widget's alone, so where they showed (bossFrames) and your debuffs on
-    -- the overhead's (bossMine) go; last, after the moves above read them.
-    for _, store in ipairs({ db, db.global }) do store.bossFrames, store.bossMine = nil, nil end
-    for name in pairs(PROFILES) do db.profiles[name].bossFrames, db.profiles[name].bossMine = nil, nil end
+    -- frames' alone, so where they showed (bossFrames) and your debuffs on
+    -- the overhead's (bossMine) go; after the moves above read them. Once:
+    -- bossMine is the Boss frames' own since groupKeys, below.
+    if not db.bossDeckGone then
+        for _, store in ipairs({ db, db.global }) do store.bossFrames, store.bossMine = nil, nil end
+        for name in pairs(PROFILES) do db.profiles[name].bossFrames, db.profiles[name].bossMine = nil, nil end
+        db.bossDeckGone = true
+    end
+    -- The party is always in its box (2026-11-24): the console's party, its
+    -- layout choice and its pets are gone, and the group frames' options
+    -- lose "Widget" from their names. Once, after the moves above, which
+    -- write the old names: the console's party options go from every
+    -- profile (and from the global store, where a stray would pass for the
+    -- new one), then each old name's value moves to its new one.
+    if not db.groupKeys then
+        local console = { "partyLayout", "partyPets", "partyRange", "editParty" }
+        for _, store in ipairs(stores) do
+            for _, key in ipairs(console) do store[key] = nil end
+        end
+        for _, key in ipairs(console) do db.global[key] = nil end
+        for old, new in pairs(GROUP_KEYS) do
+            if db.global[old] ~= nil then db.global[new] = db.global[old] end
+            db.global[old] = nil
+        end
+        db.groupKeys = true
+    end
     -- The Reticule's minimap loads in the corner by default (2026-11-23):
     -- an install from before that never chose keeps loading it as it
     -- moves, its place until then. Once, as the moves above: set back to

@@ -1,7 +1,7 @@
--- The group widgets (party, raid, boss, arena): a box of unit frames in
+-- The group frames (party, raid, boss, arena): a box of unit frames in
 -- columns, each column under a tab with its title ("Party", "Group 3",
 -- "Bosses", "Arena"). A tab is the grip: hold it to drag the box anywhere;
--- where it is left is kept for every profile. The look is art/widgets/gen_widgets.py
+-- where it is left is kept for every profile. The look is art/groups/gen_groups.py
 -- (draft B: a tab on the box's top edge); the tab is its export.
 --
 -- Two frames, because combat locks one of them. The holder is what the
@@ -16,13 +16,13 @@ local Tr = ns.L
 local C = ns.colors
 local GOLD, GOLD_D = { 0.769, 0.647, 0.341 }, { 0.541, 0.439, 0.204 }
 -- the tab's art: 64x32, the shape 20 high, its ends 8 wide, its bottom 2
--- rows over the box's edge (gen_widgets.py: TAB_*)
+-- rows over the box's edge (gen_groups.py: TAB_*)
 local TAB_W, TAB_TEX_H, TAB_H, TAB_END, TAB_OVER = 64, 32, 20, 8, 2
 
-ns.WIDGET = { edge = 2, pad = 3, gap = 3 }
-local W = ns.WIDGET
+ns.GROUP = { edge = 2, pad = 3, gap = 3 }
+local W = ns.GROUP
 
-local widgets = {}
+local boxes = {}
 
 -- A rule of the box's edge: gold outside, a dark line inside it.
 local function Edge(parent, layer, inset, thick, color)
@@ -57,17 +57,17 @@ local function Remember(box)
     ns.db[box.key] = { point, relative, math.floor(x + 0.5), math.floor(y + 0.5) }
 end
 
--- A tab's art and its label, on parent at level: the widgets' grip, and the
--- corner minimap's (console/minimap.lua). ns.WidgetTabWidth(tab) sizes it to
+-- A tab's art and its label, on parent at level: the group frames' grip, and the
+-- corner minimap's (console/minimap.lua). ns.GroupTabWidth(tab) sizes it to
 -- its label; it stands on what it grips with its foot over the edge
--- (ns.WIDGET_TAB_OVER).
-function ns.WidgetTab(parent, level)
+-- (ns.GROUP_TAB_OVER).
+function ns.GroupTab(parent, level)
     local tab = CreateFrame("Button", nil, parent)
     tab:SetFrameLevel(level)
     tab:SetHeight(TAB_H)
     local l, m, r = tab:CreateTexture(nil, "ARTWORK"), tab:CreateTexture(nil, "ARTWORK"),
         tab:CreateTexture(nil, "ARTWORK")
-    for _, t in ipairs({ l, m, r }) do t:SetTexture(ns.media .. "widgets/tab") end
+    for _, t in ipairs({ l, m, r }) do t:SetTexture(ns.media .. "groups/tab") end
     local v = TAB_H / TAB_TEX_H
     l:SetTexCoord(0, TAB_END / TAB_W, 0, v)
     m:SetTexCoord(TAB_END / TAB_W, (TAB_W - TAB_END) / TAB_W, 0, v)
@@ -86,10 +86,10 @@ function ns.WidgetTab(parent, level)
     tab.label:SetWordWrap(false)
     return tab
 end
-ns.WIDGET_TAB_OVER = TAB_OVER
+ns.GROUP_TAB_OVER = TAB_OVER
 
 -- As wide as its label, or most wide (the label ends in an ellipsis).
-function ns.WidgetTabWidth(tab, most)
+function ns.GroupTabWidth(tab, most)
     tab.label:SetWidth(0)
     local w = math.ceil(tab.label:GetStringWidth())
     if most and w + 2 * TAB_END + 10 > most then
@@ -102,7 +102,7 @@ end
 local function Tab(box)
     -- behind the skin: the box's gold edge runs on across the tab's foot, so
     -- the tab grows out of the box, and the cells over both
-    local tab = ns.WidgetTab(box.skin, box:GetFrameLevel())
+    local tab = ns.GroupTab(box.skin, box:GetFrameLevel())
 
     -- the grip: the holder moves only out of combat (it is protected)
     tab:RegisterForDrag("LeftButton")
@@ -133,7 +133,7 @@ end
 -- A box: name, the option keeping where it was dragged, and where it is
 -- until then ({ point, relativePoint, x, y } on UIParent); hover, the option
 -- (or a function giving it) that shows its tabs only on mouseover.
-function ns.WidgetBox(name, key, default, hover, minimal)
+function ns.GroupBox(name, key, default, hover, minimal)
     local box = CreateFrame("Frame", name, UIParent)
     box.minimal = minimal       -- faded by the group frames' Minimal OoC Mode
     box:SetFrameStrata("LOW")
@@ -153,36 +153,36 @@ function ns.WidgetBox(name, key, default, hover, minimal)
     Edge(skin, "BORDER", W.edge, 1, GOLD_D)
     box.skin, box.tabs = skin, {}
     box:Hide()
-    table.insert(widgets, box)
+    table.insert(boxes, box)
     return box
 end
 
 -- The left of column i, from the box's left.
-function ns.WidgetColumnX(i, width)
+function ns.GroupColumnX(i, width)
     return W.edge + W.pad + (i - 1) * (width + W.gap)
 end
 
 -- The top of row i of a column whose rows are step apart, from the box's top.
-function ns.WidgetRowY(i, step)
+function ns.GroupRowY(i, step)
     return -(W.edge + W.pad + (i - 1) * step)
 end
 
 -- The box's size for n columns of width and a column height.
-function ns.WidgetSize(n, width, height)
+function ns.GroupSize(n, width, height)
     return 2 * W.edge + 2 * W.pad + n * width + (n - 1) * W.gap, 2 * W.edge + 2 * W.pad + height
 end
 
 -- The holder: where the box is, and room for everything it can hold. Out of
 -- combat only.
-function ns.WidgetHolder(box, w, h)
+function ns.GroupHolder(box, w, h)
     Place(box)
     box:SetSize(w, h)
 end
 
 -- The skin: the box drawn at this size with a tab over each column, or
 -- none over a column whose title is false. In combat too.
-function ns.WidgetSkin(box, titles, width, height)
-    local w, h = ns.WidgetSize(#titles, width, height)
+function ns.GroupSkin(box, titles, width, height)
+    local w, h = ns.GroupSize(#titles, width, height)
     box.skin:SetSize(w, h)
     for i, title in ipairs(titles) do
         local tab = box.tabs[i] or Tab(box)
@@ -190,9 +190,9 @@ function ns.WidgetSkin(box, titles, width, height)
         tab:SetShown(title and true or false)
         if title then
             tab.label:SetText(title)
-            ns.WidgetTabWidth(tab)
+            ns.GroupTabWidth(tab)
             tab:ClearAllPoints()
-            tab:SetPoint("BOTTOM", box.skin, "TOPLEFT", ns.WidgetColumnX(i, width) + width / 2, -TAB_OVER)
+            tab:SetPoint("BOTTOM", box.skin, "TOPLEFT", ns.GroupColumnX(i, width) + width / 2, -TAB_OVER)
         end
     end
     for i = #titles + 1, #box.tabs do box.tabs[i]:Hide() end
@@ -212,12 +212,12 @@ end
 -- Another grip that shows as these do: { hover = its option, tabs = { tab },
 -- Hovered = function() -> whether the pointer is on what it moves }.
 function ns.WatchMover(grip)
-    table.insert(widgets, grip)
-    ns.OnSetting(grip.hover, function() ns.UpdateWidgetMovers() end)
+    table.insert(boxes, grip)
+    ns.OnSetting(grip.hover, function() ns.UpdateGroupMovers() end)
 end
 
-function ns.UpdateWidgetMovers()
-    for _, box in ipairs(widgets) do
+function ns.UpdateGroupMovers()
+    for _, box in ipairs(boxes) do
         local key = box.hover
         if type(key) == "function" then key = key() end
         local shown = not (key and ns.db[key]) or (box.Hovered or Hovered)(box)
@@ -231,11 +231,11 @@ movers:SetScript("OnUpdate", function(_, elapsed)
     moversSince = moversSince + elapsed
     if moversSince < 0.1 then return end
     moversSince = 0
-    ns.UpdateWidgetMovers()
+    ns.UpdateGroupMovers()
 end)
-for _, key in ipairs({ "partyWidgetMoverHover", "raidMoverHover", "bgMoverHover", "bossMoverHover",
+for _, key in ipairs({ "partyMoverHover", "raidMoverHover", "bgMoverHover", "bossMoverHover",
     "arenaMoverHover" }) do
-    ns.OnSetting(key, function() ns.UpdateWidgetMovers() end)
+    ns.OnSetting(key, function() ns.UpdateGroupMovers() end)
 end
 
 -- ------------------------------------------------------------ the cells
@@ -244,7 +244,7 @@ end
 -- right, a leader's crown on the top edge's left end. units.lua draws it
 -- (ns.UpdateUnitButton) as it draws the console's frames, and auras.lua its
 -- auras (ns.AttachAuras gives it them).
-function ns.WidgetCell(b, width, height)
+function ns.GroupCell(b, width, height)
     local bg = b:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
     bg:SetColorTexture(0.086, 0.086, 0.102, 1)
@@ -256,7 +256,7 @@ function ns.WidgetCell(b, width, height)
     b.power:SetStatusBarTexture(ns.bar)
     b.power:SetPoint("BOTTOMLEFT")
     b.power:SetPoint("BOTTOMRIGHT")
-    ns.SizeWidgetCell(b, width, height)
+    ns.SizeGroupCell(b, width, height)
     local text = CreateFrame("Frame", nil, b)
     text:SetAllPoints(b.health)
     text:SetFrameLevel(b.health:GetFrameLevel() + 2)
@@ -279,27 +279,27 @@ end
 
 -- A cell at a size (the editor's, editor.lua): the power under the health,
 -- a seam between. A secure cell takes a size only out of combat.
-function ns.SizeWidgetCell(b, width, height)
+function ns.SizeGroupCell(b, width, height)
     b:SetSize(width, height)
     ns.LayPower(b, height >= 40 and 5 or 4, 1, height)
 end
 
 -- A cell drawn: the unit, then its auras.
-function ns.UpdateWidgetCell(b)
+function ns.UpdateGroupCell(b)
     ns.UpdateUnitButton(b)
     ns.UpdateUnitAuras(b)
 end
 
--- Units shown in the widgets, by unit, so one event frame updates them all
--- (a raid button's unit changes with the roster: ns.WatchWidgetUnit again).
+-- Units shown in the group frames, by unit, so one event frame updates them all
+-- (a raid button's unit changes with the roster: ns.WatchGroupUnit again).
 local watched = {}
-function ns.WatchWidgetUnit(b, unit)
+function ns.WatchGroupUnit(b, unit)
     if b.unit and watched[b.unit] then watched[b.unit][b] = nil end
     b.unit = unit
     if unit then
         watched[unit] = watched[unit] or {}
         watched[unit][b] = true
-        ns.UpdateWidgetCell(b)
+        ns.UpdateGroupCell(b)
     end
 end
 
@@ -323,15 +323,15 @@ events:SetScript("OnEvent", function(_, event, unit)
     end
 end)
 
--- A secure button for one unit, in a widget's column, with the auras of
+-- A secure button for one unit, in a group frame's column, with the auras of
 -- its kind (ns.AttachAuras).
-function ns.WidgetUnit(parent, name, unit, width, height, auras)
+function ns.GroupUnit(parent, name, unit, width, height, auras)
     local b = CreateFrame("Button", name, parent, "SecureUnitButtonTemplate")
     b:SetAttribute("unit", unit)
     b:SetAttribute("*type1", "target")
     b:SetAttribute("*type2", "togglemenu")
     b:RegisterForClicks("AnyUp")
-    ns.WidgetCell(b, width, height)
+    ns.GroupCell(b, width, height)
     ns.AttachAuras(b, auras)
     ns.EditableCell(b, auras)
     b:SetScript("OnEnter", function(self)
@@ -345,31 +345,31 @@ function ns.WidgetUnit(parent, name, unit, width, height, auras)
     b:SetScript("OnLeave", function(self)
         if self.stub then GameTooltip_Hide() elseif UnitFrame_OnLeave then UnitFrame_OnLeave(self) end
     end)
-    b:SetScript("OnShow", function(self) ns.UpdateWidgetCell(self) end)
-    ns.WatchWidgetUnit(b, unit)
+    b:SetScript("OnShow", function(self) ns.UpdateGroupCell(self) end)
+    ns.WatchGroupUnit(b, unit)
     return b
 end
 
 -- A box's state driver for its visibility: shown by the game's own
 -- conditional (in combat too), or always, while previewing.
-function ns.WidgetVisibility(box, conditional)
+function ns.GroupVisibility(box, conditional)
     if box.shownBy == conditional then return end
     box.shownBy = conditional
     RegisterStateDriver(box, "visibility", conditional)
 end
 
--- Every widget's update: the roster, the units there are, the preview.
+-- Every group frame's update: the roster, the units there are, the preview.
 local updates = {}
-function ns.OnWidgetUpdate(fn) table.insert(updates, fn) end
-function ns.UpdateWidgets()
+function ns.OnGroupUpdate(fn) table.insert(updates, fn) end
+function ns.UpdateGroups()
     for _, fn in ipairs(updates) do fn() end
 end
 for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "INSTANCE_ENCOUNTER_ENGAGE_UNIT",
     "UNIT_TARGETABLE_CHANGED", "ARENA_OPPONENT_UPDATE", "ARENA_PREP_OPPONENT_SPECIALIZATIONS",
     "PLAYER_REGEN_ENABLED" }) do
-    ns.On(event, function() ns.UpdateWidgets() end)
+    ns.On(event, function() ns.UpdateGroups() end)
 end
-ns.OnSetting("simParty", function() ns.UpdateWidgets() end)
+ns.OnSetting("simParty", function() ns.UpdateGroups() end)
 
 -- ------------------------------------------------ Minimal OoC Mode
 -- (Shared > Immersion Mode, 2026-11-20): out of combat the party and raid
@@ -434,7 +434,7 @@ local function GroupFade(box, now)
 end
 function minimal.FadeAll(now)
     if not ns.db then return end
-    for _, box in ipairs(widgets) do
+    for _, box in ipairs(boxes) do
         if box.minimal then GroupFade(box, now) end
     end
 end
@@ -472,7 +472,7 @@ function ns.RaidRange()
     return ns.db and (ns.InBattleground() and ns.db.bgRange or ns.db.raidRange)
 end
 local fade = CreateFrame("Frame")
-ns.widgetFade = fade
+ns.groupFade = fade
 local since = 0
 fade:SetScript("OnUpdate", function(_, elapsed)
     since = since + elapsed

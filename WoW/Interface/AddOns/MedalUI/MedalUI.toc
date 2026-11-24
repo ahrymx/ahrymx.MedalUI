@@ -23,7 +23,6 @@ console\layout.lua
 console\light_profile.lua
 console\frame.lua
 console\units.lua
-console\party_row.lua
 console\auras.lua
 console\xp.lua
 console\minimap.lua
@@ -35,10 +34,10 @@ console\fade.lua
 console\simulate.lua
 editor.lua
 
-widgets\box.lua
-widgets\party.lua
-widgets\raid.lua
-widgets\enemies.lua
+groups\box.lua
+groups\party.lua
+groups\raid.lua
+groups\enemies.lua
 
 bars\windows.lua
 bars\bar.lua

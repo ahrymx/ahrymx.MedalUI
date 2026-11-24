@@ -8,10 +8,10 @@
 --      (the side health decreases toward).
 --   4. Boss debuffs: a large icon in the centre of the health, in the slot
 --      crowd control uses (crowd control wins it).
---   5. Your debuffs on an enemy (the widgets' boss and arena cells, the
+--   5. Your debuffs on an enemy (the group frames' boss and arena cells, the
 --      overhead's bosses): a row of small icons in the health's top right.
 --
--- The console's frames answer to Unit Frames > Party; a widget's cell is
+-- The console's frames answer to Unit Frames > Party; a group frame's cell is
 -- given its pieces and its tab's options by ns.AttachAuras (the raid's
 -- switch to the Battleground tab's inside one).
 local _, ns = ...
@@ -398,8 +398,7 @@ local POOL = 10
 
 local ICON, GAP = 15, 2
 
--- The row from its outer corner inward. Again when the party's side changes
--- (the light row mirrors where the console's slots did not: ns.PartySide).
+-- The row from its outer corner inward.
 local function LayBuffs(health, buttons, side)
     local point = (buttons.isParty and "TOP" or "BOTTOM") .. (side == -1 and "LEFT" or "RIGHT")
     local offsetY = buttons.isParty and -2 or 2
@@ -412,7 +411,7 @@ end
 
 -- A frame's debuffs, level with its buffs at the other (inner) end, running
 -- outward. Only the rows laid by side (a console unit's, the Party
--- widget's): the widgets' own stay where they were made.
+-- group frame's): the group frames' own stay where they were made.
 local function LayDebuffs(health, buttons, side)
     local point = (buttons.isParty and "TOP" or "BOTTOM") .. (side == -1 and "RIGHT" or "LEFT")
     local offsetY = buttons.isParty and -2 or 2
@@ -567,15 +566,16 @@ ns.STUB_ICONS = {
 for k, icon in ipairs(MINE_ICONS) do ns.STUB_ICONS.mine[k] = "Interface\\Icons\\" .. icon end
 
 -- Whether a frame shows one kind of aura: the option its tab gives it. The
--- console's party buttons answer to the Party widget's own while they are in
--- it (ns.PartyKey); the player's and target's to the console's.
+-- party's buttons answer to the Party tab's; the player's and target's to
+-- the console's.
 local CONSOLE_KEYS = { glow = "auraGlow", threat = "auraThreat", cc = "auraCC", buffs = "auraBuffs", boss = "auraBoss",
     mine = "auraDebuffs" }
+local PARTY_KEYS = { glow = "partyGlow", threat = "partyThreat", cc = "partyCC",
+    buffs = "partyBuffs", boss = "partyBoss", mine = "partyDebuffs" }
 local function Shows(b, kind)
-    local keys = b.auraKeys or CONSOLE_KEYS
+    local keys = b.auraKeys or (b.unit:match("^party%d$") and PARTY_KEYS) or CONSOLE_KEYS
     if type(keys) == "function" then keys = keys() end
     local key = keys[kind]
-    if key and not b.auraKeys and b.unit:match("^party%d$") then key = ns.PartyKey(key) end
     return key and ns.db[key] ~= false or false
 end
 
@@ -868,7 +868,7 @@ end
 local function Live(b, row, on, filter, max, timeless)
     -- (2026-11-22) the player's buffs cancel on a right click (the
     -- Player · Target buffs' Right-click to cancel): a row whose frame is
-    -- the player's for good (the console's, the Party widget's own). Set
+    -- the player's for good (the console's, the party frames' own). Set
     -- before its icons are made; a change, on those made, out of combat
     -- (the client's buttons take their clicks then), else at the next pass
     local cancels = b.unit == "player" and row == b.buffWidgets and ns.BuffsCancel()
@@ -975,7 +975,7 @@ end
 -- Each edge handed to the client, with the colours as they are now. The
 -- client shows what it is handed while the aura is on, whatever this addon
 -- hid, so the 45-degree cut goes only where the frame's own glow traces it
--- (ns.ShapeDispelGlows): handed to it on a Reticule's or the party widget's
+-- (ns.ShapeDispelGlows): handed to it on a Reticule's or the party frames'
 -- rectangle, it drew the medallion's cut there (2026-11-16).
 --
 -- What this addon made on the client's aura frame is the client's in combat
@@ -1408,7 +1408,7 @@ function UpdateUnitAuras(b, retry)
 end
 ns.UpdateUnitAuras = UpdateUnitAuras
 
--- The widgets' cells and the overhead's bosses that carry auras (ns.AttachAuras).
+-- The group frames' cells and the overhead's bosses that carry auras (ns.AttachAuras).
 local carriers = {}
 
 local function UpdateAllAuras()
@@ -1416,8 +1416,8 @@ local function UpdateAllAuras()
     for _, b in pairs(ns.units or {}) do
         UpdateUnitAuras(b)
     end
-    if ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget then
-        UpdateUnitAuras(ns.partyWidgetPlayer)
+    if ns.partyPlayer and ns.partyPlayer.inBox then
+        UpdateUnitAuras(ns.partyPlayer)
     end
     for b in pairs(carriers) do UpdateUnitAuras(b) end
 end
@@ -1437,7 +1437,7 @@ local function CreateMineWidgets(health, size, point, y, from)
     return buttons
 end
 
--- A console unit's (or the Party widget's player's) debuffs: every one on
+-- A console unit's (or the party frames' player's) debuffs: every one on
 -- it, at the inner end level with its buffs (LayDebuffs).
 local function CreateUnitDebuffs(health, side, isParty)
     local buttons = CreateMineWidgets(health, ICON, "CENTER", 0, "all")
@@ -1459,10 +1459,9 @@ for unit, b in pairs(ns.units or {}) do
     b.mineWidgets = CreateUnitDebuffs(b.health, side, isParty)
     b.bossDebuff = CreateBossDebuffWidget(b.health, isParty and 24 or 32)
 end
-if ns.partyWidgetPlayer then
-    local b = ns.partyWidgetPlayer
-    b.auraKeys = { glow = "partyWidgetGlow", threat = "partyWidgetThreat", cc = "partyWidgetCC",
-        buffs = "partyWidgetBuffs", boss = "partyWidgetBoss", mine = "partyWidgetDebuffs" }
+if ns.partyPlayer then
+    local b = ns.partyPlayer
+    b.auraKeys = PARTY_KEYS
     b.dispelGlow = CreateDispelGlow(b, -1)
     b.threatGlow = CreateDispelGlow(b, -1)
     b.ccWidget = CreateCCWidget(b.health, 24)
@@ -1482,7 +1481,7 @@ end
 local function RaidKeys() return ns.InBattleground() and BG_KEYS or RAID_KEYS end
 ns.RaidAuraKeys = RaidKeys
 
--- A widget's cell, given its aura pieces and the options that rule them
+-- A group frame's cell, given its aura pieces and the options that rule them
 -- (Unit Frames' tabs), by kind:
 --   "raid": the dispel glow on the border; crowd control or a boss debuff
 --           in the middle of the health (the draft's A, gen_cell_auras.py);
@@ -1508,7 +1507,7 @@ function ns.AttachAuras(b, kind)
         b.ccWidget = CreateCCWidget(b.health, 20)
         Over(b.ccWidget, 4)
     else
-        b.auraKeys = { mine = "bossWidgetMine" }
+        b.auraKeys = { mine = "bossMine" }
     end
     if kind == "boss" or kind == "arena" then
         b.mineWidgets = CreateMineWidgets(b.health, 14, "TOPRIGHT", -2)
@@ -1525,9 +1524,9 @@ end
 function ns.ShapeDispelGlows()
     local cuts = ns.layout.cuts or {}
     for _, b in pairs(ns.units or {}) do
-        -- a party button in the widget is a plain rectangle (widgets/party.lua)
+        -- a party button in the box is a plain rectangle (groups/party.lua)
         for _, g in ipairs({ b.dispelGlow, b.threatGlow }) do
-            if g.cut then g.cut:SetShown(cuts[g.window] and not b.inWidget and true or false) end
+            if g.cut then g.cut:SetShown(cuts[g.window] and not b.inBox and true or false) end
         end
         -- the live glow's too: what the client is handed (DressLiveGlow)
         local lg = b.liveGlow
@@ -1554,8 +1553,8 @@ local function OnAura(_, _, unit)
     if ns.units and ns.units[unit] then
         UpdateUnitAuras(ns.units[unit])
     end
-    if unit == "player" and ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget then
-        UpdateUnitAuras(ns.partyWidgetPlayer)
+    if unit == "player" and ns.partyPlayer and ns.partyPlayer.inBox then
+        UpdateUnitAuras(ns.partyPlayer)
     end
 end
 for _, unit in ipairs({ "player", "target", "party1", "party2", "party3", "party4" }) do
@@ -1571,8 +1570,8 @@ threat:RegisterEvent("UNIT_THREAT_LIST_UPDATE")
 threat:SetScript("OnEvent", function(_, _, unit)
     if not unit then return end
     if ns.units and ns.units[unit] then UpdateThreat(ns.units[unit]) end
-    if unit == "player" and ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget then
-        UpdateThreat(ns.partyWidgetPlayer)
+    if unit == "player" and ns.partyPlayer and ns.partyPlayer.inBox then
+        UpdateThreat(ns.partyPlayer)
     end
     for b in pairs(carriers) do if b.unit == unit then UpdateThreat(b) end end
 end)
@@ -1584,8 +1583,8 @@ loc:SetScript("OnEvent", function()
     if ns.units and ns.units.player then
         UpdateUnitAuras(ns.units.player)
     end
-    if ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget then
-        UpdateUnitAuras(ns.partyWidgetPlayer)
+    if ns.partyPlayer and ns.partyPlayer.inBox then
+        UpdateUnitAuras(ns.partyPlayer)
     end
 end)
 
@@ -1623,9 +1622,9 @@ for _, t in ipairs(DISPEL_PRIORITY) do
     ns.OnSetting("dispel" .. t, UpdateAllAuras)
     ns.OnSetting("dispelColor" .. t, UpdateAllAuras)
 end
-for _, key in ipairs({ "raidGlow", "raidCC", "raidBoss", "bgGlow", "bgCC", "bossWidgetMine", "arenaCC",
-    "arenaMine", "partyWidgetGlow", "partyWidgetCC", "partyWidgetBuffs", "partyWidgetBoss", "partyLayout",
-    "partyWidgetThreat", "raidThreat", "bgThreat", "auraDebuffs", "partyWidgetDebuffs", "raidDebuffs",
+for _, key in ipairs({ "raidGlow", "raidCC", "raidBoss", "bgGlow", "bgCC", "bossMine", "arenaCC",
+    "arenaMine", "partyGlow", "partyCC", "partyBuffs", "partyBoss",
+    "partyThreat", "raidThreat", "bgThreat", "auraDebuffs", "partyDebuffs", "raidDebuffs",
     "bgDebuffs" }) do
     ns.OnSetting(key, UpdateAllAuras)
 end

@@ -9,7 +9,7 @@ ns.On("PLAYER_LOGIN", function()
         ns.Kill(_G["PartyMemberFrame" .. i])
     end
     ns.Kill(CompactPartyFrame)
-    -- boss frames: the Boss widget's (widgets/enemies.lua)
+    -- boss frames: the boss frames' (groups/enemies.lua)
     for i = 1, 5 do
         ns.Kill(_G["Boss" .. i .. "TargetFrame"])
     end

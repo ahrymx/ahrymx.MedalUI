@@ -1,9 +1,9 @@
 -- The simulation panel: while "Simulate party frames" is on, a small panel
 -- on the left of the screen sets the simulated frames' situation, a tab per
--- set of frames (art/widgets/gen_sim_panel.py, draft A):
+-- set of frames (art/groups/gen_sim_panel.py, draft A):
 --
 --   Party     Members - n +; a column per member: Health (click cycles
---             100/60/25%), Dead, Offline, Out of range, Pet; Auras;
+--             100/60/25%), Dead, Offline, Out of range; Auras;
 --             Ready check, Role check
 --   Raid      Groups - n +; Hurt, Dead, Offline, Out of range; Auras
 --   Enemies   Bosses - n +, Arena - n +; Hurt, Dead; Auras
@@ -96,7 +96,7 @@ end
 local function Redraw()
     ns.UpdatePartyFrames()
     ns.UpdateOverhead()
-    if ns.UpdateWidgets then ns.UpdateWidgets() end
+    if ns.UpdateGroups then ns.UpdateGroups() end
     if ns.UpdateAllAuras then ns.UpdateAllAuras() end
 end
 
@@ -256,11 +256,7 @@ local function PartyPage(page)
         function(s) s.inRange = s.inRange == false end,
         function(name, s) return format(s.inRange == false and Tr["%s is out of range. Click to bring them near."]
             or Tr["%s is in range. Click to move them away."], name) end,
-        function() return ns.PartyOption("partyRange") ~= 0 end)
-    Row("pet", Tr["Pet"], function(s) return s.pet == true end, function(s) s.pet = not s.pet end,
-        function(name, s) return format(s.pet and Tr["%s has a pet. Click to dismiss it."]
-            or Tr["%s has no pet. Click to summon one."], name) end,
-        function() return ns.PartyPets() end)
+        function() return ns.db.partyRange ~= 0 end)
     y = Auras(page, y - 4, "party", { "glow", "cc", "boss", "buffs", "mine" })
     local half = (IW - 4) / 2
     Button(page, 0, y - 4, half, { id = "party.ready", label = Tr["Ready check"],
@@ -400,8 +396,7 @@ end
 
 ns.On("PLAYER_LOGIN", Shown)
 ns.OnSetting("simParty", Shown)
-for _, key in ipairs({ "partyRange", "partyWidgetRange", "partyLayout", "partyPets",
-    "raidRange", "bgRange" }) do
+for _, key in ipairs({ "partyRange", "raidRange", "bgRange" }) do
     ns.OnSetting(key, function() if panel then Paint() end end)
 end
 -- a real fight clears a check, as a real check is cleared

@@ -938,11 +938,7 @@ L["Party 2"] = "Группа 2"
 L["Party 3"] = "Группа 3"
 L["Party 4"] = "Группа 4"
 L["Shadowfiend"] = "Исчадие Тьмы"
-L["Water Elemental"] = "Элементаль воды"
-L["Spirit Wolf"] = "Призрачный волк"
-L["Imp"] = "Бес"
 L["Simulated party member"] = "Имитация участника группы"
-L["Simulated party pet"] = "Имитация питомца группы"
 L["Simulated"] = "Имитация"
 L["High Warlord Naj'entus"] = "Верховный полководец Надж'ентус"
 L["Supremus"] = "Супремус"
@@ -993,8 +989,6 @@ L["%s is online. Click to disconnect them."] = "%s в сети. Нажмите, 
 L["Out of range"] = "Вне досягаемости"
 L["%s is out of range. Click to bring them near."] = "%s вне досягаемости. Нажмите, чтобы приблизить."
 L["%s is in range. Click to move them away."] = "%s в досягаемости. Нажмите, чтобы отдалить."
-L["%s has a pet. Click to dismiss it."] = "У %s есть питомец. Нажмите, чтобы отпустить."
-L["%s has no pet. Click to summon one."] = "У %s нет питомца. Нажмите, чтобы призвать."
 L["Ready check"] = "Проверка готовности"
 L["The members answer in turn: ready, ready, not ready, ready."] =
     "Участники отвечают по очереди: готов, готов, не готов, готов."
@@ -1083,8 +1077,8 @@ L["the Arena console is set aside till its redesign after 1.0; you are on the Re
     "консоль «Арена» отложена до переделки после 1.0; у вас «Прицел». Его настройки, умения и клавиши — те, "
     .. "что вы выбрали для него; настройки «Арены» сохранены."
 
--- -------------------------------------------------------------- the widgets
--- (widgets/: the boxes over the party, raid, bosses and arena)
+-- -------------------------------------------------------------- the group frames
+-- (groups/: the boxes over the party, raid, bosses and arena)
 L["Drag to move. Not in combat."] = "Перетащите, чтобы сдвинуть. Не в бою."
 L["Arena 1"] = "Арена 1"
 L["Arena 2"] = "Арена 2"
@@ -1641,7 +1635,8 @@ L["Closes this panel and opens MedalUI's own settings window."] =
     "Закрывает эту панель и открывает окно настроек MedalUI."
 L["Columns"] = "Столбцы"
 L["Common"] = "Обычное"
-L["Console: per profile  \194\183  Widgets: shared"] = "Консоль: у каждого профиля своя  \194\183  Виджеты: общие"
+L["Console: per profile  \194\183  Group frames: shared"] =
+    "Консоль: у каждого профиля своя  \194\183  Рамки групп: общие"
 L["Drag the box  ·  arrows nudge  ·  wheel zooms  ·  drag the canvas to pan  ·  double-click fits"] =
     "Тяните рамку  ·  стрелки сдвигают  ·  колесо масштабирует  ·  тяните холст, чтобы двигать вид  ·  двойной "
     .. "щелчок вписывает"
@@ -1689,9 +1684,10 @@ L["Longest name"] = "Длина имени"
 L["Match buffs size"] = "Как размер баффов"
 L["Most icons"] = "Наибольшее число значков"
 L["Right-click to cancel"] = "Отмена правым щелчком"
-L["A right click on one of your buffs takes it off, in combat too. Your own frame only, and the "
-    .. "Party widget's row of yours."] =
-    "Правый щелчок по вашему баффу снимает его, в бою тоже. Только на вашей рамке и на вашей строке в виджете группы."
+L["A right click on one of your buffs takes it off, in combat too. Your own frame only, and your row in the "
+    .. "party frames."] =
+    "Правый щелчок по вашему баффу снимает его, в бою тоже. Только на вашей рамке и на вашей строке в рамках "
+    .. "группы."
 L["Needs %s"] = "Нужно: %s"
 L["Next to buffs"] = "Рядом с баффами"
 L["No limit"] = "Без ограничения"
@@ -1699,8 +1695,6 @@ L["No option, section or page has those letters in its name."] =
     "Ни у одной настройки, раздела или страницы нет таких букв в названии."
 L["Not bound"] = "Не назначено"
 L["Not on screen now: Preview, below, shows it."] = "Сейчас не на экране: её покажет «Просмотр» ниже."
-L["Not on screen now: the party layout is Console."] = "Сейчас не на экране: группа расположена в консоли."
-L["Not on screen now: the party layout is Widget."] = "Сейчас не на экране: группа расположена в виджете."
 L["Nothing matches \"%s\"."] = "По запросу «%s» ничего нет."
 L["Nothing to draw yet: Preview in the editor makes the frames."] =
     "Пока нечего рисовать: рамки создаёт «Просмотр» в редакторе."
@@ -1722,8 +1716,8 @@ L["Per profile: %s"] = "У профиля: %s"
 L["Pixels from its place just past the frame's end, away from the frame."] =
     "Пиксели от места сразу за краем рамки, прочь от рамки."
 L["Pixels from its place level with the frame's top, up."] = "Пиксели вверх от места вровень с верхом рамки."
-L["Pixels from the anchor, toward the frame's inner end (on the console) or right (a widget)."] =
-    "Пиксели от точки крепления к внутреннему краю рамки (в консоли) или вправо (в виджете)."
+L["Pixels from the anchor, toward the frame's inner end (on the console) or right (a group frame)."] =
+    "Пиксели от точки крепления к внутреннему краю рамки (в консоли) или вправо (в рамке группы)."
 L["Pixels from the anchor, up."] = "Пиксели от точки крепления вверх."
 L["Player"] = "Игрок"
 L["Poor"] = "Низкое"
@@ -1757,10 +1751,10 @@ L["Simulated party, raid, bosses and arena enemies to edit out of a group; their
 L["Slash commands"] = "Команды"
 L["Target"] = "Цель"
 L["Texts"] = "Тексты"
-L["The Arena widget's enemy frames."] = "Рамки противников виджета «Арена»."
-L["The Boss widget, while Console > Layout > Boss frames shows it."] =
-    "Виджет «Босс», пока его показывает «Консоль > Расположение > Рамки боссов»."
-L["The Raid widget, and in a battleground too."] = "Виджет «Рейд», и на полях боя тоже."
+L["The arena's enemy frames."] = "Рамки противников на арене."
+L["The boss frames, one for each of the encounter's bosses."] =
+    "Рамки боссов, по одной на каждого босса схватки."
+L["The raid frames, and in a battleground too."] = "Рамки рейда, и на полях боя тоже."
 L["The aggro glow on the canvas, and the console's tint red."] = "Свечение угрозы на холсте и красный оттенок консоли."
 L["The cell's height, the power bar included. Takes effect out of combat."] =
     "Высота ячейки вместе с полосой ресурса. Действует вне боя."
@@ -1770,18 +1764,11 @@ L["The classic round medallion console with integrated party wings, and a large 
     "Классическая круглая консоль-медальон со встроенными крыльями группы и крупными игроком и целью. Устарела и "
     .. "будет переделана после 1.0, поэтому её нельзя выбрать."
 L["The console's combat tint, on screen."] = "Боевой оттенок консоли, на экране."
-L["The console's party; the left and right wings mirrored."] = "Группа в консоли; левое и правое крылья зеркальны."
 L["The debuffs as large as the buffs, and following them as the buffs' Size changes. Only while both rows are "
     .. "outside the frame; each keeps its own side."] =
     "Дебаффы того же размера, что и баффы, и меняются вместе с их «Размером». Только пока оба ряда снаружи рамки; "
     .. "каждый остаётся на своей стороне."
 L["The most auras the row shows at once."] = "Наибольшее число аур в ряду одновременно."
-L["The party layout is Console: the party widget is not laid out now."] =
-    "Группа расположена в консоли: виджет группы сейчас не строится."
-L["The party layout is Widget: the console's party is not laid out now."] =
-    "Группа расположена в виджете: группа в консоли сейчас не строится."
-L["The party, while Console > Layout > Party layout is Widget."] =
-    "Группа, пока «Консоль > Расположение > Расположение группы» — «Виджет»."
 L["The player and the target: one layout, mirrored."] = "Игрок и цель: одна раскладка, зеркально."
 L["The power bar's height; the health bar takes the rest. None: no power bar, the health the whole frame."] =
     "Высота полосы ресурса; остальное занимает полоса здоровья. «Нет» — без полосы ресурса, здоровье на всю рамку."
@@ -1808,7 +1795,7 @@ L["Which party frames the options below set."] = "Какие рамки груп
 L["Which way the icons run from the first."] = "В какую сторону идут значки от первого."
 L["Whose auras the row shows: only the ones you cast, or all of them."] =
     "Чьи ауры показывает ряд: только ваши или все."
-L["Widgets"] = "Виджеты"
+L["Group frames"] = "Рамки групп"
 
 -- ------------------------------------------------------------- the options
 -- (options/pages.lua: every page's options, their tips and choices)
@@ -1877,20 +1864,7 @@ L["Hold a key, sweep, release: radial menus of spells, items and markers."] =
 L["Forever only."] = "Только Forever."
 L["Kept per profile."] = "Свой у каждого профиля."
 L["Shared by every profile."] = "Общий для всех профилей."
-L["Party layout"] = "Расположение группы"
 L["Console"] = "Консоль"
-L["A row of four frames under the Reticule, each member's pet hanging under its frame. While you are in a group the "
-    .. "minimap stays in the top right corner and the centre grid stays out."] =
-    "Ряд из четырёх рамок под «Прицелом», питомец каждого участника — под его рамкой. Пока вы в группе, миникарта "
-    .. "остаётся в правом верхнем углу, а центральной сетки нет."
-L["The medallion's party wings, each member's pet hanging under its frame."] =
-    "Крылья группы медальона, питомец каждого участника — под его рамкой."
-L["Widget"] = "Виджет"
-L["A box of party frames, under a Party tab, that you can drag anywhere: hold the tab to move it. In a raid it "
-    .. "gives way to the raid frames."] =
-    "Блок рамок группы со вкладкой «Группа», который можно перетащить куда угодно: потяните за вкладку. В рейде "
-    .. "уступает место рамкам рейда."
-L["Where the party frames sit."] = "Где находятся рамки группы."
 L["Always"] = "Всегда"
 L["Faded out of combat; they come back while you drag a spell onto them. Faded to 0%, no clicks or tooltips; keys "
     .. "still press."] =
@@ -2159,9 +2133,6 @@ L["Crowd control center icon"] = "Значок контроля в центре"
 L["Boss debuffs"] = "Дебаффы боссов"
 L["Show a critical boss debuff in the middle of the frame, where crowd control would be; crowd control comes first."] =
     "Показывать важный дебафф босса в центре рамки, на месте контроля; контроль важнее."
-L["Show party pets"] = "Показывать питомцев группы"
-L["Show pet unit frames directly below party members who have active pets."] =
-    "Показывать рамки питомцев прямо под участниками группы, у которых есть питомец."
 L["Show a compact row of buffs on the outer corner of the health bar: your own (buffs and HoTs), or every one with "
     .. "From in the editor."] =
     "Показывать компактный ряд баффов во внешнем углу полосы здоровья: ваши (баффы и исцеление со временем) или все "
@@ -2180,14 +2151,14 @@ L["Hide the corner minimap's tab, the grip with the area's name that moves it, u
     .. "minimap."] =
     "Скрывать вкладку угловой миникарты (ручку с названием местности, за которую её двигают), пока на миникарту не "
     .. "наведён указатель."
-L["Hide the Party widget's tab, the grip that moves it, until the pointer is over the widget."] =
-    "Скрывать вкладку виджета «Группа» (ручку, за которую его двигают), пока на виджет не наведён указатель."
-L["Hide the Raid widget's tab, the grip that moves it, until the pointer is over the widget."] =
-    "Скрывать вкладку виджета «Рейд» (ручку, за которую его двигают), пока на виджет не наведён указатель."
-L["Hide the Boss widget's tab, the grip that moves it, until the pointer is over the widget."] =
-    "Скрывать вкладку виджета «Босс» (ручку, за которую его двигают), пока на виджет не наведён указатель."
-L["Hide the Arena widget's tab, the grip that moves it, until the pointer is over the widget."] =
-    "Скрывать вкладку виджета «Арена» (ручку, за которую его двигают), пока на виджет не наведён указатель."
+L["Hide the party frames' tab, the grip that moves them, until the pointer is over them."] =
+    "Скрывать вкладку рамок группы (ручку, за которую их двигают), пока на них не наведён указатель."
+L["Hide the raid frames' tab, the grip that moves them, until the pointer is over them."] =
+    "Скрывать вкладку рамок рейда (ручку, за которую их двигают), пока на них не наведён указатель."
+L["Hide the boss frames' tab, the grip that moves them, until the pointer is over them."] =
+    "Скрывать вкладку рамок боссов (ручку, за которую их двигают), пока на них не наведён указатель."
+L["Hide the arena frames' tab, the grip that moves them, until the pointer is over them."] =
+    "Скрывать вкладку рамок арены (ручку, за которую их двигают), пока на них не наведён указатель."
 L["Up to three of your own debuffs on a boss, small icons in the health bar's top right corner. From in the editor "
     .. "shows every one instead."] =
     "До трёх ваших дебаффов на боссе, мелкими значками в правом верхнем углу полосы здоровья. «Чьи» в редакторе "
@@ -2229,10 +2200,8 @@ L["Cooldown Manager: Minimal OoC Mode"] = "Менеджер восстановл
 L["Group frames: Minimal OoC Mode"] = "Рамки группы: минимум вне боя"
 L["Out of combat, the party and raid boxes fade away. Kept per profile."] =
     "Вне боя окна группы и рейда исчезают. Хранится в профиле."
-L["Out of combat, fade the Party widget and the Raid widget (a battleground's too) away. Combat "
-    .. "always brings them back. The console's party frames follow the console instead."] =
-    "Вне боя скрывать виджет группы и виджет рейда (и на поле боя). Бой всегда возвращает их. "
-    .. "Рамки группы на консоли следуют консоли."
+L["Out of combat, fade the party and raid frames (a battleground's too) away. Combat always brings them back."] =
+    "Вне боя скрывать рамки группы и рейда (и на поле боя). Бой всегда возвращает их."
 L["How much of the boxes shows out of combat. 0%: gone, and out of the pointer's way unless "
     .. "mouseover brings them back."] =
     "Насколько окна видны вне боя. 0%: их нет, и они не мешают курсору, если их не возвращает наведение."
@@ -2290,14 +2259,12 @@ L["Modules"] = "Модули"
 L["Turn MedalUI's parts on or off. Some take effect after a reload; the footer says when."] =
     "Включайте и выключайте части MedalUI. Некоторые действуют после перезагрузки; об этом скажет нижняя строка."
 L["Simulate party frames"] = "Имитация рамок группы"
-L["Show the console's party frame layer and simulated party members to preview party frames while solo. The group "
-    .. "boxes show too. A small panel on the left sets what they show, a tab each for the party, the raid, the "
-    .. "enemies and the overhead frames: members and their health, deaths, range, pets, auras, ready and role "
-    .. "checks."] =
-    "Показать слой рамок группы консоли и имитацию участников, чтобы видеть рамки группы в одиночку. Блоки групп "
-    .. "тоже показываются. Что они показывают, задаёт небольшая панель слева, по вкладке для группы, рейда, "
-    .. "противников и верхних рамок: участники и их здоровье, смерти, досягаемость, питомцы, ауры, проверки "
-    .. "готовности и ролей."
+L["Show simulated party members to preview the party frames while solo. The other group frames show too. A "
+    .. "small panel on the left sets what they show, a tab each for the party, the raid, the enemies and the "
+    .. "overhead frames: members and their health, deaths, range, pets, auras, ready and role checks."] =
+    "Показать имитацию участников, чтобы видеть рамки группы в одиночку. Остальные рамки групп тоже "
+    .. "показываются. Что они показывают, задаёт небольшая панель слева, по вкладке для группы, рейда, противников "
+    .. "и верхних рамок: участники и их здоровье, смерти, досягаемость, питомцы, ауры, проверки готовности и ролей."
 L["Show each Cooldown Manager viewer's icons as its options (Cooldowns) draw them, without a fight: your own spells "
     .. "or a random full set, cooling down, with charges and stacks, buffs coming and going. A small panel on the "
     .. "right sets what they show."] =
@@ -2319,13 +2286,11 @@ L["The game's"] = "Игровое"
 L["The game's own menu, as it stands."] = "Собственное меню игры, как есть."
 L["How the menu Escape opens looks. Its buttons stay the game's own."] =
     "Как выглядит меню, открываемое Escape. Кнопки остаются игровыми."
-L["Each profile keeps its Console, console party, skills and keys."] =
-    "У каждого профиля свои консоль, группа консоли, умения и клавиши."
-L["That is everything under Console but the Overhead, the console's party under Unit Frames, its skills on the bars "
-    .. "and their keys. The overhead, the widgets, Chat, Side panel and Bags are shared. What the frames show is "
-    .. "under Unit Frames."] =
-    "То есть всё в «Консоли», кроме «Верхних», группа консоли в «Рамках юнитов», умения на панелях и их клавиши. "
-    .. "Верхние рамки, виджеты, чат, боковая панель и сумки общие. Что показывают рамки — в «Рамках юнитов»."
+L["Each profile keeps its Console, skills and keys."] = "У каждого профиля свои консоль, умения и клавиши."
+L["That is everything under Console but the Overhead, its skills on the bars and their keys. The overhead, the "
+    .. "group frames, Chat, Side panel and Bags are shared. What the frames show is under Unit Frames."] =
+    "То есть всё в «Консоли», кроме «Верхних», умения на панелях и их клавиши. Верхние рамки, рамки групп, чат, "
+    .. "боковая панель и сумки общие. Что показывают рамки — в «Рамках юнитов»."
 L["Profile"] = "Профиль"
 L["Console profile"] = "Профиль консоли"
 L["The console the pages under Console start from. Switching brings back the options, skills and keys you chose on "
@@ -2337,10 +2302,10 @@ L["The console the pages under Console start from. Switching brings back the opt
     .. "поставить их: слышно, как каждое берётся и кладётся, и их значки мелькают на курсоре. Затем предлагается "
     .. "перезагрузить интерфейс, что строит консоль (если переключено в бою — после боя)."
 L["Reset profile"] = "Сбросить профиль"
-L["This profile's options under Console but the Overhead, and its console party under Unit Frames, back to its own. "
-    .. "The overhead, the widgets, Chat, Side panel and Bags are left as they are."] =
-    "Настройки этого профиля в «Консоли», кроме «Верхних», и его группа консоли в «Рамках юнитов» — к собственным "
-    .. "значениям. Верхние рамки, виджеты, чат, боковая панель и сумки остаются как есть."
+L["This profile's options under Console but the Overhead, back to its own. The overhead, the group frames, "
+    .. "Chat, Side panel and Bags are left as they are."] =
+    "Настройки этого профиля в «Консоли», кроме «Верхних», — к собственным значениям. Верхние рамки, рамки "
+    .. "групп, чат, боковая панель и сумки остаются как есть."
 L["Cast bars"] = "Полосы заклинаний"
 L["Player casts on the experience bar"] = "Заклинания игрока на полосе опыта"
 L["The experience bar under your portrait becomes your cast bar while you cast, and goes back to experience when "
@@ -2414,7 +2379,6 @@ L["Fade in"] = "Появление"
 L["How long it takes to come back."] = "Сколько длится возвращение."
 L["Fade out"] = "Исчезание"
 L["How long it takes to fade."] = "Сколько длится исчезание."
-L["Kept per profile. Where the console's parts sit."] = "Свой у каждого профиля. Где находятся части консоли."
 L["Party frames"] = "Рамки группы"
 L["Action Bars"] = "Панели команд"
 L["Action bar"] = "Панель команд"
@@ -2566,42 +2530,34 @@ L["The area's name shows at the top of the minimap while the pointer is over it.
 L["Unit Frames"] = "Рамки юнитов"
 L["Dead and offline"] = "Мёртвые и не в сети"
 L["Dead frame colour"] = "Цвет рамки мёртвого"
-L["A dead or offline friend's frame: the player's, the party's (console or widget) and the raid's. It shows the "
-    .. "status icon, time or disconnection, and their name."] =
-    "Рамка мёртвого или вышедшего из сети союзника: игрока, группы (консоль или виджет) и рейда. Она показывает "
-    .. "значок состояния, время или отключение и имя."
+L["A dead or offline friend's frame: the player's, the party's and the raid's. It shows the status icon, time "
+    .. "or disconnection, and their name."] =
+    "Рамка мёртвого или вышедшего из сети союзника: игрока, группы и рейда. Она показывает значок состояния, "
+    .. "время или отключение и имя."
 L["Blizzard's auras (shared by every profile)"] = "Ауры Blizzard (общие для всех профилей)"
 L["Blizzard's buff and debuff rows"] = "Ряды баффов и дебаффов Blizzard"
 L["Show Blizzard's own rows of buffs and debuffs at the top right of the screen. Off, MedalUI's auras stand in "
     .. "for them: the column over the portrait and the side panel's Auras tab."] =
     "Показывать собственные ряды баффов и дебаффов Blizzard в правом верхнем углу экрана. Если выключено, их "
     .. "заменяют ауры MedalUI: столбец над портретом и вкладка «Ауры» боковой панели."
-L["Editing, at the tabs' right, picks the console's party frames or the widget's."] =
-    "«Правка» справа от вкладок выбирает рамки группы консоли или виджета."
-L["Party layout (Console > Layout) picks which of the two show. The console's are kept per profile, and are on the "
-    .. "player and target frames too; the widget's are shared by every profile."] =
-    "«Расположение группы» (Консоль > Расположение) выбирает, какие из двух показываются. Рамки консоли у каждого "
-    .. "профиля свои и относятся также к рамкам игрока и цели; рамки виджета общие для всех профилей."
 L["Position & look"] = "Положение и вид"
-L["The widget"] = "Виджет"
 L["Per profile"] = "У профиля"
 L["Range"] = "Досягаемость"
 L["Include yourself"] = "Включать себя"
-L["Show your own unit frame as the first row of the Party widget."] =
-    "Показывать свою рамку первой строкой виджета «Группа»."
 L["Glows and icons"] = "Свечение и значки"
 L["Aura rows"] = "Ряды аур"
-L["Shared by every profile. The Raid widget, out of battlegrounds; in one, the Battleground tab's options take over."] =
-    "Общий для всех профилей. Виджет «Рейд» вне полей боя; на поле боя действуют настройки вкладки «Поле боя»."
+L["Shared by every profile. The raid frames, out of battlegrounds; in one, the Battleground tab's options take "
+    .. "over."] =
+    "Общий для всех профилей. Рамки рейда вне полей боя; на поле боя действуют настройки вкладки «Поле боя»."
 L["Battleground"] = "Поле боя"
-L["Shared by every profile. The Raid widget while you are in a battleground."] =
-    "Общий для всех профилей. Виджет «Рейд», пока вы на поле боя."
+L["Shared by every profile. The raid frames while you are in a battleground."] =
+    "Общий для всех профилей. Рамки рейда, пока вы на поле боя."
 L["Edit the raid frames"] = "Править рамки рейда"
-L["Shared by every profile. The Boss widget's frames, one for each of the encounter's bosses."] =
-    "Общий для всех профилей. Рамки виджета «Босс», по одной на каждого босса схватки."
-L["Edit the Boss widget"] = "Править виджет «Босс»"
-L["Shared by every profile. The Arena widget's enemy frames."] =
-    "Общий для всех профилей. Рамки противников виджета «Арена»."
+L["Shared by every profile. The boss frames, one for each of the encounter's bosses."] =
+    "Общий для всех профилей. Рамки боссов, по одной на каждого босса схватки."
+L["Edit the boss frames"] = "Править рамки боссов"
+L["Shared by every profile. The arena's enemy frames."] =
+    "Общий для всех профилей. Рамки противников на арене."
 L["Chat box"] = "Блок чата"
 L["Blizzard's chat in a box on top of the micro menu, with the chat buttons beside its tabs, the timeless buffs and "
     .. "the edit box under it, and the quest tracker's full view above it. Untick it to keep the chat where Edit Mode "
@@ -3012,7 +2968,6 @@ L["MedalUI found %s left by an older version that updating does not undo:\n\n%s\
     .. "сейчас? Для завершения интерфейс перезагрузится. Это можно сделать и позже командой /mui fix-issues."
 L["Missing"] = "Недостающее"
 L["Only the auras you cast."] = "Только ауры, наложенные вами."
-L["Party widget"] = "Виджет группы"
 L["Percent"] = "Процент"
 L["Percent over current"] = "Процент над текущим"
 L["Pet bar"] = "Панель питомца"
@@ -3087,9 +3042,6 @@ L["The side panel's background fades while it is idle; its text and buttons stay
 L["Out of combat, the party and raid boxes fade away."] = "Вне боя рамки группы и рейда исчезают."
 L["Out of combat, every Cooldown Manager viewer fades away: cooldowns, buffs and bars."] =
     "Вне боя исчезает каждое окно менеджера восстановлений: восстановления, баффы и полосы."
-L["Where the party frames sit. You can change it later under Console > Layout."] =
-    "Где стоят рамки группы. Изменить можно позже в «Консоль > Расположение»."
-L["Docked to the console"] = "На консоли"
 L["Skip"] = "Пропустить"
 L["Leave everything as it is. /mdlui setup brings this back."] =
     "Оставить всё как есть. /mdlui setup откроет это снова."
@@ -3187,3 +3139,12 @@ L["The shortcut keys and the clock roll away behind the chevron beside the backp
     .. "professions instead, secondary then primary, each with its skill: a click opens a crafting one."] =
     "Кнопки быстрого доступа и часы сворачиваются за шеврон у рюкзака. Вместо них полоса показывает ваши "
     .. "профессии, сначала вторичные, затем основные, каждую с её навыком: нажатие открывает ремесленную."
+L["The party frames."] =
+    "Рамки группы."
+L["Shared by every profile. The party frames, under their Party tab; in a raid they give way to the raid frames."] =
+    "Общий для всех профилей. Рамки группы под вкладкой «Группа»; в рейде их сменяют рамки рейда."
+L["Show your own unit frame as the first row of the party frames."] =
+    "Показывать свою рамку первой строкой рамок группы."
+L["Edit the party frames"] =
+    "Править рамки группы"
+L["Boss frames"] = "Рамки боссов"

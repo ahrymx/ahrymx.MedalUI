@@ -325,7 +325,7 @@ local function UpdateAll(self)
     UpdatePower(self)
     UpdateRole(self)
 end
--- the group widgets' cells draw the same way (widgets/)
+-- the group frames' cells draw the same way (group frames/)
 ns.UpdateUnitButton = UpdateAll
 
 local STUBS = {
@@ -339,16 +339,7 @@ local STUBS = {
         power = 70, maxPower = 100 },
 }
 
-STUBS.party2.pet = true
 ns.partyStubs = STUBS     -- the simulation panel (simulate.lua) sets each member's health and state
-
--- a member's simulated pet, shown while its stub has .pet
-local PET_STUBS = {
-    partypet1 = { name = Tr["Shadowfiend"], class = "PRIEST", health = 80, maxHealth = 100 },
-    partypet2 = { name = Tr["Water Elemental"], class = "MAGE", health = 90, maxHealth = 100 },
-    partypet3 = { name = Tr["Spirit Wolf"], class = "SHAMAN", health = 70, maxHealth = 100 },
-    partypet4 = { name = Tr["Imp"], class = "WARLOCK", health = 100, maxHealth = 100 },
-}
 
 local function AbbreviateName(name)
     if not name or name == "" then return "" end
@@ -361,23 +352,6 @@ local function AbbreviateName(name)
 end
 ns.AbbreviateName = AbbreviateName
 
-local function PetHealthColor(pet)
-    local unit = pet.unit
-    if not UnitIsConnected(unit) or UnitIsDeadOrGhost(unit) then
-        return unpack(C.dead)
-    end
-    local owner = pet.owner
-    if owner then
-        local _, class = UnitClass(owner)
-        local c = not ns.IsSecret(class) and class and RAID_CLASS_COLORS[class]
-        if c then
-            return Muted(c.r * 0.85, c.g * 0.85, c.b * 0.85)
-        end
-    end
-    local c = FACTION_BAR_COLORS[UnitReaction(unit, "player") or 5] or FACTION_BAR_COLORS[5]
-    return Muted(c.r, c.g, c.b)
-end
-
 -- A button's unit watch, registered or let go only when that changes:
 -- registering again rewrites the watch manager's list of frames, and from a
 -- frame's OnShow that runs inside the manager's walk over that very list (as
@@ -386,64 +360,6 @@ local function Watched(f, on)
     if f.watching == on then return end
     f.watching = on
     if on then RegisterUnitWatch(f) elseif UnregisterUnitWatch then UnregisterUnitWatch(f) end
-end
-
-local function UpdatePartyPet(pet)
-    if not pet then return end
-    if ns.db and not ns.PartyPets() then
-        pet.stub = nil
-        ns.OutOfCombat(function()
-            Watched(pet, false)
-            if pet:IsShown() then pet:Hide() end
-        end)
-        return
-    end
-
-    local unit = pet.unit
-    local sim = ns.db and ns.db.simParty
-    if UnitExists(unit) then
-        pet.stub = nil
-        ns.OutOfCombat(function()
-            Watched(pet, true)
-        end)
-        local max = UnitHealthMax(unit)
-        local cur = UnitHealth(unit)
-        if not ns.IsSecret(max) and max <= 0 then max = 1 end
-        pet.health:SetMinMaxValues(0, max)
-        pet.health:SetValue(cur)
-        pet.health:SetStatusBarColor(PetHealthColor(pet))
-        pet.name:SetText(AbbreviateName(ns.Or(UnitName(unit), Tr["Pet"])))
-        if pet.value then
-            if not UnitIsConnected(unit) then
-                pet.value:SetText(PLAYER_OFFLINE)
-            elseif UnitIsDeadOrGhost(unit) then
-                pet.value:SetText(DEAD)
-            else
-                pet.value:SetFormattedText("%.0f%%", HealthPercent(unit, cur, max))
-            end
-        end
-    elseif sim and PET_STUBS[unit] and pet.ownerButton.stub and pet.ownerButton.stub.pet then
-        local stub = PET_STUBS[unit]
-        pet.stub = stub
-        ns.OutOfCombat(function()
-            Watched(pet, false)
-            if not pet:IsShown() then pet:Show() end
-        end)
-        pet.health:SetMinMaxValues(0, stub.maxHealth)
-        pet.health:SetValue(stub.health)
-        local c = RAID_CLASS_COLORS[stub.class]
-        if c then pet.health:SetStatusBarColor(Muted(c.r * 0.85, c.g * 0.85, c.b * 0.85)) end
-        pet.name:SetText(AbbreviateName(stub.name))
-        if pet.value then
-            pet.value:SetFormattedText("%.0f%%", math.floor(stub.health / stub.maxHealth * 100 + 0.5))
-        end
-    else
-        pet.stub = nil
-        ns.OutOfCombat(function()
-            Watched(pet, true)
-            if pet:IsShown() then pet:Hide() end
-        end)
-    end
 end
 
 local function UpdatePartyUnit(b)
@@ -522,16 +438,16 @@ local function PartyLeader(b, side, inset)
     b.leaderFrame:SetPoint("CENTER", b, "TOP" .. outer, -side * inset, 0)
 end
 
-local function Spawn(unit, forWidget)
+local function Spawn(unit, forBox)
     local window, side = unpack(ns.slots[unit])
-    local isParty = forWidget or window ~= "unit"
+    local isParty = forBox or window ~= "unit"
     local style = isParty and L.party or L.unit
 
-    local name = forWidget and "MedalUIPartyWidgetPlayer" or ("MedalUIUnit_" .. unit)
+    local name = forBox and "MedalUIPartyPlayer" or ("MedalUIUnit_" .. unit)
     local b = CreateFrame("Button", name, console, "SecureUnitButtonTemplate")
     b.unit = unit
     b:SetFrameLevel(ns.levels.bars)
-    if not forWidget then ns.PlaceOn(b, console, window, side) end
+    if not forBox then ns.PlaceOn(b, console, window, side) end
     b:SetAttribute("unit", unit)
     b:SetAttribute("*type1", "target")
     b:SetAttribute("*type2", "togglemenu")
@@ -655,7 +571,7 @@ local function Spawn(unit, forWidget)
         ns.RegisterUnitEvent(b, event, unit)
     end
     b:SetScript("OnEvent", function(self, event)
-        if forWidget and not self.inWidget then return end
+        if forBox and not self.inBox then return end
         local fn = unitEvents[event]
         if fn then
             fn(self)
@@ -667,7 +583,7 @@ local function Spawn(unit, forWidget)
     end)
     b:SetScript("OnShow", UpdateAll)
 
-    if forWidget then
+    if forBox then
         b:RegisterEvent("PLAYER_ENTERING_WORLD")
         b:RegisterEvent("GROUP_ROSTER_UPDATE")
         b:Hide()
@@ -690,214 +606,15 @@ local function Spawn(unit, forWidget)
     return b
 end
 
-local petEvents = {
-    UNIT_HEALTH = true,
-    UNIT_HEALTH_FREQUENT = true,
-    UNIT_MAXHEALTH = true,
-    UNIT_NAME_UPDATE = true,
-    UNIT_CONNECTION = true,
-    UNIT_FLAGS = true,
-    UNIT_FACTION = true,
-}
-
--- A pet's frame has two shapes. With no box it hangs under its owner in a
--- stone bracket (the medallion's party wings, and the light console's row:
--- party_row.lua). With a box it fills that box: no bracket, the bar edge
--- to edge, its name over its value. The box is from rel's relPoint (the
--- party widget's cell, widgets/party.lua). Hung, it drops from its owner's
--- foot to the art's edge, to weld there: the medallion's 8 unless drop says.
--- Out of combat only: it is secure.
-function ns.LayoutPet(pet, box, rel, relPoint, drop)
-    local side = pet.side
-    local outer = side == 1 and "RIGHT" or "LEFT"
-    local inner = side == 1 and "LEFT" or "RIGHT"
-    pet:ClearAllPoints()
-    pet.health:ClearAllPoints()
-    pet.name:ClearAllPoints()
-    pet.value:ClearAllPoints()
-    if box then
-        pet:SetPoint("TOPLEFT", rel or console, relPoint or "TOP", box[1], box[3])
-        pet:SetPoint("BOTTOMRIGHT", rel or console, relPoint or "TOP", box[2], box[4])
-        pet.health:SetAllPoints(pet)
-        pet.bracket:Hide()
-        pet.name:SetPoint("TOPLEFT", pet.text, "TOPLEFT", 2, -3)
-        pet.name:SetPoint("TOPRIGHT", pet.text, "TOPRIGHT", -2, -3)
-        pet.name:SetJustifyH("CENTER")
-        pet.value:SetPoint("BOTTOM", pet.text, "BOTTOM", 0, 3)
-        pet.value:SetJustifyH("CENTER")
-        return
-    end
-    pet:SetHeight(18)
-    pet:SetPoint("TOPLEFT", pet.ownerButton, "BOTTOMLEFT", 0, -(drop or 8))
-    pet:SetPoint("TOPRIGHT", pet.ownerButton, "BOTTOMRIGHT", 0, -(drop or 8))
-    pet.health:SetPoint("TOPLEFT", pet, "TOPLEFT", 12, -3)
-    pet.health:SetPoint("BOTTOMRIGHT", pet, "BOTTOMRIGHT", -12, 3)
-    pet.bracket:Show()
-    pet.value:SetPoint(inner, pet.text, inner, side * 6, 0)
-    pet.value:SetJustifyH(inner)
-    pet.name:SetPoint(outer, pet.text, outer, -side * 6, 0)
-    pet.name:SetPoint(inner, pet.value, outer, side * 6, 0)
-    pet.name:SetJustifyH(outer)
-end
-
-local function SpawnPet(parentBtn, unit, side)
-    local pet = CreateFrame("Button", "MedalUIUnit_" .. unit, console, "SecureUnitButtonTemplate")
-    pet.unit = unit
-    pet.owner = parentBtn.unit
-    pet.ownerButton = parentBtn
-    pet.side = side
-    pet:SetFrameLevel(ns.levels.bars)
-
-    pet:SetAttribute("unit", unit)
-    pet:SetAttribute("*type1", "target")
-    pet:SetAttribute("*type2", "togglemenu")
-    pet:RegisterForClicks("AnyUp")
-
-    -- Health bar status bar inset inside the trapezoid (rectangular bar underneath)
-    local bar = CreateFrame("StatusBar", nil, pet)
-    bar:SetStatusBarTexture(ns.bar)
-    bar:SetReverseFill(side == 1)
-    pet.health = bar
-
-    -- Ink backing behind health bar
-    local bg = pet:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints(bar)
-    bg:SetColorTexture(unpack(ns.colors.ink))
-    pet.bg = bg
-
-    -- Melded stone trapezoid surface with pill cutout layered ON TOP of the rectangular bar to round its edges
-    local frameOverlay = CreateFrame("Frame", nil, pet)
-    frameOverlay:SetAllPoints(pet)
-    frameOverlay:SetFrameLevel(bar:GetFrameLevel() + 1)
-    local bracket = frameOverlay:CreateTexture(nil, "ARTWORK")
-    bracket:SetAllPoints()
-    bracket:SetTexture(ns.media .. "pet-bracket")
-    bracket:SetTexCoord(0, 129 / 256, 0, 18 / 32)
-    pet.bracket = bracket
-
-    -- Text overlay
-    local text = CreateFrame("Frame", nil, pet)
-    text:SetAllPoints(bar)
-    text:SetFrameLevel(frameOverlay:GetFrameLevel() + 1)
-    pet.text = text
-
-    pet.value = ns.Text(text, 9)
-    pet.value:SetWordWrap(false)
-    pet.value:SetTextColor(unpack(C.dim))
-
-    pet.name = ns.Text(text, 9)
-    pet.name:SetWordWrap(false)
-    pet.name:SetTextColor(unpack(C.text))
-    ns.LayoutPet(pet)
-
-    pet:SetScript("OnEnter", function(self)
-        if self.stub and not UnitExists(self.unit) then
-            ns.Tip(self, "ANCHOR_RIGHT", { title = self.stub.name, color = ns.colors.white,
-                { "body", Tr["Simulated party pet"], ns.colors.grey } })
-        elseif UnitFrame_OnEnter then
-            UnitFrame_OnEnter(self)
-        end
-    end)
-    pet:SetScript("OnLeave", function(self)
-        if self.stub and not UnitExists(self.unit) then
-            GameTooltip_Hide()
-        elseif UnitFrame_OnLeave then
-            UnitFrame_OnLeave(self)
-        end
-    end)
-
-    for event in pairs(petEvents) do
-        ns.RegisterUnitEvent(pet, event, unit)
-    end
-    pet:SetScript("OnEvent", function(self)
-        UpdatePartyPet(self)
-    end)
-    pet:SetScript("OnShow", function(self)
-        UpdatePartyPet(self)
-    end)
-
-    pet.watching = true
-    RegisterUnitWatch(pet)
-    pet:Hide()
-    return pet
-end
-
 ns.units = {}
-ns.partyPets = {}
 for _, unit in ipairs({ "player", "target", "party1", "party2", "party3", "party4" }) do
     ns.units[unit] = Spawn(unit)
 end
-ns.partyWidgetPlayer = Spawn("player", true)
-
-for i = 1, 4 do
-    local partyUnit = "party" .. i
-    local petUnit = "partypet" .. i
-    local parentBtn = ns.units[partyUnit]
-    local _, side = unpack(ns.slots[partyUnit])
-    local pet = SpawnPet(parentBtn, petUnit, side)
-    parentBtn.pet = pet
-    ns.partyPets[petUnit] = pet
-end
-
--- A party button back in its console window, as Spawn made it: after the
--- party widget had it (widgets/party.lua).
-local function ConsoleParty(b)
-    local window, side = unpack(ns.slots[b.unit])
-    local style = L.party
-    ns.PlaceOn(b, console, window, side)
-    local h = b:GetHeight()
-    b.power:ClearAllPoints()
-    b.health:ClearAllPoints()
-    ns.LayPower(b, style.power, style.seam, h)
-    b.power:SetPoint("LEFT")
-    b.power:SetPoint("RIGHT")
-    b.power:SetPoint("BOTTOM")
-    b.health:SetPoint("LEFT")
-    b.health:SetPoint("RIGHT")
-    b.health:SetPoint("TOP")
-    b.health:SetReverseFill(side == 1)
-    b.power:SetReverseFill(side == 1)
-    local outer = side == 1 and "RIGHT" or "LEFT"
-    local inner = side == 1 and "LEFT" or "RIGHT"
-    b.name:ClearAllPoints()
-    b.name:SetPoint(outer, b.text, outer, -side * style.textInset, 0)
-    b.name:SetPoint(inner, b.text, inner, side * style.textInset, 0)
-    b.name:SetJustifyH(outer)
-    b.roleFrame:ClearAllPoints()
-    if side == -1 then
-        b.roleFrame:SetPoint("CENTER", b, "BOTTOMLEFT", 8, 0)
-    else
-        b.roleFrame:SetPoint("CENTER", b, "BOTTOMRIGHT", -8, 0)
-    end
-    b.value:ClearAllPoints()
-    b.value:SetPoint(inner, b.text, inner, side * PARTY_VALUE_INSET, 0)
-    PartyLevel(b, side, PARTY_LEVEL_INSET)
-    PartyLeader(b, side, 8)
-    if b.pet then b.pet.health:SetReverseFill(side == 1) end
-    if ns.LayBuffs then ns.LayBuffs(b, side) end
-    -- what the editor changed goes back on (editor.lua)
-    if ns.editor then
-        ns.editor.Relaid(b, "name", "level", "role", "leader", "value", "buffs")
-        ns.ApplyEdits(b)
-    end
-end
-
--- The way a party button faces on the console, -1 left or 1 right: its
--- slot's, or in the Reticule's row (party_row.lua) its half's, so the
--- row mirrors across the centre as the console's windows do.
-function ns.PartySide(unit)
-    local party = ns.layout.party
-    local row = party and party.detached and party.row
-    if row then
-        local f = row.frames[tonumber(unit:match("%d$"))]
-        return f[1] + f[2] < 0 and -1 or 1
-    end
-    return ns.slots[unit][2]
-end
+ns.partyPlayer = Spawn("player", true)
 
 function ns.RelayoutUnits()
     L = ns.layout
-    local uStyle, pStyle = L.unit, L.party
+    local uStyle = L.unit
     for _, unit in ipairs({ "player", "target" }) do
         local b = ns.units[unit]
         local _, side = unpack(ns.slots[unit])
@@ -915,71 +632,9 @@ function ns.RelayoutUnits()
         b.health:SetPoint(healthEdge)
         b.power:SetPoint(powerEdge)
     end
-    -- the party widget places the party buttons itself (widgets/party.lua);
-    -- out of it, they come back to the console
-    local widget = ns.PartyWidgetLayout and ns.PartyWidgetLayout()
-    if widget then
-        -- the row's band goes (party_row.lua)
-        if ns.LayoutPartyRow then ns.LayoutPartyRow() end
-        ns.LayoutPartyWidget()
-    elseif ns.ReleasePartyWidget and ns.ReleasePartyWidget() and not pStyle.detached then
-        for i = 1, 4 do
-            local b = ns.units["party" .. i]
-            ConsoleParty(b)
-            ns.LayoutPet(b.pet)
-        end
-    end
-    if pStyle.detached and not widget then
-        -- the horizontal row (party_row.lua), which places the buttons itself
-        local h = pStyle.row.frames[1][3] - pStyle.row.frames[1][4]
-        for i = 1, 4 do
-            local b = ns.units["party" .. i]
-            local side = ns.PartySide(b.unit)
-            local outer = side == 1 and "RIGHT" or "LEFT"
-            local inner = side == 1 and "LEFT" or "RIGHT"
-            b.power:ClearAllPoints()
-            b.health:ClearAllPoints()
-            ns.LayPower(b, pStyle.power, pStyle.seam, h)
-            b.power:SetPoint("LEFT")
-            b.power:SetPoint("RIGHT")
-            b.power:SetPoint("BOTTOM")
-            b.health:SetPoint("LEFT")
-            b.health:SetPoint("RIGHT")
-            b.health:SetPoint("TOP")
-            b.health:SetReverseFill(side == 1)
-            b.power:SetReverseFill(side == 1)
-            if not b.detachedBg then
-                local bg = b:CreateTexture(nil, "BACKGROUND")
-                bg:SetAllPoints()
-                bg:SetColorTexture(unpack(C.ink))
-                b.detachedBg = bg
-            end
-            if b.roleFrame then
-                b.roleFrame:ClearAllPoints()
-                b.roleFrame:SetPoint("CENTER", b, outer, -side * 10, 2)
-            end
-            b.name:ClearAllPoints()
-            b.name:SetPoint(outer, b.health, outer, -side * 22, 0)
-            b.name:SetPoint(inner, b.health, inner, side * 6, 0)
-            b.name:SetJustifyH(outer)
-            b.value:ClearAllPoints()
-            b.value:SetPoint(inner, b.health, inner, side * 6, 0)
-            -- under the name's outer end, the role icon outside both
-            PartyLevel(b, side, 22)
-            PartyLeader(b, side, 10)
-            if b.pet then
-                -- hung under its owner by the row (ns.LayoutPet), facing as it does
-                b.pet.side = side
-                b.pet.health:SetReverseFill(side == 1)
-            end
-            if ns.LayBuffs then ns.LayBuffs(b, side) end
-            if ns.editor then
-                ns.editor.Relaid(b, "name", "level", "role", "leader", "value", "buffs")
-                ns.ApplyEdits(b)
-            end
-        end
-        if ns.LayoutPartyRow then ns.LayoutPartyRow() end
-    end
+    -- the party's buttons are the Party box's (groups/party.lua, loaded
+    -- after the console: it takes them at login)
+    if ns.LayoutPartyGroup then ns.LayoutPartyGroup() end
     if ns.ShapeDispelGlows then ns.ShapeDispelGlows() end
 end
 
@@ -1051,13 +706,12 @@ function ns.RangeFade(f, near)
 end
 
 local function UpdatePartyRange()
-    local dist = ns.db and ns.PartyOption("partyRange")
+    local dist = ns.db and ns.db.partyRange
     for _, u in ipairs({ "party1", "party2", "party3", "party4" }) do
         local pb = ns.units[u]
         if pb and pb:IsShown() then
             local inRange = (dist == 0) or IsUnitInRange(u, dist)
             ns.RangeFade(pb, inRange)
-            if pb.pet and pb.pet:IsShown() then ns.RangeFade(pb.pet, inRange) end
         end
     end
 end
@@ -1073,14 +727,13 @@ rangeChecker:SetScript("OnUpdate", function(_, elapsed)
 end)
 
 local function UpdatePartyFrames()
-    if ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget then
-        UpdateAll(ns.partyWidgetPlayer)
+    if ns.partyPlayer and ns.partyPlayer.inBox then
+        UpdateAll(ns.partyPlayer)
     end
     for _, unit in ipairs({ "party1", "party2", "party3", "party4" }) do
         local b = ns.units[unit]
         if b then
             UpdatePartyUnit(b)
-            if b.pet then UpdatePartyPet(b.pet) end
         end
     end
     UpdatePartyRange()
@@ -1091,7 +744,7 @@ ns.On("GROUP_ROSTER_UPDATE", UpdatePartyFrames)
 -- A member who joins is shown before the game knows them (no name, class
 -- or health yet), and what follows does not always reach the button as an
 -- event of its own: the party looked at again as the roster settles
--- (2026-11-11: in combat, a joiner's frame in the Party widget stayed empty
+-- (2026-11-11: in combat, a joiner's frame in the party frames stayed empty
 -- till the fight ended). The last change's looks only.
 local settling = 0
 ns.On("GROUP_ROSTER_UPDATE", function()
@@ -1106,22 +759,8 @@ ns.On("PLAYER_ENTERING_WORLD", UpdatePartyFrames)
 ns.On("ADDON_LOADED", UpdatePartyFrames)
 ns.On("PLAYER_ROLES_ASSIGNED", UpdatePartyFrames)
 ns.On("ROLE_CHANGED_INFORM", UpdatePartyFrames)
-ns.On("UNIT_PET", function(_, unit)
-    if unit and unit:match("^party%d$") then
-        local b = ns.units[unit]
-        if b and b.pet then UpdatePartyPet(b.pet) end
-    end
-end)
 ns.OnSetting("simParty", UpdatePartyFrames)
-ns.OnSetting("partyPets", UpdatePartyFrames)
 ns.OnSetting("partyRange", UpdatePartyRange)
--- the Party widget's own (settings.lua: ns.PartyOption), and the layout
--- choosing between them (the widget has no pets: ns.PartyPets)
-ns.OnSetting("partyWidgetRange", UpdatePartyRange)
-ns.OnSetting("partyLayout", function()
-    UpdatePartyFrames()
-    UpdatePartyRange()
-end)
 
 -- Ready check & role check: hides buffs/debuffs and shows status in the middle
 local function SetCheckStatus(b, status)
@@ -1143,8 +782,8 @@ ns.SetCheckStatus = SetCheckStatus
 
 local function PartyCheckButtons()
     local out = { ns.units.party1, ns.units.party2, ns.units.party3, ns.units.party4 }
-    if ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget then
-        table.insert(out, ns.partyWidgetPlayer)
+    if ns.partyPlayer and ns.partyPlayer.inBox then
+        table.insert(out, ns.partyPlayer)
     end
     return out
 end
@@ -1179,7 +818,7 @@ local function OnReadyCheck()
 end
 
 local function OnReadyCheckConfirm(_, unit, isReady)
-    local pb = unit == "player" and (ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget and ns.partyWidgetPlayer)
+    local pb = unit == "player" and (ns.partyPlayer and ns.partyPlayer.inBox and ns.partyPlayer)
         or ns.units[unit]
     if pb then
         SetCheckStatus(pb, isReady and "ready" or "notready")
@@ -1263,12 +902,12 @@ ns.On("READY_CHECK", OnReadyCheck)
 ns.On("READY_CHECK_CONFIRM", OnReadyCheckConfirm)
 ns.On("READY_CHECK_FINISHED", OnReadyCheckFinished)
 
--- a new leader: every console button's crown (the widget cells': box.lua)
+-- a new leader: every console button's crown (the box cells': box.lua)
 for _, e in ipairs({ "PARTY_LEADER_CHANGED", "GROUP_ROSTER_UPDATE" }) do
     ns.On(e, function()
         for _, b in pairs(ns.units) do UpdateLeader(b) end
-        if ns.partyWidgetPlayer and ns.partyWidgetPlayer.inWidget then
-            UpdateLeader(ns.partyWidgetPlayer)
+        if ns.partyPlayer and ns.partyPlayer.inBox then
+            UpdateLeader(ns.partyPlayer)
         end
     end)
 end

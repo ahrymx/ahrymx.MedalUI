@@ -1,4 +1,4 @@
--- The Raid widget: a column per raid group that has members, under its
+-- The raid frames: a column per raid group that has members, under its
 -- "Group N" tab, five units down; Blizzard's raid frames are retired. Each
 -- group is a SecureGroupHeaderTemplate, which makes and fills its buttons
 -- itself, in combat too, so a member joining mid-fight still shows. Columns
@@ -9,7 +9,7 @@
 local _, ns = ...
 local Tr = ns.L
 
-local W = ns.WIDGET
+local W = ns.GROUP
 local ROWS = 5
 -- a cell is 112x36 until the editor sizes it (ns.CellSize, editor.lua)
 local function Size() return ns.CellSize("raid") end
@@ -19,28 +19,28 @@ local function Height(rows)
     return rows * h + (rows - 1) * W.gap
 end
 
-local box = ns.WidgetBox("MedalUIRaidWidget", "raidWidgetPoint", { "TOPLEFT", "TOPLEFT", 40, -240 },
+local box = ns.GroupBox("MedalUIRaid", "raidPoint", { "TOPLEFT", "TOPLEFT", 40, -240 },
     function() return ns.InBattleground() and "bgMoverHover" or "raidMoverHover" end, true)
-ns.raidWidget = box
+ns.raidBox = box
 
 -- A header's new button, styled from its initial configuration (the
 -- header calls back through CallMethod; a button's unit is set after).
 local function Style(_, name)
     local b = _G[name]
     if not b or b.health then return end
-    ns.WidgetCell(b, Size())
+    ns.GroupCell(b, Size())
     ns.DeadLook(b)
     ns.AttachAuras(b, "raid")
     ns.EditableCell(b, "raid")
     ns.ApplyEdits(b)
     b:RegisterForClicks("AnyUp")
     b:HookScript("OnAttributeChanged", function(self, key, value)
-        if key == "unit" then ns.WatchWidgetUnit(self, value) end
+        if key == "unit" then ns.WatchGroupUnit(self, value) end
     end)
-    b:HookScript("OnShow", function(self) if self.unit then ns.UpdateWidgetCell(self) end end)
+    b:HookScript("OnShow", function(self) if self.unit then ns.UpdateGroupCell(self) end end)
     b:SetScript("OnEnter", function(self) if UnitFrame_OnEnter then UnitFrame_OnEnter(self) end end)
     b:SetScript("OnLeave", function(self) if UnitFrame_OnLeave then UnitFrame_OnLeave(self) end end)
-    ns.WatchWidgetUnit(b, b:GetAttribute("unit"))
+    ns.WatchGroupUnit(b, b:GetAttribute("unit"))
 end
 
 -- at the cell size of the moment: set again when the editor changes it
@@ -86,7 +86,7 @@ end
 local previews = {}
 local function Preview(i)
     if previews[i] then return previews[i] end
-    local b = ns.WidgetCell(CreateFrame("Frame", nil, box), Size())
+    local b = ns.GroupCell(CreateFrame("Frame", nil, box), Size())
     b:SetFrameLevel(box:GetFrameLevel() + 2)    -- over the skin, as a header's cells are
     ns.DeadLook(b)
     ns.AttachAuras(b, "raid")
@@ -153,10 +153,10 @@ local function Update()
         ns.SimApply(b.stub, "raid", i, n)
         local col, row = math.floor((i - 1) / ROWS) + 1, (i - 1) % ROWS + 1
         b:ClearAllPoints()
-        b:SetPoint("TOPLEFT", box, "TOPLEFT", ns.WidgetColumnX(col, CELL_W), ns.WidgetRowY(row, CELL_H + W.gap))
-        ns.SizeWidgetCell(b, CELL_W, CELL_H)
+        b:SetPoint("TOPLEFT", box, "TOPLEFT", ns.GroupColumnX(col, CELL_W), ns.GroupRowY(row, CELL_H + W.gap))
+        ns.SizeGroupCell(b, CELL_W, CELL_H)
         b:Show()
-        ns.UpdateWidgetCell(b)
+        ns.UpdateGroupCell(b)
         b:SetAlpha(fade and (b.stub.offline or not b.stub.inRange) and 0.45 or 1)
     end
     for i, b in pairs(previews) do
@@ -178,14 +178,14 @@ local function Update()
             end
             local h = headers[g]
             h:ClearAllPoints()
-            h:SetPoint("TOPLEFT", box, "TOPLEFT", ns.WidgetColumnX(placed[g], CELL_W), ns.WidgetRowY(1, 0))
+            h:SetPoint("TOPLEFT", box, "TOPLEFT", ns.GroupColumnX(placed[g], CELL_W), ns.GroupRowY(1, 0))
         end
-        ns.WidgetHolder(box, ns.WidgetSize(math.max(#groups, 1), CELL_W, HEIGHT))
-        ns.WidgetVisibility(box, preview and "show" or "[group:raid] show; hide")
+        ns.GroupHolder(box, ns.GroupSize(math.max(#groups, 1), CELL_W, HEIGHT))
+        ns.GroupVisibility(box, preview and "show" or "[group:raid] show; hide")
     end)
-    ns.WidgetSkin(box, Titles(groups, preview), CELL_W, Height(rows))
+    ns.GroupSkin(box, Titles(groups, preview), CELL_W, Height(rows))
 end
-ns.OnWidgetUpdate(Update)
+ns.OnGroupUpdate(Update)
 -- the preview's out-of-range cells fade by the range that counts
 for _, key in ipairs({ "raidRange", "bgRange" }) do
     ns.OnSetting(key, function() if ns.db.simParty then Update() end end)
@@ -205,7 +205,7 @@ local function Resize()
             local i = 1
             while _G["MedalUIRaidGroup" .. g .. "UnitButton" .. i] do
                 local b = _G["MedalUIRaidGroup" .. g .. "UnitButton" .. i]
-                if b.health then ns.SizeWidgetCell(b, w, h) end
+                if b.health then ns.SizeGroupCell(b, w, h) end
                 i = i + 1
             end
             -- the header places its buttons again by their new height
@@ -217,7 +217,7 @@ end
 ns.OnSetting("editRaid", Resize)
 ns.On("PLAYER_LOGIN", Resize)
 
--- Blizzard's raid frames and their manager give way to the widget.
+-- Blizzard's raid frames and their manager give way to the box.
 ns.On("PLAYER_LOGIN", function()
     ns.Kill(_G.CompactRaidFrameManager)
     ns.Kill(_G.CompactRaidFrameContainer)

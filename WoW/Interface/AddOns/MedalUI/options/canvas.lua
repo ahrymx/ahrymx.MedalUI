@@ -41,7 +41,7 @@ local Draw
 
 -- What a copy says where its button's words are secret or not yet set.
 local SAMPLE = {
-    unit = { Tr["Player"], Tr["Target"] }, party = { Tr["Party member"] }, partyWidget = { Tr["Party member"] },
+    unit = { Tr["Player"], Tr["Target"] }, party = { Tr["Party member"] },
     raid = { Tr["Raider"] }, boss = { Tr["Boss"] }, arena = { Tr["Enemy"] },
 }
 -- The values' samples follow the piece's format (editor.lua's E.FORMATS),
@@ -821,13 +821,7 @@ end
 
 -- ------------------------------------------------------------ the canvas
 -- Why a frame has nothing to draw.
-local function Absent(frame)
-    local widget = ns.PartyWidgetLayout and ns.PartyWidgetLayout()
-    if frame.id == "partyWidget" and not widget then
-        return Tr["The party layout is Console: the party widget is not laid out now."]
-    elseif frame.id == "party" and widget then
-        return Tr["The party layout is Widget: the console's party is not laid out now."]
-    end
+local function Absent()
     return Tr["Nothing to draw yet: Preview in the editor makes the frames."]
 end
 
@@ -900,7 +894,7 @@ function Draw()
     local top = (stage.scope:GetText() or "") ~= "" and math.ceil(stage.scope:GetStringHeight() or 0) + 4 or 0
     local models = Models(frame)
     stage.note:SetShown(#models == 0)
-    if #models == 0 then stage.note:SetText(Absent(frame)) end
+    if #models == 0 then stage.note:SetText(Absent()) end
     -- the copies, one over the other, at the largest size that fits all
     -- of each: its button and whatever hangs past it (a row Outside, an
     -- icon over its edge), measured once copied

@@ -3,8 +3,8 @@
 -- the x in its own cell); the chosen frame's pieces down the sidebar under
 -- their groups' headings (Frame, Texts, Icons, Auras), the chosen one lit,
 -- a changed one marked; a page header (the frame's name, the console's or
--- the widgets' and whose, a (?) saying what the frame is) with the frames
--- as its sheets, the console's then the widgets'. Under it two cards: the
+-- the group frames' and whose, a (?) saying what the frame is) with the frames
+-- as its sheets, the console's then the group frames'. Under it two cards: the
 -- canvas (options/canvas.lua: the frame drawn large, the chosen piece
 -- boxed; drag it to move the piece, the arrow keys nudge it), its zoom,
 -- Fit and Reset frame in its band and the previews under it (editor.lua's
@@ -86,7 +86,7 @@ local function OutWay(b)
     return b and E.OutEdge(b, frame, Edits()) or -1
 end
 
-local function Mirrored() return frame.id == "unit" or frame.id == "party" end
+local function Mirrored() return frame.id == "unit" end
 
 -- What a piece's outline is set to, read off its font when not set.
 local function Outline()
@@ -126,7 +126,8 @@ local function Specs()
         x = { kind = "slider", label = Tr["Inward"], min = -150, max = 150,
             get = function() return PlaceField("x") or 0 end,
             set = function(v) SetPlace({ x = v }) end, text = Pixels,
-            tip = Tr["Pixels from the anchor, toward the frame's inner end (on the console) or right (a widget)."] },
+            tip = Tr["Pixels from the anchor, toward the frame's inner end (on the console) or right (a group "
+                .. "frame)."] },
         ox = { kind = "slider", label = Tr["Outward"], min = -300, max = 150,
             get = function() return Edits().ox or 0 end,
             set = function(v) SetOut(v, Edits().oy or 0) end, text = Pixels,
@@ -184,7 +185,7 @@ local function Specs()
             tip = Tr["Beyond the frame's outer end, running toward the screen's edge. With buffs and debuffs both "
                 .. "outside, the debuffs' Next to buffs says where they go. A drag or the arrow keys move "
                 .. "it from there, outside still."] },
-        -- a widget's: which side, or toward the nearer edge of the screen
+        -- a group frame's: which side, or toward the nearer edge of the screen
         side = { kind = "choice", label = Tr["Place"], choices = {
                 { "in", Tr["Inside the frame"] }, { "edge", Tr["Toward screen edge"] },
                 { "left", Tr["Outside, left"] }, { "right", Tr["Outside, right"] } },
@@ -216,8 +217,8 @@ local function Specs()
             get = function() return Edits().cancel ~= false end,
             -- (off is stored as false; on, the default, as nothing)
             set = function(v) if v then SetField("cancel", E.NIL) else SetField("cancel", false) end end,
-            tip = Tr["A right click on one of your buffs takes it off, in combat too. Your own frame only, "
-                .. "and the Party widget's row of yours."] },
+            tip = Tr["A right click on one of your buffs takes it off, in combat too. Your own frame only, and your "
+                .. "row in the party frames."] },
         max = { kind = "slider", label = Tr["Most icons"], min = 1, max = 10,
             get = function() return Edits().max or select(2, E.RowOwn(frame, piece)) end,
             set = function(v) SetField("max", v) end,
@@ -382,11 +383,10 @@ end
 -- What the frame is, whose it is, and where it can be seen.
 local NOTES = {
     unit = Tr["The player and the target: one layout, mirrored."],
-    party = Tr["The console's party; the left and right wings mirrored."],
-    partyWidget = Tr["The party, while Console > Layout > Party layout is Widget."],
-    raid = Tr["The Raid widget, and in a battleground too."],
-    boss = Tr["The Boss widget, while Console > Layout > Boss frames shows it."],
-    arena = Tr["The Arena widget's enemy frames."],
+    party = Tr["The party frames."],
+    raid = Tr["The raid frames, and in a battleground too."],
+    boss = Tr["The boss frames, one for each of the encounter's bosses."],
+    arena = Tr["The arena's enemy frames."],
 }
 -- Whose the frame's places are: the console profile's, or every profile's.
 local function Whose()
@@ -399,11 +399,6 @@ local function About() return NOTES[frame.id] .. " " .. Whose() .. "." end
 -- Over the canvas: why a frame is not on screen now, else nothing.
 local function Scope()
     for _, b in ipairs(frame.buttons()) do if b:IsVisible() then return "" end end
-    -- the party is one or the other: the preview cannot show the one its
-    -- layout does not use
-    local widget = ns.PartyWidgetLayout and ns.PartyWidgetLayout()
-    if frame.id == "partyWidget" and not widget then return Tr["Not on screen now: the party layout is Console."] end
-    if frame.id == "party" and widget then return Tr["Not on screen now: the party layout is Widget."] end
     return Tr["Not on screen now: Preview, below, shows it."]
 end
 
@@ -531,9 +526,10 @@ function Refresh()
         end
     end
     for k = i + 1, #list.rows do list.rows[k]:Hide() end
-    -- the header: the frame, the console's or the widgets' and whose
+    -- the header: the frame, the console's or the group frames' and whose
     window.pageTitle:SetText(frame.name)
-    window.crumb:SetText((ns.PER_PROFILE[frame.key] and Tr["Console"] or Tr["Widgets"]) .. "   \194\183   " .. Whose())
+    local set = ns.PER_PROFILE[frame.key] and Tr["Console"] or Tr["Group frames"]
+    window.crumb:SetText(set .. "   \194\183   " .. Whose())
     window.more.tip = About()
     -- the canvas's card: the frame; the piece's: its name, Changed
     window.canvasCard.title:SetText(frame.name)
@@ -777,9 +773,9 @@ local function Sidebar()
     window.side = side
 end
 
--- The page's header: the frame's name, the console's or the widgets' and
+-- The page's header: the frame's name, the console's or the group frames' and
 -- whose, a (?) saying what the frame is; the frames as its sheets along its
--- foot, the console's, then (a gap) the widgets'; a hairline under.
+-- foot, the console's, then (a gap) the group frames'; a hairline under.
 local function Header()
     local head = CreateFrame("Frame", nil, window)
     head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -HEAD_TOP)
@@ -851,7 +847,7 @@ local function Header()
     -- what the gap between them means, at their right
     window.groups = UI.Plain(head, 11, C.faint)
     window.groups:SetPoint("BOTTOMRIGHT", 0, 7)
-    window.groups:SetText(Tr["Console: per profile  \194\183  Widgets: shared"])
+    window.groups:SetText(Tr["Console: per profile  \194\183  Group frames: shared"])
 end
 
 -- A card: a step lighter than the page, its title in a band across its

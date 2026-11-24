@@ -1,24 +1,24 @@
--- The Boss and Arena widgets: one column of up to five units under its tab,
+-- The boss and arena frames: one column of up to five units under its tab,
 -- "Boss" or "Bosses", "Arena". The buttons hang in fixed rows and show by
 -- their units (RegisterUnitWatch), so a boss coming mid-fight shows at
 -- once; the box's skin, not protected, lengthens to the last one shown.
 --
 -- Boss frames are on the overhead, here, or both (Console > Layout >
 -- Boss frames); Blizzard's are retired either way (blizzard.lua).
--- Blizzard's arena frames give way to the Arena widget.
+-- Blizzard's arena frames give way to the arena frames.
 local _, ns = ...
 local Tr = ns.L
 
-local W = ns.WIDGET
+local W = ns.GROUP
 
 -- A column's cells are its spec's size until the editor sizes them
 -- (ns.CellSize, editor.lua): laid again, out of combat, when that changes.
 local function Column(spec)
-    local box = ns.WidgetBox(spec.name, spec.key, spec.default, spec.hover)
+    local box = ns.GroupBox(spec.name, spec.key, spec.default, spec.hover)
     local buttons = {}
     for i = 1, 5 do
         local width, height = ns.CellSize(spec.unit)
-        local b = ns.WidgetUnit(box, spec.name .. "Unit" .. i, spec.unit .. i, width, height, spec.unit)
+        local b = ns.GroupUnit(box, spec.name .. "Unit" .. i, spec.unit .. i, width, height, spec.unit)
         b:SetFrameLevel(box:GetFrameLevel() + 2)
         RegisterUnitWatch(b)
         buttons[i] = b
@@ -31,8 +31,8 @@ local function Column(spec)
         local width, height = ns.CellSize(spec.unit)
         for i, b in ipairs(buttons) do
             b:ClearAllPoints()
-            b:SetPoint("TOPLEFT", box, "TOPLEFT", ns.WidgetColumnX(1, width), ns.WidgetRowY(i, Step()))
-            ns.SizeWidgetCell(b, width, height)
+            b:SetPoint("TOPLEFT", box, "TOPLEFT", ns.GroupColumnX(1, width), ns.GroupRowY(i, Step()))
+            ns.SizeGroupCell(b, width, height)
         end
     end
     Lay()
@@ -50,14 +50,14 @@ local function Column(spec)
         end
         last = math.max(last, 1)
         local width = ns.CellSize(spec.unit)
-        ns.WidgetSkin(box, { spec.title(last) }, width, last * Step() - W.gap)
+        ns.GroupSkin(box, { spec.title(last) }, width, last * Step() - W.gap)
     end
 
     local function Update()
         local on = spec.on()
         local count = on and ns.db.simParty and spec.preview() or 0
         ns.OutOfCombat(function()
-            ns.WidgetHolder(box, ns.WidgetSize(1, ns.CellSize(spec.unit), 5 * Step() - W.gap))
+            ns.GroupHolder(box, ns.GroupSize(1, ns.CellSize(spec.unit), 5 * Step() - W.gap))
             for i, b in ipairs(buttons) do
                 local stub = i <= count and spec.stubs[i] or nil
                 if stub then ns.SimApply(stub, "enemies", i, count) end
@@ -70,13 +70,13 @@ local function Column(spec)
                         RegisterUnitWatch(b)
                     end
                 end
-                ns.UpdateWidgetCell(b)
+                ns.UpdateGroupCell(b)
             end
-            ns.WidgetVisibility(box, not on and "hide" or count > 0 and "show" or shown)
+            ns.GroupVisibility(box, not on and "hide" or count > 0 and "show" or shown)
         end)
         Skin()
     end
-    ns.OnWidgetUpdate(Update)
+    ns.OnGroupUpdate(Update)
     local laidSize
     local function Resize()
         local width, height = ns.CellSize(spec.unit)
@@ -96,7 +96,7 @@ local function Column(spec)
 end
 
 -- ------------------------------------------------------------ boss
--- The game's boss frames are this widget's alone (2026-11-23: the overhead's
+-- The game's boss frames are this group frame's alone (2026-11-23: the overhead's
 -- boss deck, and the choice between the two, are gone).
 local function BossesHere() return true end
 
@@ -109,8 +109,8 @@ ns.bossStubs = {
     { name = Tr["Reliquary of Souls"], health = 41, maxHealth = 100, power = 70, class = "PRIEST" },
 }
 
-ns.bossWidget = Column({
-    name = "MedalUIBossWidget", key = "bossWidgetPoint", default = { "RIGHT", "RIGHT", -260, 160 },
+ns.bossBox = Column({
+    name = "MedalUIBoss", key = "bossPoint", default = { "RIGHT", "RIGHT", -260, 160 },
     hover = "bossMoverHover",
     unit = "boss", editKey = "editBoss",
     title = function(n) return n > 1 and Tr["Bosses"] or Tr["Boss"] end,
@@ -136,8 +136,8 @@ local ARENA_STUBS = {
     { name = Tr["Arena 4"], class = "HUNTER", health = 80, maxHealth = 100, power = 90, maxPower = 100, powerType = 2 },
     { name = Tr["Arena 5"], class = "DRUID", health = 35, maxHealth = 100, power = 50, maxPower = 100, powerType = 0 },
 }
-ns.arenaWidget = Column({
-    name = "MedalUIArenaWidget", key = "arenaWidgetPoint", default = { "RIGHT", "RIGHT", -260, -120 },
+ns.arenaBox = Column({
+    name = "MedalUIArena", key = "arenaPoint", default = { "RIGHT", "RIGHT", -260, -120 },
     hover = "arenaMoverHover",
     unit = "arena", editKey = "editArena",
     title = function() return Tr["Arena"] end,

@@ -98,7 +98,7 @@ end
 ns.PlayerHurt = Hurt
 
 -- Any unit hurt, by the same rule (the group frames' Minimal OoC Mode,
--- widgets/box.lua): there, not dead and connected, health below its most;
+-- groups/box.lua): there, not dead and connected, health below its most;
 -- where health is secret, hurt while its health changed in the last
 -- REGEN_QUIET seconds. The dead and offline are never hurt.
 local changedAt = {}
@@ -140,7 +140,7 @@ ns.PlayerRegenerating = Regenerating
 
 -- The pointer over the console or anything that hangs off it.
 local function Over()
-    for _, f in ipairs({ console, ns.actionBar, ns.extraBars, ns.partyRowBand }) do
+    for _, f in ipairs({ console, ns.actionBar, ns.extraBars }) do
         if f and f:IsVisible() and f:IsMouseOver() then return true end
     end
     return ns.drawer and ns.drawer:IsShown() and ns.drawer:IsMouseOver() or false
