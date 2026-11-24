@@ -43,6 +43,7 @@ local Draw
 local SAMPLE = {
     unit = { Tr["Player"], Tr["Target"] }, party = { Tr["Party member"] },
     raid = { Tr["Raider"] }, boss = { Tr["Boss"] }, arena = { Tr["Enemy"] },
+    overhead = { Tr["Focus"] }, undocked = { Tr["Focus"] },
 }
 -- The values' samples follow the piece's format (editor.lua's E.FORMATS),
 -- as console/units.lua writes them; [1] the format with none chosen. Missing

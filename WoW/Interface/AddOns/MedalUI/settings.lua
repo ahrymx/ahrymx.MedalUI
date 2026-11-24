@@ -256,7 +256,8 @@ local DEFAULTS = {
     -- by piece: false until something is; the console's per profile, the
     -- group frames' shared
     editUnit = false,
-    editParty = false, editRaid = false, editBoss = false, editArena = false,
+    editParty = false, editRaid = false, editBoss = false, editArena = false, editOverhead = false,
+    editUndocked = false,
     blizzardAuras = false,  -- Blizzard's own buff and debuff rows, top right (blizzard.lua)
     consoleProfile = "reticule", -- "reticule": the slim console, square minimap & bar 7; "arena": the medallion
     -- which page each bar shows (bars/paging.lua): "default", "stances", "page1".."page10" or

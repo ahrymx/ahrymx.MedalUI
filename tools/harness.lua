@@ -13762,6 +13762,30 @@ local function EditorPass()
         end
         print("  frame tabs", "lefts=" .. table.concat(first, ","), "note=" .. tostring(w.groups.text),
             "in the header=" .. tostring(w.tabs[#w.tabs]:GetRight() < w.groups:GetLeft()))
+        -- the rail: a track per set, its segments end to end inside it, a
+        -- hairline between them, the chosen one lit; the note up on the
+        -- title's line (over the crumb), clear of the title, above the rail
+        local tracks, lit = {}, {}
+        for _, t in ipairs(w.railTracks) do
+            local segs, flush = 0, true
+            for _, b in ipairs(w.tabs) do
+                if b:GetParent() == t then
+                    segs = segs + 1
+                    if b:GetLeft() < t:GetLeft() - 0.5 or b:GetRight() > t:GetRight() + 0.5 then flush = false end
+                    if b.sep.shown ~= (b:GetLeft() > t:GetLeft() + 0.5) then flush = false end
+                end
+            end
+            tracks[#tracks + 1] = t.set .. ":" .. segs .. (flush and "" or "!") .. "@" .. string.format("%.0f", t:GetLeft()
+                - w.tabs[1]:GetLeft()) .. "+" .. string.format("%.0f", t:GetWidth())
+        end
+        for _, b in ipairs(w.tabs) do
+            if b.lit.shown or b.foot.shown then
+                lit[#lit + 1] = b.frame.id .. (b.lit.shown and "" or "-fill") .. (b.foot.shown and "" or "-foot")
+            end
+        end
+        print("  rail", table.concat(tracks, " "), "lit=" .. table.concat(lit, ","),
+            "note over the crumb=" .. tostring(w.groups:GetTop() > w.crumb:GetTop()
+                and w.groups:GetBottom() > w.rail:GetTop() and w.groups:GetLeft() > w.pageTitle:GetRight()))
         -- the previews: two wells under the canvas, inside its card
         local card, st = w.canvasCard, w.stage
         local glow, show = w.glowChips, w.showChips
@@ -14875,6 +14899,109 @@ local function EditorPass()
     local after = everything()
     print("editor all reset", same(before, after))
     for i = 1, #before do if before[i] ~= after[i] then print("  moved", before[i], "->", after[i]) end end
+
+    -- the overhead's cells: the Overhead frame on it, Undocked Overhead off
+    -- it on a holder; each frame's edits theirs only while they are its, a
+    -- cell moving over shedding the one and taking the other
+    ;(function()
+        local realExists = UnitExists
+        UnitExists = function(u) return u == "focus" or u == "targettarget" or realExists(u) end
+        local F, ToT = ns.overheadCells[2], ns.overheadCells[3]
+        local function look(b)
+            return n(b:GetWidth()) .. "x" .. n(b:GetHeight())
+                .. " name=" .. pts(b, b.name) .. "/" .. fonts(b.name) .. "/" .. n((b.name.alpha or 1) * 100)
+                .. "/" .. tostring(b.name.justifyH) .. "/" .. tostring(b.name.text)
+                .. " value=" .. pts(b, b.value) .. "/" .. fonts(b.value) .. "/" .. tostring(b.value.text)
+                .. " power=" .. n(b.power:GetHeight()) .. "/" .. n((b.power.alpha or 1) * 100)
+                .. " health=" .. pts(b, b.health)
+        end
+        local function of(b) return tostring(E.FrameOf(b) and E.FrameOf(b).id) end
+        local function on()
+            return "docked=" .. #E.byId.overhead.buttons() .. " undocked=" .. #E.byId.undocked.buttons()
+        end
+        ns.SetOption("detachFocus", false)
+        ns.UpdateOverhead()
+        stateTick()
+        local docked = look(F)
+        print("editor overhead docked", "frame=" .. of(F), on(), docked)
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        local off = look(F)
+        print("editor overhead detached", "frame=" .. of(F), on(),
+            "first=" .. tostring(E.byId.undocked.buttons()[1] == F), off)
+        local tot = look(ToT)
+        local totDocked = tot
+        ns.OpenEditor("undocked")
+        local tabs = {}
+        for _, b in ipairs(w.tabs) do tabs[#tabs + 1] = b.frame.id .. "@" .. n(b:GetLeft() and b:GetLeft()
+            - w.tabs[1]:GetLeft()) end
+        print("  tabs", table.concat(tabs, " "), "crumb=" .. tostring(w.crumb.text), "groups=" .. tostring(w.groups.text))
+        choose("undocked", "cell")
+        set("w", 240)
+        set("h", 30)
+        local h = F:GetParent()
+        print("  cell 240x30", look(F), "holder=" .. n(h:GetWidth()) .. "x" .. n(h:GetHeight()))
+        choose("undocked", "name")
+        set("x", 12)
+        set("size", 14)
+        set("len", 3)
+        print("  name x12 size14 len3", look(F))
+        choose("undocked", "value")
+        set("format", "both")
+        print("  value both", look(F))
+        choose("undocked", "power")
+        set("ph", 0)
+        print("  power 0", look(F))
+        set("ph", 6)
+        print("  power 6", look(F))
+        print("  tot on the overhead", look(ToT) == tot and "as it was" or look(ToT))
+        local edited = look(F)
+        -- the Overhead frame: the docked cells, never the undocked one
+        choose("overhead", "name")
+        local pieces = {}
+        for _, row in ipairs(w.list.rows) do if row.shown and row.piece then pieces[#pieces + 1] = row.piece end end
+        print("  overhead pieces", table.concat(pieces, ","))
+        set("x", 20)
+        set("size", 12)
+        choose("overhead", "value")
+        set("format", "current")
+        choose("overhead", "power")
+        set("ph", 2)
+        print("  overhead tot", look(ToT))
+        print("  undocked focus", look(F) == edited and "as it was" or look(F))
+        -- docked again: Undocked Overhead's gone, Overhead's taken; both kept
+        ns.SetOption("detachFocus", false)
+        stateTick()
+        print("editor overhead docked again", "frame=" .. of(F), on(), look(F))
+        print("  same as tot", (look(F):gsub("^%S+", ""):gsub("/focus", "/"):gsub("/[%w ]+ |", "|")) ==
+            (look(ToT):gsub("^%S+", ""):gsub("/targettarget", "/"):gsub("/[%w ]+ |", "|")))
+        print("  stored", stored("editOverhead"), stored("editUndocked"))
+        -- and off again: Undocked Overhead's come back with it
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        print("editor overhead detached again", look(F) == edited and "as edited" or look(F))
+        E.ResetFrame(E.byId.undocked)
+        stateTick()
+        print("editor undocked reset", look(F) == off and "as it was" or look(F))
+        -- docked under Overhead's edits, then off with none of Undocked's:
+        -- it sheds Overhead's
+        ns.SetOption("detachFocus", false)
+        stateTick()
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        print("  off again, Overhead's shed", look(F) == off and "as it was" or look(F))
+        E.ResetFrame(E.byId.overhead)
+        ns.SetOption("detachFocus", false)
+        stateTick()
+        print("editor overhead reset", look(F) == docked and "as it was" or look(F))
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        print("  tot reset", look(ToT) == totDocked and "as it was" or look(ToT))
+        ns.SetOption("detachFocus", false)
+        UnitExists = realExists
+        ns.UpdateOverhead()
+    end)()
+
     -- a first touch in a group: the name's point on the value (a text whose
     -- size the modern client keeps secret) cannot be read; the canvas copies
     -- the rest, and Reset gives back what the game lets it
@@ -15184,15 +15311,15 @@ function MinimapPass()
         ns.ResetConsolePlace("minimap")
         corner("reset")
 
-        -- the grip: a widget's tab on the corner's top edge, the area's name
-        -- on it, no wider than the corner; a drag moves the corner, as its
-        -- mover does
+        -- the grip: the header bar flush on the corner's top edge, the area's
+        -- name on it, no wider than the bar leaves; a drag moves the corner,
+        -- as its mover does
         local grip = ns.minimapGrip
         local function gripLine(tag)
             local p, rel, rp, x, y = grip:GetPoint()
             print("minimap grip " .. tag, "visible=" .. tostring(grip:IsVisible()), "alpha=" .. tostring(grip.alpha),
-                "text=" .. tostring(grip.label.text), string.format("w=%.0f of %.0f label=%.0f", grip.w, bezel.w,
-                    grip.label.w or 0), string.format("%s>%s of bezel=%s %+.0f,%+.0f", p, rp, tostring(rel == bezel),
+                "text=" .. tostring(grip.label.text), string.format("w=%.0f of %.0f label=%.0f",
+                    grip:GetRight() - grip:GetLeft(), bezel.w, grip.label.w or 0), string.format("%s>%s of bezel=%s %+.0f,%+.0f", p, rp, tostring(rel == bezel),
                     x, y))
         end
         gripLine("in the corner")
@@ -15230,6 +15357,39 @@ function MinimapPass()
         mouseOver = grip
         ns.UpdateGroupMovers()
         gripLine("on mouseover, pointer on it")
+        -- the frame round it: lit under the pointer (the hairline, the name,
+        -- the bar; the grip's dots), at rest away from it; the footer says
+        -- where you stand and the time
+        local function plate(tag)
+            ns.MinimapLight()
+            local e = bezel.edge
+            local function c(t)
+                local v = t.textColor or t.color or {}
+                return string.format("%.2f,%.2f,%.2f", v[1] or -1, v[2] or -1, v[3] or -1)
+            end
+            local foot = ns.minimapFoot
+            print("minimap plate " .. tag, "edge=" .. c(e.gold[1]) .. " all=" .. tostring(c(e.gold[1]) == c(e.gold[4])),
+                "black=" .. c(e.black[1]), "label=" .. c(grip.label), "bar=" .. c(grip.bg), "dots=" .. tostring(grip.dots.shown),
+                string.format("frame=%.0f..%.0f over the map %.0f..%.0f", e:GetBottom(), e:GetTop(), bezel:GetBottom(),
+                    bezel:GetTop()), string.format("foot=%.0f", foot:GetTop() - foot:GetBottom()))
+        end
+        -- the map shows through: nothing drawn on the bezel, over its square
+        local fills = 0
+        for _, r in ipairs({ bezel:GetRegions() }) do if r.color or r.texture then fills = fills + 1 end end
+        print("minimap plate over the map", "fills=" .. fills)
+        plate("pointer on it")
+        mouseOver = false
+        plate("pointer away")
+        ns.MinimapFootUpdate()
+        print("minimap foot", "at=" .. tostring(ns.minimapFoot.at.text), "time=" .. tostring(ns.minimapFoot.time.text))
+        -- standing on a map: where, to a tenth
+        local realMap = C_Map
+        C_Map = setmetatable({ GetBestMapForUnit = function() return 1 end,
+            GetPlayerMapPosition = function() return { GetXY = function() return 0.4263, 0.6128 end } end },
+            { __index = realMap })
+        ns.MinimapFootUpdate()
+        print("minimap foot on a map", "at=" .. tostring(ns.minimapFoot.at.text))
+        C_Map = realMap
         -- the console's hover label is the bay's: not over the corner
         mouseOver = _G.MedalUIMinimapClip
         Minimap.scripts.OnEnter(Minimap)

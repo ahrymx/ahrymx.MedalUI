@@ -106,6 +106,7 @@ local function HealthValue(self, cur, max, pct)
         self.value:SetFormattedText("%.0f%%", pct)
     end
 end
+ns.HealthValue = HealthValue        -- the overhead's undocked cells too (console/overhead.lua)
 
 local function UpdateHealth(self)
     local stub = self.stub
@@ -208,14 +209,19 @@ end
 
 -- The name, as the editor's format has it: whole or with initials, and cut
 -- to the longest it may be. A secret name still displays, as it is.
-local function UpdateName(self)
-    local name = self.stub and self.stub.name or ns.Or(UnitName(self.unit), "")
+local function EditedName(self, name)
     local format, len = nil, nil
     if ns.EditFormat then format, len = ns.EditFormat(self, "name") end
     if not ns.IsSecret(name) then
         if format == "short" then name = ns.AbbreviateName(name) end
         if ns.CutName then name = ns.CutName(name, len) end
     end
+    return name
+end
+ns.EditedName = EditedName          -- the overhead's undocked cells too
+
+local function UpdateName(self)
+    local name = EditedName(self, self.stub and self.stub.name or ns.Or(UnitName(self.unit), ""))
     self.name:SetText(name)
     if self.dead and self.dead:IsShown() then self.dead.name:SetText(name) end
 end

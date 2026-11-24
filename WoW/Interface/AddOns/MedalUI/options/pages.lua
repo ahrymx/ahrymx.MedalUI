@@ -563,8 +563,8 @@ end
 local function MinimapCorner()
     local groups = Placed("minimap", Tr["In the corner"])
     table.insert(groups[1].items, Check("minimapMoverHover", Tr["Movers only on mouseover"],
-        Tr["Hide the corner minimap's tab, the grip with the area's name that moves it, until the pointer is over "
-        .. "the minimap."]))
+        Tr["Hide the corner minimap's header, the bar with the area's name that moves it, until the pointer is "
+        .. "over the minimap."]))
     return groups
 end
 local MOVER_TIPS = {
@@ -1082,7 +1082,8 @@ function ns.OptionPages()
                                 .. "target frames."]),
                             Check("topFocus", Tr["Focus frame"], Tr["Focus target unit frame on the top tier."]),
                             Check("topToT", Tr["Target of target frame"],
-                                Tr["Target's target unit frame on the top tier."])),
+                                Tr["Target's target unit frame on the top tier."]),
+                            Editor("overhead", Tr["Edit the overhead frames"])),
                         Group(Tr["Detached"],
                             Check("detachPet", Tr["Pet frame"],
                                 Tr["Off the overhead, on its own, with the pet bar docked under it. Alt+drag a frame "
@@ -1090,7 +1091,8 @@ function ns.OptionPages()
                             Check("detachFocus", Tr["Focus frame"],
                                 Tr["Off the overhead, on its own. Alt+drag it off the overhead, or back onto it."]),
                             Check("detachToT", Tr["Target of target frame"],
-                                Tr["Off the overhead, on its own. Alt+drag it off the overhead, or back onto it."])),
+                                Tr["Off the overhead, on its own. Alt+drag it off the overhead, or back onto it."]),
+                            Editor("undocked", Tr["Edit the detached frames"])),
                         Group(Tr["Bars"],
                             Check("topPetBar", Tr["Pet action bar"],
                                 Tr["Pet command and ability buttons on the bottom tier."],

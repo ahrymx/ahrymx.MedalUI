@@ -184,6 +184,35 @@ local laying = false
 local UpdateOverhead
 local TintRow       -- the bottom row's alpha on its icons and deck (its visibility, below)
 
+-- A cell's name and value as its own code lays them: the editor's places,
+-- sizes and fonts (editor.lua, the undocked cells' Overhead frame) undone
+-- when the cell goes back on the overhead.
+local function LayTexts(b)
+    b.value:ClearAllPoints()
+    b.value:SetPoint("RIGHT", b.text, "RIGHT", -4, 0)
+    b.value:SetJustifyH("RIGHT")
+    b.name:ClearAllPoints()
+    b.name:SetPoint("LEFT", b.text, "LEFT", 4, 0)
+    b.name:SetPoint("RIGHT", b.value, "LEFT", -4, 0)   -- a long name stops short of the value
+    b.name:SetJustifyH("LEFT")
+    b.name:SetAlpha(1)
+    b.value:SetAlpha(1)
+end
+
+-- The power bar's height: the editor's (ns.PowerHeight), its Undocked
+-- Overhead frame's while the cell hangs on its holder, else its Overhead
+-- frame's; the health fills what is left.
+-- The health hangs from two points, so its foot moves rather than its height.
+local function LayPower(b)
+    local ph = A.power
+    if ns.PowerHeight then ph = ns.PowerHeight(b.mounted and "undocked" or "overhead", A.power) end
+    b.power:SetHeight(math.max(ph, 0.001))
+    b.power:SetAlpha(ph > 0 and 1 or 0)
+    b.health:ClearAllPoints()
+    b.health:SetPoint("TOPLEFT")
+    b.health:SetPoint("BOTTOMRIGHT", 0, ph > 0 and ph + 1 or 0)
+end
+
 local function CreateCell(unit, kind, chip)
     local b = CreateFrame("Button", "MedalUIUnit_" .. unit, overhead, "SecureUnitButtonTemplate")
     b.unit, b.kind = unit, kind
@@ -236,8 +265,6 @@ local function CreateCell(unit, kind, chip)
     window:SetPoint("TOPLEFT", e + c.w + 3, -e - 1)
     window:SetPoint("BOTTOMRIGHT", -e - 1, e + 1)
     local health = CreateFrame("StatusBar", nil, window)
-    health:SetPoint("TOPLEFT")
-    health:SetPoint("BOTTOMRIGHT", 0, A.power + 1)
     health:SetStatusBarTexture(ns.bar)
     -- a gloss over the health, light at its top
     local gloss = health:CreateTexture(nil, "OVERLAY")
@@ -252,22 +279,21 @@ local function CreateCell(unit, kind, chip)
     local power = CreateFrame("StatusBar", nil, window)
     power:SetPoint("BOTTOMLEFT")
     power:SetPoint("BOTTOMRIGHT")
-    power:SetHeight(A.power)
     power:SetStatusBarTexture(ns.bar)
     b.power = power
+    b.LayPower = LayPower
+    b.powerDefault = A.power    -- what the editor shows as its height untouched
+    LayPower(b)
 
     local text = CreateFrame("Frame", nil, b)
     text:SetAllPoints(health)
     text:SetFrameLevel(LEVELS.text)
+    b.text = text                  -- the editor reads it as the health (OnOf, editor.lua)
     b.value = ns.Text(text, 10)
-    b.value:SetPoint("RIGHT", text, "RIGHT", -4, 0)
-    b.value:SetJustifyH("RIGHT")
     b.value:SetTextColor(unpack(GOLD_B))
     b.name = ns.Text(text, 10)
-    b.name:SetPoint("LEFT", text, "LEFT", 4, 0)
-    b.name:SetPoint("RIGHT", b.value, "LEFT", -4, 0)   -- a long name stops short of the value
-    b.name:SetJustifyH("LEFT")
     b.name:SetWordWrap(false)
+    LayTexts(b)
 
     -- Each button hears its own unit: RegisterUnitEvent keeps one unit per
     -- event per frame, so a shared watcher only ever heard the last one.
@@ -315,6 +341,7 @@ local totUnit = CreateCell("targettarget", "unit", "targettarget")
 -- target over the totems), and back up when its last cell goes. The plates
 -- follow on the next frame (CombatPlates): they are textures, free in combat.
 local unitCells = { petUnit, focusUnit, totUnit }
+ns.overheadCells = unitCells        -- the editor's Overhead and Undocked Overhead frames (editor.lua)
 local ROW = { [petUnit] = 2, [focusUnit] = 1, [totUnit] = 1 }
 for b, r in pairs(ROW) do b.deck = r == 1 and "upper" or "pet" end
 -- each cell's switch on the Overhead page, and its name in the detach
@@ -457,11 +484,12 @@ function UpdateUnitStatus(b)
         b.health:SetValue(health)
         local c = RAID_CLASS_COLORS[stub.class] or FACTION_BAR_COLORS[2]
         if c then b.health:SetStatusBarColor(Muted(c.r, c.g, c.b)) end
-        b.name:SetText(stub.name or b.unit)
+        b.name:SetText(ns.EditedName(b, stub.name or b.unit))
         if stub.dead then
             b.value:SetText(DEAD)
         else
-            b.value:SetFormattedText("%.0f%%", math.floor(health / (stub.maxHealth or 100) * 100 + 0.5))
+            local max = stub.maxHealth or 100
+            ns.HealthValue(b, health, max, math.floor(health / max * 100 + 0.5))
         end
         b.power:SetMinMaxValues(0, 100)
         b.power:SetValue(stub.power or 80)
@@ -479,15 +507,16 @@ function UpdateUnitStatus(b)
     b.health:SetValue(cur)
     b.health:SetStatusBarColor(HealthColor(unit))
 
-    b.name:SetText(ns.Or(UnitName(unit), unit))
+    b.name:SetText(ns.EditedName(b, ns.Or(UnitName(unit), unit)))
     if not UnitIsConnected(unit) then
         b.value:SetText(PLAYER_OFFLINE)
     elseif UnitIsDeadOrGhost(unit) then
         b.value:SetText(DEAD)
     else
         -- through the curve when health is secret (it read 100% in combat
-        -- before, 2026-11-11): a secret percentage formats as any other
-        b.value:SetFormattedText("%.0f%%", ns.HealthPercent(unit, cur, max))
+        -- before, 2026-11-11): a secret percentage formats as any other; as
+        -- the editor's format has it while the cell is off the overhead
+        ns.HealthValue(b, cur, max, ns.HealthPercent(unit, cur, max))
     end
 
     local pMax = UnitPowerMax(unit)
@@ -958,11 +987,28 @@ do
 end
 ns.overheadDock = dock
 
--- A cell back on the overhead, and the pet's buttons back in the tray.
+-- A cell gone over to the editor's other frame (editor.lua: Overhead on the
+-- overhead, Undocked Overhead on its holder): what the frame it left changed
+-- goes (its texts' sizes and fonts, then their places as its own code lays
+-- them), and the frame it joined lays them.
+local function Relay(b)
+    if ns.editor then ns.editor.Relaid(b, "name", "value") end
+    LayTexts(b)
+    if ns.ApplyEdits then ns.ApplyEdits(b) end
+    LayPower(b)
+    UpdateUnitStatus(b)
+end
+
+-- A cell back on the overhead, and the pet's buttons back in the tray. Off
+-- its holder, it is the overhead's frame again, its height the overhead's
+-- (Layout sets its width).
 local function Unmount(b)
+    b.mounted = nil
     if b:GetParent() ~= overhead then
         b:SetParent(overhead)
         b:SetFrameLevel(LEVELS.cells)
+        b:SetHeight(A.deck[b.kind] - A.cellTop - A.cellBottom)
+        Relay(b)
     end
     b.shadow:Hide()
     Holder(b):Hide()
@@ -982,19 +1028,33 @@ local function Place(b, h, w)
     h:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
 end
 
-local function Mount(b, w)
+-- On its holder, a cell is the editor's Undocked Overhead frame: its size the
+-- editor's (the pet's at least as wide as its dock, minw), its pieces as
+-- the editor left them.
+local function Mount(b, minw)
     local h = Holder(b)
+    local w, ht = A.cell.unit, A.deck[b.kind] - A.cellTop - A.cellBottom
+    if ns.CellSize then w, ht = ns.CellSize("undocked") end
+    w = math.max(w, minw or 0)
     h:SetScale(overhead:GetScale())
     h:SetAlpha(Alpha())
-    h:SetSize(w, b:GetHeight())
+    h:SetSize(w, ht)
     if dragging ~= b then Place(b, h, w) end
     if b:GetParent() ~= h then b:SetParent(h) end
     b:SetFrameLevel(h:GetFrameLevel() + 1)
     b:ClearAllPoints()
     b:SetPoint("TOPLEFT", h, "TOPLEFT")
-    b:SetWidth(w)
+    b:SetSize(w, ht)
+    local was = b.mounted
+    b.mounted = true
     b.shadow:Show()
     h:Show()
+    if not was then
+        Relay(b)
+    else
+        if ns.ApplyEdits then ns.ApplyEdits(b) end
+        UpdateUnitStatus(b)
+    end
 end
 
 -- The pet's bar in the dock, centred under a cell at least as wide as it;
@@ -1077,7 +1137,13 @@ function ns.OverheadDetached(pets, unitW, unitH)
             -- bar into the dock, which it carries
             if b == petUnit then Dock(pets) end
         elseif ns.OverheadOff(b) and ns.db[b.switch] ~= false then
-            Mount(b, b == petUnit and Dock(pets) or A.cell.unit)
+            -- the pet at least as wide as the dock it carries
+            local minw = 0
+            if b == petUnit then
+                Dock(pets)
+                if dock:IsShown() then minw = dock:GetWidth() end
+            end
+            Mount(b, minw)
         else
             if b == petUnit then Dock(nil) end
             Unmount(b)
@@ -1154,6 +1220,9 @@ end)
 for _, b in ipairs(unitCells) do
     ns.OnSetting("detach" .. b.detach, function() UpdateOverhead() end)
 end
+-- the editor's Undocked Overhead frame: its cell size sizes the holders
+-- (editor.lua has already laid its pieces)
+ns.OnSetting("editUndocked", function() UpdateOverhead() end)
 
 -- ------------------------------------------------------------ the bottom row's visibility
 -- The command row (stances, the pet bar, the totems) and the tray deck it
@@ -1440,6 +1509,7 @@ function UpdateOverhead()
     Guarded()
 end
 ns.UpdateOverhead = UpdateOverhead
+ns.UpdateOverheadCell = UpdateUnitStatus    -- the editor redraws its words (editor.lua)
 
 -- ------------------------------------------------------------ events
 ns.On("PLAYER_LOGIN", AdoptCommandButtons)

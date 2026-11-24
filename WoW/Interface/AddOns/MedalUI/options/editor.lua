@@ -29,6 +29,7 @@ local W, H = 1040, 680
 local EDGE, BAR_H, SIDE_W, FOOT = 1, 34, 200, 40
 local X, RIGHT = EDGE + SIDE_W + 18, 16          -- the page's left, its right margin
 local HEAD_TOP, HEAD_H, STRIP_H = EDGE + BAR_H + 14, 50, 26
+local RAIL_GAP = 10           -- between the rail's tracks
 local TOP = HEAD_TOP + HEAD_H + STRIP_H - 4 + 12  -- the cards' top, under the frames' tabs
 local BOTTOM = EDGE + FOOT + 14                   -- the cards' foot, over the footer
 local CARD_PAD, BAND_H, COL_GAP, ROW_GAP = 12, 36, 12, 4
@@ -387,7 +388,14 @@ local NOTES = {
     raid = Tr["The raid frames, and in a battleground too."],
     boss = Tr["The boss frames, one for each of the encounter's bosses."],
     arena = Tr["The arena's enemy frames."],
+    overhead = Tr["The overhead's cells on it: Pet, Focus, Target of target."],
+    undocked = Tr["The overhead's cells taken off it: Pet, Focus, Target of target."],
 }
+-- The set a frame is in: the console's, the group frames', the overhead's.
+local function Set(f)
+    if f.id == "overhead" or f.id == "undocked" then return Tr["Overhead"] end
+    return ns.PER_PROFILE[f.key] and Tr["Console"] or Tr["Group frames"]
+end
 -- Whose the frame's places are: the console profile's, or every profile's.
 local function Whose()
     local profile = ns.db.consoleProfile
@@ -399,6 +407,8 @@ local function About() return NOTES[frame.id] .. " " .. Whose() .. "." end
 -- Over the canvas: why a frame is not on screen now, else nothing.
 local function Scope()
     for _, b in ipairs(frame.buttons()) do if b:IsVisible() then return "" end end
+    if frame.id == "undocked" then return Tr["Not on screen now: Alt+drag a cell off the overhead."] end
+    if frame.id == "overhead" then return Tr["Not on screen now: a pet, a focus or a target's target shows it."] end
     return Tr["Not on screen now: Preview, below, shows it."]
 end
 
@@ -467,6 +477,7 @@ function Refresh()
     for _, b in ipairs(tabs) do
         local on = b.frame == frame
         b.foot:SetShown(on)
+        b.lit:SetShown(on)
         local c = on and C.goldBright or C.dim
         b.text:SetTextColor(c[1], c[2], c[3])
     end
@@ -528,8 +539,7 @@ function Refresh()
     for k = i + 1, #list.rows do list.rows[k]:Hide() end
     -- the header: the frame, the console's or the group frames' and whose
     window.pageTitle:SetText(frame.name)
-    local set = ns.PER_PROFILE[frame.key] and Tr["Console"] or Tr["Group frames"]
-    window.crumb:SetText(set .. "   \194\183   " .. Whose())
+    window.crumb:SetText(Set(frame) .. "   \194\183   " .. Whose())
     window.more.tip = About()
     -- the canvas's card: the frame; the piece's: its name, Changed
     window.canvasCard.title:SetText(frame.name)
@@ -773,9 +783,9 @@ local function Sidebar()
     window.side = side
 end
 
--- The page's header: the frame's name, the console's or the group frames' and
--- whose, a (?) saying what the frame is; the frames as its sheets along its
--- foot, the console's, then (a gap) the group frames'; a hairline under.
+-- The page's header: the frame's name, its set and whose, a (?) saying what
+-- the frame is, and at its right what the sets mean; along its foot the
+-- frames as a rail, a segmented track for each set.
 local function Header()
     local head = CreateFrame("Frame", nil, window)
     head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -HEAD_TOP)
@@ -801,31 +811,58 @@ local function Header()
         if GameTooltip then GameTooltip:Hide() end
     end)
     window.more = q
-    local rule = UI.Fill(head, "ARTWORK", C.line)
-    rule:SetHeight(1)
-    rule:SetPoint("BOTTOMLEFT", 0, 0)
-    rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    -- the rail: a sunk track for each set (the console's, the group
+    -- frames', the overhead's), its frames as segments, a hairline
+    -- between them; the chosen one lit, with a gold foot
     tabs = {}
-    local left, group = 0, nil
+    local rail = CreateFrame("Frame", nil, head)
+    rail:SetPoint("BOTTOMLEFT", 0, 0)
+    rail:SetSize(1, STRIP_H)
+    window.rail = rail
+    local left, group, track = 0, nil, nil
+    local function Close(t) if t then t:SetWidth(t.run) end end
     for i, f in ipairs(E.FRAMES) do
         local console = ns.PER_PROFILE[f.key] and true or false
-        if group ~= nil and console ~= group then left = left + 16 end
-        group = console
-        local b = CreateFrame("Button", nil, head)
+        local first = Set(f) ~= group
+        if first then
+            Close(track)
+            if group ~= nil then left = left + RAIL_GAP end
+            group = Set(f)
+            track = CreateFrame("Frame", nil, rail)
+            track:SetHeight(STRIP_H)
+            track:SetPoint("BOTTOMLEFT", rail, "BOTTOMLEFT", left, 0)
+            UI.Fill(track, "BACKGROUND", C.well, 1):SetAllPoints()
+            UI.Outline(track, "BORDER", C.lineStrong, 0)
+            track.run = 0      -- the segments' widths so far
+            track.set = group
+            window.railTracks = window.railTracks or {}
+            table.insert(window.railTracks, track)
+        end
+        local b = CreateFrame("Button", nil, track)
         b:SetHeight(STRIP_H)
-        b.lift = UI.Fill(b, "BACKGROUND", C.lift, 1)
-        b.lift:SetAllPoints()
+        b.lit = UI.Fill(b, "ARTWORK", C.lit, 1)
+        b.lit:SetPoint("TOPLEFT", 1, -1)
+        b.lit:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.lift = UI.Fill(b, "ARTWORK", C.lift, 0)
+        b.lift:SetPoint("TOPLEFT", 1, -1)
+        b.lift:SetPoint("BOTTOMRIGHT", -1, 1)
         b.lift:Hide()
+        b.foot = UI.Fill(b, "ARTWORK", C.goldBright, 2)
+        b.foot:SetHeight(2)
+        b.foot:SetPoint("BOTTOMLEFT", 1, 1)
+        b.foot:SetPoint("BOTTOMRIGHT", -1, 1)
+        b.sep = UI.Fill(b, "ARTWORK", C.line, 3)
+        b.sep:SetWidth(1)
+        b.sep:SetPoint("TOPLEFT", 0, -1)
+        b.sep:SetPoint("BOTTOMLEFT", 0, 1)
+        b.sep:SetShown(not first)
         b.text = UI.Serif(b, 13, C.dim)
         b.text:SetPoint("CENTER", 0, 1)
         b.text:SetText(f.name)
         b:SetWidth(math.ceil(b.text:GetStringWidth()) + 28)
-        b.foot = UI.Fill(b, "OVERLAY", C.goldBright)
-        b.foot:SetHeight(2)
-        b.foot:SetPoint("BOTTOMLEFT", 8, 0)
-        b.foot:SetPoint("BOTTOMRIGHT", -8, 0)
-        b:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", left, 1)
-        left = left + b:GetWidth() + 2
+        b:SetPoint("TOPLEFT", track, "TOPLEFT", track.run, 0)
+        track.run = track.run + b:GetWidth()
+        left = left + b:GetWidth()
         b.frame, b.console = f, console
         b:SetScript("OnClick", function(self) Choose(self.frame.id, piece) end)
         b:SetScript("OnEnter", function(self)
@@ -844,10 +881,12 @@ local function Header()
         end)
         tabs[i] = b
     end
-    -- what the gap between them means, at their right
+    Close(track)
+    rail:SetWidth(math.max(left, 1))
+    -- what the tracks are, at the head's top right, on the title's line
     window.groups = UI.Plain(head, 11, C.faint)
-    window.groups:SetPoint("BOTTOMRIGHT", 0, 7)
-    window.groups:SetText(Tr["Console: per profile  \194\183  Group frames: shared"])
+    window.groups:SetPoint("TOPRIGHT", 0, -8)
+    window.groups:SetText(Tr["Console: per profile  \194\183  Group frames, Overhead: shared"])
 end
 
 -- A card: a step lighter than the page, its title in a band across its

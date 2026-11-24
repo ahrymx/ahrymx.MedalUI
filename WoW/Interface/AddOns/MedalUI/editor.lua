@@ -88,6 +88,20 @@ local function Cells(id)
     return function() return cells[id] end
 end
 
+-- The overhead's cells (console/overhead.lua): on it, the Overhead frame's;
+-- off it, each on its own holder, the Undocked Overhead frame's. One frame
+-- for the three, either way.
+local function OverheadCells(off)
+    return function()
+        local list = {}
+        for _, b in ipairs(ns.overheadCells or {}) do
+            if (b.mounted and true or false) == off then table.insert(list, b) end
+        end
+        return list
+    end
+end
+local OA = ns.overheadArt
+
 -- The frames, in the window's order. A piece whose Shown is an option the
 -- Unit Frames page has too names it (shows): the editor's Shown is that
 -- option, not a second one. A group frame's cell has its size from cell.
@@ -114,6 +128,12 @@ E.FRAMES = {
       pieces = { "cell", "name", "level", "value", "power", "cc", "mine" },
       hidden = { level = true },
       shows = { cc = "arenaCC", mine = "arenaMine" } },
+    -- (the overhead's art sizes its cells: no Cell size on it)
+    { id = "overhead", key = "editOverhead", name = Tr["Overhead"], buttons = OverheadCells(false),
+      pieces = { "name", "value", "power" } },
+    { id = "undocked", key = "editUndocked", name = Tr["Undocked Overhead"], buttons = OverheadCells(true),
+      cell = { OA.cell.unit, OA.deck.unit - OA.cellTop - OA.cellBottom },
+      pieces = { "cell", "name", "value", "power" } },
 }
 local byId = {}
 for _, frame in ipairs(E.FRAMES) do byId[frame.id] = frame end
@@ -129,6 +149,8 @@ end
 -- The frame a button is drawn as.
 function E.FrameOf(b)
     if b.editFrame then return byId[b.editFrame] end
+    -- an overhead cell: Undocked Overhead on its holder, else Overhead
+    if b.detach then return b.mounted and byId.undocked or byId.overhead end
     if b == ns.partyPlayer then return byId.party end
     local unit = b.unit or ""
     if unit == "player" or unit == "target" then return byId.unit end
@@ -649,7 +671,8 @@ local function ApplyButton(frame, b)
         end
     end
     -- the power bar's height, over the room its own code gave the bars
-    if b.powerDefault and ns.LayPower then ns.LayPower(b) end
+    -- (a button that lays its own: the overhead's cells, whose health hangs from two points)
+    if b.LayPower then b:LayPower() elseif b.powerDefault and ns.LayPower then ns.LayPower(b) end
 end
 
 -- A frame's buttons (all of them, or one) as its edits have them.
@@ -719,7 +742,9 @@ end
 local function Retext(frame)
     for _, b in ipairs(frame.buttons()) do
         if b.unit and (b.stub or UnitExists(b.unit)) then
-            if b.editFrame then
+            if b.detach then
+                if ns.UpdateOverheadCell then ns.UpdateOverheadCell(b) end
+            elseif b.editFrame then
                 if ns.UpdateGroupCell then ns.UpdateGroupCell(b) end
             elseif ns.unitEvents then
                 ns.unitEvents.UNIT_NAME_UPDATE(b)

@@ -11,6 +11,12 @@ local AREA_BROWN = { 0.165, 0.125, 0.071 }      -- #2a2012
 local AREA_ALPHA = 0.8
 local AREA_SIZE, AREA_PAD, AREA_INSET = 10, 3, 4
 local AREA_FADE_IN, AREA_FADE_OUT = 0.5, 1      -- seconds it takes to come and to go
+-- the corner's frame (below): its plate, rules and words, at rest and lit
+local PLATE, PLATE_LIT = { 0.114, 0.094, 0.063 }, AREA_BROWN
+local RULE, RULE_LIT = { 0.239, 0.196, 0.110 }, { 0.353, 0.290, 0.157 }
+local GOLD_B, GOLD_L = { 0.851, 0.718, 0.353 }, { 0.941, 0.831, 0.541 }
+local DIM = { 0.659, 0.604, 0.486 }
+local HEAD_H, FOOT_H = 22, 18
 
 -- ------------------------------------------------------------ where it goes
 -- The Reticule's minimap sits in the console's bay, or in the screen's
@@ -272,26 +278,98 @@ ns.On("PLAYER_LOGIN", function()
     end
     Locate()
     if mmCfg and mmCfg.relocate then
+        -- The corner's frame (mockup A, 2026-11-24): a plate round the map, a
+        -- header bar flush on its top with the area's name, a footer under
+        -- it (where you stand, the time), one gold hairline round all three
+        -- and a black line outside it. Under the pointer, or while dragged,
+        -- the hairline and the name brighten and the grip's dots show.
+        -- The bezel is the map's square (the mover's frame); the header and
+        -- the footer hang off it.
         local bezel = CreateFrame("Frame", "MedalUIMinimapBezel", console)
         bezel:SetFrameLevel(ns.levels.art)
-        local bt = bezel:CreateTexture(nil, "ARTWORK")
-        bt:SetAllPoints()
-        bt:SetTexture(ns.media .. "minimap-light")
-        bt:SetTexCoord(0, mmCfg.topRightSize / mmCfg.texWidth, 0, mmCfg.topRightSize / mmCfg.texHeight)
         bezel:Hide()
         ns.minimapBezel = bezel
         -- in the corner they are not the console's body, and keep their own
         -- alpha while it fades (console/fade.lua)
         if bezel.SetIgnoreParentAlpha then bezel:SetIgnoreParentAlpha(true) end
+        local function Fill(parent, layer, c, sub)
+            local t = parent:CreateTexture(nil, layer, nil, sub)
+            t:SetColorTexture(c[1], c[2], c[3], c[4] or 1)
+            return t
+        end
+        -- four lines round frame f, d outside its edge
+        local function Ring(f, layer, c, d)
+            local t = {}
+            for i = 1, 4 do t[i] = Fill(f, layer, c) end
+            t[1]:SetPoint("TOPLEFT", -d, d); t[1]:SetPoint("TOPRIGHT", d, d); t[1]:SetHeight(1)
+            t[2]:SetPoint("BOTTOMLEFT", -d, -d); t[2]:SetPoint("BOTTOMRIGHT", d, -d); t[2]:SetHeight(1)
+            t[3]:SetPoint("TOPLEFT", -d, d); t[3]:SetPoint("BOTTOMLEFT", -d, -d); t[3]:SetWidth(1)
+            t[4]:SetPoint("TOPRIGHT", d, d); t[4]:SetPoint("BOTTOMRIGHT", d, -d); t[4]:SetWidth(1)
+            return t
+        end
+        -- nothing is drawn on the bezel itself: it sits over the map, and a
+        -- fill there would hide it (the plate is the header's and footer's)
 
-        -- The grip: a group frame's tab on the corner's top edge, with the area's
-        -- name on it (the console's hover label stays in the bay). A drag
-        -- moves the corner, as its mover does (Console > Minimap: In the
-        -- corner); nothing in it is protected, so in combat too. It shows
-        -- with the corner, and with Movers only on mouseover only while the
-        -- pointer is over the minimap or it.
-        local grip = ns.GroupTab(bezel, bezel:GetFrameLevel())
-        grip:SetPoint("BOTTOM", bezel, "TOP", 0, -ns.GROUP_TAB_OVER)
+        -- The grip: the header bar. A drag moves the corner, as its mover
+        -- does (Console > Minimap: In the corner); nothing in it is
+        -- protected, so in combat too. With Movers only on mouseover it is
+        -- clear until the pointer is over the minimap or it.
+        local grip = CreateFrame("Button", nil, bezel)
+        grip:SetFrameLevel(bezel:GetFrameLevel() + 2)
+        grip:SetPoint("BOTTOMLEFT", bezel, "TOPLEFT")
+        grip:SetPoint("BOTTOMRIGHT", bezel, "TOPRIGHT")
+        grip:SetHeight(HEAD_H)
+        grip.bg = Fill(grip, "BACKGROUND", PLATE)
+        grip.bg:SetAllPoints()
+        grip.rule = Fill(grip, "BORDER", RULE)
+        grip.rule:SetPoint("BOTTOMLEFT")
+        grip.rule:SetPoint("BOTTOMRIGHT")
+        grip.rule:SetHeight(1)
+        grip.label = ns.Text(grip, 12)
+        grip.label:SetPoint("CENTER", 0, 0)
+        grip.label:SetWordWrap(false)
+        -- the grip's six dots, at the bar's left: only while lit
+        grip.dots = CreateFrame("Frame", nil, grip)
+        grip.dots:SetSize(6, 10)
+        grip.dots:SetPoint("LEFT", 8, 0)
+        for i = 0, 5 do
+            local d = Fill(grip.dots, "ARTWORK", GOLD_B)
+            d:SetSize(2, 2)
+            d:SetPoint("TOPLEFT", (i % 2) * 4, -math.floor(i / 2) * 4)
+        end
+        grip.dots:Hide()
+
+        -- the footer: where you stand on the zone's map (none in an
+        -- instance) at its left, the time (as the game menu's clock has it)
+        -- at its right
+        local foot = CreateFrame("Frame", nil, bezel)
+        foot:SetFrameLevel(bezel:GetFrameLevel() + 2)
+        foot:SetPoint("TOPLEFT", bezel, "BOTTOMLEFT")
+        foot:SetPoint("TOPRIGHT", bezel, "BOTTOMRIGHT")
+        foot:SetHeight(FOOT_H)
+        foot.bg = Fill(foot, "BACKGROUND", PLATE)
+        foot.bg:SetAllPoints()
+        foot.rule = Fill(foot, "BORDER", RULE)
+        foot.rule:SetPoint("TOPLEFT")
+        foot.rule:SetPoint("TOPRIGHT")
+        foot.rule:SetHeight(1)
+        foot.at = ns.Text(foot, 10)
+        foot.at:SetPoint("LEFT", 7, 0)
+        foot.at:SetTextColor(unpack(DIM))
+        foot.time = ns.Text(foot, 10)
+        foot.time:SetPoint("RIGHT", -7, 0)
+        foot.time:SetTextColor(unpack(DIM))
+        ns.minimapFoot = foot
+
+        -- the hairline round header, map and footer, and the black outside it
+        local edge = CreateFrame("Frame", nil, bezel)
+        edge:SetFrameLevel(bezel:GetFrameLevel() + 3)
+        edge:SetPoint("TOPLEFT", grip, "TOPLEFT")
+        edge:SetPoint("BOTTOMRIGHT", foot, "BOTTOMRIGHT")
+        edge.gold = Ring(edge, "BORDER", GOLD_D, 1)
+        edge.black = Ring(edge, "BACKGROUND", { 0, 0, 0 }, 2)
+        bezel.edge = edge
+
         local drag = ns.ConsoleDragger("minimap")
         grip:SetScript("OnMouseDown", function(_, button) if button == "LeftButton" then drag.Start() end end)
         grip:SetScript("OnUpdate", drag.Update)
@@ -302,13 +380,57 @@ ns.On("PLAYER_LOGIN", function()
         end)
         grip:SetScript("OnLeave", function() GameTooltip:Hide() end)
         ns.minimapGrip = grip
-        ns.WatchMover({ hover = "minimapMoverHover", tabs = { grip }, Hovered = function()
-            return drag.from ~= nil or bezel:IsMouseOver() or grip:IsMouseOver()
-        end })
-        -- the area's name, no wider than the corner
+        local function Hovered()
+            return drag.from ~= nil or bezel:IsMouseOver() or grip:IsMouseOver() or foot:IsMouseOver()
+        end
+        ns.WatchMover({ hover = "minimapMoverHover", tabs = { grip }, Hovered = Hovered })
+
+        -- lit (under the pointer, or dragged) or not
+        local lit
+        local function Light(on)
+            if on == lit then return end
+            lit = on
+            local line, rule, bg = on and GOLD_B or GOLD_D, on and RULE_LIT or RULE, on and PLATE_LIT or PLATE
+            for _, t in ipairs(edge.gold) do t:SetColorTexture(line[1], line[2], line[3], 1) end
+            grip.rule:SetColorTexture(rule[1], rule[2], rule[3], 1)
+            foot.rule:SetColorTexture(rule[1], rule[2], rule[3], 1)
+            grip.bg:SetColorTexture(bg[1], bg[2], bg[3], 1)
+            local c = on and GOLD_L or ns.colors.text
+            grip.label:SetTextColor(c[1], c[2], c[3])
+            grip.dots:SetShown(on)
+        end
+        Light(false)
+        local function Stand()
+            local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+            local pos = map and C_Map.GetPlayerMapPosition and C_Map.GetPlayerMapPosition(map, "player")
+            local x, y
+            if pos then x, y = pos:GetXY() end
+            foot.at:SetText(x and y and (x > 0 or y > 0) and string.format("%.1f, %.1f", x * 100, y * 100) or "")
+            local stamp = ns.gameMenu and ns.gameMenu.Stamp
+            foot.time:SetText(stamp and stamp() or (date and date("%H:%M")) or "")
+        end
+        ns.MinimapFootUpdate = Stand        -- the harness's
+        local lightWait, standWait = 0, 0
+        bezel:SetScript("OnUpdate", function(_, elapsed)
+            lightWait, standWait = lightWait - elapsed, standWait - elapsed
+            if lightWait <= 0 then
+                lightWait = 0.1
+                Light(Hovered() and true or false)
+            end
+            if standWait <= 0 then
+                standWait = 0.5
+                Stand()
+            end
+        end)
+        bezel:SetScript("OnShow", function() lightWait, standWait = 0, 0 end)
+        ns.MinimapLight = function() Light(Hovered() and true or false) end    -- the harness's
+
+        -- the area's name, no wider than the bar leaves between the dots
         local function Name()
             grip.label:SetText(GetMinimapZoneText())
-            ns.GroupTabWidth(grip, bezel:GetWidth())
+            grip.label:SetWidth(0)
+            local most = bezel:GetWidth() - 2 * 22
+            if grip.label:GetStringWidth() > most then grip.label:SetWidth(most) end
         end
         for _, e in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA" }) do
             ns.On(e, Name)
@@ -327,7 +449,7 @@ ns.On("PLAYER_LOGIN", function()
             bezel:ClearAllPoints()
             bezel:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -mmCfg.topRightInset + (tonumber(ns.db.minimapX) or 0),
                 -mmCfg.topRightInset + (tonumber(ns.db.minimapY) or 0))
-            return (mmCfg.topRightSize - 4) * s / k
+            return mmCfg.topRightSize * s / k        -- the map fills the plate's square
         end
 
         local function UpdateLocation()

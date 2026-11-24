@@ -1635,8 +1635,19 @@ L["Closes this panel and opens MedalUI's own settings window."] =
     "Закрывает эту панель и открывает окно настроек MedalUI."
 L["Columns"] = "Столбцы"
 L["Common"] = "Обычное"
-L["Console: per profile  \194\183  Group frames: shared"] =
-    "Консоль: у каждого профиля своя  \194\183  Рамки групп: общие"
+L["Console: per profile  \194\183  Group frames, Overhead: shared"] =
+    "Консоль: у каждого профиля своя  \194\183  Рамки групп, Верхние: общие"
+L["The overhead's cells taken off it: Pet, Focus, Target of target."] =
+    "Ячейки, снятые с верхней панели: питомец, фокус, цель цели."
+L["Not on screen now: Alt+drag a cell off the overhead."] =
+    "Сейчас не на экране: перетащите ячейку с верхней панели, удерживая Alt."
+L["Edit the detached frames"] = "Изменить отделённые рамки"
+L["Edit the overhead frames"] = "Изменить верхние рамки"
+L["Undocked Overhead"] = "Верхние отдельно"
+L["The overhead's cells on it: Pet, Focus, Target of target."] =
+    "Ячейки на верхней панели: питомец, фокус, цель цели."
+L["Not on screen now: a pet, a focus or a target's target shows it."] =
+    "Сейчас не на экране: появится с питомцем, фокусом или целью цели."
 L["Drag the box  ·  arrows nudge  ·  wheel zooms  ·  drag the canvas to pan  ·  double-click fits"] =
     "Тяните рамку  ·  стрелки сдвигают  ·  колесо масштабирует  ·  тяните холст, чтобы двигать вид  ·  двойной "
     .. "щелчок вписывает"
@@ -2147,9 +2158,9 @@ L["Show a compact row of debuffs on the inner corner of the health bar: every on
     .. "редакторе."
 L["In the corner"] = "В углу"
 L["Movers only on mouseover"] = "Перемещалки только при наведении"
-L["Hide the corner minimap's tab, the grip with the area's name that moves it, until the pointer is over the "
-    .. "minimap."] =
-    "Скрывать вкладку угловой миникарты (ручку с названием местности, за которую её двигают), пока на миникарту не "
+L["Hide the corner minimap's header, the bar with the area's name that moves it, until the pointer is over "
+    .. "the minimap."] =
+    "Скрывать шапку угловой миникарты (полосу с названием местности, за которую её двигают), пока на миникарту не "
     .. "наведён указатель."
 L["Hide the party frames' tab, the grip that moves them, until the pointer is over them."] =
     "Скрывать вкладку рамок группы (ручку, за которую их двигают), пока на них не наведён указатель."
