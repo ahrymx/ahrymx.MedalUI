@@ -7,7 +7,8 @@ local L = ns.L
 -- and can put it back as it comes (RM:ResetToPreset): the copy keeps the preset's key in
 -- radial.preset. The emote presets are rings of categories, grouped by feeling; each category opens
 -- a ring of its emotes (ACTIONS.category in Radial/Radial.lua). Camping: a slice for each camp kit
--- you carry (ACTIONS.campkits), and Sit (by the fire a minute: the camp's full buff). Consumables:
+-- you carry (ACTIONS.campkits), the Cozy Sleeping Bag while you carry it (2026-11-24), and Sit
+-- (by the fire a minute: the camp's full buff). Consumables:
 -- the best health and mana potions or stones, food and drink in your bags (ACTIONS.consumable).
 -- A preset with a class (class = "SHAMAN") is shown to that class only, and its copy is for every
 -- character of it. Totem Bars: a category for each of the shaman's Calls, standing for its spell
@@ -83,6 +84,7 @@ ns.PRESETS = {
     } },
     camping = { name = L["Camping"], icon = { texture = "Interface\\Icons\\Spell_Fire_Fire" }, buttons = {
         { kind = "campkits" },
+        { kind = "item", id = 211527 },   -- Cozy Sleeping Bag (Unroll Bag)
         { kind = "emote", emote = "SIT" },
     } },
     -- the best potion or stone for health and for mana, the best food and drink, from your bags

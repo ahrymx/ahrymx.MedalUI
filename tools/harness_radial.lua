@@ -1363,7 +1363,7 @@ print("radial preset first run", "markers=" .. tostring(firstPreset))
 do
     local bag = { { itemID = 9001 }, { itemID = 9002 }, { itemID = 9003 }, { itemID = 9004 } }
     local names = { [9001] = "Mana Well Kit", [9002] = "Tanned Leather", [9003] = "Basic Campfire Kit",
-        [9004] = "Anvil Polish", [9005] = "Odd Bundle" }
+        [9004] = "Anvil Polish", [9005] = "Odd Bundle", [211527] = "Cozy Sleeping Bag" }
     local uses = { [9001] = true, [9003] = true, [9005] = true }
     local was = { C_Container, C_Item.GetItemNameByID, C_Item.GetItemSpell, C_Item.GetItemCount, MedalUICharDB,
         C_Item.GetItemIconByID }
@@ -1387,6 +1387,9 @@ do
         print(tag, table.concat(out, " "))
     end
     ring("radial camping kits")
+    -- (2026-11-24) the sleeping bag carried: its own slice, after the kits
+    table.insert(bag, { itemID = 211527 })
+    ring("radial camping sleeping bag")
     -- a kit MedalUI recorded from the recipes, its name none of the objects'
     MedalUICharDB = { camp = { ["Camp Tent"] = { item = 9005 } } }
     table.insert(bag, { itemID = 9005 })
