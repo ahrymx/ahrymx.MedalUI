@@ -4177,6 +4177,7 @@ if profPass then
     C_Item = C_Item or {}
     C_Item.GetItemCount = function(id) return P.bags[id] or 0 end
     C_Item.GetItemNameByID = function(id) return ITEMS[id] end
+    C_Item.GetItemIconByID = C_Item.GetItemIconByID or function(id) return "icon" .. id end
     local function count(id)
         local n = math.huge
         for _, g in ipairs(byID[id][5]) do n = math.min(n, math.floor((P.bags[g[1]] or 0) / g[2])) end
@@ -23240,23 +23241,31 @@ if profPass then
     local function foot(tag)
         local p = W.Current()
         local d = p.details
-        -- the tree: its rows, then "> product" at the stem's x and row
+        -- the strip: each slot (name, had/needed, icon, x, width), the
+        -- arrow's shaft x, then what it makes (name, makes, can make)
         local tree = {}
-        if p.tree.shown then
-            for _, fs in ipairs(p.tree.lines) do
-                if fs.shown then table.insert(tree, fs.text) end
+        local t = p.strip
+        if t.shown then
+            for _, b in ipairs(t.slots) do
+                if b.shown then
+                    local _, _, _, x = b:GetPoint()
+                    table.insert(tree, string.format("[%s %s icon=%s @%d w%d]", tostring(b.name.text),
+                        tostring(b.count.text), tostring(b.icon.texture), x, b.w))
+                end
             end
-            local _, _, _, sx, sy = p.tree.stem:GetPoint()
-            local _, _, _, ax, ay = p.tree.arm:GetPoint()
-            local _, _, _, px, py = p.tree.product:GetPoint()
-            table.insert(tree, string.format("stem@%d,%d h%d arm@%d,%d > %s@%d,%d", sx, sy, p.tree.stem.h, ax, ay,
-                p.tree.product.text, px, py))
+            local _, _, _, sx, sy = t.shaft:GetPoint()
+            local _, _, _, mx = t.made:GetPoint()
+            local c = t.made.can.textColor or {}
+            table.insert(tree, string.format("--@%d,%d--> [%s icon=%s @%d] %s; %s (%.2f,%.2f)", sx, sy,
+                tostring(t.made.name.text), tostring(t.made.icon.texture), mx, tostring(t.made.makes.text),
+                tostring(t.made.can.text), c[1] or -1, c[2] or -1))
         end
         print(tag, d.nothing.shown and ("nothing: " .. d.nothing.text)
             or (d.title.text .. " | " .. d.sub.text .. " | " .. d.text.text:gsub("\n", "; ")
                 .. (#tree > 0 and " | " .. table.concat(tree, "; ") or "")),
-            "tick=" .. tostring(p.have.on), "count=" .. p.counter.text,
-            string.format("create=%.1f all=%.1f", p.create.alpha or 1, p.createAll.alpha or 1),
+            "tick=" .. tostring(p.have.on), "count=" .. tostring(p.counter:GetText()),
+            string.format("create=%.1f all=%.1f %q w%d", p.create.alpha or 1, p.createAll.alpha or 1,
+                tostring(p.createAll.label.text), p.createAll.w or 0),
             "calls=" .. table.concat(P.calls, ","))
     end
     local function row(label)
@@ -23367,6 +23376,99 @@ if profPass then
     print("prof.no craft", table.concat(P.calls, ","))
     row("Rough Sharpening Stone")
     foot("prof.stone")
+    -- 4b. the count, typed: held to what the bags make (3), one at least;
+    -- Escape gives the last back; the wheel over any of it steps it
+    do
+        local box = smith.counter
+        local function typed(tag, text)
+            box:SetFocus()
+            box:SetText(text)
+            box.scripts.OnEnterPressed(box)
+            print("prof.count " .. tag, "count=" .. smith.count, "box=" .. tostring(box:GetText()))
+        end
+        typed("typed 50, 3 makeable", "50")
+        typed("typed 0", "0")
+        typed("typed 2", "2")
+        box:SetFocus()
+        box:SetText("7")
+        box.scripts.OnEscapePressed(box)
+        print("prof.count escape", "count=" .. smith.count, "box=" .. tostring(box:GetText()),
+            "focus=" .. tostring(box:HasFocus()))
+        box.scripts.OnMouseWheel(box, 1)
+        local up = smith.count
+        smith.stepper.scripts.OnMouseWheel(smith.stepper, -1)
+        smith.less.scripts.OnMouseWheel(smith.less, -1)
+        print("prof.count wheel", "up=" .. up, "down twice=" .. smith.count)
+        -- the strip's tooltips, each placed beside the window first; the
+        -- product's: the item it makes, or (none) the recipe's spell
+        local shown
+        local was = { GameTooltip.SetItemByID, GameTooltip.SetSpellByID }
+        local function took(kind, id)
+            shown[#shown + 1] = kind .. "=" .. tostring(id) .. (GameTooltip.owner and "" or " unowned")
+        end
+        function GameTooltip:SetItemByID(id) took("item", id) end
+        function GameTooltip:SetSpellByID(id) took("spell", id) end
+        local function tip(tag, b)
+            shown, GameTooltip.owner = {}, nil
+            b.scripts.OnEnter(b)
+            print("prof.strip tip " .. tag, table.concat(shown, ","))
+            b.scripts.OnLeave(b)
+        end
+        tip("slot", smith.strip.slots[1])
+        tip("made, no item", smith.strip.made)
+        local schematic = C_TradeSkillUI.GetRecipeSchematic
+        C_TradeSkillUI.GetRecipeSchematic = function(id, ...)
+            local t = schematic(id, ...)
+            if t then t.outputItemID = 2862 end
+            return t
+        end
+        tip("made, an item", smith.strip.made)
+        -- an item's clicks (ns.ItemClick: Shift links, Ctrl previews); the
+        -- product with no item links the recipe on Shift
+        local info, recipeLink = C_Item.GetItemInfo, C_TradeSkillUI.GetRecipeLink
+        C_Item.GetItemInfo = function(id) return "item " .. id, "[item " .. id .. "]" end
+        C_TradeSkillUI.GetRecipeLink = function(id) return "[recipe " .. id .. "]" end
+        local made = smith.strip.made
+        harnessItemClicks("prof strip made, an item", function(b) made.scripts.OnClick(made, b) end)
+        C_TradeSkillUI.GetRecipeSchematic = schematic
+        GameTooltip.SetItemByID, GameTooltip.SetSpellByID = was[1], was[2]
+        local slot = smith.strip.slots[1]
+        harnessItemClicks("prof strip slot", function(b) slot.scripts.OnClick(slot, b) end)
+        harnessItemClicks("prof strip made, no item", function(b) made.scripts.OnClick(made, b) end)
+        C_Item.GetItemInfo, C_TradeSkillUI.GetRecipeLink = info, recipeLink
+        -- a reagent the game has not loaded: "Item <id>" and asked for; its
+        -- name once it comes (GET_ITEM_INFO_RECEIVED redraws the page)
+        local nameOf, asked = C_Item.GetItemNameByID, {}
+        local request = C_Item.RequestLoadItemDataByID
+        C_Item.GetItemNameByID = function(id) if id ~= 2880 then return nameOf(id) end end
+        C_Item.RequestLoadItemDataByID = function(id) asked[#asked + 1] = id end
+        row("Heavy Copper Maul")
+        print("prof.strip unloaded", tostring(smith.strip.slots[2].name.text), "asked=" .. table.concat(asked, ","))
+        C_Item.GetItemNameByID = nameOf
+        fire("GET_ITEM_INFO_RECEIVED", 2880, true)
+        frame()
+        print("prof.strip loaded", tostring(smith.strip.slots[2].name.text))
+        C_Item.RequestLoadItemDataByID = request
+        -- a narrow window: the slots narrowed alike, never under their least
+        local strip = smith.strip
+        local left = strip:GetLeft()
+        local function narrow(w)
+            strip.GetRight = function() return left + w end
+            strip.Fit()
+            local o = {}
+            for i = 1, strip.n do
+                local _, _, _, x = strip.slots[i]:GetPoint()
+                o[#o + 1] = string.format("@%d w%d", x, strip.slots[i].w)
+            end
+            local _, _, _, mx = strip.made:GetPoint()
+            print("prof.strip " .. w .. " wide", table.concat(o, " "), "made@" .. mx)
+        end
+        narrow(300)
+        narrow(150)
+        strip.GetRight = nil
+        strip.Fit()
+        row("Rough Sharpening Stone")
+    end
 
     -- 5. the filters: Have materials, the search, a heading folded
     click(smith.have)

@@ -15,8 +15,12 @@
 --   - At the trainer (2)              (what its trainer teaches, unlearned)
 --     [icon] Copper Mace                               Skill 15
 --   ---------------------------------------------------------------
---   the chosen recipe: its reagents had / needed, a tree to what it makes
---   [-] 1 [+]   [Create] [Create all]
+--   the chosen recipe: its reagents as slots, had / needed, an arrow to
+--   what it makes
+--     [ico]   [ico]        [ICON] Roast Raptor
+--      9/1     9/1    --->        Makes 1
+--     Raptor  Hot                 You can make 9
+--   [- | 1 | +]   [Create] [Create all (9)]
 --   ---------------------------------------------------------------
 --   (backpack)     [x] Have materials  [x] Show unknown
 --
@@ -79,6 +83,19 @@ local asked, askedAt, WAIT = nil, 0, 2
 
 local function Count(recipe) return C_TradeSkillUI.GetCraftableCount(recipe) or 0 end
 
+-- the item a recipe makes, or nil (an enchant makes none)
+local function Made(recipe)
+    local schematic = C_TradeSkillUI.GetRecipeSchematic and C_TradeSkillUI.GetRecipeSchematic(recipe, false)
+    return schematic and schematic.outputItemID
+end
+
+-- (2026-11-23, the user's) what a recipe makes, as the item's own
+-- tooltip; a craft with no item (an enchant) its spell's
+local function MadeTip(recipe)
+    local made = Made(recipe)
+    if made then GameTooltip:SetItemByID(made) else GameTooltip:SetSpellByID(recipe) end
+end
+
 -- ----------------------------------------------------------------- list
 local function Favourites()
     MedalUICharDB = MedalUICharDB or {}
@@ -117,12 +134,7 @@ local function Recipe(p, info)
         end,
         enter = function(row)
             W.Beside(row)
-            -- (2026-11-23, the user's) what it makes, as the item's own
-            -- tooltip; a craft with no item (an enchant) its spell's
-            local schematic = C_TradeSkillUI.GetRecipeSchematic
-                and C_TradeSkillUI.GetRecipeSchematic(info.recipeID, false)
-            local made = schematic and schematic.outputItemID
-            if made then GameTooltip:SetItemByID(made) else GameTooltip:SetSpellByID(info.recipeID) end
+            MadeTip(info.recipeID)
             GameTooltip:AddLine(Favourites()[info.recipeID] and Tr["Right-click: take its star off."]
                 or Tr["Right-click: star it, to list it first."], unpack(ns.colors.dim))
             GameTooltip:Show()
@@ -255,75 +267,199 @@ local function Rows(p)
 end
 
 -- ------------------------------------------------------------- details
+-- An item's name; one the game has not loaded yet (none in the bags, not
+-- seen this session) is asked for, and the page redraws when it comes
+-- (GET_ITEM_INFO_RECEIVED, an event of the page's): "Item <id>" till then.
 local function ItemName(id)
-    return C_Item.GetItemNameByID(id) or format(Tr["Item %d"], id)
+    local name = C_Item.GetItemNameByID(id)
+    if name then return name end
+    if C_Item.RequestLoadItemDataByID then
+        C_Item.RequestLoadItemDataByID(id)
+    elseif GetItemInfo then
+        GetItemInfo(id)
+    end
+    return format(Tr["Item %d"], id)
 end
 
--- a name and its two counts, green when the first covers the second
-local function Counted(name, have, need, enough)
-    return format("%s  %s%d / %d|r", name, enough and "|cff40c040" or "|cffe04040", have, need)
+-- had / needed, green when the first covers the second
+local function Have(have, need)
+    return format("%s%d/%d|r", have >= need and "|cff40c040" or "|cffe04040", have, need)
 end
 
+-- the required reagents: { id, have, need } each
 local function Reagents(recipe)
-    local lines = {}
+    local list = {}
     local schematic = C_TradeSkillUI.GetRecipeSchematic(recipe, false)
     for _, slot in ipairs(schematic and schematic.reagentSlotSchematics or {}) do
         local r = slot.reagents and slot.reagents[1]
         if r and r.itemID and slot.required ~= false then
-            local have, need = C_Item.GetItemCount(r.itemID), slot.quantityRequired or 1
-            table.insert(lines, Counted(ItemName(r.itemID), have, need, have >= need))
+            table.insert(list, { id = r.itemID, have = C_Item.GetItemCount(r.itemID),
+                need = slot.quantityRequired or 1 })
         end
     end
-    return lines, schematic
+    return list, schematic
 end
 
--- The reagents as a tree: each had / needed, down the left, joined by a
--- stem to what they make, so many a craft / as many crafts as the bags
--- allow. The font has no box-drawing letters, so the stem is drawn.
---   Copper Bar  30 / 1  |
---   Tin Bar  10 / 1     └ Bronze Bar  2 / 10
--- TREE_ROWS rows of TREE_ROW fit; more reagents than that share them.
-local TREE_TOP, TREE_ROW, TREE_ROWS = 43, 15, 5
-local function Tree(foot)
+-- The strip: the reagents as slots (the icon, had / needed under it, the
+-- name under that), an arrow, and what they make (its icon, its name, how
+-- many a craft and how many the bags allow). Each slot is SLOT_W wide, all
+-- narrowed alike when they and the product do not fit. A slot's tooltip is
+-- its item's, and its clicks an item's (ns.ItemClick: Shift links, Ctrl
+-- previews); the product's are the recipe row's.
+local STRIP_TOP, SLOT_W, SLOT_MIN, SLOT_ICON, MADE_ICON = 43, 64, 38, 34, 40
+local COUNT_H, NAME_H, ARROW_W, MADE_TEXT = 14, 26, 34, 130
+local MID = MADE_ICON / 2                       -- the icons' middle, from the strip's top
+local STRIP_H = MID + SLOT_ICON / 2 + 2 + COUNT_H + NAME_H
+
+local function ItemIcon(id)
+    local icon = C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
+    if not icon and GetItemIcon then icon = GetItemIcon(id) end
+    return icon
+end
+
+local function IconOf(b, size)
+    b.edge = b:CreateTexture(nil, "BORDER")
+    b.edge:SetSize(size, size)
+    b.edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetPoint("TOPLEFT", b.edge, "TOPLEFT", 1, -1)
+    b.icon:SetPoint("BOTTOMRIGHT", b.edge, "BOTTOMRIGHT", -1, 1)
+    b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    local glow = b:CreateTexture(nil, "HIGHLIGHT")
+    glow:SetAllPoints(b.edge)
+    glow:SetColorTexture(1, 1, 1, 0.12)
+end
+
+local function Slot(strip)
+    local b = CreateFrame("Button", nil, strip)
+    b:SetSize(SLOT_W, STRIP_H)
+    IconOf(b, SLOT_ICON)
+    b.edge:SetPoint("TOP", 0, -(MID - SLOT_ICON / 2))
+    b.count = ns.PlainText(b, 11)
+    b.count:SetPoint("TOP", b.edge, "BOTTOM", 0, -2)
+    b.name = ns.PlainText(b, 11)
+    b.name:SetPoint("TOPLEFT", 0, -(MID + SLOT_ICON / 2 + 2 + COUNT_H))
+    b.name:SetPoint("TOPRIGHT", 0, -(MID + SLOT_ICON / 2 + 2 + COUNT_H))
+    b.name:SetHeight(NAME_H)                    -- two lines; more trail off
+    b.name:SetJustifyH("CENTER")
+    b.name:SetJustifyV("TOP")
+    b.name:SetTextColor(unpack(ns.colors.text))
+    b:SetScript("OnEnter", function(self)
+        if not self.id then return end
+        W.Beside(self)
+        GameTooltip:SetItemByID(self.id)
+        GameTooltip:Show()
+    end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:SetScript("OnClick", function(self, button) ns.ItemClick(self.id, button) end)
+    return b
+end
+
+local function Strip(foot)
     local t = CreateFrame("Frame", nil, foot)
-    t:SetPoint("TOPLEFT", 4, -TREE_TOP)
-    t:SetSize(1, TREE_ROWS * TREE_ROW)
-    t.lines = {}
-    t.stem = t:CreateTexture(nil, "ARTWORK")
-    t.stem:SetWidth(1)
-    t.arm = t:CreateTexture(nil, "ARTWORK")
-    t.arm:SetSize(7, 1)
-    for _, line in ipairs({ t.stem, t.arm }) do line:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1) end
-    t.product = ns.PlainText(t, 12)
+    t:SetPoint("TOPLEFT", 4, -STRIP_TOP)
+    t:SetPoint("TOPRIGHT", -4, -STRIP_TOP)
+    t:SetHeight(STRIP_H)
+    t.slots = {}
+    -- the arrow: a shaft and a chevron's two strokes
+    t.shaft = t:CreateTexture(nil, "ARTWORK")
+    t.shaft:SetHeight(1)
+    t.tips = {}
+    for i, turn in ipairs({ -1, 1 }) do
+        local stroke = t:CreateTexture(nil, "ARTWORK")
+        stroke:SetSize(7, 1)
+        stroke:SetRotation(turn * math.pi / 4)
+        t.tips[i] = stroke
+    end
+    for _, line in ipairs({ t.shaft, t.tips[1], t.tips[2] }) do
+        line:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    end
+    -- what it makes
+    local m = CreateFrame("Button", nil, t)
+    m:SetSize(MADE_ICON, MADE_ICON)
+    IconOf(m, MADE_ICON)
+    m.edge:SetPoint("TOPLEFT")
+    m.name = ns.Text(t, 12)
+    m.name:SetPoint("TOPLEFT", m, "TOPRIGHT", 7, -1)
+    m.name:SetPoint("RIGHT", t, "RIGHT", 0, 0)
+    m.name:SetJustifyH("LEFT")
+    m.name:SetWordWrap(false)
+    m.name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    m.makes = ns.PlainText(t, 11)
+    m.makes:SetPoint("TOPLEFT", m.name, "BOTTOMLEFT", 0, -2)
+    m.makes:SetTextColor(unpack(ns.colors.dim))
+    m.can = ns.PlainText(t, 11)
+    m.can:SetPoint("TOPLEFT", m.makes, "BOTTOMLEFT", 0, -1)
+    m:SetScript("OnEnter", function(self)
+        if not self.recipe then return end
+        W.Beside(self)
+        MadeTip(self.recipe)
+        GameTooltip:Show()
+    end)
+    m:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    m:SetScript("OnClick", function(self, button)
+        local made = self.recipe and Made(self.recipe)
+        if made then
+            ns.ItemClick(made, button)
+        elseif self.recipe and ns.Linking(button) and C_TradeSkillUI.GetRecipeLink then
+            ns.LinkInChat(C_TradeSkillUI.GetRecipeLink(self.recipe))
+        end
+    end)
+    t.made = m
+    -- narrowed or widened, laid again
+    t:SetScript("OnSizeChanged", function() if t:IsShown() then t.Fit() end end)
+    function t.Fit()
+        local n = t.n or 0
+        -- its edges, not GetWidth: what two points place has its width
+        -- from them only once laid out
+        local l, r = t:GetLeft(), t:GetRight()
+        local room = (l and r and r - l or t:GetWidth() or 0) - ARROW_W - MADE_ICON - 7 - MADE_TEXT
+        local w = math.max(SLOT_MIN, math.min(SLOT_W, math.floor(room / math.max(n, 1))))
+        for i = 1, n do
+            local b = t.slots[i]
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", (i - 1) * w, 0)
+            b:SetWidth(w)
+        end
+        local x = n * w
+        t.shaft:ClearAllPoints()
+        t.shaft:SetPoint("TOPLEFT", x + 6, -MID)
+        t.shaft:SetWidth(ARROW_W - 12)
+        for i, stroke in ipairs(t.tips) do
+            stroke:ClearAllPoints()
+            stroke:SetPoint("CENTER", t, "TOPLEFT", x + ARROW_W - 8, -MID + (i == 1 and 2 or -2))
+        end
+        m:ClearAllPoints()
+        m:SetPoint("TOPLEFT", x + ARROW_W, 0)
+    end
     t:Hide()
     return t
 end
 
-local function Grow(t, reagents, product)
-    local n = #reagents
-    local row = math.min(TREE_ROW, TREE_ROWS * TREE_ROW / math.max(n, 1))
-    local wide = 0
-    for i, text in ipairs(reagents) do
-        local fs = t.lines[i] or ns.PlainText(t, 12)
-        t.lines[i] = fs
-        fs:ClearAllPoints()
-        fs:SetPoint("LEFT", t, "TOPLEFT", 0, -(i - 0.5) * row)
-        fs:SetText(text)
-        fs:Show()
-        wide = math.max(wide, fs:GetStringWidth())
+-- the strip for a recipe: its reagents, what it makes, n makeable
+local function Lay(t, recipe, info, reagents, schematic, n)
+    for i, r in ipairs(reagents) do
+        local b = t.slots[i] or Slot(t)
+        t.slots[i] = b
+        b.id = r.id
+        b.icon:SetTexture(ItemIcon(r.id))
+        b.count:SetText(Have(r.have, r.need))
+        b.name:SetText(ItemName(r.id))
+        b:Show()
     end
-    for i = n + 1, #t.lines do t.lines[i]:Hide() end
-    -- the stem from the first row's middle to the last's, the arm off it
-    local x, bottom = wide + 10, (n - 0.5) * row
-    t.stem:ClearAllPoints()
-    t.stem:SetPoint("TOPLEFT", x, -row / 2)
-    t.stem:SetHeight(math.max(1, bottom - row / 2 + 1))
-    t.arm:ClearAllPoints()
-    t.arm:SetPoint("TOPLEFT", x, -bottom)
-    t.product:ClearAllPoints()
-    t.product:SetPoint("LEFT", t, "TOPLEFT", x + 11, -bottom)
-    t.product:SetText(product)
+    for i = #reagents + 1, #t.slots do t.slots[i]:Hide() end
+    t.n = #reagents
+    local m, made = t.made, schematic and schematic.outputItemID
+    m.recipe = recipe
+    m.icon:SetTexture(made and ItemIcon(made) or info.icon)
+    m.name:SetText(made and ItemName(made) or info.name)
+    local least, most = schematic and schematic.quantityMin or 1, schematic and schematic.quantityMax or 1
+    m.makes:SetText(least < most and format(Tr["Makes %d\226\128\147%d"], least, most)
+        or format(Tr["Makes %d"], math.max(1, most)))
+    m.can:SetText(format(Tr["You can make %d"], n))
+    m.can:SetTextColor(unpack(n > 0 and ns.colors.dim or { 0.878, 0.251, 0.251 }))
     t:Show()
+    t.Fit()
 end
 
 -- Smelting's yellow and green, by recipe name (in English; by its id in
@@ -383,7 +519,7 @@ local function Gathered(p)
 end
 
 local function Details(p)
-    p.tree:Hide()
+    p.strip:Hide()
     if p.trained and Untaught(p) then return end
     if p.node and Gathered(p) then return end
     local info = p.chosen and C_TradeSkillUI.GetRecipeInfo(p.chosen)
@@ -396,12 +532,90 @@ local function Details(p)
     local worth = Worth(info)
     if worth then table.insert(sub, worth) end
     p.details:Set({ title = info.name, sub = table.concat(sub, "  ·  ") })
-    local made = schematic and schematic.outputItemID
-    Grow(p.tree, reagents, Counted(made and ItemName(made) or info.name,
-        math.max(1, schematic and schematic.quantityMax or 1), n, n > 0))
+    Lay(p.strip, p.chosen, info, reagents, schematic, n)
 end
 
 -- ------------------------------------------------------------- the band
+-- the most the count can say: as many as the bags can make, one at least
+local function Most(p)
+    return math.max(1, p.chosen and Ready(p) and Count(p.chosen) or 1)
+end
+
+local function SetCount(p, n)
+    p.count = math.max(1, math.min(Most(p), math.floor(tonumber(n) or p.count)))
+    p.Refresh()
+end
+
+-- The count: [- | n | +] joined in one gold-edged frame, n typed (Enter or
+-- leaving it takes it, Escape gives the last back), the wheel over any of
+-- it a step either way
+local STEP, BOX = 24, 40
+local function Stepper(p, foot)
+    local s = CreateFrame("Frame", nil, foot)
+    s:SetSize(2 * STEP + BOX, STEP)
+    local fill = s:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints()
+    fill:SetColorTexture(0.067, 0.059, 0.043, 1)
+    local edges = {}
+    for i = 1, 6 do
+        edges[i] = s:CreateTexture(nil, "BORDER")
+        edges[i]:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    end
+    edges[1]:SetPoint("TOPLEFT"); edges[1]:SetPoint("TOPRIGHT"); edges[1]:SetHeight(1)
+    edges[2]:SetPoint("BOTTOMLEFT"); edges[2]:SetPoint("BOTTOMRIGHT"); edges[2]:SetHeight(1)
+    edges[3]:SetPoint("TOPLEFT"); edges[3]:SetPoint("BOTTOMLEFT"); edges[3]:SetWidth(1)
+    edges[4]:SetPoint("TOPRIGHT"); edges[4]:SetPoint("BOTTOMRIGHT"); edges[4]:SetWidth(1)
+    -- the hairlines between the cells
+    edges[5]:SetPoint("TOPLEFT", STEP, 0); edges[5]:SetPoint("BOTTOMLEFT", STEP, 0); edges[5]:SetWidth(1)
+    edges[6]:SetPoint("TOPRIGHT", -STEP, 0); edges[6]:SetPoint("BOTTOMRIGHT", -STEP, 0); edges[6]:SetWidth(1)
+    local function Wheel(_, delta) SetCount(p, p.count + (delta > 0 and 1 or -1)) end
+    local function Cell(by, label, tip)
+        local b = CreateFrame("Button", nil, s)
+        b:SetSize(STEP, STEP)
+        b.label = ns.Text(b, 14)
+        b.label:SetPoint("CENTER", 0, 1)
+        b.label:SetText(label)
+        b.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+        local glow = b:CreateTexture(nil, "HIGHLIGHT")
+        glow:SetPoint("TOPLEFT", 1, -1)
+        glow:SetPoint("BOTTOMRIGHT", -1, 1)
+        glow:SetColorTexture(1, 1, 1, 0.08)
+        b:SetScript("OnClick", function() SetCount(p, p.count + by) end)
+        b:SetScript("OnEnter", function(self) ns.Tip(self, W.Beside, { title = tip }) end)
+        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        b:EnableMouseWheel(true)
+        b:SetScript("OnMouseWheel", Wheel)
+        return b
+    end
+    p.less = Cell(-1, "\226\136\146", Tr["One fewer."])
+    p.less:SetPoint("LEFT")
+    p.more = Cell(1, "+", Tr["One more."])
+    p.more:SetPoint("RIGHT")
+    local box = CreateFrame("EditBox", nil, s)
+    box:SetSize(BOX - 2, STEP - 2)
+    box:SetPoint("CENTER")
+    box:SetFont(ns.font, 13, "")
+    box:SetJustifyH("CENTER")
+    box:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    box:SetAutoFocus(false)
+    box:SetNumeric(true)
+    box:SetMaxLetters(3)
+    box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    box:SetScript("OnEditFocusLost", function(self) SetCount(p, self:GetText()) end)
+    box:SetScript("OnEscapePressed", function(self)
+        self:SetText(p.count)
+        self:ClearFocus()
+    end)
+    box:SetScript("OnEnter", function(self) ns.Tip(self, W.Beside, { title = Tr["Type a count, or scroll."] }) end)
+    box:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    box:EnableMouseWheel(true)
+    box:SetScript("OnMouseWheel", Wheel)
+    s:EnableMouseWheel(true)
+    s:SetScript("OnMouseWheel", Wheel)
+    p.counter = box
+    return s
+end
+
 local function Craft(p, all)
     if InCombatLockdown() or not p.chosen then return end
     local n = all and Count(p.chosen) or p.count
@@ -427,31 +641,14 @@ local function Band(p, foot, band)
             p.Refresh()
         end })
     p.unknown:SetPoint("LEFT", p.have, "RIGHT", 12, 0)
-    local function Step(by, label, tip)
-        local b = ns.window.Button(foot, 24, function()
-            p.count = math.max(1, math.min(999, p.count + by))
-            p.Refresh()
-        end, function() return tip end)
-        b:SetHeight(24)
-        b.label:SetText(label)
-        b.tipAt = W.Beside
-        return b
-    end
-    local less = Step(-1, "-", Tr["One fewer."])
-    less:SetPoint("BOTTOMLEFT", 4, 2)
-    p.counter = ns.Text(foot, 13)
-    p.counter:SetWidth(40)
-    p.counter:SetPoint("LEFT", less, "RIGHT", 2, 0)
-    p.counter:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    local more = Step(1, "+", Tr["One more."])
-    p.more = more
-    more:SetPoint("LEFT", p.counter, "RIGHT", 2, 0)
+    p.stepper = Stepper(p, foot)
+    p.stepper:SetPoint("BOTTOMLEFT", 4, 2)
     p.create = ns.window.Button(foot, 72, function() Craft(p, false) end,
         function() return InCombatLockdown() and Tr["Not in combat."] or Tr["Make as many as the count says."] end)
     p.create:SetHeight(24)
     p.create.tipAt = W.Beside
     p.create.label:SetText(Tr["Create"])
-    p.create:SetPoint("LEFT", more, "RIGHT", 10, 0)
+    p.create:SetPoint("LEFT", p.stepper, "RIGHT", 10, 0)
     p.createAll = ns.window.Button(foot, 88, function() Craft(p, true) end,
         function() return InCombatLockdown() and Tr["Not in combat."] or Tr["Make as many as the bags can."] end)
     p.createAll:SetHeight(24)
@@ -475,7 +672,9 @@ end
 
 local function Refresh(p)
     Banner(p)
-    p.counter:SetText(p.count)
+    -- the bags may now make fewer than the count says
+    if Ready(p) then p.count = math.min(p.count, Most(p)) end
+    if not p.counter:HasFocus() then p.counter:SetText(p.count) end
     if asked and W.Skill() == asked then asked = nil end      -- it came
     if not Ready(p) then
         -- chosen while another profession was opening: open it now
@@ -485,6 +684,7 @@ local function Refresh(p)
         p.details:Set(nil)
         p.create:SetAlpha(0.4)
         p.createAll:SetAlpha(0.4)
+        p.createAll.label:SetText(Tr["Create all"])
         return
     end
     p.list.empty:SetText(Tr["No recipes."])
@@ -497,6 +697,10 @@ local function Refresh(p)
     local can = not InCombatLockdown() and p.chosen and Count(p.chosen) > 0
     p.create:SetAlpha(can and p.count <= Count(p.chosen) and 1 or 0.4)
     p.createAll:SetAlpha(can and 1 or 0.4)
+    -- how many Create all makes, the button as wide as it says
+    local all = p.chosen and Count(p.chosen) or 0
+    p.createAll.label:SetText(all > 0 and format(Tr["Create all (%d)"], all) or Tr["Create all"])
+    p.createAll:SetWidth(math.max(88, math.ceil(p.createAll.label:GetStringWidth()) + 24))
 end
 
 for i = 1, SLOTS do
@@ -505,7 +709,7 @@ for i = 1, SLOTS do
     p.flex, p.height, p.bandUsed, p.under = true, 0, true, W.UNDER
     p.events = { "TRADE_SKILL_LIST_UPDATE", "TRADE_SKILL_DATA_SOURCE_CHANGED", "TRADE_SKILL_SHOW",
         "BAG_UPDATE_DELAYED", "SKILL_LINES_CHANGED", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-        "TRAINER_UPDATE", "PLAYER_LEVEL_UP" }
+        "TRAINER_UPDATE", "PLAYER_LEVEL_UP", "GET_ITEM_INFO_RECEIVED" }
     -- the i-th profession that crafts
     function p.Available()
         local n = 0
@@ -569,9 +773,9 @@ for i = 1, SLOTS do
         p.holder = holder
         p.list = ns.character.List(holder, Tr["No recipes."])
         p.details = ns.character.Details(foot, nil, Tr["Choose a recipe to read it."], 4)
-        p.tree = Tree(foot)
-        -- the details, the tree's rows, and the craft buttons' row
-        p.footHeight = math.max(p.details.height, TREE_TOP + TREE_ROWS * TREE_ROW) + 6 + 24 + 2
+        p.strip = Strip(foot)
+        -- the details, the strip, and the craft buttons' row
+        p.footHeight = math.max(p.details.height, STRIP_TOP + STRIP_H) + 6 + 24 + 2
         Band(p, foot, band)
     end
     function p.Fit(height) p.holder:SetHeight(height - HEAD) end
