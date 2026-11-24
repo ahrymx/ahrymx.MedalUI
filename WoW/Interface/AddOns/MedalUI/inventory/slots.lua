@@ -70,9 +70,23 @@ function ns.ItemGroup(itemID, quality)
     return CLASS[class] or "other"
 end
 
+-- (2026-11-24, the user's) the items in New stay there until the bags close
+-- (bags.lua's Seen): the game's own slot clears an item's new mark as the
+-- pointer passes over it (ContainerFrameItemButtonMixin:OnEnter), and the
+-- next drawing sent it to its group. Kept by bag and slot, with the item.
+local held = {}
+function ns.NewItemsSeen()
+    for key in pairs(held) do held[key] = nil end
+end
+
 -- What group an item goes in.
 local function Group(info, bag, slot)
-    if C_NewItems and C_NewItems.IsNewItem(bag, slot) then return "new" end
+    local key = bag .. ":" .. slot
+    if C_NewItems and C_NewItems.IsNewItem(bag, slot) then
+        held[key] = info.itemID
+        return "new"
+    end
+    if held[key] == info.itemID then return "new" end
     local quest = Container.GetContainerItemQuestInfo and Container.GetContainerItemQuestInfo(bag, slot)
     if info.quality ~= 0 and quest and quest.isQuestItem then return "quest" end
     return ns.ItemGroup(info.itemID, info.quality)

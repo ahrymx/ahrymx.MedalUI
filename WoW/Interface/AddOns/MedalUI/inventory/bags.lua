@@ -159,8 +159,10 @@ Remember = function()
     ns.db.bagsPoint = { point, relative, x, y }
 end
 
--- The new items are seen once the bags close, as Blizzard's bags do it.
+-- The new items are seen once the bags close, as Blizzard's bags do it;
+-- New lets go of the ones it held (slots.lua)
 local function Seen()
+    ns.NewItemsSeen()
     if not C_NewItems then return end
     for _, bag in ipairs(Bags()) do
         for slot = 1, Container.GetContainerNumSlots(bag) do

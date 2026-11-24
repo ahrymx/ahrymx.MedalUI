@@ -17849,6 +17849,22 @@ if bagsPass then
     -- 5. the groups
     page.settings.bagsView:Set("groups")
     grid("bags.groups")
+    -- (2026-11-24, the user's) the pointer passes over the new glaive: the
+    -- game's slot clears its mark (ContainerFrameItemButtonMixin:OnEnter),
+    -- and it stays in New until the bags close
+    W.new["0:3"] = nil
+    fire("BAG_UPDATE_DELAYED")
+    w.scripts.OnUpdate(w, 0.02)
+    grid("bags.groups, new one hovered")
+    -- a different item put in that slot is not held
+    local glaive = W.items["0:3"]
+    W.put(0, 3, 103, 2)
+    fire("BAG_UPDATE_DELAYED")
+    w.scripts.OnUpdate(w, 0.02)
+    grid("bags.groups, slot refilled")
+    W.items["0:3"] = glaive
+    fire("BAG_UPDATE_DELAYED")
+    w.scripts.OnUpdate(w, 0.02)
     chrome("bags.groups chrome")
     -- the window's own button goes back, through the page
     for _, r in ipairs(parts()) do
