@@ -577,12 +577,83 @@ function game.questieText(phrase)
     return phrase
 end
 
--- Questie's database, once Questie has loaded it; nil without it. Read from its
--- modules directly, as above: ImportModule would create an empty one.
+-- (2026-11-25) The standalone QuestieDB addon (LibQuestieDB) without Questie:
+-- its quests read into the shape Questie's GetQuest gives, and its fields
+-- through the same Query<Kind>Single, so the rest reads one database. Built
+-- once it is there; nil until then, or when its contract is not this one's.
+local QUESTIEDB_CONTRACT = 4
+local standalone
+
+local function libField(entity, id, field)
+    if type(entity) ~= "table" or type(entity.Get) ~= "function" then return end
+    local ok, value = pcall(entity.Get, id, field)
+    if ok and not isSecret(value) then return value end
+end
+
+-- an objectives group, { { id, text }, ... }, as Questie's ObjectiveData
+local function libObjectives(into, group, kind)
+    for _, entry in ipairs(type(group) == "table" and group or {}) do
+        if type(entry) == "table" and type(entry[1]) == "number" then
+            into[#into + 1] = { Type = kind, Id = entry[1], Text = type(entry[2]) == "string" and entry[2] or nil }
+        end
+    end
+end
+
+local function standaloneDB()
+    local lib = _G.LibQuestieDB
+    if standalone and standalone.lib == lib then return standalone end
+    local tables = { Quest = _G.QuestDB, NPC = _G.NpcDB, Object = _G.ObjectDB, Item = _G.ItemDB }
+    if type(lib) ~= "table" or isSecret(lib) or type(lib.RequireContract) ~= "function"
+        or type(tables.Quest) ~= "table" or type(tables.Quest.Get) ~= "function" then return end
+    local ok, fits = pcall(lib.RequireContract, QUESTIEDB_CONTRACT)
+    if not (ok and fits) then return end
+    local db = { lib = lib }
+    for kind, entity in pairs(tables) do
+        db["Query" .. kind .. "Single"] = function(id, field) return libField(entity, id, field) end
+    end
+    function db.GetQuest(id)
+        local quests = tables.Quest
+        if type(quests.Exists) == "function" then
+            local okExists, exists = pcall(quests.Exists, id)
+            if not (okExists and exists == true) then return end
+        end
+        local function get(field) return libField(quests, id, field) end
+        local name = get("name")
+        if type(name) ~= "string" then return end
+        local starts, ends = get("startedBy"), get("finishedBy")
+        starts, ends = type(starts) == "table" and starts or {}, type(ends) == "table" and ends or {}
+        local objectives, data = get("objectives"), {}
+        objectives = type(objectives) == "table" and objectives or {}
+        libObjectives(data, objectives[1], "monster")
+        libObjectives(data, objectives[2], "object")
+        libObjectives(data, objectives[3], "item")
+        for _, credit in ipairs(type(objectives[5]) == "table" and objectives[5] or {}) do
+            if type(credit) == "table" and type(credit[2]) == "number" then
+                data[#data + 1] = { Type = "killcredit", Id = credit[2],
+                    Text = type(credit[3]) == "string" and credit[3] or nil }
+            end
+        end
+        local flags = get("specialFlags")
+        return { Id = id, name = name, level = get("questLevel"), zoneOrSort = get("zoneOrSort"),
+            objectivesText = get("objectivesText"), ObjectiveData = data,
+            Starts = { NPC = starts[1], GameObject = starts[2], Item = starts[3] },
+            Finisher = { NPC = ends[1], GameObject = ends[2] },
+            preQuestSingle = get("preQuestSingle"), nextQuestInChain = get("nextQuestInChain"),
+            reputationReward = get("reputationReward"),
+            IsRepeatable = type(flags) == "number" and flags % 2 == 1 or nil }
+    end
+    standalone = db
+    return db
+end
+
+-- Questie's database, once Questie has loaded it; else the standalone
+-- QuestieDB's, above; nil without either. Questie's is read from its modules
+-- directly, as above: ImportModule would create an empty one.
 function game.questieDB()
     local modules = QuestieLoader and QuestieLoader._modules
     local db = type(modules) == "table" and not isSecret(modules) and modules.QuestieDB
     if type(db) == "table" and type(db.GetQuest) == "function" then return db end
+    return standaloneDB()
 end
 
 -- A quest as Questie's database has it (a table of its fields), or nil.

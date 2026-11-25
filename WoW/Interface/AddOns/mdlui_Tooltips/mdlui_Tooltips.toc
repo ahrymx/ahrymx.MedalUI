@@ -10,7 +10,7 @@
 ## Group: MedalUI
 ## IconTexture: Interface\AddOns\mdlui_Tooltips\art\logo
 ## SavedVariables: mdlui_TooltipsDB, mdlui_TooltipsCaptures
-## OptionalDeps: MedalUI, Questie, Auctionator, DialogueUI, EllesmereUI, LibSharedMedia-3.0
+## OptionalDeps: MedalUI, Questie, QuestieDB, Auctionator, DialogueUI, EllesmereUI, LibSharedMedia-3.0
 
 Core\Util.lua
 Core\Palette.lua

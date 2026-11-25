@@ -840,6 +840,100 @@ do
         print("tooltips questie pin hook", "drawn=" .. table.concat(drawn, ","))
         GameTooltip.IsForbidden, GameTooltip.NumLines, GameTooltip.GetOwner = nil, nil, nil
         ns.Hooks.renderLines = renderLines
+        -- (2026-11-25) Shift over the marker, with QuestieDB but not Questie
+        -- (nothing redraws the game's tooltip): the panel shows the rest
+        do
+            local lined = tip(pin, { "[30+] Bride of the Embalmer", "- 6/15 Beast Entrails" })
+            local was = {}
+            for _, k in ipairs({ "NumLines", "GetLeftLine", "GetRightLine", "GetOwner", "IsForbidden", "GetName" }) do
+                was[k] = rawget(GameTooltip, k)
+                GameTooltip[k] = function(_, ...) return lined[k](lined, ...) end
+            end
+            GameTooltip.IsForbidden = function() return false end
+            GameTooltip.shown = true
+            local timers = {}
+            local timer = C_Timer
+            C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
+            local function settle()
+                while #timers > 0 do table.remove(timers, 1)() end
+            end
+            local shift = IsShiftKeyDown
+            IsShiftKeyDown = function() return false end
+            ns.Hooks.renderLines(GameTooltip, Enum.TooltipDataType.Quest, 253)
+            settle()
+            local function words(label)
+                local list = {}
+                for _, t in ipairs(texts(ui.getPanel(GameTooltip))) do
+                    if t.text and t.text ~= "" and t.shown ~= false then list[#list + 1] = plain(t.text) end
+                end
+                print("tooltips questie pin shift " .. label, table.concat(list, " | "))
+            end
+            words("up")
+            IsShiftKeyDown = function() return true end
+            for _, f in ipairs(events.MODIFIER_STATE_CHANGED or {}) do
+                f.scripts.OnEvent(f, "MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+            end
+            settle()
+            words("pressed")
+            IsShiftKeyDown = function() return false end
+            for _, f in ipairs(events.MODIFIER_STATE_CHANGED or {}) do
+                f.scripts.OnEvent(f, "MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+            end
+            settle()
+            words("let go")
+            -- the same, as the game draws it: its quest data (the marker's
+            -- title), then its lines, the data processor's path
+            local post = postCalls[Enum.TooltipDataType.Quest]
+            print("tooltips questie pin data path", "post=" .. tostring(post ~= nil))
+            if post then
+                GameTooltip.IsTooltipType = function(_, t) return t == Enum.TooltipDataType.Quest end
+                GameTooltip:Hide()
+                GameTooltip.shown = true
+                ui.getPanel(GameTooltip):Hide()
+                post(GameTooltip, { type = Enum.TooltipDataType.Quest, id = 253,
+                    lines = { { lineIndex = 1, leftText = "Bride of the Embalmer", rightText = "" } } })
+                settle()
+                words("data, up")
+                IsShiftKeyDown = function() return true end
+                for _, f in ipairs(events.MODIFIER_STATE_CHANGED or {}) do
+                    f.scripts.OnEvent(f, "MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+                end
+                settle()
+                words("data, pressed")
+                -- the marker's tooltip refilled every 0.2 s while hovered
+                -- (QuestDataProvider's UpdateTooltip): cleared, its data,
+                -- its lines, shown
+                local function refresh()
+                    if GameTooltip.scripts.OnTooltipCleared then GameTooltip.scripts.OnTooltipCleared(GameTooltip) end
+                    post(GameTooltip, { type = Enum.TooltipDataType.Quest, id = 253,
+                        lines = { { lineIndex = 1, leftText = "Bride of the Embalmer", rightText = "" } } })
+                    GameTooltip:Show()
+                    settle()
+                end
+                refresh()
+                words("data, pressed, refreshed")
+                IsShiftKeyDown = function() return false end
+                for _, f in ipairs(events.MODIFIER_STATE_CHANGED or {}) do
+                    f.scripts.OnEvent(f, "MODIFIER_STATE_CHANGED", "LSHIFT", 0)
+                end
+                settle()
+                refresh()
+                words("data, let go, refreshed")
+                IsShiftKeyDown = function() return true end
+                for _, f in ipairs(events.MODIFIER_STATE_CHANGED or {}) do
+                    f.scripts.OnEvent(f, "MODIFIER_STATE_CHANGED", "LSHIFT", 1)
+                end
+                settle()
+                words("data, pressed again")
+                refresh()
+                words("data, pressed again, refreshed")
+                IsShiftKeyDown = function() return false end
+                GameTooltip.IsTooltipType = nil
+            end
+            IsShiftKeyDown, C_Timer = shift, timer
+            for k, v in pairs(was) do GameTooltip[k] = v end
+            GameTooltip.shown = false
+        end
         C_QuestLog, WorldMapFrame = CQ, mapWas
     end
     -- (2026-11-22) the chain's chip: the quests still to come after this
@@ -1191,6 +1285,29 @@ do
         IsInGroup, UnitName, UnitClass, C_QuestLog, C_TooltipInfo = was.IsInGroup, was.UnitName, was.UnitClass, was.CQ, was.CT
         Enum.TooltipDataLineType, PARTY_QUEST_STATUS_ON = was.types, was.on
     end
+    -- (2026-11-25) the standalone QuestieDB without Questie: its raw fields,
+    -- read into the same quest (WHERE, CHAIN, REPUTATION)
+    QuestieLoader = nil
+    local raw = {
+        Quest = { [253] = { name = "Bride of the Embalmer", questLevel = 30, zoneOrSort = 10,
+            objectivesText = { "Find Eliza's grave. Retrieve the Embalmer's Heart from her." },
+            objectives = { nil, nil, { { 2 } } }, startedBy = { { 264 } }, finishedBy = { { 264 } },
+            preQuestSingle = { 252 }, nextQuestInChain = 0, reputationReward = { { 72, 250 } }, specialFlags = 0 },
+            [252] = { name = "The Embalmer's Revenge" } },
+        Npc = { [264] = { name = "Ello Ebonlocke", zoneID = 42 } },
+        Object = {}, Item = { [2] = { name = "Embalmer's Heart" } },
+    }
+    local function entity(rows)
+        return { Get = function(id, field) return rows[id] and rows[id][field] end,
+            Exists = function(id) return rows[id] ~= nil end }
+    end
+    LibQuestieDB = { RequireContract = function(v) return v == 4 end }
+    QuestDB, NpcDB, ObjectDB, ItemDB = entity(raw.Quest), entity(raw.Npc), entity(raw.Object), entity(raw.Item)
+    card("standalone db", ui.questModel(link(), 253))
+    card("standalone db unknown quest", ui.questModel(link(), 999))
+    LibQuestieDB = { RequireContract = function() return false end }
+    card("standalone db wrong contract", ui.questModel(link(), 253))
+    LibQuestieDB, QuestDB, NpcDB, ObjectDB, ItemDB = nil, nil, nil, nil, nil
     QuestieLoader, C_Map.GetAreaInfo, C_Reputation.GetFactionDataByID = nil, area, faction
 end
 
