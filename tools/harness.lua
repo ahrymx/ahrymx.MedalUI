@@ -21990,7 +21990,7 @@ if spellPass then
                     end
                     table.insert(out, string.format("%s%s(%s)%s y=%d h=%d%s%s [%s]", c.label.text, c.sign.text,
                         c.text.shown and c.text.text:gsub("\n", "/") or c.first.text,
-                        c.bar.shown and "[ed]" or "", c.y, c.h, c.delete.shown and " del" or "",
+                        c.halo[1].shown and "[ed]" or "", c.y, c.h, c.delete.shown and " del" or "",
                         c.badge.shown and " mouse{" .. c.keys.text .. "}" or "", sec))
                 end
             end
@@ -22058,6 +22058,36 @@ if spellPass then
         MM.Refresh()
         cards("book.macros cards")
         edit("book.macros editor")
+        -- (2026-11-25, the plates look) the line numbers in the text's
+        -- gutter: one a line, at the first row it wraps to (the long second
+        -- line takes two), moved with the scroll; the cursor's line gold;
+        -- the letters' gauge filled by their share
+        do
+            local function numbers(tag)
+                MM.editor.Number()
+                local out = {}
+                for _, r in ipairs(MM.editor.gutter.all_ or {}) do
+                    if r.kind == "FontString" and r.shown and r.text and r.points.TOPRIGHT then
+                        local col = r.textColor or r.color or {}
+                        table.insert(out, string.format("%s@%d%s", tostring(r.text), r.points.TOPRIGHT[4],
+                            (col[1] == 0.941) and "*" or ""))
+                    end
+                end
+                print(tag, table.concat(out, " "), "gauge=" .. string.format("%.1f", MM.editor.fill.w or 0)
+                    .. "/" .. tostring(MM.editor.fill.shown))
+            end
+            local was = MacroFrameText:GetText()
+            MacroFrameText:SetText("/focus\n" .. string.rep("a", 80) .. "\n/cast Hex")
+            MacroFrameText.cursor = #"/focus\n" + 3
+            numbers("book.macros numbers")
+            MacroFrameScrollFrame.scroll = 14
+            numbers("book.macros numbers scrolled")
+            MacroFrameScrollFrame.scroll = 0
+            MacroFrameText:SetText(was)
+            MacroFrameText.cursor = 0
+            MM.Refresh()
+            numbers("book.macros numbers back")
+        end
         -- bound in Click Casting (Focus twice): the mouse and its clicks,
         -- named in its tooltip
         C_ClickBindings.SetProfileByInfo({ { type = 2, actionID = 2, button = "MiddleButton", modifiers = 1 },

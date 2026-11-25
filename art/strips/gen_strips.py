@@ -242,6 +242,15 @@ def glyph(kind, x, y):
         return P("M2,7 L6,7 L11,3 L11,17 L6,13 L2,13 Z"
                  "M13,8.4 L14.4,7 L16,8.6 L17.6,7 L19,8.4 L17.4,10 L19,11.6 L17.6,13 "
                  "L16,11.4 L14.4,13 L13,11.6 L14.6,10 Z")
+    # the macro editor's tray (spells/macros.lua): new, save, put back
+    if kind == "plus":          # a cross upright
+        return P("M8.6,3 L11.4,3 L11.4,8.6 L17,8.6 L17,11.4 L11.4,11.4 L11.4,17 L8.6,17 L8.6,11.4 "
+                 "L3,11.4 L3,8.6 L8.6,8.6 Z")
+    if kind == "check":         # a tick
+        return P("M2.5,10.5 L4.6,8.4 L8,11.8 L15.4,4.4 L17.5,6.5 L8,16 Z")
+    if kind == "undo":          # an arrow turning back on itself, its head at the left
+        return P("M5.2,7.4 C7.4,3.9 13.2,3.6 16,7.2 C18.8,10.8 16.9,16.6 11.4,17.3 L11.1,14.9 "
+                 "C14.6,14.4 15.7,11.1 14.1,8.8 C12.3,6.4 8.7,6.6 7.4,8.8 L9.8,10.3 L3,12.8 L2.6,5.8 Z")
     if kind == "close":         # a cross of two bars
         bar = '<rect x="8.4" y="1" width="3.2" height="18" rx="0.6" transform="rotate({} 10 10)"/>'
         return f'<g transform="translate({x},{y}) scale({s})" {f}>{bar.format(45)}{bar.format(-45)}</g>'
@@ -578,7 +587,7 @@ TABS = ["character", "reputation", "currency", "skills", "pvp", "statistics",
         "view-bags", "view-grid", "view-groups", "track", "track-off",
         "chat-tools", "chat", "channels", "log", "side-auras", "side-meter", "side-loot", "side-zone", "waypoint", "mouse", "edit",
         "mouse-left", "mouse-right", "mouse-middle",
-        "role-tank", "role-healer", "role-damage", "sound", "sound-off", "radial", "plans"]
+        "role-tank", "role-healer", "role-damage", "sound", "sound-off", "radial", "plans", "plus", "check", "undo"]
 
 
 def part(name, inner, size=32):

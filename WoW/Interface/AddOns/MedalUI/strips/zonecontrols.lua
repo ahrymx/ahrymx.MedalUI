@@ -41,8 +41,6 @@ local DIM = { 0.70, 0.66, 0.55 }
 -- the ink: solid under the controls, at the screen's edge, then fading
 -- away towards the screen's middle, to nothing at the tray's left end
 local FADE = { 0, 1 }
-local FRAME_TEX, FRAME_END = 64, 8      -- tray-frame: 64x32, the ends sliced 8 wide
-local IN = 2                            -- a slot's face, inside its frame's chamfer
 
 local C = {}
 ns.zoneControls = C
@@ -129,34 +127,10 @@ local function Paint(slot)
     end
 end
 
--- the chamfered engraved frame round a slot or a button: its dark line on
--- the outermost pixels, a faint gold lip a row under (the texture's own
--- 32 rows hang from the top: the frame's 27, then clear)
-local function Engrave(f)
-    f.frame = {}
-    local cut = FRAME_TEX - FRAME_END
-    for k, u in ipairs({ { 0, FRAME_END }, { FRAME_END, cut }, { cut, FRAME_TEX } }) do
-        local t = f:CreateTexture(nil, "BORDER")
-        t:SetTexture(ns.media .. "strips\\tray-frame")
-        t:SetTexCoord(u[1] / FRAME_TEX, u[2] / FRAME_TEX, 0, 1)
-        t:SetHeight(FRAME_TEX / 2)
-        f.frame[k] = t
-    end
-    f.frame[1]:SetWidth(FRAME_END)
-    f.frame[3]:SetWidth(FRAME_END)
-    f.frame[1]:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
-    f.frame[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
-    f.frame[2]:SetPoint("TOPLEFT", f.frame[1], "TOPRIGHT")
-    f.frame[2]:SetPoint("TOPRIGHT", f.frame[3], "TOPLEFT")
-end
-
--- a texture inside the frame's chamfer
-local function Inside(f, draw, sub)
-    local t = f:CreateTexture(nil, draw, nil, sub)
-    t:SetPoint("TOPLEFT", IN, -IN)
-    t:SetPoint("BOTTOMRIGHT", -IN, IN)
-    return t
-end
+-- the chamfered engraved frame (window/reskin.lua, loaded after this
+-- file: looked up as the tray is built)
+local function Engrave(f) ns.reskin.Engrave(f) end
+local function Inside(f, draw, sub) return ns.reskin.Inside(f, draw, sub) end
 
 local function Slot(i)
     local s = slots[i]

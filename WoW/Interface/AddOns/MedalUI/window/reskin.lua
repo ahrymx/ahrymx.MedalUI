@@ -12,7 +12,10 @@
 --   R.Font(fs, size, color)  our font, shadowed
 --   R.Lit(f)                 its box's edge (and glyph) lit under the mouse
 --   R.Plain(b)               a button's own states' art put away
---   R.Medal(owner, icon, inset)           an icon round in a gold rim
+--   R.Medal(owner, icon, inset, layer)    an icon round in a gold rim
+--   R.Shade(t, top, bottom)  a vertical shade, top's colour to bottom's
+--   R.Engrave(f)             the chamfered engraved frame (the zone tray's)
+--   R.Inside(f, draw, sub)   a texture inside that frame's chamfer
 --   R.Chrome(f, title, rules, hairAt)     the frame's art gone, ours under it
 --   R.Place(f)               where the LFG window stands, and kept there
 --   R.Stand(f, who, shown)   the spot's rules (one window there at a time)
@@ -133,6 +136,51 @@ function R.Lit(f)
     end)
 end
 
+-- A vertical shade on a texture: top's colour to bottom's ({ r, g, b, a })
+function R.Shade(t, top, bottom)
+    if t.SetGradient and CreateColor then
+        t:SetColorTexture(1, 1, 1, 1)
+        t:SetGradient("VERTICAL", CreateColor(bottom[1], bottom[2], bottom[3], bottom[4] or 1),
+            CreateColor(top[1], top[2], top[3], top[4] or 1))
+    else
+        t:SetColorTexture((top[1] + bottom[1]) / 2, (top[2] + bottom[2]) / 2, (top[3] + bottom[3]) / 2,
+            ((top[4] or 1) + (bottom[4] or 1)) / 2)
+    end
+end
+
+-- The chamfered engraved frame round a slot or a button (the zone tray's,
+-- strips/zonecontrols.lua; the macros' tray): its dark line on the
+-- outermost pixels, a faint gold lip a row under. The texture's own 32
+-- rows hang from the top (the frame's 27, then clear), so f is 26 or 27
+-- tall. f.frame holds its three slices.
+local FRAME_TEX, FRAME_END = 64, 8      -- tray-frame: 64x32, the ends sliced 8 wide
+R.ENGRAVED_IN = 2                       -- a face inside the frame's chamfer
+function R.Engrave(f)
+    f.frame = {}
+    local cut = FRAME_TEX - FRAME_END
+    for k, u in ipairs({ { 0, FRAME_END }, { FRAME_END, cut }, { cut, FRAME_TEX } }) do
+        local t = f:CreateTexture(nil, "BORDER")
+        t:SetTexture(ns.media .. "strips\\tray-frame")
+        t:SetTexCoord(u[1] / FRAME_TEX, u[2] / FRAME_TEX, 0, 1)
+        t:SetHeight(FRAME_TEX / 2)
+        f.frame[k] = t
+    end
+    f.frame[1]:SetWidth(FRAME_END)
+    f.frame[3]:SetWidth(FRAME_END)
+    f.frame[1]:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
+    f.frame[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
+    f.frame[2]:SetPoint("TOPLEFT", f.frame[1], "TOPRIGHT")
+    f.frame[2]:SetPoint("TOPRIGHT", f.frame[3], "TOPLEFT")
+end
+
+-- a texture inside an engraved frame's chamfer
+function R.Inside(f, draw, sub)
+    local t = f:CreateTexture(nil, draw, nil, sub)
+    t:SetPoint("TOPLEFT", R.ENGRAVED_IN, -R.ENGRAVED_IN)
+    t:SetPoint("BOTTOMRIGHT", -R.ENGRAVED_IN, R.ENGRAVED_IN)
+    return t
+end
+
 -- a button's own states' art (normal, pushed, lit, disabled): put away
 function R.Plain(b)
     R.Bare(b)
@@ -145,7 +193,9 @@ end
 -- An icon as a medallion: its square border cut off (once, before the
 -- mask: the game refuses tex coords after), masked round (inset from its
 -- edge), a thin gold ring round an ink well under it. Returns its dress.
-function R.Medal(owner, icon, inset)
+-- layer: the ring's and well's draw layer, sublevels 1 and 2 (the icon then
+-- above 2); unless given, BACKGROUND -6 and -5.
+function R.Medal(owner, icon, inset, layer)
     local d = deco[owner] or {}
     deco[owner] = d
     if d.rim then return d end
@@ -158,11 +208,11 @@ function R.Medal(owner, icon, inset)
         d.mask:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -inset, inset)
         icon:AddMaskTexture(d.mask)
     end
-    d.rim = owner:CreateTexture(nil, "BACKGROUND", nil, -6)
+    d.rim = owner:CreateTexture(nil, layer or "BACKGROUND", nil, layer and 1 or -6)
     d.rim:SetTexture(ROUND)
     d.rim:SetPoint("TOPLEFT", icon, "TOPLEFT", 0, 0)
     d.rim:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 0, 0)
-    d.well = owner:CreateTexture(nil, "BACKGROUND", nil, -5)
+    d.well = owner:CreateTexture(nil, layer or "BACKGROUND", nil, layer and 2 or -5)
     d.well:SetTexture(ROUND)
     d.well:SetPoint("TOPLEFT", icon, "TOPLEFT", 1.5, -1.5)
     d.well:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -1.5, 1.5)

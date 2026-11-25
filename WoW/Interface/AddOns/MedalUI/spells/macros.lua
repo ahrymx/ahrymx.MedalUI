@@ -3,22 +3,26 @@
 -- inside the page, dressed as Click Casting is (spells/clickcast.lua).
 --
 --   [ General  4 / 120 ][ Ahrymx  2 / 18 ]
---   +-----------------------------------------------------------+
---   | [ic] Heal                                               + |
---   |      /cast [@mouseover,help] Flash Heal                   |
---   +-----------------------------------------------------------+
---   | [ic] Focus                                              - |   opened
---   |-----------------------------------------------------------|
---   |   /focus                                                  |
---   |   /cast [@focus] Polymorph                       [Delete] |
---   +-----------------------------------------------------------+
---   ...
---   [ic] Focus (pencil)                    [+ New][Save][Cancel]
---   +-----------------------------------------------------------+
---   | /focus                                                    |
---   | /cast [@focus] Polymorph                                  |
---   +-----------------------------------------------------------+
---   Casts Polymorph                                    32 / 255
+--  (o)+--------------------------------------------------------+
+--  (o)| Heal                                                 + |   a raised plate, its
+--     | /cast [@mouseover,help] Flash Heal                     |   icon a medallion
+--     +--------------------------------------------------------+   over its left edge
+--  (o)+--------------------------------------------------------+
+--  (o)| Focus                                                - |   opened
+--     | ------------------------------------------------------ |
+--     | /focus                                                 |
+--     | /cast [@focus] Polymorph                        Delete |
+--     +--------------------------------------------------------+
+--   ...                       (the floor: a faint engraved hatch, a vignette)
+--   (o) Focus (pencil)          ~~[+ New][v Save][<- Cancel]    the engraved tray
+--   +-                                                       -+
+--     1 | /focus                                                  a page: gold
+--     2 | /cast [@focus] Polymorph                                corner brackets,
+--   +-                                                       -+   line numbers
+--   Casts [ic] Polymorph                         ===---  32 / 255
+--
+-- (The plates look: mockup C, /workspace/macros-mock-C-plates.png,
+-- the user's choice 2026-11-25.)
 --
 -- Tabs (joined under the head) for the account's macros and the character's, a card for
 -- each macro of the set (folded, its name and first line; opened, the
@@ -41,9 +45,20 @@ local R = ns.reskin
 local GOLD, GOLD_D = R.GOLD, R.GOLD_D
 local PLAIN = "Fonts\\ARIALN.TTF"       -- the macros' own words
 local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held (the book's)
-local HEAD, LINE = 40, 13               -- a card folded; a line of its text
-local SPACE = 6                         -- between the cards
-local ICON = 30
+local HEAD, LINE = 44, 13               -- a card folded; a line of its text
+local SPACE = 10                        -- between the cards
+local MEDAL = 42                        -- a card's icon, a medallion half out of its plate's left edge
+local TEXT_X = MEDAL / 2 + 10           -- a card's words, in from its plate's left edge
+local SHADOW = { 3, 4 }                 -- a plate's shadow: right, down
+local GLOW = 2                          -- the held plate's glow, out from its edge
+local PLATE_TOP = { 0.16, 0.14, 0.11, 1 } -- a plate's head, lit from above
+local FLOOR = { hatch = 0.05, vignette = 0.6, edge = 0.3 } -- the list's floor: its hatch, its edges' dark, its edge
+-- the editor's tray: a button's width and height (the engraved frame's 26),
+-- its glyph, between them, round them, the ink's fade out to the left
+local TRAY = { button = 84, height = 26, glyph = 14, gap = 4, pad = 3, fade = 40 }
+local PAGE = { inset = 4, bracket = 18 }  -- the text's page: its inner line, its corner brackets
+local GUTTER_W = 28                       -- the line numbers' gutter
+local GAUGE = 90                          -- the letters' gauge
 local EDITOR = 232                      -- the editor, under the list
 local BAR = 34                          -- the editor's header
 local GUTTER = 10                       -- the scroll bar, left of the list
@@ -164,6 +179,14 @@ local Refresh                           -- below: the page drawn again
 -- A card's click: Click Casting open, either button binds it; else the
 -- left opens or closes it and puts it in the editor. The right runs it:
 -- the secure button's, the client's.
+-- a spell's icon by its name (the game's answer, unless secret)
+local function SpellIcon(name)
+    local get = C_Spell and C_Spell.GetSpellTexture or _G.GetSpellTexture
+    if not get or ns.IsSecret(name) then return end
+    local ok, tex = pcall(get, name)
+    if ok and tex and not ns.IsSecret(tex) then return tex end
+end
+
 local function Click(c, button)
     if not c.i then return end
     if Binding() then
@@ -198,9 +221,20 @@ local function Card(n)
     local c = CreateFrame("Button", nil, scroller.child)
     c:SetFrameLevel(scroller.child:GetFrameLevel() + 1)
     local ink = ns.colors.ink
-    c.fill = c:CreateTexture(nil, "BACKGROUND", nil, -8)
+    -- a raised plate: its shadow cast down and right, an ink body, its head
+    -- lit from above, a gold line along its top and a dark one under it
+    c.shadow = c:CreateTexture(nil, "BACKGROUND", nil, -8)
+    c.shadow:SetPoint("TOPLEFT", SHADOW[1], -SHADOW[2])
+    c.shadow:SetPoint("BOTTOMRIGHT", SHADOW[1], -SHADOW[2])
+    c.shadow:SetColorTexture(0, 0, 0, 0.55)
+    c.fill = c:CreateTexture(nil, "BACKGROUND", nil, -7)
     c.fill:SetAllPoints()
-    c.fill:SetColorTexture(ink[1], ink[2], ink[3], 0.9)
+    c.fill:SetColorTexture(ink[1], ink[2], ink[3], 0.96)
+    c.band = c:CreateTexture(nil, "BACKGROUND", nil, -6)
+    c.band:SetPoint("TOPLEFT", 1, -1)
+    c.band:SetPoint("TOPRIGHT", -1, -1)
+    c.band:SetHeight(HEAD - 1)
+    R.Shade(c.band, PLATE_TOP, { ink[1], ink[2], ink[3], 0 })
     c.edges = {}
     for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT" },
         { "TOPRIGHT", "BOTTOMRIGHT" } }) do
@@ -210,26 +244,32 @@ local function Card(n)
         if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
         c.edges[i] = t
     end
-    c.band = c:CreateTexture(nil, "BACKGROUND", nil, -6)
-    c.band:SetPoint("TOPLEFT", 1, -1)
-    c.band:SetPoint("TOPRIGHT", -1, -1)
-    c.band:SetHeight(HEAD - 1)
-    R.Fade(c.band, GOLD_D, 0.45)
-    c.bar = c:CreateTexture(nil, "ARTWORK")
-    c.bar:SetPoint("TOPLEFT", 1, -1)
-    c.bar:SetPoint("BOTTOMLEFT", 1, 1)
-    c.bar:SetWidth(3)
-    c.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-    c.icon = c:CreateTexture(nil, "ARTWORK")
-    c.icon:SetSize(ICON, ICON)
-    c.icon:SetPoint("TOPLEFT", 10, -5)
-    c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    c.ring = c:CreateTexture(nil, "BACKGROUND", nil, 5)
-    c.ring:SetPoint("TOPLEFT", c.icon, -1, 1)
-    c.ring:SetPoint("BOTTOMRIGHT", c.icon, 1, -1)
-    c.ring:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    c.foot = c:CreateTexture(nil, "BORDER", nil, 1)
+    c.foot:SetPoint("BOTTOMLEFT", 1, 1)
+    c.foot:SetPoint("BOTTOMRIGHT", -1, 1)
+    c.foot:SetHeight(1)
+    c.foot:SetColorTexture(0, 0, 0, 0.9)
+    -- held: a soft gold glow round it, two lines out from its edge
+    c.halo = {}
+    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT", 0, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", 0, -1 },
+        { "TOPLEFT", "BOTTOMLEFT", -1, 0 }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 0 } }) do
+        local t = c:CreateTexture(nil, "BACKGROUND", nil, -8)
+        local dx, dy = side[3] * GLOW, side[4] * GLOW
+        local ex, ey = (side[3] == 0) and GLOW or 0, (side[4] == 0) and GLOW or 0
+        t:SetPoint(side[1], dx - ex, dy + ey)
+        t:SetPoint(side[2], dx + ex, dy - ey)
+        if i <= 2 then t:SetHeight(GLOW) else t:SetWidth(GLOW) end
+        t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.35)
+        t:Hide()
+        c.halo[i] = t
+    end
+    -- the icon: a medallion centred on the plate's left edge, half out
+    c.icon = c:CreateTexture(nil, "ARTWORK", nil, 3)
+    c.icon:SetSize(MEDAL, MEDAL)
+    c.icon:SetPoint("CENTER", c, "TOPLEFT", 0, -HEAD / 2)
+    c.medal = R.Medal(c, c.icon, 3, "ARTWORK")
     c.label = ns.Text(c, 12)
-    c.label:SetPoint("TOPLEFT", ICON + 18, -6)
+    c.label:SetPoint("TOPLEFT", TEXT_X, -8)
     c.label:SetPoint("RIGHT", -30, 0)
     c.label:SetJustifyH("LEFT")
     c.label:SetWordWrap(false)
@@ -260,22 +300,22 @@ local function Card(n)
     c.keys:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
     c.first = ns.Text(c, 10)
     Plain(c.first, 11, ns.colors.dim)
-    c.first:SetPoint("TOPLEFT", ICON + 18, -22)
+    c.first:SetPoint("TOPLEFT", TEXT_X, -26)
     c.first:SetPoint("RIGHT", -30, 0)
     c.first:SetJustifyH("LEFT")
     c.first:SetWordWrap(false)
     c.sign = ns.Text(c, 14)
-    c.sign:SetPoint("TOPRIGHT", -12, -12)
+    c.sign:SetPoint("TOPRIGHT", -12, -14)
     c.sign:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
     -- opened: a rule under the head, the whole text, Delete at the foot
     c.rule = c:CreateTexture(nil, "ARTWORK")
     c.rule:SetHeight(1)
-    c.rule:SetPoint("TOPLEFT", 1, -HEAD)
-    c.rule:SetPoint("TOPRIGHT", -1, -HEAD)
-    c.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    c.rule:SetPoint("TOPLEFT", TEXT_X, -HEAD)
+    c.rule:SetPoint("TOPRIGHT", -12, -HEAD)
+    c.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
     c.text = ns.Text(c, 11)
     Plain(c.text, 12, ns.colors.text)
-    c.text:SetPoint("TOPLEFT", 14, -(HEAD + 7))
+    c.text:SetPoint("TOPLEFT", TEXT_X, -(HEAD + 7))
     c.text:SetJustifyH("LEFT")
     c.text:SetJustifyV("TOP")
     c.text:SetWordWrap(true)
@@ -283,11 +323,11 @@ local function Card(n)
     c.delete:SetSize(64, 20)
     c.delete:SetPoint("BOTTOMRIGHT", -8, 6)
     c.delete:SetFrameLevel(c:GetFrameLevel() + 2)
-    R.Box(c.delete, 0.4)
-    R.Lit(c.delete)
+    -- a quiet word, lit gold under the mouse
     c.delete.label = ns.Text(c.delete, 11)
-    c.delete.label:SetPoint("CENTER")
+    c.delete.label:SetPoint("RIGHT", -4, 0)
     c.delete.label:SetText(Tr["Delete"])
+    c.delete.label:SetTextColor(GOLD_D[1], GOLD_D[2], GOLD_D[3])
     -- the game's own confirm, which deletes the macro in the editor
     c.delete:SetScript("OnClick", function()
         if Fighting() then return end
@@ -299,13 +339,21 @@ local function Card(n)
             { "body", Tr["Asks first."] } })
     end)
     c.delete:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    -- what the secure button covers: the head within the edges
+    c.delete:HookScript("OnEnter", function(self) self.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) end)
+    c.delete:HookScript("OnLeave", function(self) self.label:SetTextColor(GOLD_D[1], GOLD_D[2], GOLD_D[3]) end)
+    -- the medallion half out of the plate clicks as its head does
+    c:SetHitRectInsets(-MEDAL / 2, 0, 0, 0)
+    -- what the secure button covers: the head within the edges, and the
+    -- medallion out past the left one
     c.hit = CreateFrame("Frame", nil, c)
-    c.hit:SetPoint("TOPLEFT", 1, -1)
+    c.hit:SetPoint("TOPLEFT", -MEDAL / 2, -1)
     c.hit:SetPoint("TOPRIGHT", -1, -1)
     c.hit:SetHeight(HEAD - 1)
+    -- under the mouse: the plate's head lit (not the square round the medallion)
     c.glow = c:CreateTexture(nil, "HIGHLIGHT")
-    c.glow:SetAllPoints(c.hit)
+    c.glow:SetPoint("TOPLEFT", 1, -1)
+    c.glow:SetPoint("TOPRIGHT", -1, -1)
+    c.glow:SetHeight(HEAD - 1)
     c.glow:SetColorTexture(1, 1, 1, 0.06)
     -- in combat (the secure layer away), or cut by the scroll's edge: the
     -- left opens it, the right runs nothing
@@ -340,8 +388,10 @@ local function Secure(n)
     end)
     b:SetScript("OnEnter", function(self) if self.card then Tooltip(self, self.card) end end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- (it covers the medallion too, out past the plate: lit on the plate)
     local glow = b:CreateTexture(nil, "HIGHLIGHT")
-    glow:SetAllPoints()
+    glow:SetPoint("TOPLEFT", MEDAL / 2 + 1, 0)
+    glow:SetPoint("BOTTOMRIGHT")
     glow:SetColorTexture(1, 1, 1, 0.06)
     layer.buttons[n] = b
     return b
@@ -481,8 +531,11 @@ local function Cards()
     local f = MacroFrame
     local _, count, base = Set()
     local selected = f:GetSelectedIndex()
-    local width = W.width - GUTTER
-    local y = 0
+    -- each plate in from the left by half its medallion (which stands out
+    -- over its edge) and short of the right by its shadow: the scroll's
+    -- clip cuts neither; the first down by the held one's glow
+    local width = W.width - GUTTER - MEDAL / 2 - SHADOW[1] - 1
+    local y = GLOW
     -- the profile's macro bindings (the book's option, as its spells')
     local bound = ns.db.spellbookClickCast and ns.clickcast and ns.clickcast.Macros and ns.clickcast.Macros() or {}
     local binding = Binding()
@@ -513,17 +566,21 @@ local function Cards()
         c.delete:SetShown(open)
         local h = HEAD
         if open then
-            c.text:SetWidth(width - 28)
+            c.text:SetWidth(width - TEXT_X - 14)
             c.text:SetText(text)
             local lines = select(2, text:gsub("\n", "")) + 1
             h = HEAD + 7 + math.max(lines * LINE, c.text:GetStringHeight() or 0) + 8 + 20 + 6
         end
+        -- held: its edge, its top line and its medallion's rim in gold, the glow
         local on = i == selected
         local edge = on and GOLD or GOLD_D
-        for _, t in ipairs(c.edges) do t:SetColorTexture(edge[1], edge[2], edge[3], 1) end
-        c.bar:SetShown(on)
+        for k, t in ipairs(c.edges) do
+            t:SetColorTexture(edge[1], edge[2], edge[3], (on or k == 1) and 1 or 0.6)
+        end
+        for _, t in ipairs(c.halo) do t:SetShown(on) end
+        c.medal.rim:SetVertexColor(edge[1], edge[2], edge[3], 1)
         c:ClearAllPoints()
-        c:SetPoint("TOPLEFT", 0, -y)
+        c:SetPoint("TOPLEFT", MEDAL / 2, -y)
         c:SetSize(width, h)
         c.y, c.h = y, h
         c:Show()
@@ -533,7 +590,7 @@ local function Cards()
         cards[i].i, cards[i].index, cards[i].name = nil, nil, nil
         cards[i]:Hide()
     end
-    scroller.child:SetSize(width, math.max(1, y - SPACE))
+    scroller.child:SetSize(W.width - GUTTER, math.max(1, y - SPACE + SHADOW[2] + GLOW))
 end
 
 -- The editor's header and foot: the macro in it, what the game's buttons
@@ -548,7 +605,8 @@ local function Paint()
     if index then name, icon = GetMacroInfo(index) end
     editor.icon:SetTexture(icon)
     editor.icon:SetShown(name ~= nil)
-    editor.ring:SetShown(name ~= nil)
+    editor.medal.rim:SetShown(name ~= nil)
+    editor.medal.well:SetShown(name ~= nil)
     editor.name:SetText(name or "")
     editor.pencil:SetShown(name ~= nil)
     local free = not Combat()
@@ -559,8 +617,16 @@ local function Paint()
     editor.buttons:Set("save", { enabled = free and can, selected = free and can and edited })
     editor.buttons:Set("cancel", { enabled = can and edited })
     local spell = index and Spell(index)
-    editor.casts:SetText(spell and format(Tr["Casts %s"], spell) or "")
-    editor.count:SetText(can and format("%d / %d", MacroFrameText:GetNumLetters(), LETTERS) or "")
+    -- the spell it casts, its icon before its name
+    local tex = spell and SpellIcon(spell)
+    local said = spell and (tex and format("|T%s:14:14:0:0:64:64:5:59:5:59|t %s", tex, spell) or spell)
+    editor.casts:SetText(said and format(Tr["Casts %s"], said) or "")
+    local letters = can and MacroFrameText:GetNumLetters() or 0
+    editor.count:SetText(can and format("%d / %d", letters, LETTERS) or "")
+    editor.gauge:SetShown(can)
+    editor.fill:SetShown(can and letters > 0)
+    editor.fill:SetWidth(math.max(1, GAUGE * math.min(1, letters / LETTERS)))
+    editor.Number()
 end
 
 function Refresh()
@@ -574,29 +640,167 @@ end
 M.Refresh = Refresh
 
 -- ---------------------------------------------------------------- editor
+-- The editor's buttons: a joined engraved tray at the head's right (the
+-- zone tray's recipe, strips/zonecontrols.lua), the ink solid under the
+-- buttons and fading out leftwards, a gold line along its top and foot.
+-- Each button in the chamfered engraved frame, a glyph and its word; Save
+-- filled gold while there is typing to save. t:Set(key, { enabled,
+-- selected }) as ns.window.Segments' (Paint), t.byKey its buttons.
+local function Tray(parent, items)
+    local t = CreateFrame("Frame", nil, parent)
+    t.byKey, t.list = {}, {}
+    local ink = ns.colors.ink
+    local fade = t:CreateTexture(nil, "BACKGROUND", nil, 1)
+    fade:SetPoint("TOPRIGHT", t, "TOPLEFT")
+    fade:SetPoint("BOTTOMRIGHT", t, "BOTTOMLEFT")
+    fade:SetWidth(TRAY.fade)
+    fade:SetColorTexture(1, 1, 1, 1)
+    if fade.SetGradient and CreateColor then
+        fade:SetGradient("HORIZONTAL", CreateColor(ink[1], ink[2], ink[3], 0), CreateColor(ink[1], ink[2], ink[3], 1))
+    else
+        fade:SetColorTexture(ink[1], ink[2], ink[3], 0.5)
+    end
+    local solid = t:CreateTexture(nil, "BACKGROUND", nil, 1)
+    solid:SetAllPoints()
+    solid:SetColorTexture(ink[1], ink[2], ink[3], 1)
+    for _, at in ipairs({ "TOP", "BOTTOM" }) do
+        local line = t:CreateTexture(nil, "BORDER")
+        line:SetPoint(at .. "LEFT", fade, at .. "LEFT")
+        line:SetPoint(at .. "RIGHT", t, at .. "RIGHT")
+        line:SetHeight(1)
+        if line.SetGradient and CreateColor then
+            line:SetColorTexture(1, 1, 1, 1)
+            line:SetGradient("HORIZONTAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0),
+                CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1))
+        else
+            line:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
+        end
+    end
+    local x = TRAY.pad
+    for _, item in ipairs(items) do
+        local b = CreateFrame("Button", nil, t)
+        b.key, b.enabled, b.selected = item.key, true, false
+        b:SetSize(TRAY.button, TRAY.height)
+        b:SetPoint("LEFT", t, "LEFT", x, 0)
+        x = x + TRAY.button + TRAY.gap
+        R.Engrave(b)
+        local face = R.Inside(b, "BACKGROUND", 2)
+        face:SetColorTexture(ink[1], ink[2], ink[3], 1)
+        b.mark = R.Inside(b, "BACKGROUND", 3)
+        b.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.45)
+        b.mark:Hide()
+        R.Inside(b, "HIGHLIGHT"):SetColorTexture(1, 1, 1, 0.12)
+        b.glyph = b:CreateTexture(nil, "ARTWORK")
+        b.glyph:SetTexture(R.GLYPHS .. item.glyph)
+        b.glyph:SetSize(TRAY.glyph, TRAY.glyph)
+        b.glyph:SetPoint("LEFT", 9, 0)
+        b.label = ns.Text(b, 12)
+        b.label:SetPoint("LEFT", b.glyph, "RIGHT", 4, 0)
+        b.label:SetText(item.label)
+        -- pressed while off too, as the joined buttons were: the press itself
+        -- refuses in a fight, and says so (Fighting)
+        b:SetScript("OnClick", function() item.click() end)
+        b:SetScript("OnEnter", function(self)
+            ns.Tip(self, ns.window.Outside, { title = item.label, color = GOLD, { "body", item.tip() } })
+        end)
+        b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        t.byKey[item.key] = b
+        table.insert(t.list, b)
+    end
+    t:SetSize(x - TRAY.gap + TRAY.pad, TRAY.height + 2 * TRAY.pad)
+    local function Look(b)
+        local c = b.selected and GOLD or (b.enabled and ns.colors.text or ns.colors.dim)
+        b.label:SetTextColor(c[1], c[2], c[3])
+        local g = b.selected and GOLD or (b.enabled and GOLD_D or ns.colors.dim)
+        b.glyph:SetVertexColor(g[1], g[2], g[3])
+        b.mark:SetShown(b.selected)
+        b:SetAlpha(b.enabled and 1 or 0.4)
+    end
+    function t:Set(key, state)
+        local b = self.byKey[key]
+        if not b then return end
+        if state.enabled ~= nil then b.enabled = state.enabled and true or false end
+        b.selected = state.selected and true or false
+        Look(b)
+    end
+    for _, b in ipairs(t.list) do Look(b) end
+    return t
+end
+
+-- The text's line numbers, in a gutter at the well's left: one for each
+-- of the text's lines, at the first row it wraps to (a hidden string of
+-- the box's font and width measures each), moved with the box's scroll;
+-- the cursor's line in gold. Drawn again as the text, the cursor, the
+-- scroll or the size change.
+local function Numbers(e)
+    local g = e.gutter
+    local pool = {}
+    local meter = g:CreateFontString(nil, "ARTWORK")
+    meter:Hide()
+    Plain(meter, 13)
+    meter:SetWordWrap(true)
+    local function Number(k)
+        local n = pool[k]
+        if n then return n end
+        n = g:CreateFontString(nil, "ARTWORK")
+        Plain(n, 11)
+        n:SetJustifyH("RIGHT")
+        n:SetWidth(GUTTER_W - 6)
+        pool[k] = n
+        return n
+    end
+    function e.Number()
+        local box, scroll = MacroFrameText, MacroFrameScrollFrame
+        if not (box and scroll) then return end
+        local text = box:GetText() or ""
+        if ns.IsSecret(text) then text = "" end
+        local width = box:GetWidth() or 0
+        meter:SetWidth(width > 0 and width or 1)
+        meter:SetText("X")
+        local row = meter:GetStringHeight() or 13
+        if row <= 0 then row = 13 end
+        local cursor = box.GetCursorPosition and box:GetCursorPosition() or 0
+        local here = select(2, text:sub(1, cursor):gsub("\n", "")) + 1
+        local top = -(scroll:GetVerticalScroll() or 0)
+        local rows, k = 0, 0
+        for line in (text .. "\n"):gmatch("(.-)\n") do
+            k = k + 1
+            meter:SetText(line ~= "" and line or " ")
+            local n = Number(k)
+            n:ClearAllPoints()
+            n:SetPoint("TOPRIGHT", g, "TOPRIGHT", -6, top - rows * row)
+            n:SetText(k)
+            local c = k == here and GOLD or GOLD_D
+            n:SetTextColor(c[1], c[2], c[3], k == here and 1 or 0.7)
+            n:Show()
+            rows = rows + math.max(1, math.floor((meter:GetStringHeight() or row) / row + 0.5))
+        end
+        if text == "" then pool[1]:Hide() end
+        for i = k + 1, #pool do pool[i]:Hide() end
+    end
+end
+
 local function Editor(parent)
     local e = CreateFrame("Frame", nil, parent)
     e:SetPoint("BOTTOMLEFT")
     e:SetPoint("BOTTOMRIGHT")
     e:SetHeight(EDITOR)
-    -- its header: the macro's icon and name, the pencil, New Save Cancel
+    -- its header: the macro's medallion and name, the pencil, the tray
     e.head = CreateFrame("Frame", nil, e)
     e.head:SetPoint("TOPLEFT")
     e.head:SetPoint("TOPRIGHT")
     e.head:SetHeight(BAR)
     R.Box(e.head, 0.9)
-    local band = e.head:CreateTexture(nil, "BACKGROUND", nil, -6)
+    local band = e.head:CreateTexture(nil, "BACKGROUND", nil, -4)
     band:SetPoint("TOPLEFT", 1, -1)
     band:SetPoint("BOTTOMRIGHT", -1, 1)
-    R.Fade(band, GOLD_D, 0.55)
-    e.icon = e.head:CreateTexture(nil, "ARTWORK")
-    e.icon:SetSize(24, 24)
-    e.icon:SetPoint("LEFT", 8, 0)
-    e.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    e.ring = e.head:CreateTexture(nil, "BORDER")
-    e.ring:SetPoint("TOPLEFT", e.icon, -1, 1)
-    e.ring:SetPoint("BOTTOMRIGHT", e.icon, 1, -1)
-    e.ring:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    R.Shade(band, PLATE_TOP, { ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0 })
+    e.icon = e.head:CreateTexture(nil, "ARTWORK", nil, 3)
+    e.icon:SetSize(28, 28)
+    e.icon:SetPoint("LEFT", 6, 0)
+    e.medal = R.Medal(e.head, e.icon, 2, "ARTWORK")
+    e.medal.rim:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1)
+    e.ring = e.medal.rim
     e.name = ns.Text(e.head, 13)
     e.name:SetPoint("LEFT", e.icon, "RIGHT", 10, 0)
     e.name:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
@@ -610,27 +814,58 @@ local function Editor(parent)
         ns.Tip(self, ns.window.Outside, { title = Tr["Change its name and icon"], color = GOLD })
     end)
     e.pencil:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    e.buttons = ns.window.Segments(e.head, { height = BAR - 8, fit = true, size = 12, items = {
-        { key = "new", label = Tr["+  New"], click = function() Write(MacroNewButton) end,
+    e.buttons = Tray(e.head, {
+        { key = "new", glyph = "plus", label = Tr["New"], click = function() Write(MacroNewButton) end,
             tip = function()
                 return Combat() and Tr["Not in combat."] or Tr["A new macro in this set: its name and icon first."]
             end },
-        { key = "save", label = Tr["Save"], click = function() Write(MacroSaveButton) end,
+        { key = "save", glyph = "check", label = Tr["Save"], click = function() Write(MacroSaveButton) end,
             tip = function() return Combat() and Tr["Not in combat."] or Tr["Save the text."] end },
-        { key = "cancel", label = Tr["Cancel"], click = function()
+        { key = "cancel", glyph = "undo", label = Tr["Cancel"], click = function()
             if not edited then return end
             Press(MacroCancelButton)
             -- the text back as it was saved
             local i = MacroFrame:GetSelectedIndex()
             if i then MacroFrame:SelectMacro(i) end
         end, tip = function() return Tr["Put the text back as it was saved."] end },
-    } })
-    e.buttons:SetPoint("RIGHT", -4, 0)
-    -- the text, in a well the game's own edit box is laid in
+    })
+    e.buttons:SetPoint("RIGHT", -1, 0)
+    -- the text: a page in a double frame, gold brackets at its corners, the
+    -- game's own edit box laid in it right of the line numbers' gutter
     e.well = CreateFrame("Frame", nil, e)
     e.well:SetPoint("TOPLEFT", e.head, "BOTTOMLEFT", 0, -6)
     e.well:SetPoint("BOTTOMRIGHT", 0, 20)
     R.Box(e.well, 0.95)
+    local inner = {}
+    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local t = e.well:CreateTexture(nil, "BORDER")
+        local sx = side[1]:find("RIGHT") and -PAGE.inset or PAGE.inset
+        local sy = side[1]:find("BOTTOM") and PAGE.inset or -PAGE.inset
+        local ex = side[2]:find("RIGHT") and -PAGE.inset or PAGE.inset
+        local ey = side[2]:find("BOTTOM") and PAGE.inset or -PAGE.inset
+        t:SetPoint(side[1], sx, sy)
+        t:SetPoint(side[2], ex, ey)
+        if side[3] then t:SetHeight(1) else t:SetWidth(1) end
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.3)
+        table.insert(inner, t)
+    end
+    e.brackets = {}
+    for _, corner in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
+        for _, across in ipairs({ true, false }) do
+            local t = e.well:CreateTexture(nil, "ARTWORK")
+            t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+            t:SetSize(across and PAGE.bracket or 2, across and 2 or PAGE.bracket)
+            t:SetPoint(corner)
+            table.insert(e.brackets, t)
+        end
+    end
+    e.gutter = CreateFrame("Frame", nil, e.well)
+    e.gutter:SetPoint("TOPLEFT", PAGE.inset, -8)
+    e.gutter:SetPoint("BOTTOMLEFT", PAGE.inset, 8)
+    e.gutter:SetWidth(GUTTER_W)
+    e.gutter:SetClipsChildren(true)
+    Numbers(e)
     e.empty = ns.Text(e.well, 12)
     e.empty:SetPoint("CENTER")
     e.empty:SetTextColor(unpack(ns.colors.dim))
@@ -641,6 +876,15 @@ local function Editor(parent)
     e.count = ns.Text(e, 11)
     e.count:SetPoint("BOTTOMRIGHT", -4, 3)
     e.count:SetTextColor(unpack(ns.colors.dim))
+    -- the letters used, as a gauge left of their count
+    e.gauge = e:CreateTexture(nil, "ARTWORK")
+    e.gauge:SetSize(GAUGE, 3)
+    e.gauge:SetPoint("RIGHT", e.count, "LEFT", -10, 0)
+    e.gauge:SetColorTexture(0, 0, 0, 1)
+    e.fill = e:CreateTexture(nil, "ARTWORK", nil, 1)
+    e.fill:SetHeight(3)
+    e.fill:SetPoint("LEFT", e.gauge, "LEFT")
+    e.fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
     return e
 end
 
@@ -652,6 +896,36 @@ local function Place()
     f:SetPoint("TOPLEFT", body, "TOPLEFT")
     f:SetPoint("BOTTOMRIGHT", body, "BOTTOMRIGHT")
     placing = false
+end
+
+-- The game's scroll bar for the text, kept working (its arrows, track and
+-- thumb its own), its art put away: ours a thin gold track and a gold
+-- thumb on its own. Either kind the game gives: a track with a thumb
+-- frame (retail's), or a thumb texture (the older panel bar).
+local function ScrollBar(scroll)
+    local bar = scroll.ScrollBar or (scroll.GetName and scroll:GetName() and _G[scroll:GetName() .. "ScrollBar"])
+    if not bar then return end
+    local track = bar.Track
+    local thumb = (track and track.Thumb) or bar.ThumbTexture or (bar.GetThumbTexture and bar:GetThumbTexture())
+    for _, part in ipairs({ bar, track, track and track.Thumb, bar.Back, bar.Forward, bar.ScrollUpButton,
+        bar.ScrollDownButton }) do
+        if part and part.GetRegions then R.Bare(part) end
+        if part and part.GetNormalTexture then R.Plain(part) end
+    end
+    if thumb and thumb.SetAlpha and not thumb.GetRegions then thumb:SetAlpha(0) end
+    local line = bar:CreateTexture(nil, "BACKGROUND", nil, 7)
+    line:SetPoint("TOP", 0, -4)
+    line:SetPoint("BOTTOM", 0, 4)
+    line:SetWidth(1)
+    line:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
+    if thumb then
+        local host = thumb.CreateTexture and thumb or bar
+        local t = host:CreateTexture(nil, "OVERLAY", nil, 7)
+        t:SetPoint("TOP", thumb, "TOP")
+        t:SetPoint("BOTTOM", thumb, "BOTTOM")
+        t:SetWidth(3)
+        t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    end
 end
 
 -- The game's frame bare: its art, its title and words away; its grid,
@@ -680,9 +954,16 @@ local function Strip(f)
     -- its text box in our well
     local scroll = MacroFrameScrollFrame
     scroll:ClearAllPoints()
-    scroll:SetPoint("TOPLEFT", editor.well, "TOPLEFT", 10, -8)
+    scroll:SetPoint("TOPLEFT", editor.gutter, "TOPRIGHT", 6, 0)
     scroll:SetPoint("BOTTOMRIGHT", editor.well, "BOTTOMRIGHT", -26, 8)
     Plain(MacroFrameText, 13, ns.colors.text)
+    -- the line numbers follow the text, the cursor and the scroll
+    MacroFrameText:HookScript("OnCursorChanged", function() editor.Number() end)
+    if scroll.HookScript then
+        scroll:HookScript("OnVerticalScroll", function() editor.Number() end)
+        scroll:HookScript("OnScrollRangeChanged", function() editor.Number() end)
+    end
+    ScrollBar(scroll)
     -- the box as big as the well, so a press anywhere in it lands on the
     -- text and a drag selects; the game's button over it (which only
     -- focuses) out of the mouse's way
@@ -690,7 +971,7 @@ local function Strip(f)
         if w and w > 0 then MacroFrameText:SetSize(w, h) end
     end
     MacroFrameText:SetSize(W.width - 36, EDITOR - BAR - 6 - 20 - 16)
-    scroll:HookScript("OnSizeChanged", function(_, w, h) Fit(w, h) end)
+    scroll:HookScript("OnSizeChanged", function(_, w, h) Fit(w, h) editor.Number() end)
     MacroFrameTextButton:ClearAllPoints()
     MacroFrameTextButton:SetAllPoints(scroll)
     MacroFrameTextButton:EnableMouse(false)
@@ -904,6 +1185,27 @@ function M.Build(p, b)
     list = CreateFrame("Frame", nil, b)
     list:SetPoint("TOPLEFT", 0, -4)
     list:SetPoint("BOTTOMRIGHT", 0, EDITOR + 10)
+    -- the plates' floor: a faint engraved hatch, darkening to its edges,
+    -- a faint gold edge round it
+    local hatch = list:CreateTexture(nil, "BACKGROUND", nil, -8)
+    hatch:SetAllPoints()
+    hatch:SetTexture(ns.media .. "strips\\stripes", "REPEAT", "REPEAT")
+    hatch:SetHorizTile(true)
+    hatch:SetVertTile(true)
+    hatch:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+    hatch:SetAlpha(FLOOR.hatch)
+    local vignette = list:CreateTexture(nil, "BACKGROUND", nil, -7)
+    vignette:SetAllPoints()
+    vignette:SetTexture(ns.media .. "gamemenu-vignette")
+    vignette:SetVertexColor(0, 0, 0, FLOOR.vignette)
+    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local t = list:CreateTexture(nil, "BACKGROUND", nil, -6)
+        t:SetPoint(side[1])
+        t:SetPoint(side[2])
+        if side[3] then t:SetHeight(1) else t:SetWidth(1) end
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], FLOOR.edge)
+    end
     scroller = ns.window.Scroller(list, GUTTER)
     scroller.Moved = function() Follow() end
     list:EnableMouseWheel(true)
