@@ -19389,7 +19389,9 @@ if characterPass then
         local out = {}
         for _, b in ipairs(row.buttons) do
             table.insert(out, b.label.text .. ">" .. tostring(b.attrs.clickbutton and b.attrs.clickbutton.name)
-                .. "(" .. tostring(b.attrs.type) .. ")")
+                .. "(" .. tostring(b.attrs.type) .. ")@" .. tostring(b.points.TOPLEFT[3]) .. ","
+                .. tostring(b.points.TOPLEFT[4]) .. "+" .. tostring(b.w) .. "x" .. tostring(b.h)
+                .. (b.slot and "[slot]" or ""))
         end
         print(tag, "shown=" .. tostring(row.shown), "driver=" .. tostring(row.stateDrivers
             and row.stateDrivers.visibility), "parent=" .. tostring(row.parent == ns.strips[-1]),
@@ -22808,6 +22810,25 @@ if talentPass then
                 for _, g in ipairs(m.gaps) do table.insert(t, "gap@" .. g) end
                 return table.concat(t, " ") .. " h=" .. m.h
             end)())
+        -- (2026-11-25, the user's pick A of /workspace/tabs-mock-sheet.png)
+        -- the band's buttons engraved slots in a sunk tray: each its slot,
+        -- in from the band's top and foot; the held one's lip gold, its
+        -- face and underline shown, the others' lip gold_d
+        do
+            local t = {}
+            for _, b in ipairs(elemT.margin.buttons) do
+                if b.shown then
+                    local v = b.slot and b.slot[1].vertex
+                    table.insert(t, string.format("%s%s y=%s h=%s lip=%s held=%s under=%s", b.slotOn and "*" or "",
+                        b.data.label, tostring(b.points.TOPLEFT[4]), tostring(b.h),
+                        v and string.format("%.2f", v[1]) or "-", tostring(b.slotHeld and b.slotHeld.shown),
+                        tostring(b.slotUnder and b.slotUnder[1].shown)))
+                end
+            end
+            print("talents.chrome engraved", "slots=" .. #(elemT.margin.buttons[1].slot or {}),
+                "recess=" .. tostring(elemT.margin.recess and #elemT.margin.recess) .. " (its gold edge: 4)",
+                table.concat(t, " | "))
+        end
         local hint = elemT.planLine
         print("talents.chrome foot", "height=" .. elemT.footHeight, "shown=" .. tostring(elemT.foot.shown),
             "chevron=" .. tostring(W.window.chevron ~= nil), "hint@" .. tostring(hint.parent == elemT.foot and "foot"
@@ -23981,8 +24002,8 @@ if profPass then
             end
             print(tag, "button=" .. tostring(a.shown), a.label.text, p .. "@" .. x .. "," .. y,
                 "inBand=" .. tostring(f:GetParent() == ov.band and (rel == nil or rel == f)),
-                "others=" .. ornament, "span=" .. tostring(a.points.LEFT ~= nil and a.points.RIGHT ~= nil
-                    and a.points.RIGHT[3] == 0) .. ":" .. tostring(f.who == nil and "alone" or "names"),
+                "others=" .. ornament, "span=" .. tostring(a.points.TOPLEFT ~= nil and a.points.BOTTOMRIGHT ~= nil
+                    and a.points.BOTTOMRIGHT[3] == -3) .. "/slot=" .. tostring(a.slot ~= nil) .. ":" .. tostring(f.who == nil and "alone" or "names"),
                 "glyph=" .. tostring(a.glyph.texture))
         end
         alts("prof.alts")

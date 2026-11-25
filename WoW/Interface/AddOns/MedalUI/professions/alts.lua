@@ -1073,11 +1073,12 @@ function W.AltsButton(band)
         for _, a in ipairs(W.Alts()) do table.insert(names, a.name) end
         return format(Tr["Your alts: %s."], table.concat(names, ", ")) .. "\n"
             .. Tr["Click: every character, its professions, items and notes."]
-    end)
+    end, nil, "engraved")
+    -- (2026-11-25) an engraved slot in the band's sunk tray
+    ns.reskin.Recess(f)
     local a = f.button
-    a:SetHeight(22)
-    a:SetPoint("LEFT", 0, 0)
-    a:SetPoint("RIGHT", 0, 0)
+    a:SetPoint("TOPLEFT", 3, -3)
+    a:SetPoint("BOTTOMRIGHT", -3, 3)
     -- the glyph and the count centred together
     a.label:ClearAllPoints()
     a.label:SetPoint("CENTER", 10, 0)

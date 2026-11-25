@@ -289,7 +289,7 @@ local function Window()
             empty:SetText(Tr["Your quest log is empty."])
             rows = {}
             band = ns.window.Segments(margin, { height = margin:GetHeight() > 0 and margin:GetHeight() - 8 or 28,
-                items = {
+                engraved = true, items = {
                     { key = "cancel", label = Tr["Cancel"], group = "cancel", click = function() drop.Close() end,
                         tip = function() return Tr["Close, abandoning nothing."] end },
                     { key = "abandon", label = Tr["Abandon"], group = "abandon", color = RED, click = Abandon,

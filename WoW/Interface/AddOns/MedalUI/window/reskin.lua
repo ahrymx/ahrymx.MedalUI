@@ -16,6 +16,7 @@
 --   R.Shade(t, top, bottom)  a vertical shade, top's colour to bottom's
 --   R.Engrave(f)             the chamfered engraved frame (the zone tray's)
 --   R.Inside(f, draw, sub)   a texture inside that frame's chamfer
+--   R.Slot(f)                a tab's engraved slot; R.Under, R.Held, R.Recess
 --   R.Chrome(f, title, rules, hairAt)     the frame's art gone, ours under it
 --   R.Place(f)               where the LFG window stands, and kept there
 --   R.Stand(f, who, shown)   the spot's rules (one window there at a time)
@@ -179,6 +180,136 @@ function R.Inside(f, draw, sub)
     t:SetPoint("TOPLEFT", R.ENGRAVED_IN, -R.ENGRAVED_IN)
     t:SetPoint("BOTTOMRIGHT", -R.ENGRAVED_IN, R.ENGRAVED_IN)
     return t
+end
+
+-- ------------------------------------------------------------ the slots
+-- (2026-11-25, the user's pick A of /workspace/tabs-mock-sheet.png) a
+-- window's tabs, under its head and in its foot band, as engraved slots
+-- in a sunk tray: each a chamfered frame of any height (a nine-slice of
+-- strips\slot-frame, its corners 8), its lip gold_d, gold when held; held,
+-- its face a gold shade and a gold underline under its words, bright at
+-- the middle and fading out at both ends.
+--
+--   R.Slot(f)                  the slot on f; returns the hover glow.
+--                              f.slotHeld is the held face (a button's mark)
+--   R.Under(f, width, cx, foot) the held underline's span
+--   R.Held(f, on)              held or not
+--   R.Recess(f)                the sunk tray behind a row of them, in a
+--                              gold edge (the panel the slots fit in)
+local SLOT_TEX, SLOT_END = 32, 8
+local SLOT_FACE = { 0.102, 0.094, 0.078 }
+function R.Slot(f)
+    f.slot = {}
+    local E = SLOT_END
+    local cuts = { { 0, E }, { E, SLOT_TEX - E }, { SLOT_TEX - E, SLOT_TEX } }
+    -- each piece's two corners on f (the middle, clear, not drawn)
+    local at = {
+        { { "TOPLEFT", 0, 0 }, { "BOTTOMRIGHT", "TOPLEFT", E, -E } },
+        { { "TOPLEFT", E, 0 }, { "BOTTOMRIGHT", "TOPRIGHT", -E, -E } },
+        { { "TOPRIGHT", 0, 0 }, { "BOTTOMLEFT", "TOPRIGHT", -E, -E } },
+        { { "TOPLEFT", 0, -E }, { "BOTTOMRIGHT", "BOTTOMLEFT", E, E } },
+        false,
+        { { "TOPRIGHT", 0, -E }, { "BOTTOMLEFT", "BOTTOMRIGHT", -E, E } },
+        { { "BOTTOMLEFT", 0, 0 }, { "TOPRIGHT", "BOTTOMLEFT", E, E } },
+        { { "BOTTOMLEFT", E, 0 }, { "TOPRIGHT", "BOTTOMRIGHT", -E, E } },
+        { { "BOTTOMRIGHT", 0, 0 }, { "TOPLEFT", "BOTTOMRIGHT", -E, E } },
+    }
+    for r = 1, 3 do
+        for c = 1, 3 do
+            local p = at[(r - 1) * 3 + c]
+            if p then
+                local t = f:CreateTexture(nil, "BORDER")
+                t:SetTexture(ns.media .. "strips\\slot-frame")
+                t:SetTexCoord(cuts[c][1] / SLOT_TEX, cuts[c][2] / SLOT_TEX, cuts[r][1] / SLOT_TEX,
+                    cuts[r][2] / SLOT_TEX)
+                t:SetPoint(p[1][1], f, p[1][1], p[1][2], p[1][3])
+                t:SetPoint(p[2][1], f, p[2][2], p[2][3], p[2][4])
+                table.insert(f.slot, t)
+            end
+        end
+    end
+    local face = R.Inside(f, "BACKGROUND", 2)
+    face:SetColorTexture(SLOT_FACE[1], SLOT_FACE[2], SLOT_FACE[3], 1)
+    f.slotHeld = R.Inside(f, "BACKGROUND", 3)
+    R.Shade(f.slotHeld, { GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.42 }, { GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.2 })
+    f.slotHeld:Hide()
+    f.slotUnder = {}
+    for k = 1, 2 do
+        local half = f:CreateTexture(nil, "ARTWORK")
+        half:SetHeight(2)
+        if half.SetGradient and CreateColor then
+            half:SetColorTexture(1, 1, 1, 1)
+            local lo, hi = CreateColor(GOLD[1], GOLD[2], GOLD[3], 0), CreateColor(GOLD[1], GOLD[2], GOLD[3], 1)
+            half:SetGradient("HORIZONTAL", k == 1 and lo or hi, k == 1 and hi or lo)
+        else
+            half:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.6)
+        end
+        half:Hide()
+        f.slotUnder[k] = half
+    end
+    R.Under(f)
+    local glow = R.Inside(f, "HIGHLIGHT")
+    glow:SetColorTexture(1, 1, 1, 0.06)
+    R.Held(f, false)
+    return glow
+end
+
+-- the held underline: as wide as the words (width) and 14 past each end,
+-- its middle cx right of f's (0), foot above f's bottom (5); no width:
+-- across f but 10 at each end
+function R.Under(f, width, cx, foot)
+    local l, r = f.slotUnder[1], f.slotUnder[2]
+    cx, foot = cx or 0, foot or 5
+    l:ClearAllPoints()
+    r:ClearAllPoints()
+    l:SetPoint("BOTTOMRIGHT", f, "BOTTOM", cx, foot)
+    r:SetPoint("BOTTOMLEFT", f, "BOTTOM", cx, foot)
+    if width then
+        l:SetWidth(width / 2 + 14)
+        r:SetWidth(width / 2 + 14)
+    else
+        l:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, foot)
+        r:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -10, foot)
+    end
+end
+
+function R.Held(f, on)
+    on = on and true or false
+    f.slotOn = on
+    local c = on and GOLD or GOLD_D
+    for _, t in ipairs(f.slot) do t:SetVertexColor(c[1], c[2], c[3]) end
+    f.slotHeld:SetShown(on)
+    for _, t in ipairs(f.slotUnder) do t:SetShown(on) end
+end
+
+function R.Recess(f)
+    if f.recess then return f.recess end
+    local floor = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+    floor:SetAllPoints()
+    floor:SetColorTexture(0.04, 0.035, 0.03, 0.85)
+    local sink = f:CreateTexture(nil, "BACKGROUND", nil, -6)
+    sink:SetPoint("TOPLEFT")
+    sink:SetPoint("TOPRIGHT")
+    sink:SetHeight(8)
+    R.Shade(sink, { 0, 0, 0, 0.6 }, { 0, 0, 0, 0 })
+    f.recess = { floor, sink }
+    -- (2026-11-25, the user's: fit into the gold panel) the gold edge the
+    -- joined buttons drew round the row, kept round the tray: the slots
+    -- stand inside it
+    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local t = f:CreateTexture(nil, "BACKGROUND", nil, -5)
+        t:SetPoint(side[1])
+        t:SetPoint(side[2])
+        if side[1] == "TOPLEFT" and side[2] == "TOPRIGHT" or side[1] == "BOTTOMLEFT" then
+            t:SetHeight(1)
+        else
+            t:SetWidth(1)
+        end
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        table.insert(f.recess, t)
+    end
+    return f.recess
 end
 
 -- a button's own states' art (normal, pushed, lit, disabled): put away

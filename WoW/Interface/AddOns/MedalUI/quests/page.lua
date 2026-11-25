@@ -676,7 +676,7 @@ local function Window()
                 if w and w > 0 then child:SetWidth(w) end
                 qp.Refresh()
             end)
-            band = ns.window.Segments(margin, { height = 28, items = {
+            band = ns.window.Segments(margin, { height = 28, engraved = true, items = {
                 { key = "track", label = Tr["Track"], group = "do", click = function()
                     local q = qp.quest
                     if not q then return end

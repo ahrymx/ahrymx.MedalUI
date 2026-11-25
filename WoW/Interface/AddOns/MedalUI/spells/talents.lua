@@ -1006,7 +1006,7 @@ local function Margin(p, band)
     end, tip = function()
         return InCombatLockdown() and Tr["Not in combat."] or format(Tr["Use your %s talents."], SPEC_WORD[Viewed()])
     end })
-    local row = ns.window.Segments(band, { height = band:GetHeight(), items = items })
+    local row = ns.window.Segments(band, { height = band:GetHeight(), engraved = true, items = items })
     row:SetPoint("TOPLEFT")
     row:SetPoint("TOPRIGHT")
     p.margin = row

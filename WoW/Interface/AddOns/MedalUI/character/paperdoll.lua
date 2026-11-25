@@ -578,22 +578,26 @@ local function Shortcuts(band)
     row:SetPoint("BOTTOMLEFT", strip, "BOTTOMLEFT", from, ns.stripLayout.stripHeight)
     row:SetSize(ns.character.width + 2 * ns.window.pad - from, ns.window.band + 1)
     row:Hide()
+    -- (2026-11-25) engraved slots, SLOT_GAP apart in a sunk tray
+    ns.reskin.Recess(row)
+    local SLOT_GAP = 3
     local list = {}
     for _, s in ipairs(SHORTCUTS) do
         local target = Target(s[4])
         if target then table.insert(list, { s, target }) end
     end
-    -- the shared edges given back
-    local total, n = math.floor(row:GetWidth()) + #list - 1, math.max(1, #list)
-    local x = 0
+    local n = math.max(1, #list)
+    local total = math.floor(row:GetWidth()) - (n + 1) * SLOT_GAP
+    local x = SLOT_GAP
     row.buttons = {}
     for i, e in ipairs(list) do
         local s, target = e[1], e[2]
         local w = math.floor(i * total / n) - math.floor((i - 1) * total / n)
-        local b = ns.character.Button(row, w, nil, function() return s[2] end, "SecureActionButtonTemplate")
-        b:SetHeight(row:GetHeight())
-        b:SetPoint("TOPLEFT", x, 0)
-        x = x + w - 1
+        local b = ns.character.Button(row, w, nil, function() return s[2] end, "SecureActionButtonTemplate",
+            "engraved")
+        b:SetHeight(row:GetHeight() - 2 * SLOT_GAP)
+        b:SetPoint("TOPLEFT", x, -SLOT_GAP)
+        x = x + w + SLOT_GAP
         b:RegisterForClicks("AnyUp", "AnyDown")
         b:SetAttribute("type", "click")
         b:SetAttribute("clickbutton", target)

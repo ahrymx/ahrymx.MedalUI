@@ -960,13 +960,24 @@ TRAY_FRAME = ('<path d="M3.5 1.5H60.5L63.5 4.5V23.5L60.5 26.5H3.5L0.5 23.5V4.5Z"
               'stroke="#050403" stroke-opacity="0.95" stroke-width="1"/>')
 
 
-def tab_part(name="cell-tab", body=TAB_FRAME):
+# (2026-11-25, the user's pick A of /workspace/tabs-mock-sheet.png) a
+# window tab's engraved slot (window/reskin.lua R.Slot): the tray frame's
+# chamfer, square, for a nine-slice (corners 8, the rest stretched) so it
+# fits a tab of any height; the dark line on the outermost pixels, the lip
+# a pixel inside all round, white (code tints it: gold_d, gold held)
+SLOT_FRAME = ('<path d="M4.5 1.5H27.5L30.5 4.5V27.5L27.5 30.5H4.5L1.5 27.5V4.5Z" fill="none" '
+              'stroke="#ffffff" stroke-opacity="0.55" stroke-width="1"/>'
+              '<path d="M4.5 0.5H27.5L31.5 4.5V27.5L27.5 31.5H4.5L0.5 27.5V4.5Z" fill="none" '
+              'stroke="#050403" stroke-opacity="0.95" stroke-width="1"/>')
+
+
+def tab_part(name="cell-tab", body=TAB_FRAME, size=(64, 32)):
     """assets/strips/<name>.png and media/strips/<name>.tga, and a look
     at it at 4x over the channel's ink in render/<name>.png."""
     parts = os.path.join(ROOT, "assets", "strips")
     os.makedirs(parts, exist_ok=True)
     png = os.path.join(parts, name + ".png")
-    doc = svg(body).replace(f'width="{W}" height="{H}"', 'width="64" height="32"')
+    doc = svg(body).replace(f'width="{W}" height="{H}"', f'width="{size[0]}" height="{size[1]}"')
     subprocess.run(["rsvg-convert", "-o", png], input=doc.encode(), check=True)
     im = Image.open(png).convert("RGBA")
     media = os.path.join(ROOT, "WoW", "Interface", "AddOns", "MedalUI", "media", "strips", name + ".tga")
@@ -975,9 +986,9 @@ def tab_part(name="cell-tab", body=TAB_FRAME):
     im.save(tmp)
     subprocess.run(["magick", tmp, "-define", "tga:compression=none", media], check=True)
     os.remove(tmp)
-    sheet = Image.new("RGBA", (64, 32), (20, 17, 11, 255))
+    sheet = Image.new("RGBA", size, (20, 17, 11, 255))
     sheet.alpha_composite(im)
-    sheet.resize((256, 128), Image.NEAREST).save(os.path.join(OUT, name + ".png"))
+    sheet.resize((size[0] * 4, size[1] * 4), Image.NEAREST).save(os.path.join(OUT, name + ".png"))
     print(media)
 
 
@@ -1005,5 +1016,7 @@ if __name__ == "__main__":
         tab_part()
     elif sys.argv[1:2] == ["trayframe"]:
         tab_part("tray-frame", TRAY_FRAME)
+    elif sys.argv[1:2] == ["slotframe"]:
+        tab_part("slot-frame", SLOT_FRAME, (32, 32))
     else:
         main()

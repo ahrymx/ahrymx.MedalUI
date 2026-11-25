@@ -311,7 +311,7 @@ local function Bare(b)
     return glow
 end
 
--- soft: Face's soft look; "open": Bare's
+-- soft: Face's soft look; "open": Bare's; "engraved": an engraved slot (ns.reskin.Slot)
 -- a button's tooltip: beside the window it is in (ns.window.Outside), or
 -- over it
 function ns.window.OutsideTop(owner) ns.window.Outside(owner, "ANCHOR_TOP") end
@@ -320,9 +320,11 @@ local OutsideTop = function(owner) ns.window.OutsideTop(owner) end
 local function Button(parent, width, click, tip, template, soft)
     local b = CreateFrame("Button", nil, parent, template)
     b:SetSize(width, TAB)
-    if soft == "open" then Bare(b) else b.well, b.edge = Face(b, nil, soft) end
     b.label = ns.Text(b, 12)
     b.label:SetPoint("CENTER")
+    if soft == "open" then Bare(b)
+    elseif soft == "engraved" then ns.reskin.Slot(b)
+    else b.well, b.edge = Face(b, nil, soft) end
     if click then b:SetScript("OnClick", click) end
     b:SetScript("OnEnter", function(self)
         ns.Tip(self, self.tipAt or OutsideTop, { title = tip(), color = ns.colors.white, wrap = true })
@@ -346,7 +348,10 @@ ns.window.Button = Button
 --               tabs (2026-11-19, /workspace/sleek-character.png: Bare's,
 --               the held one's underline as wide as its word over a gold
 --               fade bright at its middle, the others' words dim, a
---               hairline under the row) })
+--               hairline under the row), engraved (2026-11-25, the
+--               user's pick A of /workspace/tabs-mock-sheet.png: each an
+--               engraved slot apart in a sunk tray, ns.reskin.Slot; the
+--               window bands' rows) })
 --   row:Fill({ { key, label, icon, group, tip() -> text, click(button),
 --                selected, enabled, shown, color } ... })   (again: the
 --               buttons kept, their words and deeds changed)
@@ -367,8 +372,14 @@ ns.window.Button = Button
 -- its tooltip, over the tip.
 local SEG_PAD, SEG_MIN, BREAK = 20, 36, 4       -- a fit button's room past its word, its least; the gap between groups
 local ICON_PAD = 12                              -- a fit button's room past its icon
+local SLOT_GAP = 3                               -- engraved: between slots, and round them
 local function Paint(b)
     b.mark:SetShown(b.selected and true or false)
+    if b.slot then
+        -- the underline as wide as the word (an icon's: the icon)
+        ns.reskin.Under(b, b.data and b.data.icon and (b.icon:GetWidth() or 0) or b.label:GetStringWidth() or 0)
+        ns.reskin.Held(b, b.selected)
+    end
     b.glow:SetShown(b.enabled)
     local c = not b.enabled and ns.colors.dim or b.color or b.selected and GOLD
         or b.tabs and ns.colors.dim or ns.colors.text
@@ -391,6 +402,7 @@ local function Segments(parent, spec)
     local row = CreateFrame("Frame", nil, parent)
     row:SetHeight(spec.height)
     row.buttons, row.byKey, row.gaps = {}, {}, {}
+    if spec.engraved then ns.reskin.Recess(row) end
     if spec.tabs then
         spec.soft = "open"
         row.hair = row:CreateTexture(nil, "BACKGROUND")
@@ -416,6 +428,11 @@ local function Segments(parent, spec)
         -- (not placed): as wide as their words until it comes
         -- (OnSizeChanged lays them out again)
         local total = math.floor(self:GetWidth() or 0) - breaks * BREAK + (#shown - 1 - breaks)
+        if spec.engraved then
+            -- the slots apart, and in from the tray's ends
+            total = math.floor(self:GetWidth() or 0) - 2 * SLOT_GAP - breaks * (BREAK + SLOT_GAP)
+                - (#shown - 1 - breaks) * SLOT_GAP
+        end
         local fit = spec.fit or total < #shown * SEG_MIN
         local widths = {}
         -- stretched, an icon keeps its own width and the words share the rest
@@ -433,23 +450,23 @@ local function Segments(parent, spec)
                 widths[i] = math.floor(k * share / words) - math.floor((k - 1) * share / words)
             end
         end
-        local x = 0
+        local x = spec.engraved and SLOT_GAP or 0
         self.gaps = {}
         for i, b in ipairs(shown) do
             if i > 1 then
                 if b.data.group ~= shown[i - 1].data.group then
                     table.insert(self.gaps, x)  -- where the gap starts
-                    x = x + BREAK
+                    x = x + BREAK + (spec.engraved and SLOT_GAP or 0)
                 else
-                    x = x - 1               -- the edge shared
+                    x = x + (spec.engraved and SLOT_GAP or -1)  -- apart, or the edge shared
                 end
             end
             b:ClearAllPoints()
-            b:SetPoint("TOPLEFT", x, 0)
+            b:SetPoint("TOPLEFT", x, spec.engraved and -SLOT_GAP or 0)
             b:SetWidth(widths[i])
             x = x + widths[i]
         end
-        if spec.fit then self:SetWidth(math.max(1, x)) end
+        if spec.fit then self:SetWidth(math.max(1, x + (spec.engraved and SLOT_GAP or 0))) end
     end
 
     function row:Set(key, state)
@@ -472,16 +489,20 @@ local function Segments(parent, spec)
             local b = self.buttons[i]
             if not b then
                 b = CreateFrame("Button", nil, self)
-                b:SetHeight(spec.height)
+                b:SetHeight(spec.engraved and spec.height - 2 * SLOT_GAP or spec.height)
                 local face = b
-                if spec.soft == "open" then
+                if spec.engraved then
+                    b.label = ns.Text(face, spec.size or 12)
+                    b.glow = ns.reskin.Slot(b)
+                    b.mark = b.slotHeld
+                elseif spec.soft == "open" then
                     b.glow = Bare(b)
                     face = b.top                -- over the mark's glow
                 else
                     local _, _, glow = Face(b, nil, spec.soft)
                     b.glow = glow
                 end
-                b.label = ns.Text(face, spec.size or 12)
+                b.label = b.label or ns.Text(face, spec.size or 12)
                 b.label:SetPoint("CENTER")
                 if spec.tabs then
                     -- the underline as wide as the word; the fade across,

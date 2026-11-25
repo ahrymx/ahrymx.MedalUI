@@ -1307,7 +1307,7 @@ local topRank
 function W.topRank() return topRank end
 
 local function Controls(p, band)
-    local row = ns.window.Segments(band, { height = band:GetHeight(), items = {
+    local row = ns.window.Segments(band, { height = band:GetHeight(), engraved = true, items = {
         { key = "trainer", label = Tr["Trainer"], click = function()
             if W.Current() == trainerPage then
                 -- the page it came from, or the first with a tab

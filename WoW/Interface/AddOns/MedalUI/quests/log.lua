@@ -698,7 +698,7 @@ local function Build(pageBody, _, band)
     empty:SetTextColor(unpack(DIM))
 
     -- the margin: track every quest, or none; Drop
-    foot = ns.window.Segments(band, { height = band:GetHeight(), items = {
+    foot = ns.window.Segments(band, { height = band:GetHeight(), engraved = true, items = {
         { key = "track", label = Tr["Track all"], group = "track", click = function()
             TrackAll(quests)
             log.Refresh()

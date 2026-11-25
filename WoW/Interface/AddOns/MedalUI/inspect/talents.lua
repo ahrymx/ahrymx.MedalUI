@@ -147,7 +147,7 @@ function page.Build(body, foot, band)
     page.waiting:SetText(Tr["Their talents have not come yet."])
     page.details = ns.character.Details(foot, nil, Tr["Choose a talent to read it."], LINES)
     page.footHeight = page.details.height
-    local row = ns.window.Segments(band, { height = band:GetHeight(), items = {} })
+    local row = ns.window.Segments(band, { height = band:GetHeight(), engraved = true, items = {} })
     row:SetPoint("TOPLEFT")
     row:SetPoint("TOPRIGHT")
     page.margin = row
