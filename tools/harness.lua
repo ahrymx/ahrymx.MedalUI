@@ -29561,6 +29561,19 @@ if gamemenuPass then (function()
     click(SO.audio)
     print("gamemenu sound audio settings", "category=" .. tostring(audioAt), "beside=" .. tostring(M.Beside()),
         "settings=" .. tostring(SettingsPanel.shown), "menu=" .. tostring(f.shown) .. "/" .. tostring(M.holder.shown))
+    -- (2026-11-25, the user's: Options and Macros opened from the menu were
+    -- invisible) the window lent its own alpha stays so: the hook on
+    -- SetIgnoreParentAlpha (the game's method tables; none here, so called
+    -- as the game would) and the sweep leave a lent frame alone
+    if M.under then
+        local before = SettingsPanel.ignoreParentAlpha
+        M.under.Noted(SettingsPanel, true)
+        local hooked = SettingsPanel.ignoreParentAlpha
+        M.under.Sweep()
+        M.under.Step()
+        print("gamemenu lent window", "lent=" .. tostring(before), "after the hook=" .. tostring(hooked),
+            "after a sweep=" .. tostring(SettingsPanel.ignoreParentAlpha))
+    end
     Settings.OpenToCategory = realOpen
     SettingsPanel:Close()
     print("gamemenu sound audio settings closed", "beside=" .. tostring(M.Beside()),

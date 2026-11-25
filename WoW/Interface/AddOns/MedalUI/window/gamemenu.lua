@@ -2687,9 +2687,11 @@ function under.Loose(f)
     return not ns.IsSecret(ignores) and ignores == true
 end
 
--- under the menu: following UIParent's alpha until Restore
+-- under the menu: following UIParent's alpha until Restore. Never one the
+-- menu lent its own alpha (Lend: the window open beside it, what it raises),
+-- nor the menu itself: those stand over the hidden interface on purpose.
 function under.Take(f)
-    if not cleared or cleared.loose[f] or f == holder then return end
+    if not cleared or cleared.loose[f] or f == holder or lent[f] then return end
     under.taking = true
     local ok = pcall(f.SetIgnoreParentAlpha, f, false)
     under.taking = false
@@ -2697,7 +2699,7 @@ function under.Take(f)
 end
 
 function under.Noted(f, on)
-    if under.taking or ns.IsSecret(on) then return end
+    if under.taking or ns.IsSecret(on) or lent[f] then return end
     if on then
         under.known[f] = true
         under.Take(f)
