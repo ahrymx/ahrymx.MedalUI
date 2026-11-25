@@ -67,7 +67,8 @@
 --   w.Detached(), w.Head()
 --
 -- Floating (detached), a window wears a lighter chrome: one soft gold line
--- and a shadow round it, its head a quiet band with no box round the tabs
+-- round it (no shadow, 2026-11-25), its head's medallion in its curved top
+-- corner, its head a quiet band with no box round the tabs
 -- or the cross, the page's tab underlined, its margin's rule edge to edge.
 -- Docked, the look above. ns.window.Strip(parent, height) is a row edge to
 -- edge across a page's body (a floating page's toolbar: its search, its
@@ -123,7 +124,6 @@ local SCALES = { 0.6, 1.4, 0.05 }               -- a detached window's scale: le
 local GRIP = 14
 local BESIDE = 4                                -- a tooltip outside the window: its gap
 local GAME_ICON = 0.08                          -- the game's icons' border, trimmed
-local SHADOW, DROP = 12, 3                      -- a floating window's shadow: how far out, how far down
 local UNDER = 44                                -- a floating window's tab's underline
 local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118, 0.102, 0.071, 0.8 } }
 
@@ -324,7 +324,7 @@ local function Button(parent, width, click, tip, template, soft)
     b.label:SetPoint("CENTER")
     if soft == "open" then Bare(b)
     elseif soft == "engraved" then ns.reskin.Slot(b)
-    else b.well, b.edge = Face(b, nil, soft) end
+    else b.well, b.edge, b.glow = Face(b, nil, soft) end
     if click then b:SetScript("OnClick", click) end
     b:SetScript("OnEnter", function(self)
         ns.Tip(self, self.tipAt or OutsideTop, { title = tip(), color = ns.colors.white, wrap = true })
@@ -1309,54 +1309,76 @@ function ns.Window(spec)
         for _, b in ipairs(p.tabs or {}) do Mark(b, on) end
     end
 
-    -- the shadow round a floating window: four corners of one texture,
-    -- flipped, and its inner edge stretched along the sides, a little down
-    local function Shadow()
-        local tex = ns.media .. "strips\\shadow"
-        local parts = {}
-        local function Part(l, r, t, b)
-            local p = window:CreateTexture(nil, "BACKGROUND", nil, -8)
-            p:SetTexture(tex)
-            p:SetTexCoord(l, r, t, b)
-            table.insert(parts, p)
-            return p
+    -- The look, floating or docked (the tabs follow in Tabs)
+    -- (2026-11-25, /workspace/corner-C.png, the user's pick: the macro
+    -- cards' corner) floating, the head's medallion sits in the window's
+    -- near top corner, its rim touching the top and the near side: the
+    -- corner cut away to its middle (the world through it), the frame's
+    -- edge, ink and head band from where the rim meets them, and lit gold
+    -- there, fading along the top and down the side
+    local GLINT = { top = 70, side = 40 }
+    local function Cut()
+        local c = chrome.cut
+        if not c then return end
+        local h = drop.head
+        local r = floating and h and h.cut and h.medal:IsShown() and h.cut or 0
+        local near, far = side < 0 and "RIGHT" or "LEFT", side < 0 and "LEFT" or "RIGHT"
+        local out = side < 0 and -1 or 1
+        local on = r > 0
+        chrome.edge:ClearAllPoints()
+        if on then
+            chrome.edge:SetPoint("TOP" .. near, 0, -r)
+            chrome.edge:SetPoint("BOTTOM" .. far)
+            c.edge:SetAlpha(chrome.edge:GetAlpha())
+            -- the ink: under the cut, and right of it above
+            chrome.bg:ClearAllPoints()
+            chrome.bg:SetPoint("TOP" .. near, out, -r)
+            chrome.bg:SetPoint("BOTTOM" .. far, -out, 1)
+        else
+            chrome.edge:SetAllPoints()
+            -- (Chrome's)
+            chrome.bg:ClearAllPoints()
+            chrome.bg:SetPoint("TOPLEFT", (floating or side > 0) and 1 or 0, floating and -1 or 0)
+            chrome.bg:SetPoint("BOTTOMRIGHT", (floating or side < 0) and -1 or 0, 1)
         end
-        local IN = 31 / 32
-        for _, c in ipairs({ { "TOPLEFT", -1, 1, 0, 1, 0, 1 }, { "TOPRIGHT", 1, 1, 1, 0, 0, 1 },
-            { "BOTTOMLEFT", -1, -1, 0, 1, 1, 0 }, { "BOTTOMRIGHT", 1, -1, 1, 0, 1, 0 } }) do
-            local p = Part(c[4], c[5], c[6], c[7])
-            p:SetSize(SHADOW, SHADOW)
-            p:SetPoint(c[1], window, c[1], c[2] * SHADOW, c[3] * SHADOW - DROP)
+        for _, t in ipairs({ c.edge, c.bg, c.top, c.side }) do t:SetShown(on) end
+        for _, t in ipairs({ chrome.head, chrome.lit }) do
+            t:ClearAllPoints()
+            t:SetPoint("TOP" .. near, (on and r or 1) * out, -1)
+            t:SetPoint("TOP" .. far, -out, -1)
         end
-        local top = Part(IN, 1, 0, 1)
-        top:SetPoint("BOTTOMLEFT", window, "TOPLEFT", 0, -DROP)
-        top:SetPoint("BOTTOMRIGHT", window, "TOPRIGHT", 0, -DROP)
-        top:SetHeight(SHADOW)
-        local bottom = Part(IN, 1, 1, 0)
-        bottom:SetPoint("TOPLEFT", window, "BOTTOMLEFT", 0, -DROP)
-        bottom:SetPoint("TOPRIGHT", window, "BOTTOMRIGHT", 0, -DROP)
-        bottom:SetHeight(SHADOW)
-        local left = Part(0, 1, IN, 1)
-        left:SetPoint("TOPRIGHT", window, "TOPLEFT", 0, -DROP)
-        left:SetPoint("BOTTOMRIGHT", window, "BOTTOMLEFT", 0, -DROP)
-        left:SetWidth(SHADOW)
-        local right = Part(1, 0, IN, 1)
-        right:SetPoint("TOPLEFT", window, "TOPRIGHT", 0, -DROP)
-        right:SetPoint("BOTTOMLEFT", window, "BOTTOMRIGHT", 0, -DROP)
-        right:SetWidth(SHADOW)
-        -- the drop's gap under the window, between its foot and the bottom
-        -- strip: as black as the shadow's inner edge (2026-11-20: the ground
-        -- showed through it)
-        local gap = window:CreateTexture(nil, "BACKGROUND", nil, -8)
-        gap:SetColorTexture(0, 0, 0, 1)
-        gap:SetPoint("TOPLEFT", window, "BOTTOMLEFT", 0, 0)
-        gap:SetPoint("TOPRIGHT", window, "BOTTOMRIGHT", 0, 0)
-        gap:SetHeight(DROP)
-        table.insert(parts, gap)
-        return parts
+        if h and h.glow then
+            h.glow:ClearAllPoints()
+            h.glow:SetPoint("TOP" .. near, (on and r or 1) * out, -1)
+            h.glow:SetPoint("BOTTOM" .. far, -out, 1)
+        end
+        if not on then return end
+        c.edge:ClearAllPoints()
+        c.edge:SetPoint("TOP" .. near, r * out, 0)
+        c.edge:SetPoint("TOP" .. far)
+        c.edge:SetHeight(r)
+        c.bg:ClearAllPoints()
+        c.bg:SetPoint("TOP" .. near, r * out, -1)
+        c.bg:SetPoint("TOP" .. far, -out, -1)
+        c.bg:SetHeight(r - 1)
+        c.top:ClearAllPoints()
+        c.top:SetPoint("TOP" .. near, r * out, 0)
+        c.side:ClearAllPoints()
+        c.side:SetPoint("TOP" .. near, 0, -r)
+        -- bright at the rim
+        if c.top.SetGradient and CreateColor then
+            local lit, clear = CreateColor(GOLD[1], GOLD[2], GOLD[3], 1), CreateColor(GOLD[1], GOLD[2], GOLD[3], 0)
+            c.top:SetColorTexture(1, 1, 1, 1)
+            if out > 0 then c.top:SetGradient("HORIZONTAL", lit, clear)
+            else c.top:SetGradient("HORIZONTAL", clear, lit) end
+            c.side:SetColorTexture(1, 1, 1, 1)
+            c.side:SetGradient("VERTICAL", clear, lit)
+        else
+            c.top:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.6)
+            c.side:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.6)
+        end
     end
 
-    -- The look, floating or docked (the tabs follow in Tabs)
     local function Chrome(off)
         floating = off
         -- docked, the ink over the frame at the top and the screen's edge
@@ -1367,7 +1389,6 @@ function ns.Window(spec)
         chrome.edge:SetAlpha(off and FLOAT.edge or 1)
         chrome.lit:SetShown(off)
         chrome.head:SetShown(off)
-        for _, p in ipairs(chrome.shadow) do p:SetShown(off) end
         rule:SetAlpha(off and FLOAT.rule or 1)
         local inset = off and 1 or PAD
         local el, er = Edges()                  -- (on the pages' grid)
@@ -1379,6 +1400,7 @@ function ns.Window(spec)
             Boxed(b, not off)
             if b.icon then b.icon:SetAlpha(off and FLOAT.close or 1) end
         end
+        Cut()
     end
 
     -- The view's place, scale and medallion, then the layout; out of combat.
@@ -1712,6 +1734,7 @@ function ns.Window(spec)
         local p = current
         if p then PageIcon(h.icon, p, true) end
         h.medal:SetShown(p ~= nil)
+        Cut()
         h.label:SetText(p and (p.heading or p.label) or "")
         local many = drop.count and drop.count > 1 or false
         local at = 0
@@ -2104,7 +2127,10 @@ function ns.Window(spec)
         -- the count with it (floating too, 2026-11-20)
         local near = mirror and "RIGHT" or "LEFT"
         local out = mirror and -1 or 1
-        local shift = MEDAL / 4
+        -- (2026-11-25) floating, in by half: its rim on the near side, the
+        -- window's corner cut round it (Cut)
+        local shift = floating and MEDAL / 2 or MEDAL / 4
+        h.cut = MEDAL / 2
         h.medal:ClearAllPoints()
         h.medal:SetPoint("CENTER", window, "TOP" .. near, shift * out, -(top + MEDAL / 2))
         h.count:ClearAllPoints()
@@ -2115,6 +2141,7 @@ function ns.Window(spec)
         h.step:SetPoint("TOP" .. near, window, "TOP" .. near, mirror and -1 or 1, -(top + TAB - 2))
         Boxed(h, not floating)
         h:Show()
+        Cut()
         close:SetHeight(TAB)
         if view then view:SetHeight(TAB) end
         Corner(mirror)
@@ -2326,11 +2353,8 @@ function ns.Window(spec)
         edge:SetAllPoints()
         edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
         chrome.edge = edge
-        chrome.shadow = Shadow()
-        -- docked first: the shadow is a floating window's (Chrome shows it),
-        -- and a window with no place never reaches Chrome (2026-11-21: it lay
-        -- black under every docked window, as if floating)
-        for _, p in ipairs(chrome.shadow) do p:Hide() end
+        -- (a floating window's drop shadow gone, 2026-11-25, the user's: it
+        -- squared off round the head's cut corner)
         local bg = window:CreateTexture(nil, "BACKGROUND", nil, 2)
         bg:SetPoint("TOPLEFT", side > 0 and 1 or 0, 0)          -- (docked first: Chrome)
         bg:SetPoint("BOTTOMRIGHT", side < 0 and -1 or 0, 1)
@@ -2355,6 +2379,19 @@ function ns.Window(spec)
             chrome.lit:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.35)
         end
         chrome.lit:Hide()
+        -- the cut corner's (Cut): the edge and the ink right of it above
+        -- the cut, the glints from the rim
+        chrome.cut = {
+            edge = window:CreateTexture(nil, "BACKGROUND", nil, 1),
+            bg = window:CreateTexture(nil, "BACKGROUND", nil, 2),
+            top = window:CreateTexture(nil, "BORDER", nil, 1),
+            side = window:CreateTexture(nil, "BORDER", nil, 1),
+        }
+        chrome.cut.edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        chrome.cut.bg:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], spec.opaque and 1 or 0.94)
+        chrome.cut.top:SetSize(GLINT.top, 1)
+        chrome.cut.side:SetSize(1, GLINT.side)
+        for _, t in pairs(chrome.cut) do t:Hide() end
         rule = window:CreateTexture(nil, "ARTWORK")
         rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
         rule:SetPoint("TOPLEFT", 0, -(TAB - 1))

@@ -18651,10 +18651,10 @@ if bankPass then
     frame()
     state("bank.detached")
     -- floating: the light chrome (no boxes, an underline, a shadow)
-    print("bank.chrome detached", "edge=" .. W.chrome.edge.alpha, "shadow=" .. tostring(W.chrome.shadow[1].shown),
+    print("bank.chrome detached", "edge=" .. W.chrome.edge.alpha, "shadow=" .. tostring(W.chrome.shadow ~= nil),
         "close box=" .. tostring(w.close.edge.shown), "view box=" .. tostring(w.view.edge.shown),
         "band@" .. select(4, w.bandRule:GetPoint(1)))
-    -- floating, the medallion a quarter in from the edge, the count with it
+    -- floating, the medallion in by half (its rim on the edge), the count with it
     do
         local d = w.dropdown
         local h = d and d.head
@@ -18665,6 +18665,12 @@ if bankPass then
                     or "?")) .. ":" .. tostring(a2) .. " " .. tostring(x) .. "," .. tostring(y)
             end
             print("bank.float head", "medal=" .. pt(h.medal), "count=" .. pt(h.count))
+            -- (2026-11-25, corner-C) the corner cut round the medallion:
+            -- the frame's edge and ink from its middle, the glints shown
+            local c = w.chrome
+            print("bank.float corner", "cut=" .. tostring(h.cut), "edge=" .. pt(c.edge), "edgeTop=" .. pt(c.cut.edge)
+                .. "/" .. tostring(c.cut.edge.shown), "bg=" .. pt(c.bg), "bgTop=" .. pt(c.cut.bg),
+                "head=" .. pt(c.head), "glints=" .. tostring(c.cut.top.shown) .. "," .. tostring(c.cut.side.shown))
         else
             print("bank.float head", "no dropdown")
         end
@@ -18768,7 +18774,7 @@ if bankPass then
     click(w.view)
     frame()
     state("bank.docked")
-    print("bank.chrome docked", "edge=" .. W.chrome.edge.alpha, "shadow=" .. tostring(W.chrome.shadow[1].shown),
+    print("bank.chrome docked", "edge=" .. W.chrome.edge.alpha, "shadow=" .. tostring(W.chrome.shadow ~= nil),
         "close box=" .. tostring(w.close.edge.shown), "view box=" .. tostring(w.view.edge.shown),
         "band@" .. select(4, w.bandRule:GetPoint(1)))
     print("bank.kept", string.format("w=%s scale=%s detached=%s", tostring(ns.db.bankPlace.w),
@@ -19184,10 +19190,8 @@ if characterPass then
                 "shown=" .. tostring(h.medal.shown), "step=" .. pt(h.step) .. " " .. h.step.w .. "x" .. h.step.h,
                 "count=" .. pt(h.count), "name=" .. pt(h.label, 1) .. " / " .. pt(h.label, 2)
                 .. " " .. tostring(h.label.justifyH))
-            do  -- (2026-11-21) docked, no shadow under it: a floating window's alone
-                local on = 0
-                for _, s in ipairs(w.chrome.shadow) do if s.shown then on = on + 1 end end
-                print("char.shadow docked", "parts=" .. #w.chrome.shadow, "shown=" .. on)
+            do  -- (2026-11-25) no shadow, docked or floating
+                print("char.shadow docked", "none=" .. tostring(w.chrome.shadow == nil))
             end
             do  -- the margin: the metal down the screen's edge, docked only
                 local mt = w.metal
@@ -24126,7 +24130,7 @@ if profPass then
                 return table.concat(out, " ")
             end
             local _, _, _, bx = AW.window.bandRule:GetPoint(1)
-            print("prof.alt chrome", tabs(), "shadow=" .. tostring(ch.shadow[1].shown) .. "/" .. #ch.shadow,
+            print("prof.alt chrome", tabs(), "shadow=" .. tostring(ch.shadow ~= nil),
                 "head=" .. tostring(ch.head.shown), "lit=" .. tostring(ch.lit.shown), "edge=" .. ch.edge.alpha,
                 "close box=" .. tostring(AW.window.close.edge.shown), "band@" .. bx)
             AW.Select(page("items"))
