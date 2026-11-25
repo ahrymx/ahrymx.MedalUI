@@ -2659,29 +2659,108 @@ menu.Arrange = Arrange
 
 -- The rest of the interface put away while the menu is open, and back after
 local cleared
+-- The frames that ignore their parent's alpha would stay over the hidden
+-- interface. Walking every frame as the menu opened ran past the game's
+-- time for a script with many addons loaded (the user's, 2026-11-25), so
+-- they are found beforehand: a sweep of every frame, a few at a time
+-- (at login, and again after the menu closes), and a hook on the method
+-- itself for those set so later. As it opens only the known ones are put
+-- under it, and a sweep still going finishes in the background.
+-- (one table: the file's main chunk is near Lua's 200 locals)
+local under = {
+    known = setmetatable({}, { __mode = "k" }), -- frame: true, it ignores its parent's alpha
+    taking = false,                             -- our own SetIgnoreParentAlpha calls
+    cursor = nil,                               -- the sweep's last frame
+    sweeping = false,                           -- a sweep going
+    swept = false,                              -- a whole sweep done
+    budget = 2,                                 -- each tick's share of the sweep, in ms
+    methods = {},                               -- the method tables hooked
+}
+
+-- a frame whose answers are secret (another addon's, a restricted one)
+-- is left as it is: a secret cannot be tested
+function under.Loose(f)
+    if f == holder or not f.IsIgnoringParentAlpha then return false end
+    local forbidden = f.IsForbidden and f:IsForbidden()
+    if ns.IsSecret(forbidden) or forbidden then return false end
+    local ignores = f:IsIgnoringParentAlpha()
+    return not ns.IsSecret(ignores) and ignores == true
+end
+
+-- under the menu: following UIParent's alpha until Restore
+function under.Take(f)
+    if not cleared or cleared.loose[f] or f == holder then return end
+    under.taking = true
+    local ok = pcall(f.SetIgnoreParentAlpha, f, false)
+    under.taking = false
+    if ok then cleared.loose[f] = true end
+end
+
+function under.Noted(f, on)
+    if under.taking or ns.IsSecret(on) then return end
+    if on then
+        under.known[f] = true
+        under.Take(f)
+    else
+        under.known[f] = nil
+        if cleared then cleared.loose[f] = nil end
+    end
+end
+
+-- each kind of frame's methods are one table, shared: hooked once
+function under.Watch(f)
+    local mt = getmetatable(f)
+    local methods = type(mt) == "table" and mt.__index
+    if type(methods) ~= "table" or under.methods[methods] or type(methods.SetIgnoreParentAlpha) ~= "function" then
+        return
+    end
+    under.methods[methods] = true
+    hooksecurefunc(methods, "SetIgnoreParentAlpha", under.Noted)
+end
+
+-- the sweep from where it was, until the budget (ms) is spent; none: to the end
+function under.Step(budget)
+    local timer = _G.debugprofilestop
+    local stop = timer and budget and timer() + budget
+    local f
+    if under.cursor then f = EnumerateFrames(under.cursor) else f = EnumerateFrames() end
+    while f do
+        pcall(under.Watch, f)
+        local ok, loose = pcall(under.Loose, f)
+        if ok and loose then
+            under.known[f] = true
+            under.Take(f)
+        end
+        under.cursor = f
+        if stop and timer() >= stop then return end
+        f = EnumerateFrames(f)
+    end
+    under.cursor, under.sweeping, under.swept = nil, false, true
+    under.sweeper:Hide()
+end
+
+under.sweeper = CreateFrame("Frame")
+under.sweeper:Hide()
+under.sweeper:SetScript("OnUpdate", function() under.Step(under.budget) end)
+
+function under.Sweep()
+    if not (EnumerateFrames and holder and holder.IsIgnoringParentAlpha) then return end
+    if not under.sweeping then under.cursor, under.sweeping = nil, true end
+    under.sweeper:Show()
+end
+menu.under = under
+
 local function Clear()
     if cleared then return end
     cleared = { alpha = UIParent:GetAlpha(), loose = {} }
-    -- a frame whose answers are secret (another addon's, a restricted one)
-    -- is left as it is: a secret cannot be tested
-    local function Loose(f)
-        if f == holder or not f.IsIgnoringParentAlpha then return false end
-        local forbidden = f.IsForbidden and f:IsForbidden()
-        if ns.IsSecret(forbidden) or forbidden then return false end
-        local ignores = f:IsIgnoringParentAlpha()
-        return not ns.IsSecret(ignores) and ignores == true
+    for f in pairs(under.known) do
+        local ok, loose = pcall(under.Loose, f)
+        if ok and loose then under.Take(f) else under.known[f] = nil end
     end
-    if EnumerateFrames and holder.IsIgnoringParentAlpha then
-        local f = EnumerateFrames()
-        while f do
-            local ok, loose = pcall(Loose, f)
-            if ok and loose then
-                f:SetIgnoreParentAlpha(false)
-                table.insert(cleared.loose, f)
-            end
-            f = EnumerateFrames(f)
-        end
-    end
+    -- never swept yet (the menu opened before the login's sweep ran): one
+    -- tick's share now, the rest while it is open
+    if not (under.sweeping or under.swept) then under.Sweep() end
+    if under.sweeping then under.Step(under.budget) end
     UIParent:SetAlpha(0)
     -- the minimap draws its blips and pins (the quest marks, the arrow) past
     -- any alpha: it is hidden, and shown again after
@@ -2693,10 +2772,14 @@ local function Clear()
 end
 local function Restore()
     if not cleared then return end
-    for _, f in ipairs(cleared.loose) do f:SetIgnoreParentAlpha(true) end
+    under.taking = true
+    for f in pairs(cleared.loose) do pcall(f.SetIgnoreParentAlpha, f, true) end
+    under.taking = false
     UIParent:SetAlpha(cleared.alpha or 1)
     if cleared.minimap then cleared.minimap:Show() end
     cleared = nil
+    -- what changed while it was open, found before the next time
+    under.Sweep()
 end
 menu.Clear, menu.Restore = Clear, Restore
 
@@ -2815,6 +2898,7 @@ local function Adopt()
     if adopted or not f or not f.InitButtons then return end
     adopted = true
     Build()
+    under.Sweep()
     -- Blizzard's frame: still the panel the game shows and hides, but unseen
     -- and clicked through; its buttons stand in ours
     f:SetAlpha(0)
