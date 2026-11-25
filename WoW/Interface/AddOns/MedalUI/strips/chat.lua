@@ -1003,13 +1003,15 @@ local function Sooner(frame, line, away)
     local bottom, top, at = frame:GetBottom(), frame:GetTop(), line:GetBottom()
     if not (bottom and top and at) or top <= bottom then return 1 end
     local info = line.messageInfo
-    local a = 1
-    -- past the top: gone soon after it rose there
+    local a, past = 1, 1
+    -- past the top: gone soon after it rose there. Whole, not as far as
+    -- the chrome is away: it shows there only because the chat is bare,
+    -- so mid-fade it must not show at the chrome's strength (2026-11-25)
     local high = line:GetTop()
     local key = type(info) == "table" and info or line
     if high and high > top + 1 then
         rose[key] = rose[key] or GetTime()
-        a = math.max(0, 1 - (GetTime() - rose[key]) / AGE.past)
+        past = math.max(0, 1 - (GetTime() - rose[key]) / AGE.past)
     end
     -- its time on screen by its height
     local stamp = type(info) == "table" and info.timestamp
@@ -1025,15 +1027,28 @@ local function Sooner(frame, line, away)
             if age > soon then a = math.min(a, math.max(0, 1 - (age - soon) / math.max(fade, 0.01))) end
         end
     end
-    return 1 - (1 - a) * away
+    return past * (1 - (1 - a) * away)
 end
 
 -- bare, the window's lines unclipped at its top (Blizzard's container and
 -- the bands' clip), so a message pushed past it shows whole; the chrome
--- back, clipped again
+-- back, clipped again. (2026-11-25, the user's: history flashed above the
+-- window as it went bare) the lines already wholly above the top when it
+-- goes bare were never seen, so they are gone from the start; only one
+-- pushed up while bare, or caught across the top, shows a moment
 local function Spill(frame, on)
     if spilt[frame] == on then return end
     spilt[frame] = on
+    if on then
+        local top = frame:GetTop()
+        for _, line in ipairs(top and frame.visibleLines or {}) do
+            local low = line:GetBottom()
+            if low and low >= top - 1 then
+                local info = line.messageInfo
+                rose[type(info) == "table" and info or line] = GetTime() - AGE.past
+            end
+        end
+    end
     local box = frame.FontStringContainer
     if box and box.SetClipsChildren then box:SetClipsChildren(not on) end
     if clips[frame] then clips[frame]:SetClipsChildren(not on) end
