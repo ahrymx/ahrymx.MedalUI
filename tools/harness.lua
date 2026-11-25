@@ -31611,6 +31611,44 @@ if fixesPass then (function()
     medalluin("older client, not installed")
     GetAddOnInfo, GetAddOnEnableState, IsAddOnLoaded, DisableAddOn = g[1], g[2], g[3], g[4]
     C_AddOns = A
+
+    -- (2026-11-25) Questie beside QuestieDB: advised against once, offered
+    -- to turn off; "Keep Questie" ends it, closing another way does not
+    local running = { Questie = true, QuestieDB = true }
+    C_AddOns = setmetatable({
+        IsAddOnLoaded = function(n) return running[n] == true end,
+        DisableAddOn = function(n, who) table.insert(disables, n .. "@" .. tostring(who)) end,
+    }, { __index = A })
+    local q = StaticPopupDialogs.MEDALUI_QUESTIE
+    local function questie(tag)
+        print("fixes questie " .. tag, "advised=" .. tostring(MedalUIDB.questieAdvised),
+            "disabled=" .. table.concat(disables, ","), "escape=" .. tostring(q.hideOnEscape))
+        state(tag)
+        disables = {}
+    end
+    running.Questie = false
+    ns.CheckQuestie()
+    questie("QuestieDB alone")
+    running.Questie = true
+    ns.CheckQuestie()
+    questie("both")
+    q.OnCancel(nil, nil, "override")
+    ns.CheckQuestie()
+    questie("closed by another, next login")
+    q.OnAccept()
+    questie("turned off")
+    q.OnCancel(nil, nil, "clicked")
+    ns.CheckQuestie()
+    questie("kept, next login")
+    MedalUIDB.questieAdvised = nil
+    inCombat = true
+    ns.CheckQuestie()
+    questie("in combat")
+    inCombat = false
+    regen()
+    questie("after combat")
+    MedalUIDB.questieAdvised = nil
+    C_AddOns = A
 end)() end
 
 if radialPass then

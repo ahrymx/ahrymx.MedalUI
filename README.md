@@ -145,6 +145,19 @@ Companions appear under the **MedalUI** category in the AddOn List, each with it
 
 ## Recommended addons
 
+> [!TIP]
+> **Install [QuestieDB](https://www.curseforge.com/wow/addons/questiedb). It is strongly recommended.** QuestieDB is the quest, creature, object and item database behind Questie, released as an addon of its own. MedalUI reads it while the game runs and copies none of it. On WoW Forever the game itself can't say much about a quest beyond what is in your log, so QuestieDB fills the gaps:
+>
+> - **The Zone tab's Guide**, which plans what to do next for experience, only works with it.
+> - **Quest chains:** a quest's page lays out the whole chain with each step's name, level and experience, where the game can't.
+> - **Drop rates:** the tracker and quest pages show how often a quest item drops ("Gnoll Paw: 3/8 · 12-18% drop"), with each creature's rate in the objective's tooltip.
+> - **Quest items:** the Zone tab's item bar also offers the items a quest needs that the game doesn't mark, once they are in your bags.
+> - **Quest tooltips** from `mdlui_Tooltips`: hold Shift over a quest, on the world map too, to see who starts and ends it and where, its place in the chain, and the reputation it gives.
+>
+> Questie itself isn't needed: QuestieDB works on its own. Without it, these features are hidden and everything else works as usual.
+>
+> **Running Questie alongside it isn't recommended.** MedalUI already has Questie's features, improved, so Questie only doubles them. Its map pins also hide the game's objective markers, which waypoints to quests need. When both are loaded, MedalUI offers once to turn Questie off and leave QuestieDB on.
+
 These addons are by other authors and pair well with MedalUI. They are not part of it: install each one separately from CurseForge.
 
 | Addon | What it adds | Clients |

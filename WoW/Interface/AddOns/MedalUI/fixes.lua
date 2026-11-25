@@ -112,6 +112,56 @@ ns.KnownIssue({
     end,
 })
 
+-- --------------------------------------------------- Questie beside QuestieDB
+-- (2026-11-25) Not an issue but advice: MedalUI's quest log, tracker, quest
+-- pages, drop rates, the Zone tab's Guide and mdlui_Tooltips' quests read
+-- QuestieDB themselves, so Questie running as well only doubles them, and
+-- its map pins hide the game's objective markers, which the waypoint to a
+-- quest (the game's super-tracked one) needs. Once both are loaded, a
+-- dialog offers to turn Questie off (QuestieDB stays on). "Keep Questie" is
+-- final: it is not asked again. It waits for one of the two (Escape leaves
+-- it); one closed by another dialog is asked again at the next login.
+local function Loaded(name)
+    local loaded = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    return loaded ~= nil and loaded(name) and true or false
+end
+
+function ns.QuestieAdvised()
+    return Loaded("Questie") and Loaded("QuestieDB") and not (MedalUIDB and MedalUIDB.questieAdvised)
+end
+
+StaticPopupDialogs.MEDALUI_QUESTIE = {
+    text = Tr["Questie is running beside QuestieDB. That is not recommended with MedalUI: it already has "
+        .. "Questie's features, improved. Its quest log, tracker, quest pages with their whole chains, drop "
+        .. "rates, the Zone tab's Guide and the quest tooltips read QuestieDB themselves, so Questie only "
+        .. "doubles them, and its map pins hide the game's objective markers that waypoints to quests need."
+        .. "\n\nTurn Questie off? The interface reloads; QuestieDB stays on."],
+    button1 = Tr["Turn Questie off"],
+    button2 = Tr["Keep Questie"],
+    OnAccept = function()
+        local disable = C_AddOns and C_AddOns.DisableAddOn or DisableAddOn
+        disable("Questie")                          -- every character
+        disable("Questie", UnitName("player"))      -- and this one
+        ReloadUI()
+    end,
+    OnCancel = function(_, _, reason)
+        -- (closed by another dialog: asked again next login)
+        if reason == "clicked" then MedalUIDB.questieAdvised = true end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = false,
+}
+
+function ns.CheckQuestie()
+    if not ns.QuestieAdvised() then return end
+    if InCombatLockdown() then
+        ns.OutOfCombat(ns.CheckQuestie)
+        return
+    end
+    StaticPopup_Show("MEDALUI_QUESTIE")
+end
+
 -- -------------------------------------------------------------- the finding
 local function Found()
     local found = {}
@@ -197,7 +247,9 @@ ns.On("PLAYER_ENTERING_WORLD", function()
     checked = true
     if C_Timer and C_Timer.After then
         C_Timer.After(3, ns.CheckIssues)
+        C_Timer.After(4, ns.CheckQuestie)
     else
         ns.CheckIssues()
+        ns.CheckQuestie()
     end
 end)
