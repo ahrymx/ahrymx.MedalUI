@@ -17,6 +17,7 @@
 --   R.Engrave(f)             the chamfered engraved frame (the zone tray's)
 --   R.Inside(f, draw, sub)   a texture inside that frame's chamfer
 --   R.Slot(f)                a tab's engraved slot; R.Under, R.Held, R.Recess
+--   R.Plate(f), R.Lift(f, on)  a raised plate (the macro cards'), held or not
 --   R.Chrome(f, title, rules, hairAt)     the frame's art gone, ours under it
 --   R.Place(f)               where the LFG window stands, and kept there
 --   R.Stand(f, who, shown)   the spot's rules (one window there at a time)
@@ -310,6 +311,61 @@ function R.Recess(f)
         table.insert(f.recess, t)
     end
     return f.recess
+end
+
+-- ------------------------------------------------------------ the plates
+-- (2026-11-25, the user's pick A of /workspace/lfg-mock-A-plates.png, the
+-- macro cards' look) a plate on f: its face the window's ink, fading
+-- left to right as the window's own (ns.window.FADE; 2026-11-25, the
+-- user's: no shadow, the background's fade), a gold_d edge (its top line
+-- full); held (R.Lift), the edge gold and a soft glow round it.
+--   R.Plate(f)      the plate, f.plate its parts
+--   R.Lift(f, on)   held or not
+function R.Plate(f)
+    local p = {}
+    f.plate = p
+    local ink, fade = ns.colors.ink, ns.window.FADE or { 1, 0.1 }
+    p.face = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+    p.face:SetAllPoints()
+    if p.face.SetGradient and CreateColor then
+        p.face:SetColorTexture(1, 1, 1, 1)
+        p.face:SetGradient("HORIZONTAL", CreateColor(ink[1], ink[2], ink[3], fade[1]),
+            CreateColor(ink[1], ink[2], ink[3], fade[2]))
+    else
+        p.face:SetColorTexture(ink[1], ink[2], ink[3], (fade[1] + fade[2]) / 2)
+    end
+    p.edges, p.halo = {}, {}
+    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local across = i <= 2
+        local t = f:CreateTexture(nil, "BORDER", nil, -2)
+        t:SetPoint(side[1])
+        t:SetPoint(side[2])
+        if across then t:SetHeight(1) else t:SetWidth(1) end
+        p.edges[i] = t
+        -- the glow: a line 2 out from the edge
+        local g = f:CreateTexture(nil, "BACKGROUND", nil, -6)
+        local dx = i == 3 and -2 or i == 4 and 2 or 0
+        local dy = i == 1 and 2 or i == 2 and -2 or 0
+        g:SetPoint(side[1], dx - (across and 2 or 0), dy + (across and 0 or 2))
+        g:SetPoint(side[2], dx + (across and 2 or 0), dy - (across and 0 or 2))
+        if across then g:SetHeight(2) else g:SetWidth(2) end
+        g:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.35)
+        p.halo[i] = g
+    end
+    R.Lift(f, false)
+    return p
+end
+
+function R.Lift(f, on)
+    local p = f.plate
+    on = on and true or false
+    p.on = on
+    for i, t in ipairs(p.edges) do
+        local c = on and GOLD or GOLD_D
+        t:SetColorTexture(c[1], c[2], c[3], (on or i == 1) and 1 or 0.6)
+    end
+    for _, g in ipairs(p.halo) do g:SetShown(on) end
 end
 
 -- a button's own states' art (normal, pushed, lit, disabled): put away

@@ -1016,6 +1016,7 @@ ns.window.RIBBON = RIBBON
 -- band high (the windows' own when not given). Mirrored (the side panel,
 -- strips/side.lua), the ink is solid at the right instead.
 local FADE = { 1, 0.10 }
+ns.window.FADE = FADE           -- (the LFG pages' plates and rows fade as the window)
 local function Dress(parent, band, mirrored)
     local dress = CreateFrame("Frame", nil, parent)
     dress:SetAllPoints()

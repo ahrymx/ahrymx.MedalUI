@@ -1363,6 +1363,10 @@ L["Looking for group / Who"] = "Поиск группы / Кто"
 L["The groups and players listed."] = "Записавшиеся группы и игроки."
 L["List yourself, for groups and players to find."] = "Запишитесь, чтобы вас нашли группы и игроки."
 L["Who is online."] = "Кто в сети."
+-- (2026-11-25) Browse's ledger: its columns
+L["Activity"] = "Занятие"
+L["Roles"] = "Роли"
+L["Age"] = "Давность"
 
 -- ---------------------------------------------------------- the cooldowns
 -- (cooldowns/: the Cooldown Manager's window and its simulation)

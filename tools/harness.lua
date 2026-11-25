@@ -28541,7 +28541,7 @@ if lfgPass then (function()
                 end
                 local style = r.style.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
                 table.insert(out, string.format("%s %s%s / %s / %s%s [%s] %s%s%s", r.name.text, tostring(r.lvl.text),
-                    r.new.shown and " (new)" or "", r.act.text, r.dot.shown and "* " or "", style, slots(r), r.meta.text,
+                    r.new.shown and " (new)" or "", r.act.text, r.zebra.shown and "~ " or "", style, slots(r), r.meta.text,
                     r.mark.shown and " OPEN" or "",
                     #m > 0 and (" {" .. table.concat(m, " ") .. " | " .. seg(r.actions) .. "}") or ""))
             end
@@ -28609,6 +28609,14 @@ if lfgPass then (function()
     G.browse.list.frame.h = 600
     fire("LFG_LIST_SEARCH_RESULTS_RECEIVED")
     results("lfg results")
+    -- (2026-11-25, the user's pick: Browse's ledger, no size) its head's
+    -- columns, from the list's left, and the list under it
+    do
+        local h = G.browse.head
+        local function x(w) local pt = w.points.LEFT or w.points.RIGHT return tostring(pt and pt[3]) end
+        print("lfg ledger head", "leader@" .. x(h.leader), "act@" .. x(h.act), "roles@" .. x(h.roles),
+            "age@" .. x(h.age), "list@" .. tostring(G.browse.list.frame.points.TOPLEFT[4]))
+    end
     print("lfg band", seg(G.band))
     -- 3. the role filter: groups needing a tank, players offering it; then healers; then words
     G.browse.discs[1].scripts.OnClick(G.browse.discs[1])
@@ -28758,6 +28766,20 @@ if lfgPass then (function()
     -- the group's tick picks all its activities; All level ranges shows the raids too
     click(G.listme.list, "word", "Dungeons")
     acts("lfg list all dungeons")
+    -- (2026-11-25, the user's pick: List me's plates) each activity a plate,
+    -- the picked lit (its edge gold, its glow shown); the roles on a plate
+    do
+        local out = {}
+        for _, x in ipairs(shownRows(G.listme.list)) do
+            if x.p then
+                local e = x.p.plate.edges[3].color
+                table.insert(out, string.format("%s:h%s edge=%.2f glow=%s tag=%s", x.name.text, tostring(x.p.h),
+                    e and e[1] or -1, tostring(x.p.plate.halo[1].shown), tostring(x.tag.shown)))
+            end
+        end
+        print("lfg list plates", "roles plate=" .. tostring(G.listme.roles and G.listme.roles.plate ~= nil),
+            table.concat(out, " | "))
+    end
     click(G.listme.list, "name", "Wailing Caverns")
     click(G.listme.list, "name", "Scarlet Monastery")
     G.listme.all.scripts.OnClick(G.listme.all)

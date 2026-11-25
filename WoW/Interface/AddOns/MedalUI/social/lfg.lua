@@ -9,18 +9,22 @@
 --   ---------------------------------------------------------
 --   Browse   [Dungeons v] [All activities (4) v] [Search]   (category, activities)
 --            [search          ]        Need: (T)(H)(D)
---            - Groups (2)
---              Ash White  Lvl 26          (T)(H)(D)(D)  4/5   3m
---              Stormwind Stockades        (the activity, its difficulty)
---              Competitive  "the note"    (the playstyle, its colour)
---              (a click opens a group: its members, [Send message])
---            - Players (3)
---              Ilrana  Lvl 22                  Roles: (H)(D)   5m
---   List me  [Tank|Healer|Damage] [New players]
---            [Dungeons|Quests|PvP|Custom]
---            [Playstyle (required) v]            [ ] All level ranges
+--            Leader          Activity        Roles            Age  <- the ledger's head
+--            - Groups . 2                          (2026-11-25, the user's
+--              Ash White 26    Stockades       (T)(H)(D)(D)( )   3m   pick: mockup B,
+--              Competitive "the note"  new players welcome            no size)
+--              (every other row striped; a click opens a group: its members,
+--              [Send message])
+--            - Players . 3
+--              Ilrana 22       Shadowfang Keep (H)(D)             5m
+--   List me  .------------------------------------------------.  <- plates
+--            | (T)(H)(D)  Damage, you list as   [ ] New players |  (mockup A)
+--            '------------------------------------------------'
+--            [Dungeons v]  [Relaxed  * v]               [ ] All levels
 --            [-] Dungeons . 2 of 4               (the activity group, ticks all)
---                [v] Blackfathom Deeps     24-32
+--             .--------------------------------------------.
+--             | [v] Blackfathom Deeps              [24-32] |   (a plate each;
+--             '--------------------------------------------'    picked: gold, lit)
 --            Note  (the game's own box: the game reads the note from it)
 --            Voice chat [None v]
 --            Listed 4m ago . Relaxed
@@ -53,10 +57,17 @@ local WIDTH = L.chatLeft + L.chatWidth
 local PAD, HEAD, TABS, BAND, CONTROL = 12, 36, 26, 28, 16
 local INNER = WIDTH - 2 * PAD                   -- a page's width
 local GUTTER = 10
-local RESULT, MEMBER, ACTIONS = 56, 17, 32      -- a result's row, a member's line under it, its buttons
+local RESULT, MEMBER, ACTIONS = 40, 20, 32      -- a result's row, a member's line under it, its buttons
 local GO = 86                                   -- Browse's Search button, beside its pickers
 local PERSON = 34                               -- a Who row
-local ROW, FOLD, PICK = 20, 24, 22              -- an activity's row, a fold, a dropdown
+local ROW, FOLD, PICK = 46, 24, 22              -- an activity's row (a plate, 6 under it), a fold, a dropdown
+-- (2026-11-25, the user's picks: Browse the ledger of /workspace/lfg-mock-
+-- B-ledger.png without its Size column, List me the plates of lfg-mock-A-
+-- plates.png) the ledger's columns, from a row's left (each row GUTTER in
+-- from the list's), its head's height; a plate's height in its row
+local LEDGER = { act = math.floor(0.42 * (INNER - GUTTER)), roles = math.floor(0.70 * (INNER - GUTTER)),
+    left = 8, head = 22, plate = 40 }
+local ENTRY_FADE = { 0.2, 0.65 }                -- an entry's own ink, left to right, over the window's fade
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
 local DIM = { 0.55, 0.52, 0.45 }
@@ -500,9 +511,10 @@ local function SectionRow(r)
     r.sign = ns.Text(r, 13)
     r.sign:SetPoint("LEFT", 4, 0)
     r.sign:SetTextColor(unpack(GOLD))
+    -- (the ledger's) its word gold_d, as a ledger's section
     r.word = ns.Text(r, 12)
     r.word:SetPoint("LEFT", 18, 0)
-    r.word:SetTextColor(unpack(GOLD))
+    r.word:SetTextColor(unpack(GOLD_D))
     r.count = ns.Text(r, 11)
     r.count:SetPoint("LEFT", r.word, "RIGHT", 6, 0)
     r.count:SetTextColor(unpack(DIM))
@@ -528,10 +540,10 @@ local function Member(r, i)
     m:SetHeight(MEMBER)
     m.icon = RoleIcon(m, 13)
     m.icon:SetPoint("LEFT", 0, 0)
-    m.name = ns.PlainText(m, 11)
+    m.name = ns.PlainText(m, 12)
     m.name:SetPoint("LEFT", 20, 0)
     m.what = ns.PlainText(m, 11)
-    m.what:SetPoint("LEFT", 190, 0)
+    m.what:SetPoint("LEFT", LEDGER.act - 28, 0)
     m.what:SetTextColor(unpack(DIM))
     r.people[i] = m
     return m
@@ -549,37 +561,54 @@ local function ResultRow(kind, parent)
         return r
     end
     Ground(r)
+    -- (2026-11-25, the user's: the list keeps the window's fade, the
+    -- entries much less) an entry's own ink, fading far less than the
+    -- window's: under its words at the right too
+    r.back = r:CreateTexture(nil, "BACKGROUND", nil, 0)
+    r.back:SetAllPoints()
+    local ink = ns.colors.ink
+    if r.back.SetGradient and CreateColor then
+        r.back:SetColorTexture(1, 1, 1, 1)
+        r.back:SetGradient("HORIZONTAL", CreateColor(ink[1], ink[2], ink[3], ENTRY_FADE[1]),
+            CreateColor(ink[1], ink[2], ink[3], ENTRY_FADE[2]))
+    else
+        r.back:SetColorTexture(ink[1], ink[2], ink[3], (ENTRY_FADE[1] + ENTRY_FADE[2]) / 2)
+    end
+    -- the ledger's stripe: every other row in a section
+    r.zebra = r:CreateTexture(nil, "BACKGROUND", nil, 1)
+    r.zebra:SetAllPoints()
+    r.zebra:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.08)
+    -- the leader: name and level, under them the playstyle and the note
     r.name = ns.PlainText(r, 13)
-    r.name:SetPoint("TOPLEFT", 10, -5)
+    r.name:SetPoint("TOPLEFT", LEDGER.left, -5)
+    r.name:SetWordWrap(false)
     r.lvl = ns.PlainText(r, 11)
-    r.lvl:SetPoint("LEFT", r.name, "RIGHT", 7, 0)
+    r.lvl:SetPoint("LEFT", r.name, "RIGHT", 6, 0)
     r.lvl:SetTextColor(unpack(DIM))
-    r.new = ns.Text(r, 10)
-    r.new:SetPoint("LEFT", r.lvl, "RIGHT", 8, 0)
-    r.new:SetTextColor(unpack(GREEN))
-    r.new:SetText(Tr["new players welcome"])
-    r.act = ns.PlainText(r, 11)
-    r.act:SetPoint("TOPLEFT", 10, -22)
-    r.act:SetPoint("RIGHT", -(SLOTS * SLOT + 14), 0)
-    r.act:SetJustifyH("LEFT")
-    r.act:SetWordWrap(false)
-    r.dot = r:CreateTexture(nil, "ARTWORK")
-    r.dot:SetSize(6, 6)
-    r.dot:SetTexture(ROUND)
-    r.dot:SetPoint("TOPLEFT", 11, -43)
     r.style = ns.PlainText(r, 11)
-    r.style:SetPoint("TOPLEFT", 22, -40)
-    r.style:SetPoint("RIGHT", -8, 0)
+    r.style:SetPoint("TOPLEFT", LEDGER.left, -22)
+    r.style:SetWidth(LEDGER.act - LEDGER.left - 10)
     r.style:SetJustifyH("LEFT")
     r.style:SetWordWrap(false)
+    -- the activity, new players under it
+    r.act = ns.PlainText(r, 12)
+    r.act:SetPoint("TOPLEFT", LEDGER.act, -5)
+    r.act:SetWidth(LEDGER.roles - LEDGER.act - 8)
+    r.act:SetJustifyH("LEFT")
+    r.act:SetWordWrap(false)
+    r.new = ns.Text(r, 9)
+    r.new:SetPoint("TOPLEFT", LEDGER.act, -23)
+    r.new:SetTextColor(unpack(GREEN))
+    r.new:SetText(Tr["new players welcome"])
+    -- the roles, from the column's left; the age at the right
     r.slots = {}
     for i = 1, SLOTS do
-        local d = RoleIcon(r, 16)
-        d:SetPoint("TOPRIGHT", -(8 + (SLOTS - i) * SLOT), -6)
+        local d = RoleIcon(r, 15)
+        d:SetPoint("TOPLEFT", LEDGER.roles + (i - 1) * SLOT, -4)
         r.slots[i] = d
     end
     r.meta = ns.PlainText(r, 11)
-    r.meta:SetPoint("TOPRIGHT", -8, -25)
+    r.meta:SetPoint("TOPRIGHT", -8, -6)
     r.meta:SetTextColor(unpack(DIM))
     r.people = {}
     r.actions = ns.window.Segments(r, { height = 22, size = 11, fit = true, items = {
@@ -650,7 +679,7 @@ local function Slots(res)
 end
 lfg.Slots = Slots
 
-local function FillResult(r, item)
+local function FillResult(r, item, n)
     if item.head then
         r.sign:SetText(browse.folded[item.head] and "+" or "\226\136\146")
         r.word:SetText(item.label)
@@ -660,8 +689,12 @@ local function FillResult(r, item)
     local res = item.result
     local open = browseSel == res.id
     Picked(r, open)
+    r.zebra:SetShown(not open and n and n % 2 == 0 or false)
     r.name:SetText(res.leader.name .. (res.self and "  " .. Tr["(you)"] or ""))
     r.name:SetTextColor(unpack(ClassColour(res.leader.class)))
+    r.name:SetWidth(0)
+    local nameRoom = LEDGER.act - LEDGER.left - 34
+    if (r.name:GetStringWidth() or 0) > nameRoom then r.name:SetWidth(nameRoom) end
     r.lvl:SetText(res.leader.level and tostring(res.leader.level) or "")
     r.new:SetShown(res.newPlayers)
     local c = Diff(res.max)
@@ -669,23 +702,17 @@ local function FillResult(r, item)
     r.act:SetTextColor(c[1], c[2], c[3])
     local ps = D.PlaystyleName(res.playstyle)
     local pc = D.PlaystyleColour(res.playstyle)
-    r.dot:SetShown(ps ~= nil)
-    r.dot:SetVertexColor(pc[1], pc[2], pc[3], 1)
     local style = ps and (Hex(pc) .. ps .. "|r") or ""
-    if res.comment ~= "" then style = style .. (ps and "   " or "") .. Hex(DIM) .. "\"" .. res.comment .. "\"|r" end
-    r.style:ClearAllPoints()
-    r.style:SetPoint("TOPLEFT", ps and 22 or 10, -40)
-    r.style:SetPoint("RIGHT", -8, 0)
+    if res.comment ~= "" then style = style .. (ps and "  " or "") .. Hex(DIM) .. "\"" .. res.comment .. "\"|r" end
     r.style:SetText(style)
-    -- the right column: the slots, right-aligned; the size and the age
+    -- the roles from the column's left (no size: the user's)
     local slots = Slots(res)
     for i, d in ipairs(r.slots) do
-        local slot = slots[i - (SLOTS - #slots)]
+        local slot = slots[i]
         d:SetShown(slot ~= nil)
         if slot then d:Set(slot[1], slot[2]) end
     end
-    local age = Age(res.age + (GetTime() - (D.searchedAt or GetTime())))
-    r.meta:SetText(res.solo and age or (res.count .. "/" .. res.size .. "  \194\183  " .. age))
+    r.meta:SetText(Age(res.age + (GetTime() - (D.searchedAt or GetTime()))))
     local members = open and not res.solo
     for i, m in ipairs(r.people) do m:SetShown(members and i <= #res.members) end
     if members then
@@ -809,7 +836,24 @@ function browse.Build(page)
             return RESULT + #res.members * MEMBER + ACTIONS
         end,
     })
-    browse.list.frame:SetPoint("TOPLEFT", 0, -60)
+    -- the ledger: its head, the columns' words, over the list
+    local head = CreateFrame("Frame", nil, page)
+    head:SetPoint("TOPLEFT", 0, -60)
+    head:SetPoint("TOPRIGHT", 0, -60)
+    head:SetHeight(LEDGER.head)
+    local fill = head:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints()
+    fill:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.25)
+    browse.head = {}
+    for _, col in ipairs({ { "leader", Tr["Leader"], LEDGER.left }, { "act", Tr["Activity"], LEDGER.act },
+        { "roles", Tr["Roles"], LEDGER.roles }, { "age", Tr["Age"] } }) do
+        local w = ns.Text(head, 11)
+        w:SetTextColor(unpack(GOLD))
+        w:SetText(col[2])
+        if col[3] then w:SetPoint("LEFT", GUTTER + col[3], 0) else w:SetPoint("RIGHT", -8, 0) end
+        browse.head[col[1]] = w
+    end
+    browse.list.frame:SetPoint("TOPLEFT", 0, -(60 + LEDGER.head))
     browse.list.frame:SetPoint("BOTTOMRIGHT")
 end
 
@@ -944,13 +988,41 @@ local function ActivityRow(kind, parent)
         r.tick:SetScript("OnClick", All)
         return r
     end
-    Ground(r)
-    r.tick = Tick(r, 14)
-    r.tick:SetPoint("LEFT", 24, 0)
-    r.name = ns.PlainText(r, 12)
-    r.name:SetPoint("LEFT", 46, 0)
-    r.range = ns.PlainText(r, 11)
-    r.range:SetPoint("RIGHT", -6, 0)
+    -- (the plates) a plate in the row's top LEDGER.plate; its tick, its
+    -- name, its range in a tag
+    -- in its difficulty's colour
+    r.p = CreateFrame("Frame", nil, r)
+    r.p:SetPoint("TOPLEFT", 6, 0)
+    r.p:SetPoint("TOPRIGHT", -6, 0)
+    r.p:SetHeight(LEDGER.plate)
+    ns.reskin.Plate(r.p)
+    -- under the mouse: the plate's face a shade lighter (the plate is a
+    -- frame, not the button: no highlight layer of its own)
+    local glow = r.p:CreateTexture(nil, "BORDER", nil, -3)
+    glow:SetPoint("TOPLEFT", 1, -1)
+    glow:SetPoint("BOTTOMRIGHT", -1, 1)
+    glow:SetColorTexture(1, 1, 1, 0.05)
+    glow:Hide()
+    r:SetScript("OnEnter", function() glow:Show() end)
+    r:SetScript("OnLeave", function() glow:Hide() end)
+    r.tick = Tick(r.p, 16)
+    r.tick:SetPoint("LEFT", 14, 0)
+    r.name = ns.PlainText(r.p, 14)
+    r.name:SetPoint("LEFT", 42, 0)
+    r.tag = CreateFrame("Frame", nil, r.p)
+    r.tag:SetHeight(20)
+    r.tag:SetPoint("RIGHT", -12, 0)
+    r.tag.edge = r.tag:CreateTexture(nil, "BACKGROUND", nil, 1)
+    r.tag.edge:SetAllPoints()
+    r.tag.well = r.tag:CreateTexture(nil, "BACKGROUND", nil, 2)
+    r.tag.well:SetPoint("TOPLEFT", 1, -1)
+    r.tag.well:SetPoint("BOTTOMRIGHT", -1, 1)
+    local ink = ns.colors.ink
+    r.tag.well:SetColorTexture(ink[1], ink[2], ink[3], 1)
+    r.tag.wash = r.tag:CreateTexture(nil, "BACKGROUND", nil, 3)
+    r.tag.wash:SetAllPoints(r.tag.well)
+    r.range = ns.PlainText(r.tag, 11)
+    r.range:SetPoint("CENTER", 0, 0)
     local function One()
         local a = r.item.activity
         Pick({ a.id }, not (ns.db.lfgListed or {})[a.id])
@@ -970,15 +1042,19 @@ local function FillActivity(r, item)
     -- the name plain, picked or not; the level range in its difficulty's colour
     local a = item.activity
     local on = (ns.db.lfgListed or {})[a.id] and true or false
-    Picked(r, on, false)
-    r.edge:Hide()
+    ns.reskin.Lift(r.p, on)
     r.tick:Set(on)
-    local t = on and ns.colors.text or UNPICKED
+    local t = on and GOLD or UNPICKED
     r.name:SetText(a.name)
     r.name:SetTextColor(t[1], t[2], t[3])
     local c = Diff(a.max)
-    r.range:SetText(Range(a.min, a.max))
+    local range = Range(a.min, a.max)
+    r.range:SetText(range)
     r.range:SetTextColor(c[1], c[2], c[3])
+    r.tag:SetShown(range ~= "")
+    r.tag:SetWidth(math.ceil(r.range:GetStringWidth() or 0) + 16)
+    r.tag.edge:SetColorTexture(c[1], c[2], c[3], 0.7)
+    r.tag.wash:SetColorTexture(c[1], c[2], c[3], 0.18)
 end
 
 -- Blizzard's note box, in List me: the game reads the note from it alone
@@ -1032,12 +1108,20 @@ local function Toggle(parent, words, tip, click)
     return b
 end
 
+local LIST_DOWN = 14                    -- (the plates) the rest under the roles' plate
 function listme.Build(page)
-    -- the roles: three medallions, the words of those chosen beside them
+    -- the roles: three medallions, the words of those chosen beside them,
+    -- on a plate (2026-11-25, the plates) with New players at its right
+    local roles = CreateFrame("Frame", nil, page)
+    roles:SetPoint("TOPLEFT", 0, 0)
+    roles:SetPoint("TOPRIGHT", 0, 0)
+    roles:SetHeight(MEDAL + 20)
+    ns.reskin.Plate(roles)
+    listme.roles = roles
     listme.medals = {}
     for i, role in ipairs(ROLES) do
-        local m = Medallion(page, role)
-        m:SetPoint("TOPLEFT", (i - 1) * (MEDAL + 10), 0)
+        local m = Medallion(roles, role)
+        m:SetPoint("TOPLEFT", 12 + (i - 1) * (MEDAL + 10), -10)
         local field = FIELD[role]
         m:SetScript("OnClick", function()
             D.SetRole(field, not D.Roles()[field])
@@ -1061,23 +1145,23 @@ function listme.Build(page)
         end)
         listme.medals[i] = m
     end
-    listme.chosen = ns.Text(page, 12)
-    listme.chosen:SetPoint("TOPLEFT", 3 * (MEDAL + 10) + 4, -6)
-    listme.as = ns.Text(page, 10)
+    listme.chosen = ns.Text(roles, 12)
+    listme.chosen:SetPoint("TOPLEFT", 12 + 3 * (MEDAL + 10) + 4, -16)
+    listme.as = ns.Text(roles, 10)
     listme.as:SetPoint("TOPLEFT", listme.chosen, "BOTTOMLEFT", 0, -3)
     listme.as:SetTextColor(unpack(DIM))
-    listme.new = Toggle(page, Tr["New players welcome"],
+    listme.new = Toggle(roles, Tr["New players welcome"],
         function() return Tr["Groups and players new to the game are welcome to join you."] end,
         function()
             ns.db.lfgNewPlayers = not ns.db.lfgNewPlayers
             lfg.Refresh()
         end)
     listme.new.word:SetTextColor(unpack(GREEN))
-    listme.new:SetPoint("TOPRIGHT", 0, -8)
+    listme.new:SetPoint("TOPRIGHT", -12, -18)
     -- what for: the category, the playstyle
     listme.wants = Section(page)
-    listme.wants:SetPoint("TOPLEFT", 0, -44)
-    listme.wants:SetPoint("TOPRIGHT", 0, -44)
+    listme.wants:SetPoint("TOPLEFT", 0, -(44 + LIST_DOWN))
+    listme.wants:SetPoint("TOPRIGHT", 0, -(44 + LIST_DOWN))
     listme.wants:Set(Tr["Looking for"])
     listme.cat = Picker(page, 170, {
         text = function()
@@ -1098,7 +1182,7 @@ function listme.Build(page)
         end,
         tip = function() return Tr["A listing is for one category."] end,
     })
-    listme.cat:SetPoint("TOPLEFT", 0, -66)
+    listme.cat:SetPoint("TOPLEFT", 0, -(66 + LIST_DOWN))
     listme.style = Picker(page, INNER - 178, {
         text = function()
             local e = D.Entry()
@@ -1122,15 +1206,15 @@ function listme.Build(page)
                 or Tr["How you mean to play: the game asks for one."]
         end,
     })
-    listme.style:SetPoint("TOPRIGHT", 0, -66)
+    listme.style:SetPoint("TOPRIGHT", 0, -(66 + LIST_DOWN))
     listme.styleDot = listme.style:CreateTexture(nil, "ARTWORK")
     listme.styleDot:SetSize(6, 6)
     listme.styleDot:SetTexture(ROUND)
     listme.styleDot:SetPoint("RIGHT", -26, 0)
     -- the activities, All levels at the heading's end
     listme.acts = Section(page)
-    listme.acts:SetPoint("TOPLEFT", 0, -98)
-    listme.acts:SetPoint("TOPRIGHT", 0, -98)
+    listme.acts:SetPoint("TOPLEFT", 0, -(98 + LIST_DOWN))
+    listme.acts:SetPoint("TOPRIGHT", 0, -(98 + LIST_DOWN))
     listme.all = Toggle(page, Tr["All levels"],
         function() return Tr["Every activity, not only those that suit your level."] end,
         function()
@@ -1144,7 +1228,7 @@ function listme.Build(page)
         Kind = function(item) return item.head and "head" or "act" end,
         Height = function(item) return item.head and FOLD or ROW end,
     })
-    listme.list.frame:SetPoint("TOPLEFT", 0, -120)
+    listme.list.frame:SetPoint("TOPLEFT", 0, -(124 + LIST_DOWN))
     listme.list.frame:SetPoint("BOTTOMRIGHT", 0, 150)
     -- the note: Blizzard's own box, its count at the heading's end
     listme.notes = Section(page)
@@ -1161,6 +1245,17 @@ function listme.Build(page)
     listme.note:SetPoint("BOTTOMRIGHT", 0, 58)
     listme.note:SetHeight(62)
     ns.window.Face(listme.note)
+    -- (the plates) gold brackets at its corners, as the macros' page
+    for _, at in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
+        local across = listme.note:CreateTexture(nil, "ARTWORK")
+        across:SetSize(18, 2)
+        across:SetPoint(at, 0, 0)
+        across:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        local down = listme.note:CreateTexture(nil, "ARTWORK")
+        down:SetSize(2, 18)
+        down:SetPoint(at, 0, 0)
+        down:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+    end
     listme.missing = ns.Text(listme.note, 11)
     listme.missing:SetPoint("TOPLEFT", 8, -8)
     listme.missing:SetPoint("RIGHT", -8, 0)
