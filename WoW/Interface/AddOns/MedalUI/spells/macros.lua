@@ -47,9 +47,13 @@ local PLAIN = "Fonts\\ARIALN.TTF"       -- the macros' own words
 local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held (the book's)
 local HEAD, LINE = 44, 13               -- a card folded; a line of its text
 local SPACE = 10                        -- between the cards
-local MEDAL = 42                        -- a card's icon, a medallion half out of its plate's left edge
-local TEXT_X = MEDAL / 2 + 10           -- a card's words, in from its plate's left edge
-local SHADOW = { 3, 4 }                 -- a plate's shadow: right, down
+local MEDAL = 42                        -- a card's icon, a medallion in its plate's top left corner
+local TEXT_X = MEDAL + 10               -- a card's words, in from its plate's left edge
+-- (2026-11-25, the user's: the icon in, the corner curved) the plate's top
+-- left corner cut away to the medallion's middle: the medallion touches its
+-- top and left edges, its rim the corner
+local CUT = { x = MEDAL / 2, y = MEDAL / 2 }
+local MARGIN = 10                       -- the plates in from the floor's edges, each side alike
 local GLOW = 2                          -- the held plate's glow, out from its edge
 local PLATE_TOP = { 0.16, 0.14, 0.11, 1 } -- a plate's head, lit from above
 local FLOOR = { hatch = 0.05, vignette = 0.6, edge = 0.3 } -- the list's floor: its hatch, its edges' dark, its edge
@@ -221,25 +225,36 @@ local function Card(n)
     local c = CreateFrame("Button", nil, scroller.child)
     c:SetFrameLevel(scroller.child:GetFrameLevel() + 1)
     local ink = ns.colors.ink
-    -- a raised plate: its shadow cast down and right, an ink body, its head
-    -- lit from above, a gold line along its top and a dark one under it
-    c.shadow = c:CreateTexture(nil, "BACKGROUND", nil, -8)
-    c.shadow:SetPoint("TOPLEFT", SHADOW[1], -SHADOW[2])
-    c.shadow:SetPoint("BOTTOMRIGHT", SHADOW[1], -SHADOW[2])
-    c.shadow:SetColorTexture(0, 0, 0, 0.55)
+    -- a plate (2026-11-25, the user's: no shadow, as the LFG's): an ink
+    -- body, its head lit from above, a gold line along its top and a dark
+    -- one under it; its top left corner (CUT) not there, the medallion's
+    -- rim the corner
     c.fill = c:CreateTexture(nil, "BACKGROUND", nil, -7)
-    c.fill:SetAllPoints()
+    c.fill:SetPoint("TOPLEFT", 0, -CUT.y)
+    c.fill:SetPoint("BOTTOMRIGHT")
     c.fill:SetColorTexture(ink[1], ink[2], ink[3], 0.96)
+    c.fillTop = c:CreateTexture(nil, "BACKGROUND", nil, -7)
+    c.fillTop:SetPoint("TOPLEFT", CUT.x, 0)
+    c.fillTop:SetPoint("TOPRIGHT")
+    c.fillTop:SetHeight(CUT.y)
+    c.fillTop:SetColorTexture(ink[1], ink[2], ink[3], 0.96)
+    -- the corner's curve: an ink disc under the medallion, the plate's
+    -- body round to its rim
+    c.disc = c:CreateTexture(nil, "BACKGROUND", nil, -7)
+    c.disc:SetSize(MEDAL, MEDAL)
+    c.disc:SetPoint("CENTER", c, "TOPLEFT", CUT.x, -CUT.y)
+    c.disc:SetTexture(ns.media .. "strips\\round")
+    c.disc:SetVertexColor(ink[1], ink[2], ink[3], 0.96)
     c.band = c:CreateTexture(nil, "BACKGROUND", nil, -6)
-    c.band:SetPoint("TOPLEFT", 1, -1)
+    c.band:SetPoint("TOPLEFT", CUT.x, -1)
     c.band:SetPoint("TOPRIGHT", -1, -1)
     c.band:SetHeight(HEAD - 1)
     R.Shade(c.band, PLATE_TOP, { ink[1], ink[2], ink[3], 0 })
     c.edges = {}
-    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" }, { "TOPLEFT", "BOTTOMLEFT" },
-        { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT", CUT.x, 0 }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+        { "TOPLEFT", "BOTTOMLEFT", 0, -CUT.y }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
         local t = c:CreateTexture(nil, "BORDER")
-        t:SetPoint(side[1])
+        t:SetPoint(side[1], side[3] or 0, side[4] or 0)
         t:SetPoint(side[2])
         if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
         c.edges[i] = t
@@ -256,17 +271,30 @@ local function Card(n)
         local t = c:CreateTexture(nil, "BACKGROUND", nil, -8)
         local dx, dy = side[3] * GLOW, side[4] * GLOW
         local ex, ey = (side[3] == 0) and GLOW or 0, (side[4] == 0) and GLOW or 0
-        t:SetPoint(side[1], dx - ex, dy + ey)
+        -- (the top's and the left's from the cut corner: from where the
+        -- ring round it leaves their line, not over it twice)
+        local away = math.floor(math.sqrt((MEDAL / 2 + GLOW) ^ 2 - (MEDAL / 2) ^ 2))
+        local cx = i == 1 and CUT.x + away or 0
+        local cy = i == 3 and -(CUT.y + away) or 0
+        t:SetPoint(side[1], dx - ex + cx, dy + ey + cy)
         t:SetPoint(side[2], dx + ex, dy - ey)
         if i <= 2 then t:SetHeight(GLOW) else t:SetWidth(GLOW) end
         t:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.35)
         t:Hide()
         c.halo[i] = t
     end
-    -- the icon: a medallion centred on the plate's left edge, half out
+    -- and round the corner's curve: a ring GLOW out from the medallion's rim
+    local curve = c:CreateTexture(nil, "BACKGROUND", nil, -8)
+    curve:SetSize(MEDAL + 2 * GLOW, MEDAL + 2 * GLOW)
+    curve:SetPoint("CENTER", c, "TOPLEFT", CUT.x, -CUT.y)
+    curve:SetTexture(ns.media .. "strips\\round")
+    curve:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 0.35)
+    curve:Hide()
+    c.halo[5] = curve
+    -- the icon: a medallion in the plate's cut corner, its rim the corner
     c.icon = c:CreateTexture(nil, "ARTWORK", nil, 3)
     c.icon:SetSize(MEDAL, MEDAL)
-    c.icon:SetPoint("CENTER", c, "TOPLEFT", 0, -HEAD / 2)
+    c.icon:SetPoint("CENTER", c, "TOPLEFT", CUT.x, -CUT.y)
     c.medal = R.Medal(c, c.icon, 3, "ARTWORK")
     c.label = ns.Text(c, 12)
     c.label:SetPoint("TOPLEFT", TEXT_X, -8)
@@ -341,17 +369,15 @@ local function Card(n)
     c.delete:SetScript("OnLeave", function() GameTooltip:Hide() end)
     c.delete:HookScript("OnEnter", function(self) self.label:SetTextColor(GOLD[1], GOLD[2], GOLD[3]) end)
     c.delete:HookScript("OnLeave", function(self) self.label:SetTextColor(GOLD_D[1], GOLD_D[2], GOLD_D[3]) end)
-    -- the medallion half out of the plate clicks as its head does
-    c:SetHitRectInsets(-MEDAL / 2, 0, 0, 0)
-    -- what the secure button covers: the head within the edges, and the
-    -- medallion out past the left one
+    -- what the secure button covers: the head within the edges, the
+    -- medallion with it
     c.hit = CreateFrame("Frame", nil, c)
-    c.hit:SetPoint("TOPLEFT", -MEDAL / 2, -1)
+    c.hit:SetPoint("TOPLEFT", 0, -1)
     c.hit:SetPoint("TOPRIGHT", -1, -1)
     c.hit:SetHeight(HEAD - 1)
     -- under the mouse: the plate's head lit (not the square round the medallion)
     c.glow = c:CreateTexture(nil, "HIGHLIGHT")
-    c.glow:SetPoint("TOPLEFT", 1, -1)
+    c.glow:SetPoint("TOPLEFT", CUT.x, -1)
     c.glow:SetPoint("TOPRIGHT", -1, -1)
     c.glow:SetHeight(HEAD - 1)
     c.glow:SetColorTexture(1, 1, 1, 0.06)
@@ -388,9 +414,9 @@ local function Secure(n)
     end)
     b:SetScript("OnEnter", function(self) if self.card then Tooltip(self, self.card) end end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    -- (it covers the medallion too, out past the plate: lit on the plate)
+    -- (it covers the medallion too: lit right of its middle, the cut corner clear)
     local glow = b:CreateTexture(nil, "HIGHLIGHT")
-    glow:SetPoint("TOPLEFT", MEDAL / 2 + 1, 0)
+    glow:SetPoint("TOPLEFT", CUT.x, 0)
     glow:SetPoint("BOTTOMRIGHT")
     glow:SetColorTexture(1, 1, 1, 0.06)
     layer.buttons[n] = b
@@ -531,11 +557,11 @@ local function Cards()
     local f = MacroFrame
     local _, count, base = Set()
     local selected = f:GetSelectedIndex()
-    -- each plate in from the left by half its medallion (which stands out
-    -- over its edge) and short of the right by its shadow: the scroll's
-    -- clip cuts neither; the first down by the held one's glow
-    local width = W.width - GUTTER - MEDAL / 2 - SHADOW[1] - 1
-    local y = GLOW
+    -- (2026-11-25, the user's: equal margins) MARGIN from the floor's every
+    -- edge: the medallion's left the scroll's (the gutter, MARGIN wide, its
+    -- bar in it), the plate's right, the first's top, the last's foot
+    local width = W.width - GUTTER - MARGIN
+    local y = MARGIN
     -- the profile's macro bindings (the book's option, as its spells')
     local bound = ns.db.spellbookClickCast and ns.clickcast and ns.clickcast.Macros and ns.clickcast.Macros() or {}
     local binding = Binding()
@@ -580,7 +606,7 @@ local function Cards()
         for _, t in ipairs(c.halo) do t:SetShown(on) end
         c.medal.rim:SetVertexColor(edge[1], edge[2], edge[3], 1)
         c:ClearAllPoints()
-        c:SetPoint("TOPLEFT", MEDAL / 2, -y)
+        c:SetPoint("TOPLEFT", 0, -y)
         c:SetSize(width, h)
         c.y, c.h = y, h
         c:Show()
@@ -590,7 +616,7 @@ local function Cards()
         cards[i].i, cards[i].index, cards[i].name = nil, nil, nil
         cards[i]:Hide()
     end
-    scroller.child:SetSize(W.width - GUTTER, math.max(1, y - SPACE + SHADOW[2] + GLOW))
+    scroller.child:SetSize(W.width - GUTTER, math.max(1, y - SPACE + MARGIN))
 end
 
 -- The editor's header and foot: the macro in it, what the game's buttons
