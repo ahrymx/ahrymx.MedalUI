@@ -881,18 +881,21 @@ end
 -- --------------------------------------------------------------- immersion
 -- Bare when idle (Shared > Visibility & fading, Immersion Mode): left
 -- alone, the chat's chrome (the box, its tabs, the cog, the scroll bar)
--- fades out and each message stands on a band of its own over the world;
+-- fades out and each message stands on a pill of its own over the world
+-- (2026-11-25: rounded, hugging its words, its width measured but never
+-- tested when secret);
 -- the chrome comes back while it is typed in, pointed at, scrolled up, its
 -- drawer open, something stands on it (a window docked above it, the quest
 -- tracker's full view), or (ticked) in combat, and goes again chatBareDelay seconds
--- after. A band is anchored to its line's points, never measured (a line's
--- text may be secret), and follows its line's alpha, so Blizzard's own
--- chat fade takes the band with the line. A line Blizzard lays out again
+-- after. A band's height is its line's points; its width is measured, but
+-- a secret line's (its text may be secret) is the window's, untested. It
+-- follows its line's alpha, so Blizzard's own chat fade takes the band
+-- with the line. A line Blizzard lays out again
 -- drops out of visibleLines (fewer lines: a shorter window, a bigger font)
 -- and its band goes with it. Blizzard lays out lines enough for one-line
 -- messages, so wrapped ones push the top lines past the window's top,
 -- where its FontStringContainer clips them: the bands are clipped there
--- too, in a frame of their own (6 px wider on the left, for their margin).
+-- too, in a frame of their own (wider at the sides, for their margin).
 -- Docked windows only: one torn out is Blizzard's.
 local inCombat, idle = false, 0
 local chrome                -- the chrome's fader; its alpha is the box's
@@ -916,16 +919,62 @@ end
 
 local function Immersed() return ns.db.chatImmersion and chatBox ~= nil end
 
--- a band's colour: ink, darker at the line's start, lighter at its end
+-- (2026-11-25, /workspace/chat-A.png, the user's pick: modern) each line's
+-- band a pill: rounded, hugging its words, a hair apart from the next.
+-- Its pieces: four corners cut from the round art, the edges between them,
+-- the middle; all ink at the bands' strength (chatBands)
+local PILL = { r = 6, x = 9, top = 1, foot = 2 }    -- its corners; out past the words; in at the top, the foot
+local ROUND = ns.media .. "strips\\round"
 local function Tint(band)
     local ink, a = ns.colors.ink, Num("chatBands", 0, 1)
-    if band.SetGradient and CreateColor then
-        band:SetColorTexture(1, 1, 1, 1)
-        band:SetGradient("HORIZONTAL", CreateColor(ink[1], ink[2], ink[3], a),
-            CreateColor(ink[1], ink[2], ink[3], a * 0.6))
-    else
-        band:SetColorTexture(ink[1], ink[2], ink[3], a * 0.8)
+    for _, t in ipairs(band.parts) do t:SetVertexColor(ink[1], ink[2], ink[3], a) end
+end
+
+local function Pill(parent)
+    local band = CreateFrame("Frame", nil, parent)
+    band:SetFrameLevel(parent:GetFrameLevel())      -- (the clip's: under the lines' container)
+    band.parts = {}
+    local r = PILL.r
+    local function Part(round)
+        local t = band:CreateTexture(nil, "BACKGROUND")
+        if round then t:SetTexture(ROUND) else t:SetTexture("Interface\\Buttons\\WHITE8X8") end
+        table.insert(band.parts, t)
+        return t
     end
+    for _, c in ipairs({ { "TOPLEFT", 0, 0.5, 0, 0.5 }, { "TOPRIGHT", 0.5, 1, 0, 0.5 },
+        { "BOTTOMLEFT", 0, 0.5, 0.5, 1 }, { "BOTTOMRIGHT", 0.5, 1, 0.5, 1 } }) do
+        local t = Part(true)
+        t:SetSize(r, r)
+        t:SetPoint(c[1])
+        t:SetTexCoord(c[2], c[3], c[4], c[5])
+    end
+    local top = Part()
+    top:SetPoint("TOPLEFT", r, 0)
+    top:SetPoint("TOPRIGHT", -r, 0)
+    top:SetHeight(r)
+    local foot = Part()
+    foot:SetPoint("BOTTOMLEFT", r, 0)
+    foot:SetPoint("BOTTOMRIGHT", -r, 0)
+    foot:SetHeight(r)
+    local mid = Part()
+    mid:SetPoint("TOPLEFT", 0, -r)
+    mid:SetPoint("BOTTOMRIGHT", 0, r)
+    Tint(band)
+    return band
+end
+
+-- a pill's width: its words' and its padding; a line wrapped, its window's.
+-- A secret line's measure is secret too, never tested: the window's
+local function Hug(band, line)
+    local full = line:GetWidth() or 0
+    local w = full
+    local sw = line:GetStringWidth()
+    local n = line.GetNumLines and line:GetNumLines()
+    if not ns.IsSecret(sw) and not ns.IsSecret(n) and type(sw) == "number" then
+        local lines = type(n) == "number" and n or 1
+        w = (sw > full or lines > 1) and full or sw
+    end
+    band:SetWidth(math.max(2 * PILL.r, w + 2 * PILL.x))
 end
 
 -- each visible line's band, shown with it, as much of it as its line is
@@ -935,8 +984,10 @@ local function Clip(frame)
     local clip = clips[frame]
     if not clip then
         clip = CreateFrame("Frame", nil, frame)
-        clip:SetPoint("TOPLEFT", frame, "TOPLEFT", -6, 0)
-        clip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, -2)
+        clip:SetPoint("TOPLEFT", frame, "TOPLEFT", -PILL.x - 1, 0)
+        -- (out at the right too: a wrapped line's pill runs the window's
+        -- width and its padding, its corners round, 2026-11-25)
+        clip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", PILL.x + 1, -2)
         clip:SetClipsChildren(true)
         clip:SetFrameLevel(frame:GetFrameLevel())   -- under the lines' container
         clips[frame] = clip
@@ -956,18 +1007,19 @@ local function Bands(frame)
     for _, line in ipairs(frame.visibleLines or {}) do
         local band = bands[line]
         if not band and away > 0 then
-            band = Clip(frame):CreateTexture(nil, "BACKGROUND", nil, -8)
-            band:SetPoint("TOPLEFT", line, "TOPLEFT", -6, 1)
-            band:SetPoint("BOTTOMLEFT", line, "BOTTOMLEFT", -6, -1)
-            band:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
-            Tint(band)
+            band = Pill(Clip(frame))
+            band:SetPoint("TOPLEFT", line, "TOPLEFT", -PILL.x, PILL.top)
+            band:SetPoint("BOTTOMLEFT", line, "BOTTOMLEFT", -PILL.x, PILL.foot)
             band.frame = frame
             bands[line] = band
         end
         if band then
             local on = away > 0 and frame:IsShown() and line:IsShown()
             band:SetShown(on and true or false)
-            if on then band:SetAlpha(away * (line:GetAlpha() or 1)) end
+            if on then
+                Hug(band, line)
+                band:SetAlpha(away * (line:GetAlpha() or 1))
+            end
         end
     end
 end

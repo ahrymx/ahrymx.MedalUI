@@ -11300,12 +11300,12 @@ if stripsPass then
                     end
                 end
                 local band = ns.chatBands[ChatFrame1.visibleLines[1]]
-                local g = band and band.gradient
+                local ink = band and band.parts and band.parts[1].vertex
                 print("chat bare " .. tag, string.format("box=%.2f tab1=%.2f tab3=%.2f bar=%.2f undocked tab2=%.2f",
                     chat.box:GetAlpha(), ChatFrame1Tab:GetAlpha(), ChatFrame3Tab:GetAlpha(),
                     ChatFrame1.ScrollBar:GetAlpha(), ChatFrame2Tab:GetAlpha()),
                     "bands=" .. shown .. (#alphas > 0 and " @" .. table.concat(alphas, ",") or ""),
-                    g and string.format("ink %.2f>%.2f", g[2][4], g[3][4]) or "",
+                    ink and string.format("pill ink %.2f", ink[4]) or "",
                     "frame2 bands=" .. tostring(ns.chatBands[ChatFrame2.visibleLines[1]] ~= nil),
                     string.format("well=%s@%.2f", tostring(chat.well:IsVisible()), (function()
                         local x, f = 1, chat.well
@@ -11413,6 +11413,32 @@ if stripsPass then
                     "bottom=" .. tostring(br and br[1] == ChatFrame1 and br[2] .. "@" .. br[3] .. "," .. br[4]),
                     "level=" .. tostring(clip.level) .. " window=" .. tostring(ChatFrame1.level))
             end)()
+            -- (2026-11-25, chat-A) the pills: rounded (7 parts), as wide as
+            -- their words and the padding, under the lines; a secret line's
+            -- the window's, its measure never tested
+            do
+                local line = ChatFrame1.visibleLines[1]
+                local band = ns.chatBands[line]
+                local wasText, wasWidth = line.text, line.w
+                line.text, line.w = "Ilrana waves.", 400            -- 13 letters: 91 wide
+                step(0.1)
+                local tl = band.points.TOPLEFT
+                print("chat bare pill", "parts=" .. #band.parts, "w=" .. tostring(band.w),
+                    "words=" .. tostring(line:GetStringWidth()), "window=" .. tostring(line:GetWidth()),
+                    "at=" .. tostring(tl and tl[3] .. "," .. tl[4]), "level=" .. tostring(band.level)
+                    .. " clip=" .. tostring(band.parent.level))
+                local was, wasW = issecretvalue, line.GetStringWidth
+                issecretvalue = function(v) return v == 77777 end
+                line.GetStringWidth = function() return 77777 end
+                step(0.1)
+                print("chat bare pill secret", "w=" .. tostring(band.w), "window=" .. tostring(line:GetWidth()))
+                issecretvalue, line.GetStringWidth = was, wasW
+                line.text = string.rep("a long message ", 40)      -- wider than the window: wrapped
+                step(0.1)
+                print("chat bare pill wrapped", "w=" .. tostring(band.w))
+                line.text, line.w = wasText, wasWidth
+                step(0.1)
+            end
             ns.SetOption("chatBands", 0.8)
             step(0.1)
             bare("bands 80%")
