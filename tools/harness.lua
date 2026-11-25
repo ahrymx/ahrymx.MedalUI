@@ -12036,6 +12036,42 @@ if stripsPass then
         ns.console:SetScale(1.25)
         buffState("buffs, console at 125%")
         ns.console:SetScale(k)
+        -- minimal mode, the chat bare: the row as soft tiles, the icons'
+        -- corners rounded, a shadow and a light edge, no rim
+        ns.SetOption("chatImmersion", true)
+        buffState("buffs, minimal mode, the chat shown")
+        ns.chatChrome:Go(0.6, 0)
+        buffState("buffs, the chat 60% faded in")
+        ns.chatChrome:Go(0, 0)
+        local w = resolve(ns.chat.well)
+        local function trayState(tag)
+            local soft = {}
+            for _, t in ipairs(ns.buffs[1].soft) do
+                table.insert(soft, tostring(t.shown) .. (t.vertex and string.format("@%.2f", t.vertex[4]) or ""))
+            end
+            print(tag, "the margin " .. string.format("x %.0f-%.0f, y %.0f-%.0f", w[1] + 612, w[3] + 612,
+                w[2] + 916, w[4] + 916), "tile " .. table.concat(soft, ","),
+                "squares shown=" .. tostring(ns.buffs[1].icon.shown))
+        end
+        trayState("buffs as tiles")
+        buffState("buffs as tiles")
+        local added = {}
+        for i = 1, 6 do
+            local b = { id = 60 + i, icon = "more" .. i, timed = false }
+            table.insert(buffs, b)
+            table.insert(added, AuraData(b))
+        end
+        aura({ addedAuras = added })
+        trayState("buffs as tiles, eight")
+        buffState("buffs as tiles, eight")
+        for i = #buffs, 1, -1 do if buffs[i].id > 60 then table.remove(buffs, i) end end
+        aura({ removedAuraInstanceIDs = { 61, 62, 63, 64, 65, 66 } })
+        ns.chatChrome:Go(1, 0)
+        trayState("buffs, the chat back")
+        buffState("buffs, the chat back")
+        ns.chatChrome:Go(0, 0)
+        ns.SetOption("chatImmersion", false)
+        buffState("buffs, minimal mode off")
     end
     do return end
 end

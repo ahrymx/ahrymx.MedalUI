@@ -4,8 +4,9 @@
 --
 -- The quest tracker's full view stands where the column would, with an
 -- empty row beside the medallion: it asks for the buffs there instead, left
--- to right (ns.BuffRow{ x, y }: the first icon's left edge from the
--- screen's, the row's middle from the strip art's top), and ns.BuffRow()
+-- to right (ns.BuffRow{ x, y, bare }: the first icon's left edge from the
+-- screen's, the row's middle from the strip art's top, and minimal mode's
+-- tiles' middle), and ns.BuffRow()
 -- gives the column back.
 --
 -- Which buffs are timeless can be secret in combat (Forever and retail:
@@ -13,6 +14,12 @@
 -- so a buff is sorted when it arrives if the client allows, and otherwise
 -- at the end of combat, when the whole list is read again. Each is kept by
 -- its aura instance, which is never secret for the player's own auras.
+--
+-- While the chat is bare (minimal mode: the chat's box faded out when
+-- idle) the row is soft tiles instead, the squares again as the box comes
+-- back (2026-11-25, the user's pick C of /workspace/buffs-sheet.png): no
+-- rim, each icon's corners rounded, a soft shadow under it and a faint
+-- light edge round it, in the row's place.
 --
 -- The icons are plain buttons, not secure ones: a right click cancels the
 -- buff out of combat, and does nothing in it. The chat's edit box shares
@@ -23,6 +30,8 @@ local _, ns = ...
 local Auras = C_UnitAuras
 local L = ns.stripLayout
 local ICON, GAP = 29, 4
+local TILE, TILE_GAP = 24, 3     -- minimal mode's tiles, and the room between them
+local ROUNDED = ns.media .. "strips\\rounded"
 
 local known = {}        -- auraInstanceID -> { icon, count } if timeless, false if timed
 local unsorted = false  -- a buff could not be sorted in combat: read them all after it
@@ -89,6 +98,29 @@ local function Button(i)
     btn.icon:SetPoint("TOPLEFT", 2, -2)
     btn.icon:SetPoint("BOTTOMRIGHT", -2, 2)
     btn.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    btn.square = { rim, ink, btn.icon }
+    -- the tile: a soft shadow (two of the rounded art, wider and fainter
+    -- out), a faint light edge, the icon's corners rounded
+    local function Rounded(sub, out, down, r, g, b, a)
+        local t = btn:CreateTexture(nil, "BACKGROUND", nil, sub)
+        t:SetTexture(ROUNDED)
+        t:SetPoint("TOPLEFT", -out, out - down)
+        t:SetPoint("BOTTOMRIGHT", out, -out - down)
+        t:SetVertexColor(r, g, b, a)
+        return t
+    end
+    local tile = btn:CreateTexture(nil, "ARTWORK")
+    tile:SetAllPoints()
+    tile:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    if btn.CreateMaskTexture and tile.AddMaskTexture then
+        local mask = btn:CreateMaskTexture()
+        mask:SetTexture(ROUNDED, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        mask:SetAllPoints(tile)
+        tile:AddMaskTexture(mask)
+    end
+    btn.tile = tile
+    btn.soft = { Rounded(3, 2.5, 1.5, 0, 0, 0, 0.25), Rounded(4, 1, 1.5, 0, 0, 0, 0.45),
+        Rounded(5, 1, 0, 1, 0.94, 0.78, 0.22), tile }
     btn.count = ns.Text(btn, 10)
     btn.count:SetPoint("BOTTOMRIGHT", -1, 2)
     btn:RegisterForClicks("RightButtonUp")
@@ -108,9 +140,22 @@ local function Button(i)
     return btn
 end
 
+-- bare: the chat's box past half faded out (strips/chat.lua)
+local function Bare()
+    local chrome = ns.chatChrome
+    return ns.db ~= nil and ns.db.chatImmersion and chrome ~= nil and chrome.alpha < 0.5 or false
+end
+local bare = false
+
+-- the tiles' row's width, n of them
+local function TilesWidth(n)
+    return n * TILE + (n - 1) * TILE_GAP
+end
+
 -- Up from the medallion's ring, oldest at the bottom; or along the
--- tracker's row, oldest at the left.
+-- tracker's row, oldest at the left; in minimal mode, as tiles there.
 local function Layout()
+    bare = Bare() and row ~= nil
     local ids = {}
     for id, buff in pairs(known) do
         if buff then table.insert(ids, id) end
@@ -122,8 +167,14 @@ local function Layout()
         local btn, buff = Button(i), known[id]
         btn.id = id
         btn.icon:SetTexture(buff.icon)
+        btn.tile:SetTexture(buff.icon)
         btn.count:SetText(buff.count)
-        if row then
+        for _, t in ipairs(btn.square) do t:SetShown(not bare) end
+        for _, t in ipairs(btn.soft) do t:SetShown(bare) end
+        btn:SetSize(bare and TILE or ICON, bare and TILE or ICON)
+        if bare then
+            ns.OnStrip(btn, -1, row.x + 1 + TILE / 2 + (i - 1) * (TILE + TILE_GAP), row.bare or row.y)
+        elseif row then
             ns.OnStrip(btn, -1, row.x + ICON / 2 + (i - 1) * (ICON - 1), row.y)
         else
             ns.OnStrip(btn, -1, well.x, top - ICON / 2 - (i - 1) * (ICON + GAP))
@@ -139,13 +190,15 @@ local function Layout()
 end
 
 -- How far the row runs along the margin from its first icon's left edge
--- (the chat asks: it always has the row).
+-- (the chat asks: it always has the row); in minimal mode, the tiles'.
 function ns.BuffRowWidth()
     local n = 0
     for _, btn in ipairs(buttons) do
         if btn.id then n = n + 1 end
     end
-    return n > 0 and (n * (ICON - 1) + 1) or 0
+    if n == 0 then return 0 end
+    if bare then return 1 + TilesWidth(n) end
+    return n * (ICON - 1) + 1
 end
 
 function ns.BuffRow(spec)
@@ -197,6 +250,12 @@ local function Changed(info)
     local removed = not ns.IsSecret(info.removedAuraInstanceIDs) and info.removedAuraInstanceIDs
     for _, id in ipairs(removed or {}) do known[id] = nil end
     Layout()
+end
+
+ns.OnSetting("chatImmersion", function() Layout() end)
+-- the chat's box fading (strips/chat.lua): tiles as it goes, squares as it comes
+function ns.BuffsBare()
+    if (Bare() and row ~= nil) ~= bare then Layout() end
 end
 
 if Auras and Auras.GetAuraDataByIndex then

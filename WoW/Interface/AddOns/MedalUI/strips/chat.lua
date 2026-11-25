@@ -768,7 +768,10 @@ local function Build()
             if frame.editBox then Lit(frame.editBox) end
         end
     end
-    ns.BuffRow({ x = ns.stripCells.from, y = ns.stripArt.height - L.stripHeight - (margin + 1) / 2 })
+    -- (bare: the tiles' middle, halfway between the strip and the lowest
+    -- line's foot, which stands RULE and the panel's pad over the margin)
+    ns.BuffRow({ x = ns.stripCells.from, y = ns.stripArt.height - L.stripHeight - (margin + 1) / 2,
+        bare = ns.stripArt.height - L.stripHeight - (margin + RULE + L.chatPad) / 2 })
 
     -- The docked tabs in one row, each after the last. Blizzard keeps a
     -- window the player made (Guild, Instance: not static-docked) in the
@@ -1116,6 +1119,7 @@ local function Chrome(a)
         ns.CornerPaint(-1)
         ns.CornerPaint(1)
     end
+    if ns.BuffsBare then ns.BuffsBare() end
     for _, frame in ipairs(Docked()) do
         -- (each by name: a client without one, the rest still)
         for _, key in ipairs({ "ScrollBar", "ScrollToBottomButton", "buttonFrame" }) do
