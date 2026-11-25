@@ -25,7 +25,9 @@
 -- specialisation) and Pet last while the pet has spells: its role's gem
 -- (damage red, healer green, tank blue; General and the pet the theme's
 -- brown), its name, its count; the open one held (MedalUICharDB.bookTab,
--- by name, each page its own). Under it that line's spells, on hairlines,
+-- by name, each page its own). (2026-11-25, /workspace/spec-rows-B.png)
+-- The specialisations share its top row; General and Pet a slim strip
+-- under them, no more than three to a row. Under it that line's spells, on hairlines,
 -- scrolled, the bar out in the window's margin by the rail (Scroller's
 -- outside), under headings (2026-11-19, mockup B of
 -- /workspace/booklist-sheet.png): Not on your bars, On your bars, Passive,
@@ -70,7 +72,8 @@ local MISSING = { 0.85, 0.3, 0.2 }      -- the edge of a spell on no bar
 local BLUE = { 0.43, 0.63, 0.92 }       -- a cost
 local SLOTS = 180                       -- the action slots looked through
 local SPELL, RANK = 36, 24              -- a spell's row, a rank's
-local SPECS_H = 44                      -- the tabs' panel, joined under the head
+local SPECS_H = 44                      -- the tabs' panel, joined under the head: the specs' row
+local STRIP_H = 26                      -- under it, General's and the pet's strip
 local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held
 local ICON, INDENT = 30, 20             -- a spell's icon, its left
 local HEADING = 28                      -- a group's heading
@@ -1014,10 +1017,28 @@ end
 
 -- the tabs as the sections now are, each a share of the panel's width;
 -- a name too wide drops a size or three (the gem is on the count's line).
--- (2026-11-23, the user's: cramped with a pet's) General's and the pet's
--- are glyphs, side by side on the left, GLYPH_W each: their icon over
--- their count; the rest share what is left.
-local GLYPH_W = 46
+-- (2026-11-25, /workspace/spec-rows-B.png, the user's: no more than three
+-- to a row) the specs share the top row; General's and the pet's (the
+-- glyphs) a slim strip under them, each half of it (or all), its icon,
+-- its name and its count on one line. None: the specs the panel's height.
+local function Strip(panel)
+    if panel.strip then return panel.strip end
+    local s = {}
+    local ink = ns.colors.ink
+    s.fill = panel:CreateTexture(nil, "BACKGROUND", nil, 2)
+    s.fill:SetPoint("BOTTOMLEFT", 1, 1)
+    s.fill:SetPoint("BOTTOMRIGHT", -1, 1)
+    s.fill:SetHeight(STRIP_H - 1)
+    s.fill:SetColorTexture(ink[1], ink[2], ink[3], 0.35)
+    s.rule = panel:CreateTexture(nil, "BORDER")
+    s.rule:SetHeight(1)
+    s.rule:SetPoint("BOTTOMLEFT", 0, STRIP_H)
+    s.rule:SetPoint("BOTTOMRIGHT", 0, STRIP_H)
+    s.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    panel.strip = s
+    return s
+end
+
 function Tabs(p)
     local panel = p.specs
     if not panel then return end
@@ -1029,51 +1050,60 @@ function Tabs(p)
     -- the medallion and its step stand over the inner end (the left: the
     -- book is on the right): that cell's words centred in what they leave
     local clear = (W.step or 40) + 6    -- the step under the head, from the inner edge
-    local left = glyphs > 0 and clear + glyphs * GLYPH_W or 0
+    local strip = Strip(panel)
+    strip.fill:SetShown(glyphs > 0)
+    strip.rule:SetShown(glyphs > 0)
+    local specs = #list - glyphs
+    local tall = glyphs > 0 and SPECS_H or SPECS_H + STRIP_H
     for i, sec in ipairs(list) do
         local t = panel.cells[i] or Cell(p, i)
-        local x0, x1
+        -- k of n in its row; the row's first is under the medallion's step
+        local k, n, y, h
         if sec.glyph then
-            x0, x1 = i == 1 and 0 or clear + (i - 1) * GLYPH_W, clear + i * GLYPH_W
+            k, n, y, h = i, glyphs, -SPECS_H, STRIP_H
         else
-            local k, n = i - glyphs, #list - glyphs
-            x0 = left + math.floor((k - 1) * (width - left) / n)
-            x1 = left + math.floor(k * (width - left) / n)
+            k, n, y, h = i - glyphs, specs, 0, tall
         end
+        local x0 = math.floor((k - 1) * width / n)
+        local x1 = math.floor(k * width / n)
         t:ClearAllPoints()
-        t:SetPoint("TOPLEFT", panel, "TOPLEFT", x0, 0)
-        t:SetSize(x1 - x0, SPECS_H)
+        t:SetPoint("TOPLEFT", panel, "TOPLEFT", x0, y)
+        t:SetSize(x1 - x0, h)
         t.section = sec
         local held = sec == p.held
         t.wash:SetShown(held)
         t.line:SetShown(held)
-        t.split:SetShown(i > 1)
-        local shift = i == 1 and clear / 2 or 0
+        t.split:SetShown(k > 1)
+        local first = k == 1
+        local shift = first and clear / 2 or 0
         t.icon:SetShown(sec.glyph and true or false)
-        t.name:SetShown(not sec.glyph)
+        t.count:SetShown(not sec.glyph)
         t.gem.rim:SetShown(not sec.glyph)
         t.gem.stone:SetShown(not sec.glyph)
+        t.name:ClearAllPoints()
         if sec.glyph then
-            -- its icon over its count, in the cell's GLYPH_W beyond the step
-            local mid = (x1 - x0) - GLYPH_W / 2
-            t.icon:ClearAllPoints()
-            t.icon:SetPoint("CENTER", t, "LEFT", mid, 6)
+            -- its icon, then "General  ·  10", centred in its share
+            t.icon:SetSize(16, 16)
             t.icon:SetTexture(sec.icon or 134400)
             t.icon:SetDesaturated(not held)
             t.icon:SetAlpha(held and 1 or 0.7)
-            t.count:ClearAllPoints()
-            t.count:SetPoint("CENTER", t, "LEFT", mid, -12)
-        end
-        t.name:ClearAllPoints()
-        t.name:SetPoint("CENTER", shift, 7)
-        if not sec.glyph then
+            t.name:SetPoint("CENTER", shift + 11, 0)
+            t.icon:ClearAllPoints()
+            t.icon:SetPoint("RIGHT", t.name, "LEFT", -6, 0)
+        else
+            t.name:SetPoint("CENTER", shift, 7)
             t.count:ClearAllPoints()
             t.count:SetPoint("CENTER", shift + 6, -9)
         end
-        local room = (x1 - x0) - 10 - (i == 1 and clear or 0)
+        local room = (x1 - x0) - 10 - (first and clear or 0) - (sec.glyph and 22 or 0)
         local size = 12
+        -- (a trainer's tab: what can be learned now of all still to learn,
+        -- as "2/7"; 2026-11-22, the words were cramped)
+        local words = p.trainer and format("%d/%d", sec.now or 0, sec.count)
+            or sec.glyph and tostring(sec.count)
+            or ns.Plural(sec.count, format(Tr["%d |4spell:spells;"], sec.count))
         t.name:SetFont(ns.font, size, "")
-        t.name:SetText(sec.name)
+        t.name:SetText(sec.glyph and (sec.name .. "  \194\183  " .. words) or sec.name)
         while size > 9 and (t.name:GetStringWidth() or 0) > room do
             size = size - 1
             t.name:SetFont(ns.font, size, "")
@@ -1083,11 +1113,6 @@ function Tabs(p)
         t.gem.stone:SetColorTexture(col[1], col[2], col[3], 1)
         local c = held and GOLD or ns.colors.dim
         t.name:SetTextColor(c[1], c[2], c[3])
-        -- (2026-11-22) a trainer's tab: what can be learned now of all
-        -- still to learn, as "2/7" (the words were cramped)
-        local words = p.trainer and format("%d/%d", sec.now or 0, sec.count)
-            or sec.glyph and tostring(sec.count)
-            or ns.Plural(sec.count, format(Tr["%d |4spell:spells;"], sec.count))
         t.count:SetText(words)
         local cc = held and ns.colors.dim or OFF
         t.count:SetTextColor(cc[1], cc[2], cc[3])
@@ -1359,7 +1384,7 @@ end
 local function Page(spec)
     local p = spec
     p.rows = {}
-    p.under = SPECS_H                   -- the tabs' panel (the macros' sets too)
+    p.under = p.macros and SPECS_H or SPECS_H + STRIP_H   -- the tabs' panel (the macros' sets one row)
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true
     p.events = { "SPELLS_CHANGED", "LEARNED_SPELL_IN_SKILL_LINE", "SPELL_UPDATE_ICON", "PLAYER_LEVEL_UP",
         "UNIT_PET", "PET_BAR_UPDATE", "ACTIONBAR_SLOT_CHANGED", "PLAYER_MONEY" }

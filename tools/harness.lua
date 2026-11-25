@@ -21132,8 +21132,9 @@ if spellPass then
                     -- a glyph's: @icon(x0-x1) for its name and gem
                     if t.icon.shown then
                         local pt = t.points and t.points.TOPLEFT
-                        table.insert(tabs, string.format("@%s(%s+%s){%s}%s", tostring(t.icon.texture),
-                            tostring(pt and pt[3]), tostring(t.w), t.count.text, t.wash.shown and "*" or ""))
+                        table.insert(tabs, string.format("@%s(%s,%s+%s){%s}%s", tostring(t.icon.texture),
+                            tostring(pt and pt[3]), tostring(pt and pt[4]), tostring(t.w), t.name.text,
+                            t.wash.shown and "*" or ""))
                     else
                     table.insert(tabs, string.format("%s{%s}<%s>%s%s", t.name.text, t.count.text,
                         g and string.format("%.2f,%.2f,%.2f", g[1], g[2], g[3]) or "-",
@@ -21428,7 +21429,8 @@ if spellPass then
         for _, t in ipairs(book.specs.cells) do
             if t.shown then
                 local pt = t.points and t.points.TOPLEFT
-                table.insert(out, string.format("%s@%s+%s", t.section.name, tostring(pt and pt[3]), tostring(t.w)))
+                table.insert(out, string.format("%s@%s,%s+%sx%s", t.section.name, tostring(pt and pt[3]),
+                    tostring(pt and pt[4]), tostring(t.w), tostring(t.h)))
             end
         end
         print("book.pet glyph places", table.concat(out, " "), "panel=" .. tostring(book.specs:GetWidth()))
