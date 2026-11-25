@@ -4860,6 +4860,8 @@ if lfgPass or cdmPass or ccPass then (function()
         end
         LFGWhoListFrame = CreateFrame("Frame", "LFGWhoListFrame", LFGParentFrame)
         LFGWhoListFrame:Hide()
+        -- the game's tab choice (SharedXML): what /who's answer calls on theirs
+        PanelTemplates_SetTab = PanelTemplates_SetTab or function(f, id) f.selectedTab = id end
         -- Blizzard's filter: the suggested range near your level, or all of them
         function LFGUtil_GetFilteredActivities(cat)
             local out = {}
@@ -28579,10 +28581,18 @@ if lfgPass then (function()
         calls("lfg retail answered")
         return
     end
-    -- 2. the game's LFG button opens ours, on Browse, and asks for everything that suits
+    -- 2. the game's LFG button opens ours, on Browse. (2026-11-25, the
+    -- user's: /who's answer shows the game's window too, with no click, and
+    -- the search there was blocked) Opened by the game's window: nothing
+    -- sent, the list waiting for Search; pressed, it asks for everything
+    -- that suits
     ToggleLFGParentFrame()
     state("lfg open")
     rect("lfg box", box)
+    calls("lfg open by theirs: nothing sent")
+    frame()
+    results("lfg open waits")
+    G.browse.go.scripts.OnClick(G.browse.go)
     calls("lfg open calls")
     print("lfg pickers", picker(G.browse.cat), picker(G.browse.acts))
     -- no categories yet (the game's finder not loaded): the pickers and the
@@ -28926,6 +28936,36 @@ if lfgPass then (function()
     WhoFrame:Show()
     state("lfg slash who over theirs")
     calls("lfg slash who calls")
+    -- (2026-11-25, the user's: /who opened Browse) /who's answer with both
+    -- closed: the panel manager shows theirs, its Who list already the tab
+    -- shown (no Show of it): ours on Who, nothing sent
+    -- (as WhoList.lua's UpdateWhoList: theirs set to its Who tab, then shown;
+    -- its list frame not shown)
+    if ns.lfg.IsShown() then MedalUIToggleLFG() end
+    LFGParentFrame:Hide()
+    W.calls = {}
+    PanelTemplates_SetTab(LFGParentFrame, 3)
+    ShowUIPanel(LFGParentFrame)
+    state("lfg slash who, both closed")
+    calls("lfg slash who, both closed calls")
+    -- the game's button after: theirs shown (its Who tab still the one
+    -- chosen; set again as it shows), ours on Browse
+    MedalUIToggleLFG()
+    LFGParentFrame:Hide()
+    local realShow = LFGParentFrame.Show
+    LFGParentFrame.Show = function(self)
+        self.shown = true
+        PanelTemplates_SetTab(self, self.selectedTab)
+        self.shown = false
+        realShow(self)
+    end
+    LFGParentFrame:Show()
+    LFGParentFrame.Show = realShow
+    state("lfg game opens after a /who: Browse")
+    -- /who again, ours open on Browse: ours to Who
+    PanelTemplates_SetTab(LFGParentFrame, 3)
+    ShowUIPanel(LFGParentFrame)
+    state("lfg slash who, ours open on Browse")
     print("lfg friends", "shown=" .. tostring(FriendsFrame.shown))
     -- 11. covered by the character window; closed by an NPC window
     local char = ns.character and ns.character.window

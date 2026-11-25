@@ -1576,13 +1576,19 @@ end
 function lfg.IsShown() return box and box:IsShown() or false end
 function lfg.Current() return lfg.IsShown() and current or nil end
 
-function lfg.Open(key)
+-- quiet: opened by the game showing its own window, which may be no
+-- click of the player's (2026-11-25, the user's: /who's answer shows it,
+-- and the search, restricted to a click, was blocked): not searched, the
+-- list waiting for Search
+function lfg.Open(key, quiet)
     if not box then return end
     Select(key or ns.db.lfgPage or "browse")
     local first = not wanted
     wanted = true
     Sync()
-    if current == "browse" and first and #D.results == 0 and not D.searching then Search() end
+    if current == "browse" and first and #D.results == 0 and not D.searching then
+        if quiet then D.Stale() else Search() end
+    end
 end
 
 local closing = false
@@ -1692,6 +1698,15 @@ end
 -- ------------------------------------------------------------ the takeover
 local adopted = false
 local theirsShown = false               -- Blizzard's LFG frame, as last followed
+-- (2026-11-25, the user's: /who opened Browse) a /who's answer: the
+-- game's Who list (WhoList.lua UpdateWhoList) sets theirs to its Who tab,
+-- PanelTemplates_SetTab(LFGParentFrame, 3), then shows it; its list frame
+-- is not shown, only the tab chosen. Set while theirs was hidden: the Show
+-- just after is a /who's, and ours opens on Who; while theirs was already
+-- followed open: ours to Who now. (Set inside its own Show, as theirs
+-- shows: neither, a tab it remembers.)
+local WHO_TAB = 3
+local whoAt                             -- when theirs was last set to Who, hidden
 -- Only its opening and closing count: the game's panel manager shows it
 -- again as other panels come and go (/who's Friends window), and that
 -- must not turn ours from Who to Browse.
@@ -1703,8 +1718,13 @@ local function Follow()
     theirsShown = shown                 -- kept as we close it too
     if closing then return end
     if shown then
-        if not (lfg.IsShown() and current ~= "who") then
-            lfg.Open(ns.db.lfgPage ~= "who" and ns.db.lfgPage or "browse")
+        -- a /who's answer: ours on Who
+        local answer = whoAt == GetTime()
+        whoAt = nil
+        if answer then
+            lfg.Open("who", true)
+        elseif not (lfg.IsShown() and current ~= "who") then
+            lfg.Open(ns.db.lfgPage ~= "who" and ns.db.lfgPage or "browse", true)
         end
     elseif lfg.IsShown() and current ~= "who" then
         lfg.Close()
@@ -1718,6 +1738,16 @@ local function Adopt()
     ns.Park(f)
     for _, method in ipairs({ "Show", "Hide", "SetShown" }) do hooksecurefunc(f, method, Follow) end
     if f:IsShown() then Follow() end
+    if _G.PanelTemplates_SetTab then
+        hooksecurefunc("PanelTemplates_SetTab", function(frame, id)
+            if frame ~= f or id ~= WHO_TAB then return end
+            if not f:IsShown() then
+                whoAt = GetTime()
+            elseif theirsShown and not closing then
+                lfg.Open("who", true)
+            end
+        end)
+    end
     -- its own Who tab: ours
     local whoList = _G.LFGWhoListFrame
     if whoList then hooksecurefunc(whoList, "Show", function() lfg.Open("who") end) end
