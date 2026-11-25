@@ -1907,6 +1907,8 @@ local function ChatWindow(i)
     -- the shown lines, bottom up in a chain (ScrollingMessageFrame's
     -- RefreshLayout), each its own alpha (RefreshDisplay, the fade)
     f.visibleLines = {}
+    f.FontStringContainer = new("Frame", f)                -- (it clips the lines)
+    f.FontStringContainer:SetClipsChildren(true)
     for n = 1, 4 do
         local line = new("FontString", f)
         line.h = 14
@@ -11453,11 +11455,12 @@ if stripsPass then
                 f.GetBottom = function() return 0 end
                 f.GetTop = function() return 56 end
                 local ages = { 100, 92, 69, 42.25 }
-                local lineBottoms = {}
+                local lineBottoms, lineTops = {}, {}
                 for i, line in ipairs(f.visibleLines) do
-                    lineBottoms[i] = line.GetBottom
+                    lineBottoms[i], lineTops[i] = line.GetBottom, line.GetTop
                     local y = (i - 1) * 14
                     line.GetBottom = function() return y end
+                    line.GetTop = function() return y + 14 end
                     line.messageInfo = { timestamp = GetTime() - ages[i] }
                 end
                 local function alphas(tag)
@@ -11472,10 +11475,26 @@ if stripsPass then
                 alphas("ages")
                 f.visibleLines[4]:SetAlpha(1)                   -- Blizzard's write: ours laid over it
                 alphas("blizzard writes")
+                -- (2026-11-25) bare, the lines unclipped at the top; the top
+                -- line pushed past it (wrapped below it): whole, gone in 1.5s
+                local high = f.visibleLines[4]
+                local wasTop = high.GetTop
+                high.GetTop = function() return 70 end
+                step(0.1)
+                alphas("pushed past the top")
+                now = now + 0.75
+                step(0.1)
+                alphas("0.75s past")
+                now = now + 1
+                step(0.1)
+                alphas("1.75s past")
+                print("chat bare spill", "container clips=" .. tostring(f.FontStringContainer.clipsChildren),
+                    "bands' clip clips=" .. tostring(ns.chatBands[high].parent.clipsChildren))
+                high.GetTop = wasTop
                 for _, line in ipairs(f.visibleLines) do line.messageInfo = nil end
                 step(0.1)
                 alphas("no stamps")
-                for i, line in ipairs(f.visibleLines) do line.GetBottom = lineBottoms[i] end
+                for i, line in ipairs(f.visibleLines) do line.GetBottom, line.GetTop = lineBottoms[i], lineTops[i] end
                 f.GetFading, f.GetTimeVisible, f.GetFadeDuration, f.GetBottom, f.GetTop = unpack(saved)
             end
             ns.SetOption("chatBands", 0.8)

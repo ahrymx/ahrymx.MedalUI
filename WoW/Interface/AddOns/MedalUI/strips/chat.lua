@@ -896,6 +896,8 @@ end
 -- messages, so wrapped ones push the top lines past the window's top,
 -- where its FontStringContainer clips them: the bands are clipped there
 -- too, in a frame of their own (wider at the sides, for their margin).
+-- Bare (2026-11-25), neither clips: a message pushed past the top shows
+-- whole above it, and goes soon after (AGE.past).
 -- Docked windows only: one torn out is Blizzard's.
 local inCombat, idle = false, 0
 local chrome                -- the chrome's fader; its alpha is the box's
@@ -980,6 +982,7 @@ end
 -- each visible line's band, shown with it, as much of it as its line is
 -- and as the chrome is not
 local clips = {}            -- a window's bands' clip, by the window
+local spilt = {}            -- a window's lines unclipped at its top (Spill), by the window
 local function Clip(frame)
     local clip = clips[frame]
     if not clip then
@@ -988,7 +991,7 @@ local function Clip(frame)
         -- (out at the right too: a wrapped line's pill runs the window's
         -- width and its padding, its corners round, 2026-11-25)
         clip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", PILL.x + 1, -2)
-        clip:SetClipsChildren(true)
+        clip:SetClipsChildren(not spilt[frame])
         clip:SetFrameLevel(frame:GetFrameLevel())   -- under the lines' container
         clips[frame] = clip
     end
@@ -1002,25 +1005,53 @@ end
 -- Blizzard's fade (GetFadeDuration). Blizzard's own alpha for a line, as
 -- it writes it, is kept (given) and this laid over it, as far as the
 -- chrome is away; a line with no stamp, or a secret one, is left alone.
-local AGE = { top = 15 }
+-- (2026-11-25, the user's: never cut in half at the window's top) bare,
+-- a message pushed up past the window's top shows whole, above it (the
+-- clip lifted, Spill), and goes in AGE.past seconds from when it first
+-- rose past it, so the chat never grows tall
+local AGE = { top = 15, past = 1.5 }
 local given = setmetatable({}, { __mode = "k" })
+local rose = setmetatable({}, { __mode = "k" })     -- when a message (its info, else its line) rose past the top
 local shading = false
 local function Sooner(frame, line, away)
-    if away <= 0 or not (frame.GetFading and frame:GetFading()) then return 1 end
-    local info = line.messageInfo
-    local stamp = type(info) == "table" and info.timestamp
-    if ns.IsSecret(stamp) or type(stamp) ~= "number" then return 1 end
-    local over = frame.overrideFadeTimestamp
-    if type(over) == "number" and not ns.IsSecret(over) then stamp = math.max(stamp, over) end
-    local visible, fade = frame:GetTimeVisible(), frame:GetFadeDuration()
+    if away <= 0 then return 1 end
     local bottom, top, at = frame:GetBottom(), frame:GetTop(), line:GetBottom()
-    if not (visible and fade and bottom and top and at) or top <= bottom then return 1 end
-    local t = math.max(0, math.min(1, (at - bottom) / (top - bottom)))
-    local least = math.min(AGE.top, visible)
-    local soon = visible - (visible - least) * t
-    local age = GetTime() - stamp
-    local a = age <= soon and 1 or math.max(0, 1 - (age - soon) / math.max(fade, 0.01))
+    if not (bottom and top and at) or top <= bottom then return 1 end
+    local info = line.messageInfo
+    local a = 1
+    -- past the top: gone soon after it rose there
+    local high = line:GetTop()
+    local key = type(info) == "table" and info or line
+    if high and high > top + 1 then
+        rose[key] = rose[key] or GetTime()
+        a = math.max(0, 1 - (GetTime() - rose[key]) / AGE.past)
+    end
+    -- its time on screen by its height
+    local stamp = type(info) == "table" and info.timestamp
+    if frame.GetFading and frame:GetFading() and not ns.IsSecret(stamp) and type(stamp) == "number" then
+        local over = frame.overrideFadeTimestamp
+        if type(over) == "number" and not ns.IsSecret(over) then stamp = math.max(stamp, over) end
+        local visible, fade = frame:GetTimeVisible(), frame:GetFadeDuration()
+        if visible and fade then
+            local t = math.max(0, math.min(1, (at - bottom) / (top - bottom)))
+            local least = math.min(AGE.top, visible)
+            local soon = visible - (visible - least) * t
+            local age = GetTime() - stamp
+            if age > soon then a = math.min(a, math.max(0, 1 - (age - soon) / math.max(fade, 0.01))) end
+        end
+    end
     return 1 - (1 - a) * away
+end
+
+-- bare, the window's lines unclipped at its top (Blizzard's container and
+-- the bands' clip), so a message pushed past it shows whole; the chrome
+-- back, clipped again
+local function Spill(frame, on)
+    if spilt[frame] == on then return end
+    spilt[frame] = on
+    local box = frame.FontStringContainer
+    if box and box.SetClipsChildren then box:SetClipsChildren(not on) end
+    if clips[frame] then clips[frame]:SetClipsChildren(not on) end
 end
 
 local function Shade(frame, line, away)
@@ -1045,6 +1076,7 @@ end
 local function Bands(frame)
     -- the chrome is whole while the mode is off, so no band shows then
     local away = 1 - (chrome and chrome.alpha or 1)
+    Spill(frame, away > 0)
     local current = {}
     for _, line in ipairs(frame.visibleLines or {}) do current[line] = true end
     -- a line laid out away (released to the pool) never comes round again
