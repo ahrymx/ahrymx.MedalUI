@@ -9,20 +9,24 @@
 --   ---------------------------------------------------------
 --   Browse   [Dungeons v] [All activities (4) v] [Search]   (category, activities)
 --            [search          ]        Need: (T)(H)(D)
---            Leader          Activity        Roles            Age  <- the ledger's head
---            - Groups . 2                          (2026-11-25, the user's
---              Ash White 26    Stockades       (T)(H)(D)(D)( )   3m   pick: mockup B,
---              Competitive "the note"  new players welcome            no size)
+--            .------------------------------------------------.  each section a pane
+--            | - Groups . 2      (its title bar)              |  (2026-11-25, the
+--            | Leader      Activity      Roles          Age   |  user's), its rows
+--            | Ash White 26  Stockades   (T)(H)(D)(D)( )  3m  |  the ledger (mockup
+--            | Competitive "the note"  new players welcome    |  B, no size)
+--            '------------------------------------------------'
 --              (every other row striped; a click opens a group: its members,
 --              [Send message])
---            - Players . 3
---              Ilrana 22       Shadowfang Keep (H)(D)             5m
+--            .- Players . 3 -----------------------------------.
+--            | Player      Activity      Roles          Age   |
+--            | Ilrana 22   Shadowfang Keep (H)(D)          5m  |
+--            '------------------------------------------------'
 --   List me  .------------------------------------------------.  <- plates
 --            | (T)(H)(D)  Damage, you list as   [ ] New players |  (mockup A)
 --            '------------------------------------------------'
 --            [Dungeons v]  [Relaxed  * v]               [ ] All levels
---            [-] Dungeons . 2 of 4               (the activity group, ticks all)
---             .--------------------------------------------.
+--            .- [-] Dungeons . 2 of 4 --------------------.  (a pane too: the
+--             .--------------------------------------------.   group ticks all)
 --             | [v] Blackfathom Deeps              [24-32] |   (a plate each;
 --             '--------------------------------------------'    picked: gold, lit)
 --            Note  (the game's own box: the game reads the note from it)
@@ -60,13 +64,13 @@ local GUTTER = 10
 local RESULT, MEMBER, ACTIONS = 40, 20, 32      -- a result's row, a member's line under it, its buttons
 local GO = 86                                   -- Browse's Search button, beside its pickers
 local PERSON = 34                               -- a Who row
-local ROW, FOLD, PICK = 46, 24, 22              -- an activity's row (a plate, 6 under it), a fold, a dropdown
+local ROW, PICK = 46, 22                        -- an activity's row (a plate, 6 under it), a dropdown
 -- (2026-11-25, the user's picks: Browse the ledger of /workspace/lfg-mock-
 -- B-ledger.png without its Size column, List me the plates of lfg-mock-A-
 -- plates.png) the ledger's columns, from a row's left (each row GUTTER in
 -- from the list's), its head's height; a plate's height in its row
 local LEDGER = { act = math.floor(0.42 * (INNER - GUTTER)), roles = math.floor(0.70 * (INNER - GUTTER)),
-    left = 8, head = 22, plate = 40 }
+    left = 8, plate = 40 }
 local ENTRY_FADE = { 0.2, 0.65 }                -- an entry's own ink, left to right, over the window's fade
 local GOLD = { 0.941, 0.831, 0.533 }
 local GOLD_D = { 0.541, 0.439, 0.204 }
@@ -426,6 +430,44 @@ local function Picked(r, on, parted)
     r.sep:SetShown(parted ~= false and not on)
 end
 
+-- (2026-11-25, the user's: each section its own window, its rows as they
+-- are) a section's pane, drawn a row at a time as the list draws them: its
+-- head the pane's top (a gold line over a title bar fading right), every
+-- row its sides, its last row its foot; a gap (a row of its own) after it.
+local PANE = { bar = 24, cols = 18, gap = 8 }
+local function Pane(r)
+    r.pane = {}
+    for k, side in ipairs({ { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" },
+        { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" } }) do
+        local t = r:CreateTexture(nil, "BORDER", nil, 2)
+        t:SetPoint(side[1])
+        t:SetPoint(side[2])
+        if k <= 2 then t:SetWidth(1) else t:SetHeight(1) end
+        local c = k == 3 and GOLD or GOLD_D
+        t:SetColorTexture(c[1], c[2], c[3], 1)
+        r.pane[k] = t
+    end
+end
+-- its top (a head's) and its foot (a section's last row, or a folded head)
+local function PaneEdges(r, top, foot)
+    r.pane[3]:SetShown(top and true or false)
+    r.pane[4]:SetShown(foot and true or false)
+end
+-- a pane's title bar, in the head row's top PANE.bar
+local function PaneBar(r)
+    r.bar = r:CreateTexture(nil, "BACKGROUND", nil, 1)
+    r.bar:SetPoint("TOPLEFT", 1, -1)
+    r.bar:SetPoint("TOPRIGHT", -1, -1)
+    r.bar:SetHeight(PANE.bar - 1)
+    Fade(r.bar, GOLD_D, 0.45)
+end
+-- the gap after a pane: a row with nothing in it
+local function Gap(_, parent)
+    local r = CreateFrame("Frame", nil, parent)
+    r.gap = true
+    return r
+end
+
 -- ================================================================ Browse
 local browse = { folded = {}, activities = {} }  -- the sections folded; the activity filter, by category
 local browseSel                                  -- the picked result's id
@@ -492,7 +534,9 @@ function browse.Lines()
             table.insert(out, { head = s[1], label = s[2], n = #s[3] })
             if not browse.folded[s[1]] then
                 for _, r in ipairs(s[3]) do table.insert(out, { result = r }) end
+                out[#out].last = true
             end
+            table.insert(out, { gap = true })
         end
     end
     return out, words, #groups + #players
@@ -508,24 +552,36 @@ lfg.Selected = Selected
 -- a section's head in the list (Groups, Players): a fold sign, its word,
 -- its count, the rule fading off
 local function SectionRow(r)
+    -- the pane's head: its title bar (fold sign, word, count), then the
+    -- ledger's columns, under it
+    Pane(r)
+    PaneBar(r)
+    local mid = -(PANE.bar / 2)
     r.sign = ns.Text(r, 13)
-    r.sign:SetPoint("LEFT", 4, 0)
+    r.sign:SetPoint("LEFT", r, "TOPLEFT", 8, mid)
     r.sign:SetTextColor(unpack(GOLD))
-    -- (the ledger's) its word gold_d, as a ledger's section
-    r.word = ns.Text(r, 12)
-    r.word:SetPoint("LEFT", 18, 0)
-    r.word:SetTextColor(unpack(GOLD_D))
+    r.word = ns.Text(r, 13)
+    r.word:SetPoint("LEFT", r, "TOPLEFT", 22, mid)
+    r.word:SetTextColor(unpack(GOLD))
     r.count = ns.Text(r, 11)
     r.count:SetPoint("LEFT", r.word, "RIGHT", 6, 0)
     r.count:SetTextColor(unpack(DIM))
-    r.rule = r:CreateTexture(nil, "ARTWORK")
-    r.rule:SetHeight(1)
-    r.rule:SetPoint("LEFT", r.count, "RIGHT", 10, 0)
-    r.rule:SetPoint("RIGHT", -4, 0)
-    Fade(r.rule, GOLD_D, 1)
+    r.cols = {}
+    local under = -(PANE.bar + PANE.cols / 2)
+    for _, col in ipairs({ { "leader", LEDGER.left }, { "act", LEDGER.act }, { "roles", LEDGER.roles },
+        { "age" } }) do
+        local w = ns.Text(r, 10)
+        w:SetTextColor(unpack(GOLD_D))
+        if col[2] then w:SetPoint("LEFT", r, "TOPLEFT", col[2], under)
+        else w:SetPoint("RIGHT", r, "TOPRIGHT", -8, under) end
+        r.cols[col[1]] = w
+    end
+    r.cols.act:SetText(Tr["Activity"])
+    r.cols.roles:SetText(Tr["Roles"])
+    r.cols.age:SetText(Tr["Age"])
     local glow = r:CreateTexture(nil, "HIGHLIGHT")
-    glow:SetAllPoints()
-    glow:SetColorTexture(1, 1, 1, 0.04)
+    glow:SetAllPoints(r.bar)
+    glow:SetColorTexture(1, 1, 1, 0.05)
     r:SetScript("OnClick", function(self)
         local k = self.item.head
         browse.folded[k] = not browse.folded[k] or nil
@@ -561,6 +617,7 @@ local function ResultRow(kind, parent)
         return r
     end
     Ground(r)
+    Pane(r)
     -- (2026-11-25, the user's: the list keeps the window's fade, the
     -- entries much less) an entry's own ink, fading far less than the
     -- window's: under its words at the right too
@@ -680,13 +737,19 @@ end
 lfg.Slots = Slots
 
 local function FillResult(r, item, n)
+    if item.gap then return end
     if item.head then
-        r.sign:SetText(browse.folded[item.head] and "+" or "\226\136\146")
+        local folded = browse.folded[item.head]
+        r.sign:SetText(folded and "+" or "\226\136\146")
         r.word:SetText(item.label)
         r.count:SetText("\194\183  " .. item.n)
+        r.cols.leader:SetText(item.head == "players" and Tr["Player"] or Tr["Leader"])
+        for _, w in pairs(r.cols) do w:SetShown(not folded) end
+        PaneEdges(r, true, folded)
         return
     end
     local res = item.result
+    PaneEdges(r, false, item.last)
     local open = browseSel == res.id
     Picked(r, open)
     r.zebra:SetShown(not open and n and n % 2 == 0 or false)
@@ -828,32 +891,18 @@ function browse.Build(page)
         lfg.Refresh()
     end)
     browse.list = List(page, {
-        Make = ResultRow, Fill = FillResult, Kind = function(item) return item.head and "head" or "result" end,
+        Make = function(kind, parent) return kind == "gap" and Gap(kind, parent) or ResultRow(kind, parent) end,
+        Fill = FillResult,
+        Kind = function(item) return item.gap and "gap" or item.head and "head" or "result" end,
         Height = function(item)
-            if item.head then return FOLD end
+            if item.gap then return PANE.gap end
+            if item.head then return browse.folded[item.head] and PANE.bar or PANE.bar + PANE.cols end
             local res = item.result
             if browseSel ~= res.id or res.solo then return RESULT end
             return RESULT + #res.members * MEMBER + ACTIONS
         end,
     })
-    -- the ledger: its head, the columns' words, over the list
-    local head = CreateFrame("Frame", nil, page)
-    head:SetPoint("TOPLEFT", 0, -60)
-    head:SetPoint("TOPRIGHT", 0, -60)
-    head:SetHeight(LEDGER.head)
-    local fill = head:CreateTexture(nil, "BACKGROUND")
-    fill:SetAllPoints()
-    fill:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.25)
-    browse.head = {}
-    for _, col in ipairs({ { "leader", Tr["Leader"], LEDGER.left }, { "act", Tr["Activity"], LEDGER.act },
-        { "roles", Tr["Roles"], LEDGER.roles }, { "age", Tr["Age"] } }) do
-        local w = ns.Text(head, 11)
-        w:SetTextColor(unpack(GOLD))
-        w:SetText(col[2])
-        if col[3] then w:SetPoint("LEFT", GUTTER + col[3], 0) else w:SetPoint("RIGHT", -8, 0) end
-        browse.head[col[1]] = w
-    end
-    browse.list.frame:SetPoint("TOPLEFT", 0, -(60 + LEDGER.head))
+    browse.list.frame:SetPoint("TOPLEFT", 0, -60)
     browse.list.frame:SetPoint("BOTTOMRIGHT")
 end
 
@@ -965,13 +1014,13 @@ end
 local function ActivityRow(kind, parent)
     local r = CreateFrame("Button", nil, parent)
     if kind == "head" then
-        r.fill = r:CreateTexture(nil, "BACKGROUND")
-        r.fill:SetPoint("TOPLEFT", 0, -1)
-        r.fill:SetPoint("BOTTOMRIGHT", 0, 1)
-        r.fill:SetColorTexture(1, 1, 1, 0.035)
+        -- the pane's head (2026-11-25, the user's: each its own window):
+        -- its title bar, the group's tick, word and count
+        Pane(r)
+        PaneBar(r)
         local glow = r:CreateTexture(nil, "HIGHLIGHT")
-        glow:SetAllPoints()
-        glow:SetColorTexture(1, 1, 1, 0.04)
+        glow:SetAllPoints(r.bar)
+        glow:SetColorTexture(1, 1, 1, 0.05)
         r.tick = Tick(r, 14)
         r.tick:SetPoint("LEFT", 8, 0)
         r.word = ns.Text(r, 12)
@@ -988,8 +1037,9 @@ local function ActivityRow(kind, parent)
         r.tick:SetScript("OnClick", All)
         return r
     end
-    -- (the plates) a plate in the row's top LEDGER.plate; its tick, its
-    -- name, its range in a tag
+    -- (the plates) a plate in the row's top LEDGER.plate, in its pane's
+    -- sides; its tick, its name, its range in a tag
+    Pane(r)
     -- in its difficulty's colour
     r.p = CreateFrame("Frame", nil, r)
     r.p:SetPoint("TOPLEFT", 6, 0)
@@ -1033,7 +1083,9 @@ local function ActivityRow(kind, parent)
 end
 
 local function FillActivity(r, item)
+    if item.gap then return end
     if item.head then
+        PaneEdges(r, true, false)
         r.tick:Set(item.state)
         r.word:SetText(item.head)
         r.count:SetText("\194\183  " .. format(Tr["%d of %d"], item.picked, #item.ids))
@@ -1042,6 +1094,7 @@ local function FillActivity(r, item)
     -- the name plain, picked or not; the level range in its difficulty's colour
     local a = item.activity
     local on = (ns.db.lfgListed or {})[a.id] and true or false
+    PaneEdges(r, false, item.last)
     ns.reskin.Lift(r.p, on)
     r.tick:Set(on)
     local t = on and GOLD or UNPICKED
@@ -1224,9 +1277,12 @@ function listme.Build(page)
     listme.all:SetPoint("RIGHT", listme.acts, "RIGHT", 0, 0)
     listme.acts:Right(listme.all)
     listme.list = List(page, {
-        Make = ActivityRow, Fill = FillActivity,
-        Kind = function(item) return item.head and "head" or "act" end,
-        Height = function(item) return item.head and FOLD or ROW end,
+        Make = function(kind, parent) return kind == "gap" and Gap(kind, parent) or ActivityRow(kind, parent) end,
+        Fill = FillActivity,
+        Kind = function(item) return item.gap and "gap" or item.head and "head" or "act" end,
+        Height = function(item)
+            return item.gap and PANE.gap or item.head and PANE.bar or ROW
+        end,
     })
     listme.list.frame:SetPoint("TOPLEFT", 0, -(124 + LIST_DOWN))
     listme.list.frame:SetPoint("BOTTOMRIGHT", 0, 150)
@@ -1285,7 +1341,7 @@ function listme.Build(page)
 end
 
 function listme.Lines()
-    local out, heads = {}, {}
+    local order, heads = {}, {}
     local cat, cats = ListCategory()
     local name = ""
     for _, c in ipairs(cats) do if c.id == cat then name = c.name end end
@@ -1294,16 +1350,22 @@ function listme.Lines()
         local key = a.group or name
         local h = heads[key]
         if not h then
-            h = { head = key, ids = {}, picked = 0 }
+            h = { head = key, ids = {}, picked = 0, rows = {} }
             heads[key] = h
-            table.insert(out, h)
+            table.insert(order, h)
         end
         table.insert(h.ids, a.id)
         if picked[a.id] then h.picked = h.picked + 1 end
-        table.insert(out, { activity = a, under = h })
+        table.insert(h.rows, { activity = a, under = h })
     end
-    for _, h in pairs(heads) do
+    -- each group a pane: its head, its activities (the last its foot), a gap
+    local out = {}
+    for _, h in ipairs(order) do
         if h.picked == 0 then h.state = false else h.state = h.picked == #h.ids or "some" end
+        table.insert(out, h)
+        for _, row in ipairs(h.rows) do table.insert(out, row) end
+        out[#out].last = true
+        table.insert(out, { gap = true })
     end
     return out
 end

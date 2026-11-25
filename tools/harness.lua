@@ -28532,17 +28532,20 @@ if lfgPass then (function()
     local function results(tag)
         local out = {}
         for _, r in ipairs(shownRows(G.browse.list)) do
-            if r.word then
-                table.insert(out, "# " .. r.sign.text .. r.word.text .. " " .. r.count.text)
+            if r.gap then
+                table.insert(out, "_")          -- a pane's gap
+            elseif r.word then
+                table.insert(out, "# " .. r.sign.text .. r.word.text .. " " .. r.count.text
+                    .. (r.pane[4].shown and " ]" or ""))
             else
                 local m = {}
                 for _, x in ipairs(r.people) do
                     if x.shown then table.insert(m, x.icon.role:sub(1, 1) .. ":" .. x.name.text .. "(" .. x.what.text .. ")") end
                 end
                 local style = r.style.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
-                table.insert(out, string.format("%s %s%s / %s / %s%s [%s] %s%s%s", r.name.text, tostring(r.lvl.text),
+                table.insert(out, string.format("%s %s%s / %s / %s%s [%s] %s%s%s%s", r.name.text, tostring(r.lvl.text),
                     r.new.shown and " (new)" or "", r.act.text, r.zebra.shown and "~ " or "", style, slots(r), r.meta.text,
-                    r.mark.shown and " OPEN" or "",
+                    r.mark.shown and " OPEN" or "", r.pane[4].shown and " ]" or "",
                     #m > 0 and (" {" .. table.concat(m, " ") .. " | " .. seg(r.actions) .. "}") or ""))
             end
         end
@@ -28609,13 +28612,19 @@ if lfgPass then (function()
     G.browse.list.frame.h = 600
     fire("LFG_LIST_SEARCH_RESULTS_RECEIVED")
     results("lfg results")
-    -- (2026-11-25, the user's pick: Browse's ledger, no size) its head's
-    -- columns, from the list's left, and the list under it
+    -- (2026-11-25, the user's: each section its own window) each pane's
+    -- head: its title, its columns (from a row's left), its top and foot
     do
-        local h = G.browse.head
-        local function x(w) local pt = w.points.LEFT or w.points.RIGHT return tostring(pt and pt[3]) end
-        print("lfg ledger head", "leader@" .. x(h.leader), "act@" .. x(h.act), "roles@" .. x(h.roles),
-            "age@" .. x(h.age), "list@" .. tostring(G.browse.list.frame.points.TOPLEFT[4]))
+        local out = {}
+        for _, r in ipairs(shownRows(G.browse.list)) do
+            if r.cols then
+                local function x(w) local pt = w.points.LEFT or w.points.RIGHT return tostring(pt and pt[3]) end
+                table.insert(out, string.format("%s: %s@%s %s@%s %s@%s %s@%s top=%s h=%s", r.word.text,
+                    r.cols.leader.text, x(r.cols.leader), r.cols.act.text, x(r.cols.act), r.cols.roles.text,
+                    x(r.cols.roles), r.cols.age.text, x(r.cols.age), tostring(r.pane[3].shown), tostring(r.h)))
+            end
+        end
+        print("lfg panes", table.concat(out, " | "), "list@" .. tostring(G.browse.list.frame.points.TOPLEFT[4]))
     end
     print("lfg band", seg(G.band))
     -- 3. the role filter: groups needing a tank, players offering it; then healers; then words
@@ -28753,8 +28762,10 @@ if lfgPass then (function()
     local function acts(tag)
         local out = {}
         for _, x in ipairs(shownRows(G.listme.list)) do
-            if x.word then table.insert(out, "#" .. tostring(x.tick.state) .. " " .. x.word.text .. " " .. x.count.text)
-            else table.insert(out, (x.tick.state and "[v]" or "[ ]") .. x.name.text .. " " .. x.range.text) end
+            if x.gap then
+            elseif x.word then table.insert(out, "#" .. tostring(x.tick.state) .. " " .. x.word.text .. " " .. x.count.text)
+            else table.insert(out, (x.tick.state and "[v]" or "[ ]") .. x.name.text .. " " .. x.range.text
+                .. (x.pane[4].shown and " ]" or "")) end
         end
         print(tag, "roles=" .. medals(), "new=" .. tostring(G.listme.new.tick.state), "cat=" .. picker(G.listme.cat),
             "style=" .. picker(G.listme.style), "voice=" .. picker(G.listme.voice),
