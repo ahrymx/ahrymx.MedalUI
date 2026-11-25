@@ -188,11 +188,17 @@ end
 -- Closed (a click on the lit tab), the panel is its tab row alone: the body,
 -- its box and the column gone, no tab lit; a tab clicked opens it again.
 local closed = false
+-- the tabs' glyphs' strength in minimal mode (strips/corners.lua)
+local cornerStrength = 1
+
+local function Glyph(view)
+    view.tab.glyph:SetAlpha((view.tab.mark:IsShown() and 1 or 0.6) * cornerStrength)
+end
 
 local function Selected(view, on)
     on = on and not closed
     view.tab.mark:SetShown(on)
-    view.tab.glyph:SetAlpha(on and 1 or 0.6)
+    Glyph(view)
 end
 
 local function Select(view)
@@ -265,7 +271,7 @@ end
 local function Tab(view)
     local tab = CreateFrame("Button", nil, row)
     tab:SetHeight(row:GetHeight())
-    ns.window.Face(tab)
+    tab.well, tab.edge = ns.window.Face(tab)
     tab.glyph = tab:CreateTexture(nil, "ARTWORK")
     tab.glyph:SetSize(GLYPH, GLYPH)
     tab.glyph:SetPoint("CENTER")
@@ -316,6 +322,23 @@ end
 
 -- closed to its tab row (the bags stand over the row instead)
 function ns.side.Closed() return closed end
+
+-- The backpack's corner in minimal mode (strips/corners.lua): the tabs'
+-- boxes and the well over the medallion at box, the tabs' glyphs at
+-- strength of their own.
+function ns.side.Corner(box, strength)
+    cornerStrength = strength
+    if not panel then return end
+    ns.side.well:SetAlpha(box)
+    for _, v in ipairs(views) do
+        if v.tab then
+            v.tab.well:SetAlpha(box)
+            v.tab.edge:SetAlpha(box)
+            v.tab.mark:SetAlpha(box)
+            Glyph(v)
+        end
+    end
+end
 
 local function Build()
     local strip = ns.strips[1]
@@ -434,8 +457,10 @@ end
 -- Faded when idle (Shared > Visibility & fading, Immersion Mode): the
 -- panel's box (the dress: its ink, trim, rules and the divider) at its faded
 -- opacity while none of what is ticked is so, whole again when one is. What
--- stands in it (the views, their buttons and text, the scroll bar, the tabs
--- and the corner over the medallion) stays whole throughout.
+-- stands in it (the views, their buttons and text, the scroll bar) stays
+-- whole throughout; the tabs' boxes and the corner over the medallion fade
+-- with it while the panel is open (strips/corners.lua: closed, they go
+-- with the chat's bare chrome).
 local inCombat = false
 local fader, wanted
 
@@ -468,7 +493,14 @@ end
 ns.UpdateSideFade = Immerse
 
 local function Immersion()
-    fader = ns.Fader(ns.side.dress)
+    local dress = ns.side.dress
+    fader = ns.Fader({
+        GetAlpha = function() return dress:GetAlpha() end,
+        SetAlpha = function(_, a)
+            dress:SetAlpha(a)
+            if ns.CornerPaint then ns.CornerPaint(1) end
+        end,
+    })
     ns.sideFader = fader
     -- the pointer has no event: the panel looks ten times a second
     local watch = CreateFrame("Frame", nil, UIParent)

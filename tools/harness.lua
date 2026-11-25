@@ -10244,7 +10244,8 @@ if sidePass then
         local function fire(e)
             for _, h in ipairs(events[e] or {}) do h.scripts.OnEvent(h, e) end
         end
-        -- the box fades; the panel, and what stands in it, stays whole
+        -- the box fades, the medallion's corner with it (strips/corners.lua);
+        -- the panel, and what stands in it, stays whole
         local p, fader, watch = ns.side.dress, ns.sideFader, ns.sideFadeWatch
         p:Show()
         local function step(sec)
@@ -11313,7 +11314,7 @@ if stripsPass then
                         local x, f = 1, chat.well
                         while f do x = x * (f.alpha or 1); f = f.parent end
                         return x
-                    end)()), string.format("well edge=%.2f", chat.well.edge:GetAlpha()))
+                    end)()))
             end
             -- the medallion's corner: from the box's edge to the edit box,
             -- its rule meeting the trim at the edge, beside the box (not in it)
@@ -11335,18 +11336,6 @@ if stripsPass then
             bare("idle 3.5s")
             step(0.8)
             bare("idle 4.3s")
-            -- faded, the well's right side closes, unless a timeless buff stands there
-            do
-                local width = ns.BuffRowWidth
-                for _, w in ipairs({ 0, 28 }) do
-                    ns.BuffRowWidth = function() return w end
-                    ns.chat.BuffsChanged()
-                    print("chat bare well edge, buff row " .. w, string.format("box=%.2f edge=%.2f",
-                        chat.box:GetAlpha(), chat.well.edge:GetAlpha()))
-                end
-                ns.BuffRowWidth = width
-                ns.chat.BuffsChanged()
-            end
             step(0.5)
             bare("idle 4.8s")
             -- Blizzard's tab fade and its own tab update write past us
@@ -11551,6 +11540,91 @@ if stripsPass then
             ns.SetOption("chatBareDelay", 1)
             brings("delay 1s", function() mouseOver = chat.box end, function() mouseOver = false end)
             ns.SetOption("chatBareDelay", 4)
+            -- the medallions' corners (strips/corners.lua): their boxes go
+            -- with the chrome, their glyphs chatBareDelay later; the pointer
+            -- near a corner brings its glyphs back, not its boxes
+            do
+                local C, D, side = ns.corners, ns.stripDrawers, ns.side
+                local function tick(sec)
+                    for _ = 1, math.floor(sec * 10 + 0.5) do
+                        watch.scripts.OnUpdate(watch, 0.1)
+                        if chrome.driver.shown then chrome.driver.scripts.OnUpdate(chrome.driver, 0.1) end
+                        C.watch.scripts.OnUpdate(C.watch, 0.1)
+                        for _, k in ipairs({ -1, 1 }) do
+                            local f = C[k].fader
+                            if f.driver.shown then f.driver.scripts.OnUpdate(f.driver, 0.1) end
+                        end
+                    end
+                end
+                local function corner(tag)
+                    local l, r = C[-1], C[1]
+                    local lit, unlit
+                    for _, v in ipairs(side.views or {}) do
+                        if v.tab then
+                            if v.tab.mark:IsShown() then lit = lit or v.tab else unlit = unlit or v.tab end
+                        end
+                    end
+                    local function tab(t)
+                        return t and string.format("%.2f/%.2f", t.edge:GetAlpha(), t.glyph:GetAlpha()) or "-"
+                    end
+                    print("corners " .. tag, string.format("left box=%.2f show=%.2f well=%.2f key=%.2f/%.2f",
+                        l.box, l.show, chat.well:GetAlpha(), D[-1].key.frame:GetAlpha(), D[-1].key.tex:GetAlpha()),
+                        string.format("right box=%.2f show=%.2f well=%.2f key=%.2f/%.2f", r.box, r.show,
+                            side.well and side.well:GetAlpha() or -1, D[1].key.frame:GetAlpha(), D[1].key.tex:GetAlpha()),
+                        "tabs lit " .. tab(lit) .. " unlit " .. tab(unlit),
+                        "closed=" .. tostring(side.Closed and side.Closed()))
+                end
+                mouseOver = chat.box
+                tick(0.5)
+                corner("in use")
+                mouseOver = false
+                tick(4.5)
+                corner("box fading")
+                tick(1)
+                corner("bare, glyphs held")
+                tick(3.5)
+                corner("bare 9s")
+                tick(1)
+                corner("bare 10s, glyphs gone")
+                mouseOver = D[-1].key
+                tick(0.3)
+                corner("pointer on the left chevron")
+                mouseOver = side.row
+                tick(0.3)
+                corner("pointer on the tabs")
+                mouseOver = false
+                tick(3.5)
+                corner("pointer gone 3.5s")
+                tick(1.2)
+                corner("pointer gone 4.7s")
+                -- the side panel closed to its tabs: the backpack's corner
+                -- goes with the chat's chrome, as the character's
+                local lit
+                for _, v in ipairs(side.views) do
+                    if v.tab and v.tab.mark:IsShown() then lit = v.tab end
+                end
+                lit.scripts.OnClick(lit)
+                tick(0.3)
+                corner("panel closed")
+                tick(5)
+                corner("panel closed, 5.3s")
+                -- a drawer open holds its corner's glyphs (the right one has
+                -- no cells here: no drawer)
+                D[-1].Set(true, true)
+                tick(0.3)
+                corner("left drawer open, open=" .. tostring(D[-1].open))
+                D[-1].Set(false, true)
+                tick(5)
+                corner("left drawer shut 5s")
+                lit.scripts.OnClick(lit)
+                tick(0.3)
+                corner("panel open again")
+                ns.SetOption("chatImmersion", false)
+                tick(0.3)
+                corner("immersion off")
+                ns.SetOption("chatImmersion", true)
+                tick(10)
+            end
             ns.SetOption("chatImmersion", false)
             bare("turned off")
             step(6)

@@ -674,11 +674,10 @@ local function Build()
     line:SetHeight(1)
     line:SetPoint("BOTTOMLEFT")
     line:SetPoint("BOTTOMRIGHT")
-    -- the margin's start, over the character's medallion, stays whole while
-    -- the box fades when idle (Immersion Mode), as the side panel's corner
-    -- over the backpack's (strips/side.lua): its own ink (the dress's, its
-    -- gradient carried on), trim and rule. The whole box fades, so it stands
-    -- beside it on the strip, shown with it, one level up.
+    -- the margin's start, over the character's medallion: its own ink (the
+    -- dress's, its gradient carried on), trim and rule. It stands beside the
+    -- box on the strip, shown with it, one level up, and fades with it
+    -- when bare (Immersion Mode; the medallions' corners, strips/corners.lua).
     local breakAt = ns.stripCells.from
     local width = L.chatLeft + L.chatWidth
     local well = CreateFrame("Frame", nil, strip)
@@ -713,17 +712,6 @@ local function Build()
     wellRule:SetPoint("TOPLEFT")
     wellRule:SetPoint("TOPRIGHT")
     well.rule = wellRule
-    -- its right side, closed while it stands alone: as the box fades out
-    -- (the margin's row beside it goes) and no timeless buff stands there
-    -- (the first one's rim closes it); with the box whole it would split
-    -- the margin's row
-    local wellEdge = well:CreateTexture(nil, "BACKGROUND", nil, 2)
-    wellEdge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    wellEdge:SetPoint("TOPRIGHT")
-    wellEdge:SetPoint("BOTTOMRIGHT")
-    wellEdge:SetWidth(1)
-    wellEdge:SetAlpha(0)
-    well.edge = wellEdge
     well:SetShown(chatBox:IsShown())
     chatBox:HookScript("OnShow", function() well:Show() end)
     chatBox:HookScript("OnHide", function() well:Hide() end)
@@ -775,16 +763,10 @@ local function Build()
     ns.chat.Reach(false)
     -- the timeless buffs along the margin, beside the medallion; the edit
     -- boxes clear of them as they come and go
-    function ns.chat.WellEdge()
-        local box = ns.chatChrome and ns.chatChrome.alpha or 1
-        local buffs = ns.BuffRowWidth and ns.BuffRowWidth() or 0
-        well.edge:SetAlpha(buffs > 0 and 0 or 1 - box)
-    end
     function ns.chat.BuffsChanged()
         for frame in pairs(dressed) do
             if frame.editBox then Lit(frame.editBox) end
         end
-        ns.chat.WellEdge()
     end
     ns.BuffRow({ x = ns.stripCells.from, y = ns.stripArt.height - L.stripHeight - (margin + 1) / 2 })
 
@@ -1128,7 +1110,12 @@ end
 -- bars and tabs; the bands the other way
 local function Chrome(a)
     if chatBox then chatBox:SetAlpha(a) end
-    if ns.chat and ns.chat.WellEdge then ns.chat.WellEdge() end
+    -- the medallions' corners go with it (strips/corners.lua)
+    if ns.chat and ns.chat.well then ns.chat.well:SetAlpha(a) end
+    if ns.CornerPaint then
+        ns.CornerPaint(-1)
+        ns.CornerPaint(1)
+    end
     for _, frame in ipairs(Docked()) do
         -- (each by name: a client without one, the rest still)
         for _, key in ipairs({ "ScrollBar", "ScrollToBottomButton", "buttonFrame" }) do

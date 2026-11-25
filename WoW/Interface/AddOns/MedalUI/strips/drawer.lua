@@ -110,6 +110,9 @@ local function Drawer(side)
     -- its colour: blue while noticing (closed), else its gold, full while
     -- open or under the mouse
     local noticing = false
+    -- in minimal mode (strips/corners.lua): the frame round it at the
+    -- corner's box, the chevron at its strength
+    local strength = 1
     local function Paint()
         local lit = noticing and not D.open
         local k = (D.open or key.hover) and LIT or REST
@@ -117,11 +120,14 @@ local function Drawer(side)
         key.tex:SetVertexColor(c[1], c[2], c[3])
         -- the gold made grey, so the blue reads as blue
         key.tex:SetDesaturated(lit)
+        key.halo:SetAlpha(0.7 * strength)
+        key.shadow:SetAlpha(strength)
+        key.tex:SetAlpha(strength)
         -- a glow under the mouse, a softer one while open, in its colour
         local glow = key.hover and GLOW.hover or D.open and GLOW.open or nil
         key.glow:SetShown(glow ~= nil)
         if glow then
-            key.glow:SetAlpha(glow)
+            key.glow:SetAlpha(glow * strength)
             key.glow:SetVertexColor(c[1], c[2], c[3])
             key.glow:SetDesaturated(lit)
         end
@@ -132,6 +138,14 @@ local function Drawer(side)
     local function Face()
         local turn = (D.open and -side or side) * math.pi / 2 + math.pi
         for _, t in ipairs({ key.halo, key.shadow, key.tex, key.glow }) do t:SetRotation(turn) end
+    end
+
+    function D.Corner(box, s)
+        key.frame:SetAlpha(box)
+        if s ~= strength then
+            strength = s
+            Paint()
+        end
     end
 
     function D.Notice()
