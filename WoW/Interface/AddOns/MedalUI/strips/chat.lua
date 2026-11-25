@@ -995,6 +995,53 @@ local function Clip(frame)
     return clip
 end
 
+-- (2026-11-25, the user's: the top entries fade out sooner) bare, a
+-- line's time on screen shortens with its height in the window: the
+-- bottom's Blizzard's own (GetTimeVisible), the top's AGE.top seconds (the
+-- user's: around 15; never longer than Blizzard's), between by height, then
+-- Blizzard's fade (GetFadeDuration). Blizzard's own alpha for a line, as
+-- it writes it, is kept (given) and this laid over it, as far as the
+-- chrome is away; a line with no stamp, or a secret one, is left alone.
+local AGE = { top = 15 }
+local given = setmetatable({}, { __mode = "k" })
+local shading = false
+local function Sooner(frame, line, away)
+    if away <= 0 or not (frame.GetFading and frame:GetFading()) then return 1 end
+    local info = line.messageInfo
+    local stamp = type(info) == "table" and info.timestamp
+    if ns.IsSecret(stamp) or type(stamp) ~= "number" then return 1 end
+    local over = frame.overrideFadeTimestamp
+    if type(over) == "number" and not ns.IsSecret(over) then stamp = math.max(stamp, over) end
+    local visible, fade = frame:GetTimeVisible(), frame:GetFadeDuration()
+    local bottom, top, at = frame:GetBottom(), frame:GetTop(), line:GetBottom()
+    if not (visible and fade and bottom and top and at) or top <= bottom then return 1 end
+    local t = math.max(0, math.min(1, (at - bottom) / (top - bottom)))
+    local least = math.min(AGE.top, visible)
+    local soon = visible - (visible - least) * t
+    local age = GetTime() - stamp
+    local a = age <= soon and 1 or math.max(0, 1 - (age - soon) / math.max(fade, 0.01))
+    return 1 - (1 - a) * away
+end
+
+local function Shade(frame, line, away)
+    if given[line] == nil then
+        given[line] = line:GetAlpha() or 1
+        hooksecurefunc(line, "SetAlpha", function(self, a)
+            if shading then return end
+            given[self] = a
+            local f = Sooner(frame, self, 1 - (chrome and chrome.alpha or 1))
+            if f < 1 then
+                shading = true
+                self:SetAlpha(a * f)
+                shading = false
+            end
+        end)
+    end
+    shading = true
+    line:SetAlpha(given[line] * Sooner(frame, line, away))
+    shading = false
+end
+
 local function Bands(frame)
     -- the chrome is whole while the mode is off, so no band shows then
     local away = 1 - (chrome and chrome.alpha or 1)
@@ -1005,6 +1052,7 @@ local function Bands(frame)
         if band.frame == frame and not current[line] then band:Hide() end
     end
     for _, line in ipairs(frame.visibleLines or {}) do
+        if line:IsShown() and (away > 0 or given[line] ~= nil) then Shade(frame, line, away) end
         local band = bands[line]
         if not band and away > 0 then
             band = Pill(Clip(frame))

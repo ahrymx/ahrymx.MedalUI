@@ -11439,6 +11439,45 @@ if stripsPass then
                 line.text, line.w = wasText, wasWidth
                 step(0.1)
             end
+            -- (2026-11-25, the user's: the top entries fade out sooner) a
+            -- line's time shortens with its height: the bottom's Blizzard's
+            -- 120s, the top's 15s (here 0, 14, 28, 42 of 56: 120s, 93.75s,
+            -- 67.5s, 41.25s), then Blizzard's 3s fade; Blizzard's own
+            -- alpha, written again, kept under it; no stamp, left alone
+            do
+                local f = ChatFrame1
+                local saved = { f.GetFading, f.GetTimeVisible, f.GetFadeDuration, f.GetBottom, f.GetTop }
+                f.GetFading = function() return true end
+                f.GetTimeVisible = function() return 120 end
+                f.GetFadeDuration = function() return 3 end
+                f.GetBottom = function() return 0 end
+                f.GetTop = function() return 56 end
+                local ages = { 100, 92, 69, 42.25 }
+                local lineBottoms = {}
+                for i, line in ipairs(f.visibleLines) do
+                    lineBottoms[i] = line.GetBottom
+                    local y = (i - 1) * 14
+                    line.GetBottom = function() return y end
+                    line.messageInfo = { timestamp = GetTime() - ages[i] }
+                end
+                local function alphas(tag)
+                    local o = {}
+                    for i, line in ipairs(f.visibleLines) do
+                        local band = ns.chatBands[line]
+                        table.insert(o, string.format("%g:%.2f/%.2f", ages[i], line:GetAlpha(), band and band:GetAlpha() or -1))
+                    end
+                    print("chat bare sooner " .. tag, table.concat(o, " "))
+                end
+                step(0.1)
+                alphas("ages")
+                f.visibleLines[4]:SetAlpha(1)                   -- Blizzard's write: ours laid over it
+                alphas("blizzard writes")
+                for _, line in ipairs(f.visibleLines) do line.messageInfo = nil end
+                step(0.1)
+                alphas("no stamps")
+                for i, line in ipairs(f.visibleLines) do line.GetBottom = lineBottoms[i] end
+                f.GetFading, f.GetTimeVisible, f.GetFadeDuration, f.GetBottom, f.GetTop = unpack(saved)
+            end
             ns.SetOption("chatBands", 0.8)
             step(0.1)
             bare("bands 80%")
