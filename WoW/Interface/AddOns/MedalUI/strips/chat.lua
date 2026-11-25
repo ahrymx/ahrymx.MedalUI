@@ -788,16 +788,33 @@ local function Build()
     end
     ns.BuffRow({ x = ns.stripCells.from, y = ns.stripArt.height - L.stripHeight - (margin + 1) / 2 })
 
+    -- The docked tabs in one row, each after the last. Blizzard keeps a
+    -- window the player made (Guild, Instance: not static-docked) in the
+    -- dock's scroll frame, which scrolls by its own fixed tab widths and
+    -- clips the pointer to itself, while this row lays them out by their
+    -- words; their tooltips flashed (the user's, 2026-11-25). So every
+    -- docked tab stands on the dock itself, as General's does, over the
+    -- scroll frame, and is only moved when it is somewhere else.
     local function FitTabs()
         local prev
+        local dock = GENERAL_CHAT_DOCK
         for _, frame in ipairs(Frames()) do
             local tab = _G[frame:GetName() .. "Tab"]
             if tab and tab.medalui then
                 FitTab(tab)
                 if frame == ChatFrame1 or frame.isDocked then
+                    if dock and tab:GetParent() ~= dock then tab:SetParent(dock) end
+                    local scroll = dock and dock.scrollFrame
+                    if scroll and tab:GetFrameLevel() <= scroll:GetFrameLevel() then
+                        tab:SetFrameLevel(scroll:GetFrameLevel() + 1)
+                    end
                     if prev and tab:GetNumPoints() > 0 then
-                        tab:ClearAllPoints()
-                        tab:SetPoint("LEFT", prev, "RIGHT", -1, 0)
+                        local point, to, rel, x, y = tab:GetPoint(1)
+                        if tab:GetNumPoints() ~= 1 or point ~= "LEFT" or to ~= prev or rel ~= "RIGHT"
+                            or x ~= -1 or y ~= 0 then
+                            tab:ClearAllPoints()
+                            tab:SetPoint("LEFT", prev, "RIGHT", -1, 0)
+                        end
                     end
                     prev = tab
                 end
