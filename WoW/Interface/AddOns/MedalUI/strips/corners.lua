@@ -5,9 +5,9 @@
 -- the corner brings them back. Only alpha: every control still clicks.
 --
 --   the character's (-1)  the chat's well over the portrait (strips/chat.lua)
---                         and the drawer's chevron (strips/drawer.lua)
 --   the backpack's (1)    the side panel's tabs and its well (strips/side.lua)
---                         and the drawer's chevron
+-- The drawers' chevrons (strips/drawer.lua) never fade (2026-11-25, the
+-- user's): they are only where the pointer finds the corner.
 --
 -- Per corner:
 --   box     the boxes' alpha: the chat's bare chrome (minimal mode); on the
@@ -71,8 +71,6 @@ local function Paint(side)
     local strength = math.max(box, c.show)
     c.box, c.strength = box, strength
     if side > 0 and ns.side and ns.side.Corner then ns.side.Corner(box, strength) end
-    local D = ns.stripDrawers[side]
-    if D and D.Corner then D.Corner(box, strength) end
 end
 ns.CornerPaint = Paint
 
