@@ -2,13 +2,16 @@
 local _, ns = ...
 
 ns.media = "Interface\\AddOns\\MedalUI\\media\\"
+-- the tooltips' own namespace (tooltips/, once the mdlui_Tooltips companion):
+-- their files keep their own keys apart from MedalUI's
+ns.tips = {}
 -- The face, by the client's letters (2026-11-19, a player's issue: Marcellus
 -- SC has no Cyrillic, so a Russian client drew squares): Forum, a serif
 -- of the same carved capitals with Cyrillic, on ruRU; the game's own on
 -- Korean and Chinese, which no bundled face covers; else Marcellus SC.
 -- On Latin clients the player may choose Forum instead (General > Font,
--- after a reload). The companions follow (mdlui_Tooltips,
--- mdlui_RadialMenu), through MedalUIFontFace.
+-- after a reload). The tooltips (tooltips/) and the companion
+-- (mdlui_RadialMenu) follow, through MedalUIFontFace.
 local FACES = {
     marcellus = ns.media .. "fonts\\MarcellusSC-Regular.ttf",
     forum = ns.media .. "fonts\\Forum-Regular.ttf",
@@ -596,7 +599,7 @@ end
 
 -- ---------------------------------------------------------- tooltips
 -- MedalUI's own tooltips, the ones no game data is behind: one spec,
--- written into GameTooltip as plain lines, and handed to mdlui_Tooltips
+-- written into GameTooltip as plain lines, and handed to the tooltips (tooltips/)
 -- (mdlui/MedalUI.lua), which draws it as a panel instead.
 --   spec = { title, color = {r, g, b} (the title's), wrap (the title's),
 --     { "body", text, color },          -- a line, wrapped; white unless coloured
@@ -656,7 +659,7 @@ local function Write(parts)
         if p and p[1] == "key" then
             if held then
                 local a, b = ns.KeyCell(held), ns.KeyCell(p)
-                -- two cells side by side (mdlui_Tooltips lines them up as a grid);
+                -- two cells side by side (the tooltips line them up as a grid);
                 -- a row of two empty slots left out
                 if a ~= "" or b ~= "" then
                     GameTooltip:AddDoubleLine(a, b, HINT[1], HINT[2], HINT[3], HINT[1], HINT[2], HINT[3])

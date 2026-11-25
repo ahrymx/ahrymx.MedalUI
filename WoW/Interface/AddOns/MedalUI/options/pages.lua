@@ -1666,27 +1666,28 @@ function ns.OptionPages()
             },
         },
         {
-            id = "tooltips", name = Tr["Tooltips (ext)"],
-            intro = Tr["Provided by the optional mdlui_Tooltips companion addon."],
-            more = Tr["Enable mdlui_Tooltips in your AddOns list to reskin tooltips and open its window."],
-            enabled = function() return SlashCmdList and SlashCmdList.MDLUI_TOOLTIPS ~= nil end,
+            id = "tooltips", name = Tr["Tooltips"],
+            intro = Tr["Every tooltip in MedalUI's ornament: items, spells, units, auras, quests, mail and world "
+                .. "objects."],
             groups = {
-                Group("mdlui_Tooltips",
-                    Button(Tr["Open mdlui_Tooltips"], function()
+                Group(Tr["Reskin"],
+                    Check("tooltips", Tr["Reskin tooltips"],
+                        Tr["Draws every tooltip as a MedalUI panel. Untick it to keep the game's tooltips, or to use "
+                        .. "a tooltip addon."], true)),
+                Group(Tr["Styles"],
+                    Button(Tr["Open tooltip styles"], function()
                         if SlashCmdList and SlashCmdList.MDLUI_TOOLTIPS then
                             if ns.CloseOptions then ns.CloseOptions() end
                             SlashCmdList.MDLUI_TOOLTIPS("")
                         end
-                    end,
-                        Tr["Closes this window and opens the mdlui_Tooltips window: each kind of tooltip's look, "
-                            .. "with a "
+                    end, Tr["Closes this window and opens the tooltips' own: each kind of tooltip's look, with a "
                         .. "live sample (/mdltip)."]),
                     Button(Tr["Tooltip options"], function()
                         if SlashCmdList and SlashCmdList.MDLUI_TOOLTIPS then
                             if ns.CloseOptions then ns.CloseOptions() end
                             SlashCmdList.MDLUI_TOOLTIPS("options")
                         end
-                    end, Tr["Closes this window and opens the mdlui_Tooltips window on its Options page "
+                    end, Tr["Closes this window and opens the tooltips' own on its Options page "
                         .. "(/mdltip options)."])),
             },
         },

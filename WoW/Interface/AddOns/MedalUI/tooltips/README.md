@@ -1,0 +1,193 @@
+# mdlui_Tooltips
+
+> **An ornamented tooltip reskin, built into [MedalUI](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/README.md), for WoW Forever (`16001`) and Retail WoW (`120105`).**
+>
+> Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by **FallenShard**, distributed under the [MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/LICENSE).
+
+`mdlui_Tooltips` replaces the game's tooltip with a compact, ornamented panel: the icon and name up front, the details in short colored rows grouped by kind, and the fine print gathered in a footer. Hold **ALT** (or the key you choose) at any time to see the game's own tooltip.
+
+---
+
+## Item tooltips
+
+Top to bottom, an item panel shows:
+
+- **Header.** The icon with an item level badge, the name in its quality color, and a subtitle with the item's type and slot, such as `Mail · Head` or `Staff · Two-Hand`. The subtitle also names what the game leaves unsaid: `Consumable · Potion`, `Crafting Reagent`, `Scarce`. The binding sits below it, with the required level at the right, red while you are below it. The whole panel is tinted by quality; quest items, and items that begin a quest, are tinted quest gold.
+- **Weapon damage.** DPS as the prominent row, with damage and speed beneath it.
+- **Armor and stats.** Armor, then the stats in two blocks: the primary attributes, and everything else under a divider. Long stat wording is shortened (see below), and each stat is colored by kind.
+- **Equip effects and enchants.** Equip effects that are not a plain stat, such as a zone-limited speed bonus, join the stat list in green without the `Equip:` prefix. A chance on hit joins them too, marked with a small sword instead of its `Chance on hit:` prefix. Its numbers follow the spell tooltip's highlighting: a lighter school color when the description names that school's damage, or a neutral highlight otherwise. Holyfire blends Holy and Fire. These highlights follow **Stat colors** and a custom **Equip effects** color in the panel. Enchants follow as green rows marked with a sparkle, one per bonus: `Enchanted: Stamina +1 and Armor +8` becomes `+1 Stamina` and `+8 Armor`.
+- **Use effects and flavor text,** as the game words them, each use effect marked with a small gear instead of its `Use:` prefix.
+- **Item set.** The set name and how many pieces you own, the pieces you own highlighted, and the set bonuses, with active ones highlighted.
+- **Disenchant (WoW Forever).** For green, blue, and purple armor and weapons on Classic/Forever clients: what the item disenchants into, each result with its icon, count, and chance, and the Enchanting it needs, red while your skill is too low and grey if you have no Enchanting. The chances are Classic's published tables (Warcraft Wiki's *Disenchanting tables*); the game has no way to ask. Turned off under **Details** on the **Items** page's **Panel** sheet.
+- **Footer.** Durability as a small bar, the crafter's name for crafted items, other requirements such as skills or classes, and the sell price as coins alone; a stack shows its total first, then the count and one item's price, dimmed (`2g  (20 × 10s)`), which can be turned off under **Details** on the **Items** page's **Panel** sheet.
+
+While the game shows a comparison, the comparison panels are tagged **Equipped**, and the game's own "If you replace this item" stat changes appear among the rows at the bottom, in their usual green and red.
+
+Recipes are the recipe first: their own icon and name, `Plans · Blacksmithing` beneath, and the skill they need beside the binding, red while yours is too low. The item they craft follows under **Creates** as a smaller card with its icon, name, slot, required level, and its own armor, stats, and effects, then the **Reagents** with their icons and how many you carry (`4 / 10`, red while short).
+
+### Shorter stats
+
+Common Equip wordings become short stat rows:
+
+| The game says | mdlui_Tooltips shows |
+| --- | --- |
+| Equip: Increases healing done by up to 48 and damage done by up to 16 for all magical spells and effects. | +48 Healing Power<br>+16 Spell Damage Power |
+| Equip: Increases damage and healing done by magical spells and effects by up to 12. | +12 Spell Power |
+| Equip: Increases damage done by Fire spells and effects by up to 20. | +20 Fire Spell Damage Power |
+| Equip: Improves your chance to get a critical strike by 1%. | +1% Critical Strike Chance |
+| Equip: Increased Defense +2. | +2 Defense Skill |
+| Equip: Restores 3 mana per 5 sec. | +3 Mana per 5 sec |
+
+**Spell Power** is a bonus to both damage and healing; **Spell Damage Power** is damage only. Hit, crit, haste, mastery, versatility, dodge, parry, block, ratings, attack power, tertiary stats (speed, avoidance, leech), health regeneration, and spell penetration are shortened the same way. Wording `mdlui_Tooltips` does not recognize is shown as the game writes it.
+
+### The Blizzard layout
+
+With **Tooltips** set to **Blizzard** on the **Options** page, every tooltip keeps the game's own look, and so does each kind whose **Restyle** box is off. Items keep the game's tooltip with selected Equip effects shortened as in the table above and the game's line colors kept, except for magic: spell power, spell hit and crit, penetration, and healing power in their stat colors, and the damage of chance on hit effects in its school's color, while **Stat colors** is on. Combined bonuses split into separate lines. **Abbreviated Equip Effects** under **Details** on the **Items** page's **Panel** sheet turns this off.
+
+While the **Details** modifier is held (Shift by default), the details a panel would show appear at the bottom of the game's tooltip, below every other addon's rows: disenchant results, the spell power breakdown and rates, gathering contents, and IDs, each as its switch on its kind's **Panel** sheet allows. They show and hide as the key is pressed and released, in combat too. Holding the key set as **The game's tooltip** shows the game's tooltip as it is, with neither.
+
+### Colors
+
+Each stat value takes a color and its name a lighter shade of the same hue. The category colors are soft and evenly light, so every kind of stat reads alike on the dark panel, and the vivid spell school colors stand apart from them:
+
+| Category | Color |
+| --- | --- |
+| Primary attributes | Ivory |
+| Attack: attack power, hit, crit, haste, mastery, versatility | Amber |
+| Defense: defense, dodge, parry, block, avoidance | Steel blue |
+| Magic: spell power, spell hit and crit, penetration | Lavender |
+| Healing: healing power, leech | Mint |
+| Mana regeneration & speed | Periwinkle |
+| Spell schools and resistances | Arcane, Fire, Frost, Holy, Nature, and Shadow each in their own color |
+
+Set **School colors** on the **All tooltips** page. The same choices color spell panels, school badges, highlighted numbers, item spell-power and resistance stats, school weapon damage, and macro accents. Holyfire and Frostfire have their own swatches; their panel gradients follow their two component schools. Click a swatch to choose its color, right-click it for the default, or use the row's reset to restore every school. With no overrides, the original colors are kept.
+
+Turn on **Armor colors** under **Item Details** to tell armor types apart at a glance: the type that leads the subtitle, as *Plate* in *Plate · Chest*, takes its own color (cloth rose, leather tan, mail teal, plate steel), and the rest of the line keeps the quality color. A type the game shows in red, because you cannot wear it, stays red. Cloaks are left alone, since every class wears them. Each type has a swatch below the switch; the switch is off by default.
+
+## Spell tooltips
+
+![Stormstrike's tooltip: its mana, cast, cooldown and range in a strip, the cooldown remaining, and the description](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-spell.png)
+
+Spells use the same panel: the icon and name, small badges for the spell's school, its rank, and **Passive** for passive spells and talents, and a strip with cost, cast time, cooldown, and range. The description follows one sentence per line, with its numbers highlighted.
+
+The panel is tinted by the spell's school: a class spell's comes from WoW Forever's client spell data, which the addon carries, and any other spell's is read from the damage its description names (`Fire damage`) or a school that starts its name (`Holy Light`). Spells with neither are tinted by the resource they cost.
+
+A spell that carries another spell inside its tooltip, such as Feral Charge with its Cat Form version, shows the inner spell as a second section with its own name, strip, requirements, and description. Talents get the spell panel too.
+
+On **WoW Forever (`16001`)**, spells that deal magic damage or heal show their spell power under the description: each amount's coefficient, one row for what lands at once and one for what comes over time, and the amount split into its base and what your spell power adds, as `Healing Power Coefficient` and `85.7% · 441 to 595 + 120`, the coefficient in the spell school's color. Turned off under **Details** on the **Spells** page's **Panel** sheet.
+
+## Players and NPCs
+
+![A Gryphon Master's tooltip: the portrait with its level badge, Elite and PvP badges, and the game's health bar, the dragon behind the header](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-unit.png)
+
+Units under the cursor get a panel with their portrait, the name in class color (players) or reaction color (NPCs: red hostile, yellow neutral, green friendly, grey when tapped by someone else), the guild or an NPC's role, and the level, race, and class or creature type, the level in its difficulty color. Badges mark elites, rares, bosses, a player's faction, PvP, AFK, DND, and the dead. Below sit what the unit is targeting (in red when it is you), and the unit's quest lines. Rows other addons add are kept below, and the game's own health bar closes the panel. Elites, rares, rare elites, and bosses show the dragon from the game's target frame behind the header, and players their faction's crest.
+
+**Class colors** under **Colors** on the **Units** page's **Panel** sheet has a swatch for each class. Overrides apply to player names, panel tints and glows, the guild's lighter shade, player targets, and players on the minimap. Click to choose a color, right-click for the default, or reset the row to clear all class overrides. With no override, the game's current class color is used, including changes made by other addons.
+
+## Buffs and debuffs
+
+Auras show their icon and name, badges for buff or debuff, the dispel type in the game's colors (Magic, Curse, Disease, Poison), and stacks, then the description one sentence per line, the time left with who cast it, and a bar that drains as the aura runs out.
+
+## Quests
+
+![The Dark Iron War, completed: its zone, level badges, the giver's words, the objectives ticked, where it starts and ends, its chain, the reputation and when it was done](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-quest.png)
+
+With **DialogueUI** installed, enable **Quest parchment** under **Details** on the **Quests** or **Items** page's **Panel** sheet for its brown parchment and darker ink. The shared toggle applies to quest tooltips, items marked **Quest Item**, and items that begin a quest; the **Quest item** sample on the **Items** page previews it. It is off by default. Per-part custom text colors still take precedence, and the artwork is read from DialogueUI's folder.
+
+Quest links read like a page of the quest log: the quest's name and the dungeon it is in, then badges for its level in the game's difficulty color, tags such as Elite or Dungeon, and where it stands (in progress, ready to turn in, completed, failed, repeatable). Below sit the quest giver's words in quotes and the objectives as a checklist with their progress, ticked and green once finished. In a party, a **Party** section under them lists each member on the quest in their class color with how far they have got: their objectives with counts, **Ready** once they are done, or **On the quest** when nothing more is known. The counts come from the game's own party progress, or from what **Questie** shares between party members. The header has no icon unless **Show icon** is turned on on the **Quests** page's **Panel** sheet. With **Questie** installed, which draws quest links itself, the panel is built from Questie's tooltip, both for a clicked link and for one hovered in chat. Questie's database fills in what the link leaves out: the zone, a **Requires Level** badge, the quest giver's words and the objectives, then under **Where** who starts and ends the quest and where they stand, under **Chain** the quests before and after it, and the reputation it gives. What Questie's lines say comes first; without Questie, the panel is the link's alone. Quests hovered in the world map's quest log get the same panel, with the level from your quest log; rows other addons add, such as a guide's note, are kept below.
+
+## Mail
+
+Mail attachment summaries have their own **Mail** category and sample in the window. They show item icons, quality-colored names and quantities, with Auctionator's price rows beneath each attachment and its total in the footer. Individual attachments retain their normal item tooltips. Turn off **Restyle** on the **Mail** page's **Panel** sheet to keep the native summary.
+
+## World objects
+
+Herbs, ore, chests, and quest objects get a panel too. On **WoW Forever**, a Classic herb or ore node shows the herb or ore it yields, with its icon; the skill it needs and the level, in the game's skill-up color (red while your skill is too low), beside your own skill; and in the footer the yield's sell price and, with **Auctionator** installed, its auction price. Locked chests show the lock and the Lockpicking they need, and quest objects show their quests and objectives. Rows other addons add, such as Questie's, are kept below.
+
+## Working with other addons
+
+- Rows other addons add to a tooltip are kept, below a thin rule in smaller, muted text, in their original order and colors.
+- Comparison tooltips, screen-edge clamping, and anything anchored to the tooltip follow the panel's real size.
+- With **DialogueUI** installed, its dark tooltip backdrop can be picked as the **Panel style** on the **All tooltips** page; without it, that choice falls back to Gilded. Text uses the game's own tooltip fonts, so a UI addon that changes the default font is followed; with **EllesmereUI** installed, names use its Expressway font. Both are used from those addons' own folders; nothing of theirs is bundled.
+- Whenever a tooltip cannot be read safely, such as spell details or secret values restricted during combat, the game's own tooltip is shown instead.
+
+---
+
+## What changed from upstream
+
+- **MedalUI:** built into MedalUI (it was the `mdlui_Tooltips` companion addon), and opens from MedalUI's **Tooltips** settings page (`/mdlui`), where **Reskin tooltips** turns it off.
+- **Retail WoW (`12.5` / `120105`):**
+  - Reads modern secondary and tertiary stats (**Mastery**, **Versatility**, **Speed**, **Avoidance**, **Leech**).
+  - Knows modern class resources (**Fury**, **Pain**, **Astral Power**, **Insanity**, **Maelstrom**, **Essence**, **Holy Power**, **Soul Shards**, **Arcane Charges**, **Chi**).
+  - Recognizes **Warbound** / **Warband** and **Accountbound** bindings. Item lines it does not recognize go to the footer.
+  - Leaves out the Classic-only tables (disenchanting, spell coefficients, and the classic herb, ore and skinning drops).
+  - Parks and unparks the game's tooltip safely during combat lockdown (`InCombatLockdown()`), to avoid secret-value taint on Retail 12.x.
+- **MedalUI's look:** every panel is restyled in MedalUI's gold and ink, whichever **Panel style** is picked.
+  - **Bars** (aura time left, durability, the health bar, MedalUI's own XP bar) sit in a recessed well, with a lit fill and a bright tip. On the **All tooltips** page, one set of options covers them all: **Bar style** (**Well**, or **Plain** for a flat track), **Bar height** (4–16), and **Bar texture** (Flat, or a game or LibSharedMedia status bar, which the game's health bar takes too while a panel shows it). Each bar keeps its own color, which says what it is for: reaction for health, dispel type for auras, wear for durability.
+  - **Badges** are boxed chips in capitals, tinted by what they mark, wrapping onto a second row when the header runs out of room.
+  - **Icons** get a double frame (the quality line, then an ink gap and a dark-gold ring), and the item level sits on a gold-edged plate.
+  - **Stats** line up: values right-aligned in one column, names starting together after them.
+  - **Text:** names and section captions in Marcellus SC (with MedalUI installed), and a larger damage per second.
+  - **The spell strip** (cost, cast time, cooldown, range) is a sunken well, and section dividers fade out at both ends.
+- **Gilded and Slate panel styles:** **Gilded**, the default, has a warm ink body, a dark-gold frame with ink and a quality-tinted ring outside it, a glow in the header's corner above a gold rule, and a sunken footer band. **Slate** is quieter: a flat dark body washed with the tint at the top, a thin tinted border, a drop shadow, and a hairline over the footer. **Blizzard border**, **Flat** and **DialogueUI** remain as choices.
+
+## Commands and settings
+
+| Command | What it does |
+|:---|:---|
+| `/mdltip` or `/mdltooltips` | Opens the mdlui_Tooltips window on the page shown last |
+| `/mdltip options` | Opens it on its **Options** page |
+
+| | |
+|:---:|:---:|
+| ![The window's Items page, Style sheet: the Weapon sample with its name chosen, and the part's font, size, color, outline and caps beside it](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-items.png) | ![The Spells page: the Fireball sample with its spell power breakdown, the spell name chosen](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-spells.png) |
+| ![The Units page: an elite enemy's sample with its quest progress](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-units.png) | ![The All tooltips page: fonts, bars, the panel and the school colors](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-all.png) |
+
+![The Options page: the layout, the modifiers, placement, and every kind's Restyle and Follow cursor](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/tooltips-showcase/tooltips-window-options.png)
+
+The window is laid out as MedalUI's settings: a sidebar of pages, cards of settings, and a footer with **Reset all fonts and colors**, **Undo changes** (every setting back as it was when the window opened) and **Close**. It can be dragged by its head, and opens where it was left.
+
+- **Tooltips:** a page for each kind: **Items**, **Spells**, **Units**, **Objects**, **Buffs**, **Quests**, **Macros** and **Mail**; a kind the game keeps is dimmed. Its **Style** sheet shows a live sample, with the kind's examples in the sample's band: click any part of it to set that part's font, size, color, outline and caps, or look a tooltip up by its ID or a shift-clicked link. Its **Panel** sheet holds the kind's **Restyle** and **Follow cursor**, its panel (icon, bands, backdrop, glow), its details and its colors.
+- **All tooltips:** the text and name fonts, outline and text size; the **Panel style**, padding, minimum width, icon side, tint and separators; the bars; the **School colors**.
+- **Options:** **Tooltips** (`mdlui_Tooltips` or `Blizzard`), **The game's tooltip** (`Ctrl`, `Alt` or `Never`) and the **Details** modifier (`Shift` or `Always`), following the cursor in combat, **Global scale** (50%–150%), and **Every kind**: each tooltip category's **Restyle** and **Follow cursor** in one list. Every kind follows the cursor by default, in combat too; MedalUI moves tooltips out of the way where they would cover its own frames.
+
+The window also opens from MedalUI's **Tooltips** page (`/mdlui`) and the game's **AddOns > mdlui_Tooltips**.
+
+## Install
+
+Part of MedalUI: install MedalUI and the tooltips come with it. To keep the game's tooltips, untick **Tooltips > Reskin tooltips** in MedalUI's settings and reload.
+
+If an older `mdlui_Tooltips` folder is still in `Interface\AddOns`, MedalUI turns that addon off and asks for a `/reload`. Your tooltip settings carry over. You can then delete the folder.
+
+## Compatibility
+
+- **WoW Forever 1.60.1** (`## Interface: 16001`)
+- **Retail WoW 12.5** (`## Interface: 120105`)
+- Supports English, German, French, Spanish (Spain and Latin America), Portuguese, Korean, Simplified Chinese, Traditional Chinese, and Russian clients.
+
+## Known limitations
+
+- No game API names a spell's school. Class spells take theirs from the client data the addon carries; any other spell's is read from its text, so one that never names its damage type may get no school, or the wrong one if its name starts with one.
+- Spell power coefficients are not read from the game. Those marked `~` are estimates, and a talent or effect that changes a spell's damage or healing makes its base off by that much.
+- Profession recipe spells do not show the crafted item as an item panel.
+- Herb and ore nodes show their yield, skill level, and prices only for the classic herbs and ores; other nodes show their skill alone.
+- Stat wordings not in the table above are shown unchanged.
+
+## Bug reports
+
+- `/mdltip dump` shows the raw data of the tooltip you are hovering, or of a link clicked in chat.
+- `/mdltip trace [seconds]` records tooltip states and calls for 1–10 seconds (4 by default).
+- `/mdltip perf [seconds]` measures how often the panel's work runs and how long it takes.
+- `/mdltip anchors` and `/mdltip pixel` show where each panel sits and how its lines snap to screen pixels.
+- `/mdltip capture <name>` saves the hovered tooltip as a test fixture (`capture list`, `capture clear`).
+
+Each report opens in a window with its findings selected, under a line naming the addon's version, the client build, and the locale: Ctrl+C copies them, and Escape closes the window.
+
+---
+
+## Credits and license
+
+`mdlui_Tooltips` is licensed under the **[MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/LICENSE)**.
+
+- **Original addon:** [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) — Copyright © 2026 **FallenShard**
+- **MedalUI companion adaptation and Retail port:** **AhryMX** ([MedalUI](https://github.com/ahrymx/ahrymx.MedalUI))

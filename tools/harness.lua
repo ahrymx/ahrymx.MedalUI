@@ -173,7 +173,7 @@ local mailPass = args[2] == "mail"
 -- "radial" loads the mdlui_RadialMenu companion after MedalUI and plays it
 -- (tools/harness_radial.lua).
 radialPass = args[2] == "radial"   -- a global: the main chunk is at its local limit
--- "tooltips" loads the mdlui_Tooltips companion after MedalUI and draws its
+-- "tooltips" loads MedalUI's tooltips (tooltips/) after the rest and draws its
 -- style editor's samples (tools/harness_tooltips.lua).
 tooltipsPass = args[2] == "tooltips"
 local barOff = args[3] == "nobar"
@@ -992,7 +992,7 @@ end
 function GameTooltip:ClearLines()
     if self.scripts.OnTooltipCleared then self.scripts.OnTooltipCleared(self) end
 end
--- the spec ns.Tip handed over, as its parts' roles: what mdlui_Tooltips draws
+-- the spec ns.Tip handed over, as its parts' roles: what the tooltips draw
 function tipSpec()
     local s = MedalUI_TooltipSpec and MedalUI_TooltipSpec(GameTooltip)
     if not s then return "spec=none" end
@@ -5807,6 +5807,9 @@ for line in io.lines(ADDON .. "MedalUI.toc") do
     -- a translation loads only on its own client
     local only = line:match("%[AllowLoadTextLocale (.-)%]")
     if only and not only:find(GetLocale(), 1, true) then file = nil end
+    -- the tooltips (tooltips\\) load in their own pass, over its stubs
+    -- (tools/harness_tooltips.lua)
+    if file and file:find("^tooltips\\") then file = nil end
     if file then
         local chunk = assert(loadfile(ADDON .. file:gsub("\\", "/")))
         harnessFile = file

@@ -1,4 +1,4 @@
--- The "tooltips" pass: mdlui_Tooltips, loaded after MedalUI (tools/harness.lua
+-- The "tooltips" pass: MedalUI's tooltips (tooltips/), loaded after the rest (tools/harness.lua
 -- hands over what it keeps local). Every sample the style editor offers is drawn
 -- into a preview panel, and the panel's chrome, bars, boxes and text are read
 -- back as lines.
@@ -25,7 +25,7 @@ function Region:GetThumbTexture()
     self.thumb = self.thumb or self:CreateTexture()
     return self.thumb
 end
-local ADDON = "WoW/Interface/AddOns/mdlui_Tooltips/"
+local MEDALUI = "WoW/Interface/AddOns/MedalUI/"
 -- a dropdown keeps the function that fills its menu (the window's checks read it)
 function Region:SetupMenu(fn) self.menuFn = fn end
 
@@ -124,65 +124,46 @@ do
     issecretvalue = function(v) return getmetatable(v) == HIDDEN or (was ~= nil and was(v)) or false end
 end
 local function hidden() return setmetatable({}, HIDDEN) end
-local ns = {}
-for line in io.lines(ADDON .. "mdlui_Tooltips.toc") do
-    local file = line:match("^([^#][^%[]-%.lua)")
+-- (2026-11-25) built into MedalUI: its .toc's tooltips\ lines, which the main
+-- pass leaves out, loaded into MedalUI's table; their own keys under ns.tips
+local M = H.medalui
+local ns = M.tips
+for line in io.lines(MEDALUI .. "MedalUI.toc") do
+    local file = line:match("^(tooltips\\[^%[]-%.lua)")
     -- a translation loads only on its own client
     local only = line:match("%[AllowLoadTextLocale (.-)%]")
     if only and not only:find(GetLocale(), 1, true) then file = nil end
     if file then
-        local chunk = assert(loadfile(ADDON .. file:gsub("\\", "/")))
-        local ok, err = xpcall(chunk, debug.traceback, "mdlui_Tooltips", ns)
+        local chunk = assert(loadfile(MEDALUI .. file:gsub("\\", "/")))
+        local ok, err = xpcall(chunk, debug.traceback, "MedalUI", M)
         if not ok then print("tooltips load error", file, err) end
     end
 end
-for _, f in ipairs(events.ADDON_LOADED or {}) do
-    if f.scripts.OnEvent then pcall(f.scripts.OnEvent, f, "ADDON_LOADED", "mdlui_Tooltips") end
+-- start-up (tooltips/PrettyTooltip.lua): the old companion still enabled
+-- stands it aside and turns that one off; the switch off keeps it out; else it starts
+do
+    local A = C_AddOns
+    local state, disable, said = A.GetAddOnEnableState, A.DisableAddOn, {}
+    local disabled
+    A.GetAddOnEnableState = function(name) return name == "mdlui_Tooltips" and 2 or 0 end
+    A.DisableAddOn = function(name) disabled = name end
+    local was = print
+    print = function(...) said[#said + 1] = table.concat({ ... }, " ") end
+    local old = ns.boot()
+    print = was
+    print("tooltips boot old", "booted=" .. tostring(old), "disabled=" .. tostring(disabled),
+        "said=" .. tostring(#said), "hooked=" .. tostring(ns.Commands and SlashCmdList.MDLUI_TOOLTIPS ~= nil))
+    A.GetAddOnEnableState = function() return 0 end
+    M.db.tooltips = false
+    print("tooltips boot off", "booted=" .. tostring(ns.boot()),
+        "hooked=" .. tostring(SlashCmdList.MDLUI_TOOLTIPS ~= nil))
+    M.db.tooltips = nil
+    print("tooltips boot on", "booted=" .. tostring(ns.boot()),
+        "hooked=" .. tostring(SlashCmdList.MDLUI_TOOLTIPS ~= nil))
+    A.GetAddOnEnableState, A.DisableAddOn = state, disable
 end
 print("tooltips loaded", "ui=" .. tostring(ns.ui ~= nil), "samples=" .. tostring(ns.editorSampleTypes ~= nil))
 
--- the game's AddOns list page, its minimap button switch and the button: off at first; on, on the
--- minimap's edge; dragged, round it; off again, gone
-local function minimapButton(tag, check, button, saved)
-    local function where()
-        local p = button.points and button.points.CENTER
-        return p and string.format("%s %.0f,%.0f", tostring(p[2]), p[3] or 0, p[4] or 0) or "-"
-    end
-    -- the stub's check buttons keep no state: this one keeps its own
-    function check:SetChecked(on) self.checked = on and true or false end
-    function check:GetChecked() return self.checked end
-    check.scripts.OnShow(check)
-    print(tag .. " minimap", "checked=" .. tostring(check:GetChecked()), "shown=" .. tostring(button.shown ~= false),
-        "saved=" .. tostring(saved()))
-    check:SetChecked(true)
-    check.scripts.OnClick(check)
-    print(tag .. " minimap on", "shown=" .. tostring(button.shown ~= false), "at " .. where(), "saved=" .. tostring(saved()))
-    local cursor, centre, scale = GetCursorPosition, Minimap.GetCenter, Minimap.GetEffectiveScale
-    Minimap.GetCenter = function() return 900, 600 end
-    Minimap.GetEffectiveScale = function() return 1 end
-    GetCursorPosition = function() return 900, 700 end                 -- straight above the map
-    button.scripts.OnDragStart(button)
-    button.scripts.OnUpdate(button, 0)
-    button.scripts.OnDragStop(button)
-    GetCursorPosition, Minimap.GetCenter, Minimap.GetEffectiveScale = cursor, centre, scale
-    print(tag .. " minimap dragged", "at " .. where(), "following=" .. tostring(button.scripts.OnUpdate ~= nil))
-    -- MedalUI's drawer on the action bar takes it: in its line, no longer placed or dragged here
-    local M = H.medalui
-    if M and M.drawerScan then
-        M.drawerScan()
-        local angle = saved and button.points and button.points.CENTER and button.points.CENTER[3]
-        button.scripts.OnDragStart(button)
-        print(tag .. " minimap drawer", "taken=" .. tostring(button.parent == M.drawer),
-            "dragging=" .. tostring(button.scripts.OnUpdate ~= nil), "x=" .. tostring(angle))
-    end
-    check:SetChecked(false)
-    check.scripts.OnClick(check)
-    print(tag .. " minimap off", "shown=" .. tostring(button.shown ~= false), "saved=" .. tostring(saved()))
-end
-minimapButton("tooltips", ns.Options.check, _G.mdlui_TooltipsMinimapButton,
-    function() return mdlui_TooltipsDB and mdlui_TooltipsDB.minimapButton end)
--- back as it came, for the window's own lines below
-mdlui_TooltipsDB.minimapAngle = nil
 
 -- ------------------------------------------------------------ samples
 local ui = ns.ui

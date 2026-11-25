@@ -114,7 +114,7 @@ ns.KnownIssue({
 
 -- --------------------------------------------------- Questie beside QuestieDB
 -- (2026-11-25) Not an issue but advice: MedalUI's quest log, tracker, quest
--- pages, drop rates, the Zone tab's Guide and mdlui_Tooltips' quests read
+-- pages, drop rates, the Zone tab's Guide and the tooltips' quests read
 -- QuestieDB themselves, so Questie running as well only doubles them, and
 -- its map pins hide the game's objective markers, which the waypoint to a
 -- quest (the game's super-tracked one) needs. Once both are loaded, a

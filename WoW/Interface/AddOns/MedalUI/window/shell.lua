@@ -909,7 +909,7 @@ end
 -- So: once owned, no anchor of the game's (SetAnchorType, which keeps the
 -- text); and whenever it is placed by anyone else while its owner is under
 -- the mouse, placed back beside the frame. The tooltip's C methods alone.
--- Not under the mouse: a tooltip fading out, or parked by mdlui_Tooltips.
+-- Not under the mouse: a tooltip fading out, or parked by the tooltips.
 local function Own(owner)
     local f, m = Marked(owner)
     if not f then return end
@@ -922,7 +922,7 @@ hooksecurefunc(GameTooltip, "SetPoint", function(self)
     local owner = self:GetOwner()
     if owner and owner.IsMouseOver and owner:IsMouseOver() then Own(owner) end
 end)
--- for mdlui_Tooltips: true when the tooltip owner shows stands beside a
+-- for the tooltips (tooltips/): true when the tooltip owner shows stands beside a
 -- window of ours, placed here (its cursor-following leaves it alone)
 function MedalUI_TooltipBeside(owner) return owner ~= nil and (Marked(owner)) ~= nil end
 

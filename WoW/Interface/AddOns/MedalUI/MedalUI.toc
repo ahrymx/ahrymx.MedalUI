@@ -2,13 +2,13 @@
 ## Title: MedalUI
 ## Notes: The console (player, target, party, XP, minimap), an optional action bar on it, the corner strips (micro menu, bags, stats), and over them the chat and a side panel of loot, a meter, your auras and the zone (the minimap and its quests); and a bags window.
 ## Author: ahrymx
-## Version: 0.75.5
+## Version: 0.76.0
 ## Category: MedalUI
 ## Category-enUS: MedalUI
 ## Group: MedalUI
-## SavedVariables: MedalUIDB
+## SavedVariables: MedalUIDB, mdlui_TooltipsDB, mdlui_TooltipsCaptures
 ## SavedVariablesPerCharacter: MedalUICharDB
-## OptionalDeps: QuestieDB
+## OptionalDeps: QuestieDB, Questie, Auctionator, DialogueUI, EllesmereUI, LibSharedMedia-3.0
 
 core.lua
 locale\locale.lua
@@ -132,6 +132,67 @@ inventory\bank.lua
 keybind.lua
 diag.lua
 fixes.lua
+
+# the tooltips (once the mdlui_Tooltips companion)
+tooltips\Core\Util.lua
+tooltips\Core\Palette.lua
+tooltips\Core\Settings.lua
+tooltips\Core\TooltipPlacement.lua
+tooltips\Locale\Locale.lua
+tooltips\Locale\English.lua
+tooltips\Locale\deDE.lua [AllowLoadTextLocale deDE]
+tooltips\Locale\esES.lua [AllowLoadTextLocale esES]
+tooltips\Locale\esMX.lua [AllowLoadTextLocale esMX]
+tooltips\Locale\frFR.lua [AllowLoadTextLocale frFR]
+tooltips\Locale\koKR.lua [AllowLoadTextLocale koKR]
+tooltips\Locale\Portuguese.lua [AllowLoadTextLocale ptBR, ptPT]
+tooltips\Locale\ruRU.lua [AllowLoadTextLocale ruRU]
+tooltips\Locale\zhCN.lua [AllowLoadTextLocale zhCN]
+tooltips\Locale\zhTW.lua [AllowLoadTextLocale zhTW]
+tooltips\Game\Game.lua
+tooltips\Game\TooltipData.lua
+tooltips\Data\Schools.lua
+tooltips\Data\Stats.lua
+tooltips\Data\Imbues.lua
+tooltips\Panel\Layout.lua
+tooltips\Panel\Render.lua
+tooltips\Data\Disenchant.lua
+tooltips\Data\Nodes.lua
+tooltips\Data\NodeNames.lua
+tooltips\Data\Skinning.lua
+tooltips\Data\SpellRanks.lua
+tooltips\Data\Coefficients.lua
+tooltips\Tooltips\Item.lua
+tooltips\Tooltips\Spell.lua
+tooltips\Tooltips\Object.lua
+tooltips\Tooltips\Unit.lua
+tooltips\Tooltips\Aura.lua
+tooltips\Tooltips\Imbue.lua
+tooltips\Tooltips\Quest.lua
+tooltips\Tooltips\QuestieMap.lua
+tooltips\Tooltips\Macro.lua
+tooltips\Tooltips\PetAction.lua
+tooltips\Tooltips\Minimap.lua
+tooltips\Tooltips\FlightPath.lua
+tooltips\Tooltips\Mail.lua
+tooltips\medalui.lua
+tooltips\UI\Options.lua
+tooltips\UI\Samples.lua
+tooltips\UI\Panel.lua
+tooltips\UI\Editor.lua
+tooltips\Integration\Native.lua
+tooltips\Integration\Placement.lua
+tooltips\Integration\Hooks.lua
+tooltips\Integration\Details.lua
+tooltips\Integration\ItemLite.lua
+tooltips\Integration\Cursor.lua
+#@debug@
+tooltips\UI\Capture.lua
+#@end-debug@
+tooltips\UI\Report.lua
+tooltips\UI\Debug.lua
+tooltips\UI\Commands.lua
+tooltips\PrettyTooltip.lua
 
 options\controls.lua
 options\pages.lua

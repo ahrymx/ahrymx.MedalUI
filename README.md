@@ -118,6 +118,15 @@ Esc opens a game menu that also shows your character, MedalUI's shortcuts, and y
 
 ---
 
+## Tooltips
+
+Every tooltip is drawn as an ornamented panel: items, spells, units, auras, quests, mail and world objects, on Forever and Retail. `/mdltip` opens their window, where you set each kind's look against a live sample. To keep the game's tooltips, untick **Tooltips > Reskin tooltips** in the settings. Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard ([README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/LICENSE)).
+
+> [!NOTE]
+> Tooltips used to be the `mdlui_Tooltips` companion addon. If its folder is still installed, MedalUI turns it off and asks for a `/reload`. Your tooltip settings carry over. You can then delete the folder.
+
+---
+
 ## Settings
 
 Every part of MedalUI can be switched off on the **Modules** page; turn off what you'd rather keep from another addon or the default UI.
@@ -140,7 +149,6 @@ Companions appear under the **MedalUI** category in the AddOn List, each with it
 
 | Addon | What it adds | Docs & license |
 |:---|:---|:---|
-| **[`mdlui_Tooltips`](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/README.md)** | An ornamented reskin of every tooltip: items, spells, units, auras, quests, mail and world objects. Forever and Retail. Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard. | [README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE) |
 | **[`mdlui_RadialMenu`](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md)** | Radial menus: hold a key, sweep the mouse towards a button and let go, in combat too. Spells, items, mounts, macros, markers, emotes and nested radials, built in an editor window, with presets such as Consumables, a shaman's Totem Bars and a hunter's Pet Utility. Forever. Based on [FlareUI](https://github.com/malkkav/FlareUI)'s radial menu by Malkkav. | [README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE) |
 
 ## Recommended addons
@@ -152,7 +160,7 @@ Companions appear under the **MedalUI** category in the AddOn List, each with it
 > - **Quest chains:** a quest's page lays out the whole chain with each step's name, level and experience, where the game can't.
 > - **Drop rates:** the tracker and quest pages show how often a quest item drops ("Gnoll Paw: 3/8 · 12-18% drop"), with each creature's rate in the objective's tooltip.
 > - **Quest items:** the Zone tab's item bar also offers the items a quest needs that the game doesn't mark, once they are in your bags.
-> - **Quest tooltips** from `mdlui_Tooltips`: hold Shift over a quest, on the world map too, to see who starts and ends it and where, its place in the chain, and the reputation it gives.
+> - **Quest tooltips:** hold Shift over a quest, on the world map too, to see who starts and ends it and where, its place in the chain, and the reputation it gives.
 >
 > Questie itself isn't needed: QuestieDB works on its own. Without it, these features are hidden and everything else works as usual.
 >
@@ -180,6 +188,7 @@ These addons are by other authors and pair well with MedalUI. They are not part 
 | `/mui kb` | Key binding mode: hover a button and press a key |
 | `/mui edit` | Opens the unit frame editor |
 | `/mui taint` | Runs taint diagnostics |
+| `/mdltip` | Opens the tooltips' window: each kind's look, with a live sample |
 | `/mui fix-issues` | Checks for problems an older version left behind that updating does not undo, and offers to fix them |
 
 ---
@@ -189,7 +198,7 @@ These addons are by other authors and pair well with MedalUI. They are not part 
 - **[W2UI](https://wowinterface.com/downloads/info27203-W2UI.html)** by aesketch: a design reference for the character window, the corner medallions and the utility bars. Used as a reference only; no code or art is taken from it.
 - **[Baganator](https://www.curseforge.com/wow/addons/baganator)**: inspiration for the bags window.
 - **[Forever Quest Routes](https://www.curseforge.com/wow/addons/forever-quest-routes)** by j__b: the model for the Zone tab's Guide. Used as a reference only; no code or data is taken from it. The Guide reads QuestieDB while the game runs.
-- **[PrettyTooltip](https://github.com/FallenShard/PrettyTooltip)** by FallenShard: the base of `mdlui_Tooltips` (MIT).
+- **[PrettyTooltip](https://github.com/FallenShard/PrettyTooltip)** by FallenShard: the base of MedalUI's tooltips (MIT).
 - **[FlareUI](https://github.com/malkkav/FlareUI)** by Malkkav: its radial menu is the base of `mdlui_RadialMenu` (MIT).
 - **Marcellus SC** by Brian J. Bonislawsky (Astigmatic): the interface font (SIL OFL 1.1).
 
@@ -207,4 +216,4 @@ These addons are by other authors and pair well with MedalUI. They are not part 
 
 MedalUI is **All Rights Reserved** © 2026 AhryMX. You may install it, play with it, read its code, and change your own copy for personal use. Screenshots, videos, and streams are welcome. You may not reupload, redistribute, fork, retexture, or rebrand it, in whole or in part, without written permission. The only official copies are on [GitHub](https://github.com/ahrymx/ahrymx.MedalUI) and [CurseForge](https://www.curseforge.com/wow/addons/medalui/). See [LICENSE](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/LICENSE) for the full terms.
 
-The optional `mdlui_Tooltips` companion addon is based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) © 2026 FallenShard and is included under the [MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_Tooltips/LICENSE). The optional `mdlui_RadialMenu` companion addon is based on the radial menu of [FlareUI](https://github.com/malkkav/FlareUI) © 2026 Malkkav and is included under the [MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE). The Marcellus SC font is © Brian J. Bonislawsky (Astigmatic) and is included under the [SIL Open Font License 1.1](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/media/fonts/OFL.txt). World of Warcraft is a trademark of Blizzard Entertainment, Inc.; MedalUI is not affiliated with or endorsed by Blizzard.
+MedalUI's tooltips (`MedalUI/tooltips`) are based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) © 2026 FallenShard and are included under the [MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/LICENSE). The optional `mdlui_RadialMenu` companion addon is based on the radial menu of [FlareUI](https://github.com/malkkav/FlareUI) © 2026 Malkkav and is included under the [MIT License](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/mdlui_RadialMenu/LICENSE). The Marcellus SC font is © Brian J. Bonislawsky (Astigmatic) and is included under the [SIL Open Font License 1.1](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/media/fonts/OFL.txt). World of Warcraft is a trademark of Blizzard Entertainment, Inc.; MedalUI is not affiliated with or endorsed by Blizzard.

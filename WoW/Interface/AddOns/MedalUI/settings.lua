@@ -108,6 +108,7 @@ local DEFAULTS = {
     lootQuality = 2,        -- the least item quality shown (2 = uncommon)
     lootMoney = true,       -- money and currencies in the loot log
     aurasTimeless = false,  -- list the auras that never run out too (they are over the portrait already)
+    tooltips = true,        -- the tooltips reskinned (tooltips/), after a reload
     bags = true,            -- MedalUI's bags window instead of Blizzard's bags
     bagsView = "grid",      -- "bags": each bag under its name; "grid": every slot, bag by bag; "groups": fixed groups
     bagsColumns = 10,       -- slots across the window (not on the page: the window's corner sets it, 8 to 24)

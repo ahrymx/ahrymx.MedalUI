@@ -2916,18 +2916,22 @@ L["The LFG / Who window, while its option is on."] = "Окно поиска гр
 L["The chat's log, while the chat panel is on."] = "Журнал чата, пока включена панель чата."
 L["The game's Cooldown Manager, where the client has one."] = "Менеджер восстановлений игры, если он есть в клиенте."
 L["The game's Click Casting, where the client has it."] = "Применение по щелчку игры, если оно есть в клиенте."
-L["Tooltips (ext)"] = "Подсказки (доп.)"
-L["Provided by the optional mdlui_Tooltips companion addon."] =
-    "Даёт необязательная сопутствующая модификация mdlui_Tooltips."
-L["Enable mdlui_Tooltips in your AddOns list to reskin tooltips and open its window."] =
-    "Включите mdlui_Tooltips в списке модификаций, чтобы оформить подсказки и открыть её окно."
-L["Open mdlui_Tooltips"] = "Открыть mdlui_Tooltips"
-L["Closes this window and opens the mdlui_Tooltips window: each kind of tooltip's look, with a live sample "
-    .. "(/mdltip)."] =
-    "Закрывает это окно и открывает окно mdlui_Tooltips: вид каждого рода подсказок с живым образцом (/mdltip)."
+L["Every tooltip in MedalUI's ornament: items, spells, units, auras, quests, mail and world objects."] =
+    "Все подсказки в оформлении MedalUI: предметы, заклинания, существа, эффекты, задания, почта и объекты мира."
+L["Reskin"] = "Оформление"
+L["Reskin tooltips"] = "Оформлять подсказки"
+L["Draws every tooltip as a MedalUI panel. Untick it to keep the game's tooltips, or to use a tooltip addon."] =
+    "Рисует каждую подсказку панелью MedalUI. Снимите флажок, чтобы оставить подсказки игры или использовать "
+    .. "модификацию подсказок."
+L["Styles"] = "Стили"
+L["Open tooltip styles"] = "Открыть стили подсказок"
+L["Closes this window and opens the tooltips' own: each kind of tooltip's look, with a live sample (/mdltip)."] =
+    "Закрывает это окно и открывает окно подсказок: вид каждого рода подсказок с живым образцом (/mdltip)."
 L["Tooltip options"] = "Настройки подсказок"
-L["Closes this window and opens the mdlui_Tooltips window on its Options page (/mdltip options)."] =
-    "Закрывает это окно и открывает окно mdlui_Tooltips на странице настроек (/mdltip options)."
+L["Closes this window and opens the tooltips' own on its Options page (/mdltip options)."] =
+    "Закрывает это окно и открывает окно подсказок на странице настроек (/mdltip options)."
+L["Tooltips are now part of MedalUI, so mdlui_Tooltips has been turned off. Type /reload to finish."] =
+    "Подсказки теперь входят в MedalUI, поэтому mdlui_Tooltips отключена. Введите /reload, чтобы завершить."
 L["Radial menu (ext)"] = "Круговое меню (доп.)"
 L["Provided by the optional mdlui_RadialMenu companion addon."] =
     "Даёт необязательная сопутствующая модификация mdlui_RadialMenu."

@@ -194,7 +194,7 @@ read_globals = {
     "VOICE_CHAT_MODE_CUSTOM",
 }
 -- the saved variables, the slash command, the reset popup's key and the
--- tooltip spec, the locked line and the beside test mdlui_Tooltips reads (core.lua,
+-- tooltip spec, the locked line and the beside test the tooltips read (core.lua,
 -- inventory/locks.lua, window/shell.lua)
 globals = { "_G", "MedalUI_TooltipSpec", "MedalUI_MapQuestPage", "MedalUI_LockedLine", "MedalUI_TooltipBeside", "MedalUI_ArenaOpen", "MedalUIDB", "MedalUICharDB", "MedalUIFontFace", "SLASH_MEDALUI1", "SLASH_MEDALUI2", "SLASH_MDLUI1", "SlashCmdList",
     "StaticPopupDialogs",
@@ -203,8 +203,8 @@ globals = { "_G", "MedalUI_TooltipSpec", "MedalUI_MapQuestPage", "MedalUI_Locked
     -- the LFG / Who window's binding (Bindings.xml, social/lfg.lua)
     "MedalUIToggleLFG", "BINDING_NAME_MEDALUI_LFG" }
 
--- mdlui_Tooltips companion addon settings
-files["WoW/Interface/AddOns/mdlui_Tooltips/**/*.lua"] = {
+-- the tooltips (MedalUI/tooltips, once the mdlui_Tooltips companion)
+files["WoW/Interface/AddOns/MedalUI/tooltips/**/*.lua"] = {
     max_line_length = false,
     ignore = { "542" },
     globals = {

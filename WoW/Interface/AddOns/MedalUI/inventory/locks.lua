@@ -68,8 +68,8 @@ ns.On("MERCHANT_CLOSED", function()
 end)
 
 -- ---------------------------------------------------------------- the tooltip
--- "Locked" under any locked item's tooltip. mdlui_Tooltips knows the line by
--- this text and moves it onto the item's binding line.
+-- "Locked" under any locked item's tooltip. The tooltips (tooltips/) know the line by
+-- this text and move it onto the item's binding line.
 MedalUI_LockedLine = Tr["Locked"]
 local function Line(tooltip, id)
     if not ns.IsSecret(id) and locks.Is(id) then tooltip:AddLine(MedalUI_LockedLine, 0.45, 0.75, 1) end
