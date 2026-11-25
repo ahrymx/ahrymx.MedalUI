@@ -76,7 +76,8 @@ end
 -- Bars 2/3 independently. Only the alpha changes, which is allowed in combat,
 -- so a faded bar keeps working: clicks and key bindings stay live. It also
 -- comes back while a spell or item is on the cursor, so one can be dropped on it,
--- and stays while a flyout opened from one of its buttons is open (ns.FlyoutFrom).
+-- and stays while a flyout opened from one of its buttons is open (ns.FlyoutFrom),
+-- or Bar 1 while the minimap buttons' drawer is open on it (ns.DrawerOpen).
 -- Bar 1 shows whole in a vehicle, on an override bar or controlling another
 -- (the Darkmoon Faire's Steam Tonk, a possess bar): it is that one's bar then.
 local FADE_TIME, FADED = 0.2, 0
@@ -301,7 +302,7 @@ function ns.BuildBar(rows)
     ns.OnSetting("artColor", Tint)
     ns.barFade = MakeFade(tray, "visibility", function()
         return tray:IsMouseOver() or (ns.drawer and ns.drawer:IsShown() and ns.drawer:IsMouseOver())
-    end, Driving)
+    end, function() return Driving() or ns.DrawerOpen() end)
     ns.extraBarFade = MakeFade(extra, "extraVisibility", function()
         if extra:IsMouseOver() or (row3 and row3:IsMouseOver()) then return true end
         for _, btn in ipairs(ns.extraButtons or {}) do

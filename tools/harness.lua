@@ -7232,6 +7232,12 @@ if barPass then
             fly:Hide()
             bar1("shut on button 1")
             SpellFlyout = nil
+            if ns.drawer then
+                ns.drawer:Show()
+                bar1("minimap drawer open")
+                ns.drawer:Hide()
+                bar1("minimap drawer shut")
+            end
             ns.db.extraVisibility = extraWas
         end
         -- in a vehicle, on an override bar, controlling a Steam Tonk: bar 1 whole
@@ -15730,6 +15736,16 @@ function FadePass()
         run(0.1)
         say("flyout closed on bar 1")
         SpellFlyout = nil
+    end
+    -- (2026-11-25, the user's) the minimap buttons' drawer open keeps it
+    -- whole too, as a flyout does
+    if ns.drawer then
+        ns.drawer:Show()
+        run(0.1)
+        say("minimap drawer open")
+        ns.drawer:Hide()
+        run(0.1)
+        say("minimap drawer shut")
     end
     casting, castUnit = true, "target"
     fire("UNIT_SPELLCAST_START", "target")

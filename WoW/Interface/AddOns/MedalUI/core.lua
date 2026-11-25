@@ -248,6 +248,12 @@ function ns.FlyoutFrom(frame)
     local _, on = fly:GetPoint(1)
     return Within(on, frame)
 end
+-- Whether the minimap buttons' drawer (bars/drawer.lua) is open: like a
+-- flyout, it keeps the faded console and Bar 1 whole, so the pointer can
+-- leave them for it (the user's, 2026-11-25).
+function ns.DrawerOpen()
+    return ns.drawer and ns.drawer:IsShown() or false
+end
 
 function ns.Untouchable(frames, Off, CanWake)
     local o = { want = false, held = 0 }
