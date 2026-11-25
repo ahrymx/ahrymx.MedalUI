@@ -66,7 +66,8 @@ local function Talents(unit)
     if GetInspectSpecialization and GetSpecializationInfoByID then
         local id = GetInspectSpecialization(unit)
         local name = id and id > 0 and select(2, GetSpecializationInfoByID(id)) or nil
-        if name ~= UnitClass(unit) then return name end
+        local className = UnitClass(unit)
+        if ns.IsSecret(name) or ns.IsSecret(className) or name ~= className then return name end
     end
 end
 

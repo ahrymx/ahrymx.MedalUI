@@ -313,7 +313,8 @@ function ns.character.Doll(spec)
         local h = (#LEFT - 1) * pitch + size
         stage.w, stage.h = w, h
         local _, class = UnitClass(Unit())
-        local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+        -- an inspected unit's class can be secret: no colour then, gold
+        local c = class and not ns.IsSecret(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         local light = stage.light
         light:ClearAllPoints()
         light:SetSize(w * 0.95, h * 0.8)
@@ -405,7 +406,8 @@ function ns.character.Doll(spec)
             local s = id and id > 0 and select(2, GetSpecializationInfoByID(id)) or nil
             -- before a spec is chosen the game names the class's starter one
             -- after the class: "Warrior (Warrior)" says nothing
-            if s and s ~= UnitClass(unit) then return s end
+            local className = UnitClass(unit)
+            if s and (ns.IsSecret(s) or ns.IsSecret(className) or s ~= className) then return s end
         end
     end
 
@@ -415,7 +417,7 @@ function ns.character.Doll(spec)
         local className, class = UnitClass(unit)
         local s = Spec(unit)
         local who = s and format("%s (%s)", className, s) or className or ""
-        local c = class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+        local c = class and not ns.IsSecret(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         if c then who = format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, who) end
         return format(Tr["%s  Level %d"], who, UnitLevel(unit) or 0)
     end
