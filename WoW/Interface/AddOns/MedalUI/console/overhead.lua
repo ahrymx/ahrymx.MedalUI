@@ -21,8 +21,9 @@ local Tr = ns.L
 local C = ns.colors
 local A, PIECES, CHIPS = ns.overheadArt, ns.overheadPieces, ns.overheadChips
 local MEDIA = ns.media .. "overhead\\"
-local KEY_TOP, KEY_FOOT = { 0.341, 0.286, 0.165 }, { 0.141, 0.114, 0.055 }   -- a key's well, as the strips'
-local GOLD_B = { 0.910, 0.788, 0.431 }                                        -- the percentage
+-- a key's well, as the strips'
+local KEY_TOP, KEY_FOOT = ns.Themed({ 0.341, 0.286, 0.165 }), ns.Themed({ 0.141, 0.114, 0.055 })
+local GOLD_B = ns.Themed({ 0.910, 0.788, 0.431 })   -- the percentage
 
 local function Muted(r, g, b)
     return r * ns.mute, g * ns.mute, b * ns.mute
@@ -539,7 +540,7 @@ local totems = {}           -- the totem bar's adopted buttons, as a set
 -- 2026-11-01 from art/console/render/overhead-frames.png): a 1px black edge
 -- inside the button, around the icon, and a 1px gold one outside it, light
 -- at the top and dark at the foot, as the art's gold gradient runs.
-local GOLD_TOP, GOLD_FOOT = { 0.941, 0.831, 0.533 }, { 0.659, 0.510, 0.227 }   -- #f0d488, #a8823a
+local GOLD_TOP, GOLD_FOOT = ns.gold.light, ns.Themed({ 0.659, 0.510, 0.227 })  -- #f0d488, #a8823a
 
 local function Frame(btn)
     local gold = btn:CreateTexture(nil, "BACKGROUND", nil, -8)
@@ -1095,7 +1096,7 @@ zone:Hide()
 do
     local fill = zone:CreateTexture(nil, "BACKGROUND")
     fill:SetAllPoints()
-    fill:SetColorTexture(0.769, 0.647, 0.341, 0.28)
+    fill:SetColorTexture(ns.gold.mid[1], ns.gold.mid[2], ns.gold.mid[3], 0.28)
     zone.edges = {}
     for i, pts in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
         { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do

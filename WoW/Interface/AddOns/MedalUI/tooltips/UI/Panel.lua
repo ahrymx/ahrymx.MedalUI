@@ -24,9 +24,9 @@ local SERIF = type(MedalUIFontFace) == "string" and MedalUIFontFace
 
 -- MedalUI's palette (core.lua and options/controls.lua)
 local C = {
-    gold = { 0.769, 0.647, 0.341 },
-    goldDark = { 0.541, 0.439, 0.204 },
-    goldBright = { 0.878, 0.722, 0.290 },
+    gold = medal.gold.mid,
+    goldDark = medal.gold.dark,
+    goldBright = medal.gold.bright,
     ink = { 0.071, 0.067, 0.063 },
     well = { 0.051, 0.047, 0.039 },
     page = { 0.090, 0.082, 0.063 },
@@ -35,7 +35,7 @@ local C = {
     lineStrong = { 0.239, 0.212, 0.165 },
     text = { 0.949, 0.918, 0.824 },
     dim = { 0.70, 0.66, 0.55 },
-    selected = { 0.204, 0.165, 0.086 },     -- a chosen row, tab or chip
+    selected = medal.Themed({ 0.204, 0.165, 0.086 }),     -- a chosen row, tab or chip
     faint = { 0.490, 0.459, 0.384 },        -- the least of the text
     red = { 0.471, 0.094, 0.078 },
     redHover = { 0.580, 0.125, 0.098 },
@@ -143,7 +143,7 @@ local Plain = Panel.Plain
 -- secondary, quiet (no box until the pointer is on it) and danger. Its text is a serif in its own
 -- font string (b.label), so b:SetText works as on any button. Faded while disabled.
 local STYLES = {
-    primary = { rest = C.gold, hover = C.goldBright, press = { 0.659, 0.541, 0.259 },
+    primary = { rest = C.gold, hover = C.goldBright, press = medal.Themed({ 0.659, 0.541, 0.259 }),
         edge = C.goldBright, edgeLit = C.goldBright, text = C.ink, lit = C.ink },
     secondary = { rest = C.raised, hover = { 0.149, 0.133, 0.106 }, press = { 0.078, 0.071, 0.055 },
         edge = C.lineStrong, edgeLit = C.goldDark, text = C.gold, lit = C.goldBright },

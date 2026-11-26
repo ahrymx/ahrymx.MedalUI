@@ -45,8 +45,8 @@ for i, m in ipairs(ns.METER_METRICS) do ORDER[m[1]] = i end
 local ROW, GAP, HEAD = 16, 2, 18
 local SPLIT = 3                 -- each list stands this far from the panel's middle
 local S = ns.METER_SESSION
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local DIM = { 0.70, 0.66, 0.55 }
 local WHITE8 = "Interface\\Buttons\\WHITE8X8"
 

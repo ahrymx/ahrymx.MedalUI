@@ -221,7 +221,7 @@ local function Character()
     -- show it whole instead of Blizzard's cropped, tall version
     portrait = btn:CreateTexture(nil, "ARTWORK", nil, 7)
     SetPortraitTexture(portrait, "player")
-    Skin(btn, portrait, ns.RoundGlow(btn, 1, 0.9, 0.6, 0.18), w.size)
+    Skin(btn, portrait, ns.RoundGlow(btn, ns.gold.glow, 0.18), w.size)
 end
 
 -- The buttons after the portrait, in the client's order.

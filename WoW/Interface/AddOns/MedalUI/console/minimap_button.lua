@@ -22,7 +22,7 @@ icon:SetAllPoints()
 button.icon = icon
 local glow = button:CreateTexture(nil, "HIGHLIGHT")
 glow:SetTexture(ns.media .. "strips\\round")
-glow:SetVertexColor(1, 0.9, 0.6)
+glow:SetVertexColor(ns.gold.glow[1], ns.gold.glow[2], ns.gold.glow[3])
 glow:SetAlpha(0.25)
 glow:SetBlendMode("ADD")
 glow:SetAllPoints()

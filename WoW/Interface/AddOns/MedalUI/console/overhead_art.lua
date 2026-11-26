@@ -10,7 +10,7 @@ ns.overheadArt = {
     cellTop = 4, cellBottom = 4, cellEdge = 2, channel = 2,
     gap = 4, margin = 4, ledge = 10, power = 4,
     icon = 22, iconGap = 2, iconSep = 8, trayTop = 3,
-    edge = { 0.541, 0.439, 0.204 },
+    edge = ns.gold.dark,
 }
 
 -- each piece, named for its deck's kind and the y it hangs at: the art (w x h)

@@ -82,8 +82,9 @@
 local _, ns = ...
 local Tr = ns.L
 
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
+local CORE = ns.Themed({ 0.306, 0.251, 0.125 })     -- the leading medallion's gold fill
 local DIM = { 0.55, 0.52, 0.45 }
 local RED = { 0.86, 0.27, 0.22 }
 local BLUE = { 0.47, 0.75, 1 }
@@ -122,7 +123,8 @@ local BAR_W = 5                             -- a chain bar's thickness
 local ROUND = ns.media .. "strips\\round"
 local BAR = ns.media .. "gamemenu-bar"
 local COMB, COMB_PX = ns.media .. "gamemenu-honeycomb", 512   -- behind the Social lists
-local KEY_TOP, KEY_FOOT = { 0.341, 0.286, 0.165 }, { 0.141, 0.114, 0.055 }   -- a key's well, as the strips'
+-- a key's well, as the strips'
+local KEY_TOP, KEY_FOOT = ns.Themed({ 0.341, 0.286, 0.165 }), ns.Themed({ 0.141, 0.114, 0.055 })
 local PERSON = 26                           -- a friend's or a guild member's row
 local STRIP_TOP, STRIP_H, STRIP_LOW, STRIP_GAP = 12, 28, 24, 8   -- Social's tabs, inside it under its word
 local SEAM = { 0.231, 0.196, 0.125 }        -- the strip's rules, a dark gold
@@ -365,7 +367,7 @@ local function Dress(b)
     d.inner:SetVertexColor(0.063, 0.059, 0.055, 1)
     d.core = b:CreateTexture(nil, "BACKGROUND", nil, 6)   -- the leading medallion's gold fill
     d.core:SetTexture(ROUND)
-    d.core:SetVertexColor(0.306, 0.251, 0.125, 1)
+    d.core:SetVertexColor(CORE[1], CORE[2], CORE[3], 1)
     -- the glyph, the words, a hint at the end
     d.glyph = b:CreateTexture(nil, "ARTWORK")
     d.label = ns.Text(b, 14)
@@ -1400,8 +1402,8 @@ end
 menu.Stamp = Stamp
 
 local function SessionLine()
-    local dot = "|cff8a7034  \194\183  |r"
-    return "|cfff0d488" .. Money(GetMoney and GetMoney() or 0) .. "|r" .. dot .. format(Tr["Session %s"], Since())
+    local dot = ns.GoldHex(GOLD_D) .. "  \194\183  |r"
+    return ns.GoldHex(GOLD) .. Money(GetMoney and GetMoney() or 0) .. "|r" .. dot .. format(Tr["Session %s"], Since())
         .. dot .. Latency()
 end
 

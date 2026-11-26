@@ -38,8 +38,8 @@ local Container = C_Container
 local SLOT, GAP, PAD = 37, 4, 8
 local HEAD, RULE, FOOT = 38, 32, 24
 local COLUMNS_MIN, COLUMNS_MAX = 8, 24
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 
 -- The views, as the header's buttons show them.
 local VIEWS = {
@@ -176,7 +176,8 @@ end
 -- the reagent bag and the key ring. Blizzard's own buttons, off its bag bar
 -- (which blizzard.lua kills), styled as the old strip drawer styled them.
 local DRAWER_SLOT, DRAWER_PAD = 30, 6
-local OVER = { pushed = { 0, 0, 0, 0.35 }, highlight = { 1, 1, 1, 0.15 }, checked = { 0.77, 0.65, 0.34, 0.35 } }
+local OVER = { pushed = { 0, 0, 0, 0.35 }, highlight = { 1, 1, 1, 0.15 },
+    checked = ns.Themed({ 0.77, 0.65, 0.34, 0.35 }) }
 local bagSlots = {}
 local placing = false
 

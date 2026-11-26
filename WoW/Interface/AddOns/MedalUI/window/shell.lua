@@ -98,8 +98,8 @@ local _, ns = ...
 local Tr = ns.L
 
 local L, ART = ns.stripLayout, ns.stripArt
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local WIDTH = L.chatLeft + L.chatWidth          -- from the screen's edge to the chat panel's far edge
 local PAD, TAB, RULE = 8, 28, 6                 -- the edge, the tab row, the gap round a rule
 local GLYPH, CONTROL = 20, 16                   -- a tab's glyph, the cross's
@@ -117,7 +117,8 @@ local BOTTOM = BAND + RULE                      -- the page's (or its details') 
 -- first, bevelled), top to foot, the head and cross reaching it. Floating,
 -- none.
 local MARGIN = 10
-local RAIL = { { 0.27, 0.22, 0.11 }, { 0.80, 0.69, 0.41 }, { 0.98, 0.90, 0.67 }, { 0.37, 0.29, 0.14 } }
+local RAIL = { ns.Themed({ 0.27, 0.22, 0.11 }), ns.Themed({ 0.80, 0.69, 0.41 }), ns.Themed({ 0.98, 0.90, 0.67 }),
+    ns.Themed({ 0.37, 0.29, 0.14 }) }
 local LIFT = 20                                 -- the medallion's buttons' level over the window's
 local HEIGHT, LEAST = 480, { WIDTH, 240 }        -- a detached window's first height, its least size
 local SCALES = { 0.6, 1.4, 0.05 }               -- a detached window's scale: least, most, a step
@@ -127,7 +128,7 @@ local GAME_ICON = 0.08                          -- the game's icons' border, tri
 local UNDER = 44                                -- a floating window's tab's underline
 local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118, 0.102, 0.071, 0.8 } }
 -- a page's linen backdrop (page.linen): its tile and size, its colour
--- unless the page gives one (the Character page: the class's), its alpha at
+-- unless the page gives one (the Character page: the theme's), its alpha at
 -- the foot and at the top
 local LINEN, LINEN_PX = "character\\linen", 128
 local LINEN_INK, LINEN_A = { 0.95, 0.88, 0.72 }, { 0.06, 0.12 }

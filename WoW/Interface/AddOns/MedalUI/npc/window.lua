@@ -136,8 +136,8 @@ local ZEBRA, RULE = 0.05, 0.6                    -- a shop's shaded rows, its ha
 local HEADING, HEADING_FONT = 14, 11             -- a shop's column heading, slim, and its words
 local FOLD_MARGIN, FOLD_FILL = 4, 0.45           -- a fold's room above and below its band, its gold
 local TENTH = 0.1                                -- the far edge of a fade, as the box's ink
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local DEED = { 0.42, 0.13, 0.09 }                -- the primary button's fill
 local AUTO = { 0.16, 0.36, 0.70 }                -- a button's fill while its Alt-click mode is on
 -- the head's and foot's own ink over the box's: 5/9 more, the box's fade

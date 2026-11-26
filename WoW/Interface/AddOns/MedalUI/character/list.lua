@@ -70,10 +70,11 @@ local LEAD, STEM, DOT = 12, 1, 4        -- a lead's room, its stem's width, a bu
 local MARGIN = 6                        -- the gap above a plated heading, between cards
 local FOOT = 6                          -- a card's room under its last entry
 local PAGE = 256                        -- the parchment's tile (as the spellbook's)
-local METAL_LIT = { 0.98, 0.88, 0.58 }  -- the rim's lit edge
-local METAL_DARK = { 0.36, 0.27, 0.10 } -- its shadowed edge
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local METAL_LIT = ns.Themed({ 0.98, 0.88, 0.58 })  -- the rim's lit edge
+local METAL_DARK = ns.Themed({ 0.36, 0.27, 0.10 })
+local LIT = ns.Themed({ 1, 0.89, 0.6 })         -- a bar's lit share -- its shadowed edge
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local FOLD, DIAMOND = 12, 5             -- a plate's fold triangle, its diamond
 local TITLE_SIZE = 14                   -- a plated heading's title
 local STRIPE = 0.12                     -- an entry's stripe, every other row (dark, on parchment)
@@ -161,7 +162,7 @@ local function Bar(parent, width, height, sleek)
         for i = n + 1, #self.ticks do self.ticks[i]:Hide() end
         if not self.lit then
             self.lit = self.bar:CreateTexture(nil, "ARTWORK", nil, 1)
-            self.lit:SetColorTexture(1, 0.89, 0.6, 0.12)
+            self.lit:SetColorTexture(LIT[1], LIT[2], LIT[3], 0.12)
         end
         local x0, x1 = inner * (from - lo) / (hi - lo), inner * (math.min(cur, hi) - lo) / (hi - lo)
         self.lit:SetShown(n > 0 and x1 - x0 >= 1)

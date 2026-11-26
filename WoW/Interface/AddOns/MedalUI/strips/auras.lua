@@ -34,11 +34,11 @@ local ROW, GAP, HEAD = 16, 2, 18
 local SPLIT = 3                 -- each list stands this far from the panel's middle
 local MAX = 40                  -- the most rows a list holds
 local URGENT = 10               -- a debuff's time turns red under this many seconds
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local DIM = { 0.70, 0.66, 0.55 }
 local RED = { 1, 0.502, 0.439 }
-local BUFF_BAR = { 0.541, 0.439, 0.204 }
+local BUFF_BAR = ns.gold.dark
 local DEBUFF_BAR = { 0.541, 0.227, 0.188 }
 local DISPEL = {
     Magic = { 0.2, 0.6, 1 }, Curse = { 0.6, 0, 1 }, Poison = { 0, 0.6, 0 }, Disease = { 0.6, 0.4, 0 },

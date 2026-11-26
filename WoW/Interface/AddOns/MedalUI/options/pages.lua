@@ -888,6 +888,17 @@ function ns.OptionPages()
                             .. "being built, so it cannot be chosen yet."], wip = true },
                         { "game", Tr["The game's"], Tr["The game's own menu, as it stands."] },
                     }, Tr["How the menu Escape opens looks. Its buttons stay the game's own."], true)),
+                -- the gold accents' colour (theme.lua): read as frames are
+                -- built, so a switch takes a reload
+                Group(Tr["Theme"],
+                    Choice("theme", Tr["Theme"], {
+                        { "golden", Tr["Golden"], Tr["MedalUI's gold, as drawn: its frames, rules, glyphs and "
+                            .. "titles, and the character page's linen woven in gold."] },
+                        { "class", Tr["Class"], Tr["Every gold accent in your class's colour, kept as light as "
+                            .. "the gold, and the linen woven in it."] },
+                    }, Tr["The colour of MedalUI's accents: the windows' edges and rules, their glyphs and "
+                        .. "tabs, the strips and the settings. A colour that tells you something (an item's "
+                        .. "quality, a quest, a warning) keeps its own."], true)),
                 -- (Latin clients only: Cyrillic has Forum alone, Korean and
                 -- Chinese the game's own)
                 ns.faceChoosable and Group(Tr["Font"],

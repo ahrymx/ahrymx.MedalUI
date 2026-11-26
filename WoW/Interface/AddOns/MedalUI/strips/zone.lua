@@ -62,8 +62,9 @@ local ROW, LINE, HEAD, GAP = 18, 13, 22, 1    -- a quest's row and an objective'
 local SIZE, SIZE_MIN, SIZE_MAX = 11, 9, 14   -- the list's text, in points (zoneFontSize)
 local TICK = "Interface\\RaidFrame\\ReadyCheck-Ready"
 local SWORD = "Interface\\CURSOR\\Attack"    -- the game's attack cursor
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
+local LABEL_RULE = ns.Themed({ 0.353, 0.29, 0.157 })    -- a label's rule
 local DIM = { 0.70, 0.66, 0.55 }
 local STRIPES, RULE = 0.3, 0.6      -- an untracked quest's stripes (the quest log's); the hairline's alpha
 
@@ -887,7 +888,7 @@ function view.Build(f)
     label.rule:SetPoint("BOTTOMLEFT")
     label.rule:SetPoint("BOTTOMRIGHT")
     label.rule:SetHeight(1)
-    label.rule:SetColorTexture(0.353, 0.29, 0.157, 1)
+    label.rule:SetColorTexture(LABEL_RULE[1], LABEL_RULE[2], LABEL_RULE[3], 1)
     label.text = ns.Text(label, 12)
     label.text:SetPoint("TOPLEFT", 6, -4)
     label.text:SetPoint("TOPRIGHT", -6, -4)

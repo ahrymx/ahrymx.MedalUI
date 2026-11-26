@@ -72,8 +72,8 @@ local ROW, PICK = 46, 22                        -- an activity's row (a plate, 6
 local LEDGER = { act = math.floor(0.42 * (INNER - GUTTER)), roles = math.floor(0.70 * (INNER - GUTTER)),
     left = 8, plate = 40 }
 local ENTRY_FADE = { 0.2, 0.65 }                -- an entry's own ink, left to right, over the window's fade
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local DIM = { 0.55, 0.52, 0.45 }
 local RED = { 0.86, 0.27, 0.22 }
 local UNPICKED = { 0.8, 0.77, 0.69 }

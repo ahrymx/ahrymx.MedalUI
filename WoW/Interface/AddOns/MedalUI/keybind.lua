@@ -11,6 +11,8 @@
 -- ends when combat starts. Faded bars come back while it is on
 -- (bars/bar.lua's fade asks ns.keybinding).
 local _, ns = ...
+local EDGE = ns.Themed({ 0.88, 0.72, 0.29, 1 })   -- the banner's gold edge
+local GLOW = ns.Themed({ 0.95, 0.80, 0.35 })      -- a bindable button's glow
 local Tr = ns.L
 
 -- A button's binding command, by its name: Blizzard's bars bind through
@@ -152,7 +154,7 @@ binder:EnableMouseWheel(true)
 binder:RegisterForClicks("AnyUp")
 local glow = binder:CreateTexture(nil, "OVERLAY")
 glow:SetAllPoints()
-glow:SetColorTexture(0.95, 0.80, 0.35, 0.45)
+glow:SetColorTexture(GLOW[1], GLOW[2], GLOW[3], 0.45)
 ns.keybinder = binder
 
 local banner, marks = nil, {}
@@ -233,7 +235,7 @@ local function Banner()
     local edge = banner:CreateTexture(nil, "BORDER")
     edge:SetPoint("TOPLEFT", -1, 1)
     edge:SetPoint("BOTTOMRIGHT", 1, -1)
-    edge:SetColorTexture(0.88, 0.72, 0.29, 1)
+    edge:SetColorTexture(unpack(EDGE))
     local title = ns.Text(banner, 15)
     title:SetPoint("TOP", 0, -8)
     title:SetText(Tr["Key binding"])
@@ -264,7 +266,7 @@ local function Mark(btn, on)
     if not m and on then
         m = btn:CreateTexture(nil, "OVERLAY", nil, 7)
         m:SetAllPoints()
-        m:SetColorTexture(0.95, 0.80, 0.35, 0.18)
+        m:SetColorTexture(GLOW[1], GLOW[2], GLOW[3], 0.18)
         marks[btn] = m
     end
     if m then m:SetShown(on) end

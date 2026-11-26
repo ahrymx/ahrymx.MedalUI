@@ -31,8 +31,8 @@ local HEAD = 22 + 10                            -- a section's ribbon and the ro
 local BAR_H, LEGEND = 16, 12                    -- the season bar, its legend
 local NUMBER = 16                               -- a tile's number under its insignia
 local CELL = 11 + 3 + 14                        -- a kills cell: its label, its value
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local OPEN, LOCKED = 0.7, 0.3                   -- a rank's insignia not yet reached: open, locked
 local DARK = { 0.16, 0.14, 0.11 }               -- the season bar past the cap
 

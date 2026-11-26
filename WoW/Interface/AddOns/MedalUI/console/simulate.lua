@@ -19,8 +19,8 @@ local _, ns = ...
 local Tr = ns.L
 
 local MEMBERS = { "party1", "party2", "party3", "party4" }
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local ROW, PAD, W = 22, 12, 248
 local IW = W - PAD * 2      -- a page's width, inside the margin
 -- the party grid, right-aligned to the page: a column's width and step, its first column

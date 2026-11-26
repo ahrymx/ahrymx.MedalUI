@@ -174,6 +174,7 @@ local DEFAULTS = {
     ccWindow = true,        -- the game's Click Casting window dressed, on the chat box (spells/clickcast.lua)
     professionsArt = "engraved", -- the professions Overview's art: "engraved", "painted" or "poster"
     medaluiFace = "marcellus", -- MedalUI's font on Latin clients: "marcellus" or "forum" (core.lua)
+    theme = "golden",       -- the gold accents' colour: "golden" or "class" (theme.lua)
     gameMenu = "docked",    -- the game menu (Escape): "docked", "medallion" or the game's, "game" (window/gamemenu.lua)
     gameMenuFriends = "online", -- its friends shown: "online", "all" or "bnet"
     gameMenuGuild = "officers", -- its guild shown: "officers" (the top ranks), "all", or "ranks" (those picked)
@@ -906,6 +907,7 @@ ns.On("ADDON_LOADED", function(_, name)
     Migrate(fresh)
     ns.db = layered
     ns.SettleFace(ns.db.medaluiFace)
+    ns.ApplyTheme()
     -- the console built, until the next reload: a switch asks for one, and
     -- the settings window describes this one until it is
     ns.consoleBuilt = ns.db.consoleProfile

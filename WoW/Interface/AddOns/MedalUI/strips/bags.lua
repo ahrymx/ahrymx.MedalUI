@@ -95,10 +95,10 @@ local function Backpack()
     end
     -- a round gold glow says the bag is open: the checked state, or
     -- Blizzard's open mark where there is none
-    local open = btn.SetCheckedTexture and ns.RoundGlow(btn, 0.77, 0.65, 0.34, 0.3)
+    local open = btn.SetCheckedTexture and ns.RoundGlow(btn, ns.gold.mid, 0.3)
     btn.medalui = {
         pushed = ns.Blank(btn),
-        highlight = ns.RoundGlow(btn, 1, 0.9, 0.6, 0.18),
+        highlight = ns.RoundGlow(btn, ns.gold.glow, 0.18),
         checked = open or nil,
         restore = function(m)
             m.pushed:SetColorTexture(0, 0, 0, 0)
@@ -108,7 +108,7 @@ local function Backpack()
                 Hide(btn.SlotHighlightTexture)
             elseif btn.SlotHighlightTexture then
                 glows[btn.SlotHighlightTexture] = 0.3
-                btn.SlotHighlightTexture:SetVertexColor(0.77, 0.65, 0.34)
+                btn.SlotHighlightTexture:SetVertexColor(ns.gold.mid[1], ns.gold.mid[2], ns.gold.mid[3])
             end
             for t, a in pairs(glows) do
                 t:ClearAllPoints()

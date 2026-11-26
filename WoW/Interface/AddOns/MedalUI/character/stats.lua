@@ -24,8 +24,8 @@ local ROW, RIBBON, BADGE, GAP = 22, 50, 54, 10
 -- hairlines, the item level in a medallion's ring, the rows on hairlines,
 -- each resistance an ink cell: its gem, its school, its value, its tint under
 local HAIR = { 0.204, 0.176, 0.129 }
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local SCHOOLS = { "Arcane", "Fire", "Frost", "Nature", "Shadow" }
 -- each school's box: its tint
 local SCHOOL_COLOR = { Arcane = { 0.6, 0.45, 1 }, Fire = { 1, 0.36, 0.16 }, Frost = { 0.36, 0.66, 1 },

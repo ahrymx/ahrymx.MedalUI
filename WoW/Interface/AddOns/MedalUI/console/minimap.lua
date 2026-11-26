@@ -6,7 +6,7 @@ local Tr = ns.L
 
 local console = ns.console
 -- the hover label's look: the window trim on a brown well, both see-through
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD_D = ns.gold.dark
 local AREA_BROWN = { 0.165, 0.125, 0.071 }      -- #2a2012
 local AREA_ALPHA = 0.8
 local AREA_SIZE, AREA_PAD, AREA_INSET = 10, 3, 4
@@ -14,7 +14,7 @@ local AREA_FADE_IN, AREA_FADE_OUT = 0.5, 1      -- seconds it takes to come and 
 -- the corner's frame (below): its plate, rules and words, at rest and lit
 local PLATE, PLATE_LIT = { 0.114, 0.094, 0.063 }, AREA_BROWN
 local RULE, RULE_LIT = { 0.239, 0.196, 0.110 }, { 0.353, 0.290, 0.157 }
-local GOLD_B, GOLD_L = { 0.851, 0.718, 0.353 }, { 0.941, 0.831, 0.541 }
+local GOLD_B, GOLD_L = ns.Themed({ 0.851, 0.718, 0.353 }), ns.Themed({ 0.941, 0.831, 0.541 })
 local DIM = { 0.659, 0.604, 0.486 }
 local HEAD_H, FOOT_H = 22, 18
 

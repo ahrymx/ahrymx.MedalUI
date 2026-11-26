@@ -11,7 +11,7 @@ end
 
 local colors = ns.Palette.roles
 local KIND = "mdlui"
-local GOLD = { .847, .722, .416 }   -- MedalUI's gold, its XP bar's
+local GOLD = medal.Themed({ .847, .722, .416 })   -- MedalUI's gold, its XP bar's
 local WARN = { 1, .3, .25 }
 
 local function readSpec(tooltip)

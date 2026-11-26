@@ -32,8 +32,9 @@ local _, ns = ...
 local Tr = ns.L
 
 local W = ns.professions
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
+local FILL = ns.Themed({ 0.61, 0.48, 0.20 })   -- a skill's bar
 local CIRCLES = "Interface\\TargetingFrame\\UI-Classes-Circles"
 
 local function Realm() return GetRealmName and GetRealmName() or "?" end
@@ -280,7 +281,7 @@ local function SkillRow(page)
         r.fill = r:CreateTexture(nil, "ARTWORK")
         r.fill:SetPoint("TOPLEFT", r.track)
         r.fill:SetPoint("BOTTOMLEFT", r.track)
-        r.fill:SetColorTexture(0.61, 0.48, 0.20, 1)
+        r.fill:SetColorTexture(FILL[1], FILL[2], FILL[3], 1)
         r.value = ns.Text(r, 9)
         r.value:SetPoint("CENTER", r.track)
         return r

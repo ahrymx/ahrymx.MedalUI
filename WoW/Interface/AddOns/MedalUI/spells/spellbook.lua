@@ -66,8 +66,8 @@
 local _, ns = ...
 local Tr = ns.L
 
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local MISSING = { 0.85, 0.3, 0.2 }      -- the edge of a spell on no bar
 local BLUE = { 0.43, 0.63, 0.92 }       -- a cost
 local SLOTS = 180                       -- the action slots looked through
@@ -443,7 +443,6 @@ end
 -- Its bindings (spells/clickcast.lua): a bound spell's click after its rank
 -- and a mouse on its icon's corner. A binding set on a lower rank marks the
 -- rank shown; a pet's, only the pet's spells.
-local GOLD_HEX = "|cfff0d488"
 
 local function Clicks(item, bound)
     local info = item.info
@@ -1273,7 +1272,7 @@ function Refresh(p)
                     sub = Sub(item)
                 end
                 item.clicks = Clicks(item, bound)
-                if item.clicks then sub = (sub and sub .. "  ·  " or "") .. GOLD_HEX .. item.clicks .. "|r" end
+                if item.clicks then sub = (sub and sub .. "  ·  " or "") .. ns.GoldHex(GOLD) .. item.clicks .. "|r" end
                 c.sub:SetText(sub or "")
                 c.cast:SetText(cast or "")
                 c.cast:SetTextColor(unpack(item.trainer and not item.now and ns.colors.dim

@@ -30,8 +30,8 @@
 local _, ns = ...
 local Tr = ns.L
 
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local W, SEC, CH = 42, 46, 16           -- the rail's width, a tab's height, a chamfer's
 local GLYPH = 26
 local EDGE = 2                          -- how near the edge the pointer must come

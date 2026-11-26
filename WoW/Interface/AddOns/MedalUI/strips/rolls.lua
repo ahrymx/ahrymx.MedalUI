@@ -52,9 +52,11 @@ local LATE = 10                                 -- seconds left when the time tu
 local LINGER = 8                                -- seconds the box stays once all is decided
 local WAIT, PASS = 4, 5                         -- Enum.EncounterLootDropRollState: not chosen, passed
 local ORDER = { [0] = 1, 2, 3, 4, 5, 6 }        -- need first, pass last
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
-local GOLD_B = { 0.878, 0.722, 0.290 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
+local GOLD_B = ns.gold.bright
+-- a button pressed and pointed at: the settings window's chosen and hover fills
+local FILL_DOWN, FILL_HOT = ns.Themed({ 0.204, 0.165, 0.086 }), ns.Themed({ 0.271, 0.220, 0.114 })
 local DIM = { 0.70, 0.66, 0.55 }
 local OFF = { 0.42, 0.39, 0.33 }
 local RED = { 0.784, 0.267, 0.227 }
@@ -486,8 +488,8 @@ end
 local function Look(b, hot, down)
     local on = b:IsEnabled()
     Fill(b.edge, not on and { 0.15, 0.13, 0.11 } or hot and GOLD or { 0.227, 0.196, 0.149 })
-    Fill(b.fill, not on and { 0.082, 0.075, 0.063 } or down and { 0.204, 0.165, 0.086 }
-        or hot and { 0.271, 0.220, 0.114 } or { 0.114, 0.102, 0.082 })
+    Fill(b.fill, not on and { 0.082, 0.075, 0.063 } or down and FILL_DOWN
+        or hot and FILL_HOT or { 0.114, 0.102, 0.082 })
     Paint(b.word, on and ns.colors.text or OFF)
     b.glyph:SetDesaturated(not on)
     b.glyph:SetAlpha(on and 1 or 0.45)
@@ -733,7 +735,7 @@ local function FillStamp(s, c)
     s.roll = c.roll
     SetIcon(s.edge, s.icon, c.roll)
     s.link:SetText(c.roll.link or c.roll.name or "")
-    local line = string.format(Tr["You chose %s"], "|cffe0b84a" .. KindWord(c.kind) .. "|r")
+    local line = string.format(Tr["You chose %s"], ns.GoldHex(GOLD_B) .. KindWord(c.kind) .. "|r")
     local d = DropFor(c.roll.link)
     local waiting = d and (Counts(d)[WAIT] or 0) or 0
     if waiting > 0 then line = line .. " · " .. string.format(Tr["waiting on %d"], waiting) end
@@ -945,7 +947,7 @@ end
 local function State(h, d, info)
     if Rolling(d) then
         local left = Left(d, info)
-        h.state:SetText(h.same and "" or ("|cffc4a557" .. (left and Clock(left) or Tr["rolling"]) .. "|r"))
+        h.state:SetText(h.same and "" or (ns.GoldHex(ns.gold.mid) .. (left and Clock(left) or Tr["rolling"]) .. "|r"))
         Paint(h.state, DIM)
         return
     end

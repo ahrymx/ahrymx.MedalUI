@@ -21,8 +21,8 @@ local _, ns = ...
 local Tr = ns.L
 
 local Q = ns.questSource
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local DIM = { 0.55, 0.52, 0.45 }
 local RED = { 0.86, 0.27, 0.22 }
 local ROW, ZONE, TICK, PICKS = 20, 24, 14, 24

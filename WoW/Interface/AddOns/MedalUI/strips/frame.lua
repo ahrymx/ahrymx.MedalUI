@@ -62,9 +62,10 @@ ns.stripRow = art.height - L.stripHeight / 2 + L.glyphDrop
 -- keys KEY.gap apart, KEY.inset inside the channel, each a brown well
 -- lighter at its top, a dark gold edge (gold under the mouse) and a lit
 -- lip along its top.
-local GOLD_D = { 0.541, 0.439, 0.204 }
-local GOLD = { 0.769, 0.647, 0.341 }
-local KEY = { channel = 26, inset = 3, gap = 3, top = { 0.341, 0.286, 0.165 }, bottom = { 0.141, 0.114, 0.055 } }
+local GOLD_D = ns.gold.dark
+local GOLD = ns.gold.mid
+local KEY = { channel = 26, inset = 3, gap = 3, top = ns.Themed({ 0.341, 0.286, 0.165 }),
+    bottom = ns.Themed({ 0.141, 0.114, 0.055 }) }
 local cells = { from = ns.stripWell.x + L.ringRadius + 5, to = L.length,
     y = art.height - L.stripHeight / 2, height = L.stripHeight }
 ns.stripCells = cells
@@ -159,6 +160,7 @@ ns.stripKey = KEY
 
 -- A round hover glow for a medallion button.
 function ns.RoundGlow(btn, r, g, b, a)
+    if type(r) == "table" then r, g, b, a = r[1], r[2], r[3], g end     -- (btn, colour, alpha)
     local t = btn:CreateTexture()
     t:SetTexture(ns.media .. "strips\\round")
     t:SetVertexColor(r, g, b)

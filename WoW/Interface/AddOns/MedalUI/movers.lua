@@ -150,7 +150,7 @@ end
 -- Edit Mode's look: a blue wash with a brighter edge, the name in its middle;
 -- the one last clicked is gold, as Edit Mode marks its selection.
 local BLUE, BLUE_EDGE = { 0.20, 0.55, 1.00, 0.30 }, { 0.40, 0.72, 1.00, 0.90 }
-local GOLD_FILL, GOLD_EDGE = { 0.88, 0.72, 0.29, 0.25 }, { 0.88, 0.72, 0.29, 1 }
+local GOLD_FILL, GOLD_EDGE = ns.Themed({ 0.88, 0.72, 0.29, 0.25 }), ns.Themed({ 0.88, 0.72, 0.29, 1 })
 
 local movers, popup, selected = {}, nil, nil
 -- what has them out: Edit Mode (or /mdlui move), every mover; the Cooldown

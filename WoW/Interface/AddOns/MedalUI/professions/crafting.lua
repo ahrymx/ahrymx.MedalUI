@@ -57,8 +57,8 @@ local _, ns = ...
 local Tr = ns.L
 
 local W = ns.professions
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local Money = function(c) return ns.npc and ns.npc.Money(c) or tostring(c) end
 local SLOTS = 5                         -- with Overview, six tabs at most
 local SEARCH = 24

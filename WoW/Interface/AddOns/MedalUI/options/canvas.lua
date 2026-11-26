@@ -560,7 +560,7 @@ end
 -- so it moves and grows with the view. Lines closer than SPARSE stage
 -- units are left out (the minor ones first), and none crosses the edge.
 local MINOR, MAJOR, SPARSE, INSIDE = 10, 50, 5, 3
-local GRID_MINOR, GRID_MAJOR = { 1, 1, 1, 0.035 }, { 0.541, 0.439, 0.204, 0.22 }
+local GRID_MINOR, GRID_MAJOR = { 1, 1, 1, 0.035 }, ns.Themed({ 0.541, 0.439, 0.204, 0.22 })
 local grid = { v = {}, h = {} }
 local function GridLine(list, i)
     local t = list[i]

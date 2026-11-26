@@ -31,7 +31,7 @@ local _, ns = ...
 local Tr = ns.L
 
 local Container = C_Container
-local GOLD = { 0.941, 0.831, 0.533 }
+local GOLD = ns.gold.light
 local GUTTER, STEP = 10, 41 * 2         -- the scroll bar's room, a wheel's step (two rows)
 local BAG, BAR = 30, 24                 -- a bag slot, the purchase line
 local LOCK = "Interface\\Buttons\\LockButton-Locked-Up"

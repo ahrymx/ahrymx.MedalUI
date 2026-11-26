@@ -14,7 +14,7 @@ local _, ns = ...
 local Tr = ns.L
 
 local C = ns.colors
-local GOLD, GOLD_D = { 0.769, 0.647, 0.341 }, { 0.541, 0.439, 0.204 }
+local GOLD, GOLD_D, GOLD_B = ns.gold.mid, ns.gold.dark, ns.gold.bright
 -- the tab's art: 64x32, the shape 20 high, its ends 8 wide, its bottom 2
 -- rows over the box's edge (gen_groups.py: TAB_*)
 local TAB_W, TAB_TEX_H, TAB_H, TAB_END, TAB_OVER = 64, 32, 20, 8, 2
@@ -81,7 +81,7 @@ function ns.GroupTab(parent, level)
     m:SetPoint("TOPLEFT", l, "TOPRIGHT")
     m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
     tab.label = ns.Text(tab, 12)
-    tab.label:SetTextColor(0.878, 0.722, 0.290)
+    tab.label:SetTextColor(GOLD_B[1], GOLD_B[2], GOLD_B[3])
     tab.label:SetPoint("CENTER", 0, (TAB_OVER - 1) / 2)
     tab.label:SetWordWrap(false)
     return tab

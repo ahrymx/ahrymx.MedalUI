@@ -55,7 +55,7 @@ local TRACK_AT = COLUMN - PAD + TRACK_GAP       -- the track's outer edge, from 
 local INNER = TRACK_AT + TRACK + 3              -- the body's outer edge, from the room's
 local OUTER = 3                                 -- the body's inner edge, from the room's
 local SPACE = 6                                 -- a ladder's room clear of the buttons above and below it
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD_D = ns.gold.dark
 
 local views = {}
 ns.side = { views = views }

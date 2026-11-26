@@ -40,8 +40,8 @@ local RIGHT = { "Hands", "Waist", "Legs", "Feet", "Finger0", "Finger1", "Trinket
 local BOTTOM = { "MainHand", "SecondaryHand", "Ranged", "Ammo" }
 -- no item level on these: a shirt, a tabard and ammo have none worth reading
 local PLAIN = { Shirt = true, Tabard = true, Ammo = true }
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local LINE = { 0.227, 0.196, 0.141 }            -- an empty slot's edge
 -- the stage's soft light (art/character/gen_glow.py): white, fading out
 -- smoothly from its middle, tinted and stretched as each light needs
@@ -642,12 +642,8 @@ page = {
     key = "character", label = Tr["Character"], frame = "PaperDollFrame", order = 1,
     height = ns.character.dollJoin.height, under = ns.character.dollJoin.under, bandUsed = true,
     -- the window's linen backdrop behind it (window/shell.lua), woven in the
-    -- class's colour
-    linen = function()
-        local _, class = UnitClass("player")
-        local c = class and not ns.IsSecret(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-        return c and { c.r, c.g, c.b } or nil
-    end,
+    -- theme's colour (theme.lua): a cream gold, or the class's
+    linen = function() return ns.gold.linen end,
     events = { "PLAYER_EQUIPMENT_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE", "PLAYER_LEVEL_UP",
         "UNIT_STATS", "UNIT_RESISTANCES", "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_DAMAGE",
         "UNIT_ATTACK_SPEED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "COMBAT_RATING_UPDATE", "SPELL_POWER_CHANGED",

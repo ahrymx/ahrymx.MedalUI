@@ -36,7 +36,7 @@
 local _, ns = ...
 
 local L = ns.cdmLayout
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD_D = ns.gold.dark
 local ROUND = ns.media .. "strips\\round"
 local ROUNDED = ns.media .. "strips\\rounded"
 local WHITE = "Interface\\Buttons\\WHITE8X8"

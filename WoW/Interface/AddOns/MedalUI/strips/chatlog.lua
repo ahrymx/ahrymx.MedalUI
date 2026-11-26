@@ -35,7 +35,7 @@
 local _, ns = ...
 local Tr = ns.L
 
-local GOLD = { 0.941, 0.831, 0.533 }
+local GOLD = ns.gold.light
 local DIM = { 0.70, 0.66, 0.55 }
 local MAX = 1000                        -- lines kept for each window, at least
 local GUTTER, STEP = 10, 14 * 3         -- the scroll bar's room, a wheel's step (three lines)

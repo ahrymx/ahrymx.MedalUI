@@ -77,8 +77,8 @@ local Tr = ns.L
 local L = ns.stripLayout
 local Q = ns.questSource
 local WP = ns.waypoint
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local DIM = "|cff8c8473"
 local WIDTH = L.chatLeft + L.chatWidth   -- the character window's width
 local PAD, HEAD, CONTROL, GLYPH = 8, 14, 22, 16
@@ -392,7 +392,7 @@ local function Secure(i)
     local edge = b:CreateTexture(nil, "BACKGROUND")
     edge:SetPoint("TOPLEFT", -1, 1)
     edge:SetPoint("BOTTOMRIGHT", 1, -1)
-    edge:SetColorTexture(0.541, 0.439, 0.204, 1)
+    edge:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
     b.icon = b:CreateTexture(nil, "ARTWORK")
     b.icon:SetAllPoints()
     b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)

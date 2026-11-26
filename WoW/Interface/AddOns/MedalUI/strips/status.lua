@@ -9,7 +9,7 @@
 local _, ns = ...
 local Tr = ns.L
 
-local GOLD_B = { 0.91, 0.788, 0.431 }
+local GOLD_B = ns.Themed({ 0.91, 0.788, 0.431 })
 local SIZE = 13
 
 local GetSlots = C_Container and C_Container.GetContainerNumSlots or GetContainerNumSlots

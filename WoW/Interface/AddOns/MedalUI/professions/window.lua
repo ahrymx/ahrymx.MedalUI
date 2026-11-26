@@ -63,7 +63,7 @@
 local _, ns = ...
 local Tr = ns.L
 
-local GOLD = { 0.941, 0.831, 0.533 }
+local GOLD = ns.gold.light
 local RED = { 1, 0.3, 0.25 }
 local GAP, ICON, SPELL, SMALL = 6, 40, 30, 24   -- a pillar's icon and spells; a line's both
 local PILLAR = 190                      -- a primary's pillar, at the least
@@ -210,7 +210,7 @@ local function Spell(card, size)
     s.edge = s:CreateTexture(nil, "BACKGROUND")
     s.edge:SetPoint("TOPLEFT", -1, 1)
     s.edge:SetPoint("BOTTOMRIGHT", 1, -1)
-    s.edge:SetColorTexture(0.541, 0.439, 0.204, 1)
+    s.edge:SetColorTexture(ns.gold.dark[1], ns.gold.dark[2], ns.gold.dark[3], 1)
     s.icon = s:CreateTexture(nil, "ARTWORK")
     s.icon:SetAllPoints()
     s.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)

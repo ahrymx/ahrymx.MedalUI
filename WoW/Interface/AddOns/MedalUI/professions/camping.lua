@@ -28,8 +28,8 @@ local _, ns = ...
 local Tr = ns.L
 
 local W = ns.professions
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local ICON, ROW = 28, 40                -- a drawer row's icon, and the row
 local BUFF_W, BUFF, OBJ, OBJ_W, STRIP = 96, 24, 28, 42, 40     -- a buff's room and icon; an object's; a row
 local FROM = 3 * BUFF_W + 16            -- the objects' left: past the buffs and their hair

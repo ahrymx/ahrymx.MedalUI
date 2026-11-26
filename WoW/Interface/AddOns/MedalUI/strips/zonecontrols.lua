@@ -35,8 +35,8 @@ local EDGE = 2                          -- above and below the slots: the gold e
 local BUTTON = 24                       -- a control's width (as tall as a slot)
 local SPLIT = 6                         -- room each side of a group's divider
 local GROW = 0.15                       -- seconds to open
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local DIM = { 0.70, 0.66, 0.55 }
 -- the ink: solid under the controls, at the screen's edge, then fading
 -- away towards the screen's middle, to nothing at the tray's left end

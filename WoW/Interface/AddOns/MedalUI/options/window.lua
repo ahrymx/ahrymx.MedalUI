@@ -1607,7 +1607,7 @@ local function Refresh()
     for _, p in ipairs(ns.PROFILE_NAMES) do
         if p[1] == name then name = p[2] end
     end
-    footProfile:SetText("Profile \194\183 |cffc4a557" .. name .. "|r")
+    footProfile:SetText("Profile \194\183 " .. ns.GoldHex(ns.gold.mid) .. name .. "|r")
     footChip:SetWidth(9 + 12 + 6 + math.ceil(footProfile:GetStringWidth()) + 10)
     local reload = NeedsReload()
     footReload:SetShown(reload)

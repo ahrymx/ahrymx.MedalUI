@@ -58,6 +58,9 @@ local argClass
 argLocale = nil
 for _, a in ipairs(arg) do
     if a == "modern" then modern = true
+    -- "theme": the Class theme saved (General > Theme); at the end, every
+    -- region still wearing gold is listed by where it was painted
+    elseif a == "theme" then themePass = true
     elseif a:match("^%l%l%u%u$") then argLocale = a
     elseif a:match("^%u+$") then argClass = a
     else table.insert(args, a) end
@@ -2575,6 +2578,38 @@ if modern then
     function CreateColor(r, g, b, a) return { r, g, b, a } end
     function Region:SetGradient(o, a, b) self.gradient = { o, a, b } end
     C_Texture = { GetAtlasInfo = function() return { width = 154, height = 95 } end }
+end
+-- the theme pass: the Class theme saved, and each paint remembered by the
+-- line that laid it (the list at the end)
+if themePass then
+    MedalUIDB = MedalUIDB or { consoleProfile = "arena" }
+    MedalUIDB.global = MedalUIDB.global or {}
+    MedalUIDB.global.theme = "class"
+    function Region:GetVertexColor()
+        local v = self.vertex or {}
+        return v[1] or 1, v[2] or 1, v[3] or 1, v[4] or 1
+    end
+    function Region:IsDesaturated() return self.desaturated == true end
+    local function Painted(name, field)
+        local was = Region[name]
+        Region[name] = function(self, ...)
+            -- the first caller past the harness's hooks and the theme's
+            local level, at = 2, debug.getinfo(2, "Sl")
+            while at and (at.short_src:match("harness") or at.short_src:match("theme%.lua")) do
+                level = level + 1
+                at = debug.getinfo(level, "Sl")
+            end
+            at = at or { short_src = "?", currentline = 0 }
+            self.paintedAt = self.paintedAt or {}
+            self.paintedAt[field] = at.short_src:gsub("^.*AddOns/MedalUI/", "") .. ":" .. at.currentline
+            return was(self, ...)
+        end
+    end
+    Painted("SetColorTexture", "color")
+    Painted("SetVertexColor", "vertex")
+    Painted("SetTextColor", "textColor")
+    Painted("SetText", "text")
+    if Region.SetGradient then Painted("SetGradient", "gradient") end
 end
 
 -- ------------------------------------------------------------ the bags
@@ -5800,6 +5835,123 @@ end
 
 -- ------------------------------------------------------------ load + fire
 local ns = {}
+-- ------------------------------------------------------------ the theme
+-- (theme): under the Class theme (the stub's class colour, a paladin's pink),
+-- no region MedalUI painted may still wear gold: a colour in gold's hue, a
+-- gold |c in its text, or gilt art shown as drawn. Each is listed once, by
+-- the line that painted it. The game's own colours (quest yellow, item
+-- quality, money) are told apart by value.
+local function ThemeSweep()
+    local GAME = {}
+    -- (and MedalUI's data colours: the XP bar's and rested's, the yellow and
+    -- amber of a state, a cooldown's count)
+    for _, c in ipairs({ { 1, 0.82, 0 }, { 1, 0.5, 0 }, { 0.902, 0.8, 0.502 }, { 1, 0.843, 0 },
+        ns.colors.xp, ns.colors.rested, { 1, 1, 0 }, { 0.94, 0.64, 0.23 }, { 0.851, 0.627, 0.188 },
+        { 1, 0.9, 0.2 }, { 0.82, 0.38, 0 } }) do       -- (the threat glow's own, an option)
+        GAME[("%.2f %.2f %.2f"):format(c[1], c[2], c[3])] = true
+    end
+    local function Gold(r, g, b)
+        if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return false end
+        if GAME[("%.2f %.2f %.2f"):format(r, g, b)] then return false end
+        local h, sat = ns.HSV(r, g, b)
+        -- an accent: dark warm hairlines and surfaces are the ink's, not gold
+        return h >= 0.06 and h <= 0.17 and sat >= 0.3 and math.max(r, g, b) >= 0.3
+    end
+    -- a colour that tells something (a class, a roll, a status, a colour the
+    -- player chose, a tooltip line's own) is painted where its line says so:
+    -- file and words on the painting line, so moved lines stay known
+    local DATA = {
+        { "strips/loot.lua", "r%.who:SetTextColor%(c%.r" }, { "strips/loot.lua", "r%.how:SetTextColor" },
+        { "strips/rolls.lua", "r%.who:SetTextColor%(c%.r" },
+        { "tooltips/Panel/Layout.lua", "font:SetTextColor%(r, g, b%)" },
+        { "tooltips/Panel/Layout.lua", "font:SetText%(content%)" },
+        { "tooltips/Panel/Layout.lua", "badgeText:SetTextColor%(textColor" },
+        { "options/controls.lua", "self%.swatch:SetColorTexture%(r, g, bl" },
+        { "window/gamemenu.lua", "k%.swatch:SetColorTexture%(c%[1%] / top" },
+        { "window/gamemenu.lua", "r%.dot:SetVertexColor%(c%[1%]" },
+        { "npc/window.lua", "t:SetTextColor%(c%[2%], c%[3%], c%[4%]%)" },     -- gold, silver, copper
+        { "social/lfg.lua", "r%.style:SetText%(style%)" },                  -- a playstyle's colour
+        { "quests/log.lua", "r%.title:SetTextColor%(c%[1%] %* k" },          -- a quest's difficulty
+    }
+    local source = {}
+    local function Data(at)
+        local file, n = at:match("^(.-):(%d+)$")
+        if not file then return false end
+        if not source[file] then
+            source[file] = {}
+            local fh = io.open(ADDON .. file)
+            if fh then for l in fh:lines() do table.insert(source[file], l) end fh:close() end
+        end
+        local text = source[file][tonumber(n)] or ""
+        for _, d in ipairs(DATA) do
+            if d[1] == file and text:find(d[2]) then return true end
+        end
+        return false
+    end
+    local seen, lines = {}, {}
+    local function Leak(at, what)
+        local key = (at or "?") .. " " .. what
+        if not seen[key] then seen[key] = true; table.insert(lines, key) end
+    end
+    local function Colour(t, field, c)
+        -- the action bar keeps its painted stone (and its own Art colour);
+        -- the game's own frames (painted by the harness's stand-ins) keep theirs
+        local at = t.paintedAt and t.paintedAt[field]
+        -- (the Radial menu, a companion, keeps its own gold for now)
+        if not at or at:match("^bars/") or at:match("^%?") or at:match("mdlui_") then return end
+        if Data(at) then return end
+        if type(c) == "table" and Gold(c[1] or c.r, c[2] or c.g, c[3] or c.b) then
+            Leak(t.paintedAt and t.paintedAt[field],
+                field .. (" %.3f %.3f %.3f"):format(c[1] or c.r, c[2] or c.g, c[3] or c.b))
+        end
+    end
+    local gilt, plain = 0, 0
+    for _, t in ipairs(all) do
+        Colour(t, "color", t.color)
+        Colour(t, "textColor", t.textColor)
+        if not ns.IsGilt(t.texture) then Colour(t, "vertex", t.vertex) end
+        if t.gradient then
+            Colour(t, "gradient", t.gradient[2])
+            Colour(t, "gradient", t.gradient[3])
+        end
+        if type(t.text) == "string" then
+            for hex in t.text:gmatch("|c%x%x(%x%x%x%x%x%x)") do
+                local r, g, b = tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255,
+                    tonumber(hex:sub(5, 6), 16) / 255
+                local at = t.paintedAt and t.paintedAt.text
+                if Gold(r, g, b) and at and not at:match("mdlui_") and not Data(at) then Leak(at, "text |c" .. hex) end
+            end
+        end
+        if ns.IsGilt(t.texture) then
+            if t.desaturated then gilt = gilt + 1 else plain = plain + 1; Leak(t.texture, "gilt art as drawn") end
+        end
+    end
+    table.sort(lines)
+    -- the option, on General beside Font: its choices, and a reload asked
+    local spec
+    for _, page in ipairs(ns.OptionPages()) do
+        for _, g in ipairs(page.id == "general" and page.groups or {}) do
+            for _, item in ipairs(g.items or {}) do
+                if item.key == "theme" then spec = item end
+            end
+        end
+    end
+    local names = {}
+    for _, c in ipairs(spec and spec.choices or {}) do table.insert(names, tostring(c[1])) end
+    print("theme option", spec and (spec.label .. " " .. table.concat(names, ",") .. " reload="
+        .. tostring(spec.reload) .. " now=" .. tostring(ns.db.theme)) or "none")
+    print("theme", ns.themeKey, "light=" .. table.concat({ ("%.3f %.3f %.3f"):format(unpack(ns.gold.light)) }),
+        "linen=" .. ("%.2f %.2f %.2f"):format(unpack(ns.gold.linen)),
+        "gilt tinted=" .. gilt, "as drawn=" .. plain, "gold left=" .. #lines)
+    for _, l in ipairs(lines) do print("theme gold", l) end
+end
+-- the passes return where they end: the list is printed as the harness exits
+if themePass then
+    local sentinel = newproxy(true)
+    getmetatable(sentinel).__gc = ThemeSweep
+    themeSentinel = sentinel
+end
+
 harnessNS = ns     -- for the helpers above it (harnessNextFrame)
 GetLocale = function() return argLocale or "enUS" end
 for line in io.lines(ADDON .. "MedalUI.toc") do
@@ -31822,3 +31974,4 @@ if (args[2] == "liverow" or args[3] == "liverow") and modern then
     table.remove(buffs)
     ns.SetOption("editUnit", was)
 end
+

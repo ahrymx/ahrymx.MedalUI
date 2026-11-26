@@ -18,14 +18,14 @@ local _, ns = ...
 local Tr = ns.L
 
 local C = {
-    gold = { 0.769, 0.647, 0.341 },
-    goldDark = { 0.541, 0.439, 0.204 },
-    goldBright = { 0.878, 0.722, 0.290 },
+    gold = ns.gold.mid,
+    goldDark = ns.gold.dark,
+    goldBright = ns.gold.bright,
     ink = ns.colors.ink,
     panel = { 0.102, 0.094, 0.082 },
     well = { 0.051, 0.047, 0.039 },     -- #0d0c0a: a control's well (sunken)
-    selected = { 0.204, 0.165, 0.086 },
-    hover = { 0.271, 0.220, 0.114 },
+    selected = ns.Themed({ 0.204, 0.165, 0.086 }),
+    hover = ns.Themed({ 0.271, 0.220, 0.114 }),
     red = { 0.471, 0.094, 0.078 },
     redHover = { 0.580, 0.125, 0.098 },
     text = ns.colors.text,
@@ -42,7 +42,7 @@ local C = {
     -- a lift under the pointer, a press, a lit row: translucent, over any surface
     lift = { 0.949, 0.918, 0.824, 0.045 },
     lift2 = { 0.949, 0.918, 0.824, 0.08 },
-    lit = { 0.878, 0.722, 0.290, 0.11 },
+    lit = ns.Themed({ 0.878, 0.722, 0.290, 0.11 }),
 }
 local MEDIA = ns.media .. "options\\"
 
@@ -188,7 +188,7 @@ end
 local INK = { 0.086, 0.075, 0.047 }
 local NONE = { 0, 0, 0, 0 }
 UI.BUTTON = {
-    primary = { rest = C.gold, hover = C.goldBright, press = { 0.659, 0.541, 0.259 },
+    primary = { rest = C.gold, hover = C.goldBright, press = ns.Themed({ 0.659, 0.541, 0.259 }),
         edge = C.goldBright, text = INK, lit = INK },
     secondary = { rest = C.raised, hover = { 0.149, 0.133, 0.106 }, press = { 0.078, 0.071, 0.055 },
         edge = C.lineStrong, edgeLit = C.goldDark, text = C.gold, lit = C.goldBright },

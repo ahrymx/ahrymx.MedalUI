@@ -67,7 +67,7 @@ local function Style()
     glow:SetAllPoints()
     glow:SetTexture(ns.media .. "strips\\round")
     glow:SetTexCoord(0, 1, 0, 1)
-    glow:SetVertexColor(1, 0.9, 0.6)
+    glow:SetVertexColor(ns.gold.glow[1], ns.gold.glow[2], ns.gold.glow[3])
     glow:SetBlendMode("ADD")
     glow:SetAlpha(0.18)
     styling = false
@@ -109,7 +109,7 @@ local function Setup()
     if seat then return end
     seat = MainMenuBarVehicleLeaveButton
     if not seat then return end                -- Classic Era: no vehicles
-    glow = ns.RoundGlow(seat, 1, 0.9, 0.6, 0.18)
+    glow = ns.RoundGlow(seat, ns.gold.glow, 0.18)
     Place()
     Style()
     hooksecurefunc(seat, "SetPoint", Place)

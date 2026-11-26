@@ -46,7 +46,7 @@ local Tr = ns.L
 
 local Container = C_Container
 local SLOT, GAP, TITLE = 37, 4, 16
-local GOLD = { 0.941, 0.831, 0.533 }
+local GOLD = ns.gold.light
 
 -- The groups, in order, and what goes in each (the first that fits).
 local GROUPS = {

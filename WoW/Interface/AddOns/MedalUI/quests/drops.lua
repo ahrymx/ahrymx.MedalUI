@@ -171,7 +171,7 @@ function qd.AddTooltip(tip, quest, o)
     local d = DB()
     tip:AddLine(" ")
     tip:AddLine(format(Tr["%s: drop rates"], d and Try(d.items.Get, info.item, "name") or Tr["Drops"]),
-        0.941, 0.831, 0.533)
+        ns.gold.light[1], ns.gold.light[2], ns.gold.light[3])
     for i, r in ipairs(info.rates) do
         if i > MOST then
             tip:AddLine(string.format(Tr["and %d more"], #info.rates - MOST), 0.55, 0.52, 0.45)

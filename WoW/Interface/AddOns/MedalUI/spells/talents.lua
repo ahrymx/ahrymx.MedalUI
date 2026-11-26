@@ -92,8 +92,8 @@
 local _, ns = ...
 local Tr = ns.L
 
-local GOLD = { 0.941, 0.831, 0.533 }
-local GOLD_D = { 0.541, 0.439, 0.204 }
+local GOLD = ns.gold.light
+local GOLD_D = ns.gold.dark
 local LIT = { 0.4, 0.85, 0.35 }         -- ranks still to spend where they can be
 local BRIGHT = { 1, 0.97, 0.85 }        -- a maxed talent's inner line
 -- the effects (art/talents/gen_talents.py)
@@ -1398,9 +1398,9 @@ local function Points(p, body)
     -- Apply and Save the bright ones while they can be used: their wells
     -- gold-brown, their words light
     for _, b in ipairs({ p.apply, p.save }) do
-        b.lit = { 0.36, 0.28, 0.12, 1 }
+        b.lit = ns.Themed({ 0.36, 0.28, 0.12, 1 })
         b.dark = { ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.85 }
-        b.bright = { 1, 0.925, 0.667 }
+        b.bright = ns.Themed({ 1, 0.925, 0.667 })
     end
     -- Save plan asks for the name in a box over the plan's name, in the
     -- console: Enter keeps it, Escape (or leaving the box) does not

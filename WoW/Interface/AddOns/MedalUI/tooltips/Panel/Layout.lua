@@ -81,11 +81,12 @@ end
 local BADGE_GAP = 5
 local BADGE_HEIGHT = 16
 local EXTRA_COLOR = colors.extras
-local GOLD_RULE = { .78, .59, .32 }
+local GOLD_RULE = medal.Themed({ .78, .59, .32 })
 -- MedalUI's palette (MedalUI/options/theme.lua): the Gilded look's frame,
 -- wells, and plates.
 local INK = { .043, .039, .035 }
-local GOLD_DARK = { .541, .439, .204 }
+local GOLD_DARK = medal.gold.dark
+local TAG_TEXT = medal.Themed({ .93, .80, .52 })    -- a tag's words
 local LINE_STRONG = { .239, .212, .165 }
 local FLAVOR_GOLD = colors.flavor
 local HEADER_ALPHA_TEXTURED, HEADER_ALPHA_PLAIN = .72, .96
@@ -1125,7 +1126,7 @@ local function getEquippedTag(panel)
     tag.fill:SetVertexColor(.07, .055, .05, 1)
     tag.text = roundLayout(tag:CreateFontString(nil, "OVERLAY"))
     tag.text:SetFont(bodyFont(), 10)
-    tag.text:SetTextColor(.93, .80, .52)
+    tag.text:SetTextColor(TAG_TEXT[1], TAG_TEXT[2], TAG_TEXT[3])
     tag.text:SetPoint("CENTER")
     panel.equipped = tag
     return tag

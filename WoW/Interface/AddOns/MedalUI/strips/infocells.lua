@@ -40,15 +40,15 @@ local SUB_ALPHA = 0.55
 -- tab lies on the frame's bottom edge.
 local FRAME_TEX, FRAME_END, FRAME_IN = 64, 8, 1
 local INK = { 0.020, 0.016, 0.012 }      -- an unlit pip, cut as the frame is
-local GOLD_D = { 0.541, 0.439, 0.204 }
-local GOLD = { 0.941, 0.831, 0.533 }
+local GOLD_D = ns.gold.dark
+local GOLD = ns.gold.light
 local TAB, TAB_MAX, TAB_DROP = 2, 30, -3      -- the tab's height, longest, below the cell's bottom
 local SIZE = 10
 -- the pips: inset from the cell's ends, one per PIP_STEP of its width (at
 -- least PIP_MIN, at most PIP_MAX), PIP_GAP between, PIP_H tall at the
 -- cell's foot, inside the frame; the icon above them lifted PIP_LIFT
 local PIP_INSET, PIP_STEP, PIP_MIN, PIP_MAX, PIP_GAP, PIP_H, PIP_LIFT = 7, 6, 4, 20, 2, 2, 1
-local PIP_LIT = { 0.847, 0.698, 0.290 }
+local PIP_LIT = ns.Themed({ 0.847, 0.698, 0.290 })
 local WHITE = { 1, 1, 1 }
 local GREEN = { 0.65, 0.85, 0.56 }      -- a profession at its rank's cap
 local AMBER = { 0.94, 0.64, 0.23 }

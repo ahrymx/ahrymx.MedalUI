@@ -14,6 +14,7 @@ core.lua
 locale\locale.lua
 locale\ruRU.lua [AllowLoadTextLocale ruRU]
 settings.lua
+theme.lua
 dead.lua
 blizzard.lua
 casting.lua
