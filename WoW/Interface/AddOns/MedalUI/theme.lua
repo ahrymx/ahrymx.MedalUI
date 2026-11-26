@@ -73,6 +73,21 @@ ns.gold = {
     linen = { 0.95, 0.88, 0.72 },
 }
 
+-- The gold as drawn, whatever the theme, and ns.KeepGold(region, ...) to
+-- keep a region in it: never repainted, a gilt glyph never tinted. The
+-- folding headings keep theirs (2026-11-26, the user's: "coloured
+-- independently of the theme").
+ns.goldKept = {
+    light = { 0.941, 0.831, 0.533 }, mid = { 0.769, 0.647, 0.341 },
+    bright = { 0.878, 0.722, 0.290 }, dark = { 0.541, 0.439, 0.204 },
+}
+function ns.KeepGold(...)
+    for i = 1, select("#", ...) do
+        local region = select(i, ...)
+        if region then region.themeKeep = true end
+    end
+end
+
 -- ns.GoldHex(t): "|cffrrggbb" for a gold table, for text.
 function ns.GoldHex(t)
     return ("|cff%02x%02x%02x"):format(t[1] * 255 + 0.5, t[2] * 255 + 0.5, t[3] * 255 + 0.5)
@@ -165,7 +180,7 @@ local earlyArt = setmetatable({}, { __mode = "k" }) -- texture -> its gilt path
 local settled                                       -- the theme applied (or Golden: nothing to do)
 local function Note(method)
     return function(region, ...)
-        if settled then return end
+        if settled or region.themeKeep then return end
         local first = select(method == "SetGradient" and 2 or 1, ...)
         local gold
         if method == "SetGradient" then
@@ -193,6 +208,7 @@ do
     mt = getmetatable(text)
     textMethods = type(mt.__index) == "table" and mt.__index or mt
     hooksecurefunc(methods, "SetTexture", function(tex, path)
+        if tex.themeKeep then return end
         if artTint then return Gild(tex, path) end
         if settled then return end
         earlyArt[tex] = gilt[path] == true and path or nil

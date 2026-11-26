@@ -5905,8 +5905,33 @@ local function ThemeSweep()
                 field .. (" %.3f %.3f %.3f"):format(c[1] or c.r, c[2] or c.g, c[3] or c.b))
         end
     end
-    local gilt, plain = 0, 0
+    local gilt, plain, kept, keptGold = 0, 0, 0, 0
     for _, t in ipairs(all) do
+      -- kept in gold on purpose (ns.KeepGold: the folding headings): counted,
+      -- and each must still be gold
+      if t.themeKeep then
+        -- (by hue alone: the dark gold is also the rested colour, a data colour)
+        local function gold(c)
+            if type(c) ~= "table" then return false end
+            local h, sat = ns.HSV(c[1] or c.r, c[2] or c.g, c[3] or c.b)
+            return h >= 0.06 and h <= 0.17 and sat >= 0.3
+        end
+        -- (a quest's row reuses the zone's parts hidden; a plain row's
+        -- label is no heading's: only what shows a heading counts)
+        local heading = t.shown and (t.kind ~= "FontString" or gold(t.textColor))
+        if heading then
+            kept = kept + 1
+            if (t.gradient and gold(t.gradient[3])) or gold(t.textColor) or gold(t.vertex) and not t.desaturated
+                or not t.gradient and gold(t.color) or ns.IsGilt(t.texture) and not t.desaturated then
+                keptGold = keptGold + 1
+            elseif os.getenv("KEPT") then
+                local function f(c) return type(c) == "table" and ("%.2f,%.2f,%.2f"):format(c[1] or c.r or 0,
+                    c[2] or c.g or 0, c[3] or c.b or 0) or "-" end
+                print("kept not gold", t.kind, tostring(t.texture), "color=" .. f(t.color), "text=" .. f(t.textColor),
+                    "vertex=" .. f(t.vertex), "grad=" .. f(t.gradient and t.gradient[3]), "desat=" .. tostring(t.desaturated))
+            end
+        end
+      else
         Colour(t, "color", t.color)
         Colour(t, "textColor", t.textColor)
         if not ns.IsGilt(t.texture) then Colour(t, "vertex", t.vertex) end
@@ -5925,6 +5950,7 @@ local function ThemeSweep()
         if ns.IsGilt(t.texture) then
             if t.desaturated then gilt = gilt + 1 else plain = plain + 1; Leak(t.texture, "gilt art as drawn") end
         end
+      end
     end
     table.sort(lines)
     -- the option, on General beside Font: its choices, and a reload asked
@@ -5942,7 +5968,8 @@ local function ThemeSweep()
         .. tostring(spec.reload) .. " now=" .. tostring(ns.db.theme)) or "none")
     print("theme", ns.themeKey, "light=" .. table.concat({ ("%.3f %.3f %.3f"):format(unpack(ns.gold.light)) }),
         "linen=" .. ("%.2f %.2f %.2f"):format(unpack(ns.gold.linen)),
-        "gilt tinted=" .. gilt, "as drawn=" .. plain, "gold left=" .. #lines)
+        "gilt tinted=" .. gilt, "as drawn=" .. plain, "kept gold=" .. keptGold .. "/" .. kept,
+        "gold left=" .. #lines)
     for _, l in ipairs(lines) do print("theme gold", l) end
 end
 -- the passes return where they end: the list is printed as the harness exits

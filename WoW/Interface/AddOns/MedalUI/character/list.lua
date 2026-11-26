@@ -71,8 +71,8 @@ local MARGIN = 6                        -- the gap above a plated heading, betwe
 local FOOT = 6                          -- a card's room under its last entry
 local PAGE = 256                        -- the parchment's tile (as the spellbook's)
 local METAL_LIT = ns.Themed({ 0.98, 0.88, 0.58 })  -- the rim's lit edge
-local METAL_DARK = ns.Themed({ 0.36, 0.27, 0.10 })
-local LIT = ns.Themed({ 1, 0.89, 0.6 })         -- a bar's lit share -- its shadowed edge
+local METAL_DARK = ns.Themed({ 0.36, 0.27, 0.10 }) -- its shadowed edge
+local LIT = ns.Themed({ 1, 0.89, 0.6 })         -- a bar's lit share
 local GOLD = ns.gold.light
 local GOLD_D = ns.gold.dark
 local FOLD, DIAMOND = 12, 5             -- a plate's fold triangle, its diamond
@@ -178,6 +178,9 @@ end
 ns.character.Bar = Bar
 
 -- ---------------------------------------------------------------- plate
+-- a heading's plate keeps the gold as drawn, whatever the theme
+local PLATE_L, PLATE_D = ns.goldKept.light, ns.goldKept.dark
+local PLATE_LIT, PLATE_DARK = { 0.98, 0.88, 0.58 }, { 0.36, 0.27, 0.10 }
 local function Plate(f, title)
     local plate = { title = title }
     plate.wash = f:CreateTexture(nil, "BACKGROUND", nil, 1)
@@ -189,11 +192,14 @@ local function Plate(f, title)
     end
     plate.shine = f:CreateTexture(nil, "BORDER")
     plate.fold = f:CreateTexture(nil, "ARTWORK")
+    plate.diamond = f:CreateTexture(nil, "ARTWORK")
+    -- a folding heading: in gold whatever the theme (theme.lua)
+    ns.KeepGold(plate.wash, plate.shine, plate.fold, plate.diamond, title)
+    for _, t in pairs(plate.rim) do ns.KeepGold(t) end
     plate.fold:SetTexture(ns.media .. "character\\fold")
     plate.fold:SetSize(FOLD, FOLD)
-    plate.fold:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
-    plate.diamond = f:CreateTexture(nil, "ARTWORK")
-    plate.diamond:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    plate.fold:SetVertexColor(PLATE_L[1], PLATE_L[2], PLATE_L[3])
+    plate.diamond:SetColorTexture(PLATE_D[1], PLATE_D[2], PLATE_D[3], 1)
     plate.diamond:SetSize(DIAMOND, DIAMOND)
     if plate.diamond.SetRotation then plate.diamond:SetRotation(math.pi / 4) end
     function plate:Hide()
@@ -209,22 +215,22 @@ local function Plate(f, title)
         wash:SetPoint("BOTTOMRIGHT", 0, inset)
         if wash.SetGradient and CreateColor then
             wash:SetColorTexture(1, 1, 1, 1)
-            wash:SetGradient("VERTICAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], a * 0.5),
-                CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], a * 1.5))
+            wash:SetGradient("VERTICAL", CreateColor(PLATE_D[1], PLATE_D[2], PLATE_D[3], a * 0.5),
+                CreateColor(PLATE_D[1], PLATE_D[2], PLATE_D[3], a * 1.5))
         else
-            wash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], a)
+            wash:SetColorTexture(PLATE_D[1], PLATE_D[2], PLATE_D[3], a)
         end
         local rim = self.rim
         rim.TOP:ClearAllPoints()
         rim.TOP:SetPoint("TOPLEFT", 0, -inset)
         rim.TOP:SetPoint("TOPRIGHT", 0, -inset)
         rim.TOP:SetHeight(1)
-        rim.TOP:SetColorTexture(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 1)
+        rim.TOP:SetColorTexture(PLATE_LIT[1], PLATE_LIT[2], PLATE_LIT[3], 1)
         rim.BOTTOM:ClearAllPoints()
         rim.BOTTOM:SetPoint("BOTTOMLEFT", 0, inset)
         rim.BOTTOM:SetPoint("BOTTOMRIGHT", 0, inset)
         rim.BOTTOM:SetHeight(1)
-        rim.BOTTOM:SetColorTexture(METAL_DARK[1], METAL_DARK[2], METAL_DARK[3], 1)
+        rim.BOTTOM:SetColorTexture(PLATE_DARK[1], PLATE_DARK[2], PLATE_DARK[3], 1)
         for _, side in ipairs({ "LEFT", "RIGHT" }) do
             local t = rim[side]
             t:ClearAllPoints()
@@ -233,17 +239,17 @@ local function Plate(f, title)
             t:SetWidth(1)
             if t.SetGradient and CreateColor then
                 t:SetColorTexture(1, 1, 1, 1)
-                t:SetGradient("VERTICAL", CreateColor(METAL_DARK[1], METAL_DARK[2], METAL_DARK[3], 1),
-                    CreateColor(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 1))
+                t:SetGradient("VERTICAL", CreateColor(PLATE_DARK[1], PLATE_DARK[2], PLATE_DARK[3], 1),
+                    CreateColor(PLATE_LIT[1], PLATE_LIT[2], PLATE_LIT[3], 1))
             else
-                t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+                t:SetColorTexture(PLATE_D[1], PLATE_D[2], PLATE_D[3], 1)
             end
         end
         self.shine:ClearAllPoints()
         self.shine:SetPoint("TOPLEFT", 1, -(inset + 1))
         self.shine:SetPoint("TOPRIGHT", -1, -(inset + 1))
         self.shine:SetHeight(1)
-        self.shine:SetColorTexture(METAL_LIT[1], METAL_LIT[2], METAL_LIT[3], 0.35)
+        self.shine:SetColorTexture(PLATE_LIT[1], PLATE_LIT[2], PLATE_LIT[3], 0.35)
         -- the fold, pointing down open and at the title folded; the diamond
         -- after it, then the title
         local foldable = o.foldable ~= false
@@ -256,7 +262,7 @@ local function Plate(f, title)
         self.diamond:SetPoint("CENTER", wash, "LEFT", after + 3, 0)
         self.title:ClearAllPoints()
         self.title:SetPoint("LEFT", wash, "LEFT", after + 3 + DIAMOND + 4, 0)
-        self.title:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+        self.title:SetTextColor(PLATE_L[1], PLATE_L[2], PLATE_L[3])
         for _, t in ipairs({ wash, self.shine, self.diamond }) do t:Show() end
         for _, t in pairs(rim) do t:Show() end
     end
