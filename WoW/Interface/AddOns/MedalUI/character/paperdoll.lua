@@ -419,7 +419,7 @@ function ns.character.Doll(spec)
         local who = s and format("%s (%s)", className, s) or className or ""
         local c = class and not ns.IsSecret(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
         if c then who = format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, who) end
-        return format(Tr["%s  Level %d"], who, UnitLevel(unit) or 0)
+        return format(Tr["%s · Level %d"], who, UnitLevel(unit) or 0)
     end
 
     function d.Refresh()

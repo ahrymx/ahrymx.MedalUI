@@ -747,6 +747,16 @@ for i = 1, SLOTS do
         banner:SetAllPoints()
         banner.bar = ns.character.Bar(banner, BANNER_BAR, 16, true)
         banner.bar:SetPoint("TOP", 0, -7)
+        -- (2026-11-26, the user's: 4b's banner) a gilded frame round it: a
+        -- gold ring a pixel out from its well, a dark gap between
+        banner.gap = banner:CreateTexture(nil, "BACKGROUND", nil, 1)
+        banner.gap:SetPoint("TOPLEFT", banner.bar, -1, 1)
+        banner.gap:SetPoint("BOTTOMRIGHT", banner.bar, 1, -1)
+        banner.gap:SetColorTexture(0.03, 0.03, 0.027, 1)
+        banner.ring = banner:CreateTexture(nil, "BACKGROUND", nil, 0)
+        banner.ring:SetPoint("TOPLEFT", banner.bar, -2, 2)
+        banner.ring:SetPoint("BOTTOMRIGHT", banner.bar, 2, -2)
+        banner.ring:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
         banner.rank = ns.Text(banner, 12)
         banner.rank:SetPoint("TOP", banner.bar, "BOTTOM", 0, -5)
         -- the bar at its width, narrower in a narrow window

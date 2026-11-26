@@ -127,6 +127,18 @@ local BESIDE = 4                                -- a tooltip outside the window:
 local GAME_ICON = 0.08                          -- the game's icons' border, trimmed
 local UNDER = 44                                -- a floating window's tab's underline
 local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118, 0.102, 0.071, 0.8 } }
+-- (2026-11-26, the user's pick 4b of /workspace/window-head-metal-sheet.png)
+-- docked, the head and its controls are antique bronze (Metal): the metal
+-- darker at its top and foot than at its middle, cut round its edge and
+-- lit just inside it; on it the glyphs dark, the title cream over a shadow,
+-- the count a paler cream. Themed: a class's theme casts it in its hue.
+local BRONZE = {
+    top = ns.Themed({ 0.322, 0.251, 0.133 }), mid = ns.Themed({ 0.588, 0.471, 0.259 }),
+    foot = ns.Themed({ 0.227, 0.173, 0.086 }), cut = ns.Themed({ 0.235, 0.18, 0.071 }),
+    lit = ns.Themed({ 1, 0.933, 0.706 }), glyph = ns.Themed({ 0.094, 0.063, 0.024 }),
+    title = ns.Themed({ 0.965, 0.91, 0.769 }), count = ns.Themed({ 0.882, 0.804, 0.627 }),
+    shine = 0.7, under = 0.35,          -- the lit line under the top cut, over the foot's
+}
 -- a page's linen backdrop: its tile and size, its colour (the theme's, or
 -- a page's own as page.linen, a function), its alpha at the foot and at
 -- the top. (2026-11-26, the user's: every page wears it but one with its
@@ -134,6 +146,8 @@ local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118,
 -- talent trees' clouds)
 local LINEN, LINEN_PX = "character\\linen", 128
 local LINEN_INK, LINEN_A = { 0.95, 0.88, 0.72 }, { 0.06, 0.12 }
+local GEM, GEM_RULE = 6, 90         -- the joined panel's foot: its diamond, the faint rule over it
+local SHADE = 0.05                  -- the joined panel's matte shade, at its top
 
 ns.window = { width = WIDTH - 2 * PAD, pad = PAD, band = BAND }
 
@@ -181,6 +195,45 @@ local function Face(b, to, soft)
     return well, edge, glow
 end
 ns.window.Face = Face           -- the chat's tabs wear it too (strips/chat.lua)
+
+-- A boxed button's bronze (BRONZE): inside its edge, in place of its well
+-- (Boxed shows one or the other), the metal in two halves, a lit line under
+-- the top and a fainter one over the foot; its edge the cut's colour. With
+-- glyph, its glyph (b.icon) dark on it (the cross's, the view's; the head's
+-- icon is the medallion's, never tinted). Docked as it is made: Boxed
+-- turns it for floating.
+local function Metal(b, glyph)
+    local m = {}
+    local function Grade(t, low, high)
+        if t.SetGradient and CreateColor then
+            t:SetColorTexture(1, 1, 1, 1)
+            t:SetGradient("VERTICAL", CreateColor(low[1], low[2], low[3], 1), CreateColor(high[1], high[2], high[3], 1))
+        else
+            t:SetColorTexture(BRONZE.mid[1], BRONZE.mid[2], BRONZE.mid[3], 1)
+        end
+    end
+    m.upper = b:CreateTexture(nil, "BACKGROUND", nil, 2)
+    m.upper:SetPoint("TOPLEFT", 1, -1)
+    m.upper:SetPoint("BOTTOMRIGHT", b, "RIGHT", -1, 0)
+    Grade(m.upper, BRONZE.mid, BRONZE.top)
+    m.lower = b:CreateTexture(nil, "BACKGROUND", nil, 2)
+    m.lower:SetPoint("TOPLEFT", b, "LEFT", 1, 0)
+    m.lower:SetPoint("BOTTOMRIGHT", -1, 1)
+    Grade(m.lower, BRONZE.foot, BRONZE.mid)
+    for key, at in pairs({ shine = { "TOP", -1, BRONZE.shine }, under = { "BOTTOM", 1, BRONZE.under } }) do
+        local t = b:CreateTexture(nil, "BACKGROUND", nil, 3)
+        t:SetHeight(1)
+        t:SetPoint(at[1] .. "LEFT", 1, at[2])
+        t:SetPoint(at[1] .. "RIGHT", -1, at[2])
+        t:SetColorTexture(BRONZE.lit[1], BRONZE.lit[2], BRONZE.lit[3], at[3])
+        m[key] = t
+    end
+    if b.edge then b.edge:SetColorTexture(BRONZE.cut[1], BRONZE.cut[2], BRONZE.cut[3], 1) end
+    if b.well then b.well:Hide() end
+    b.metal, b.metalGlyph = m, glyph
+    if glyph and b.icon then b.icon:SetVertexColor(BRONZE.glyph[1], BRONZE.glyph[2], BRONZE.glyph[3]) end
+    return m
+end
 
 -- A gold line that fades out at both ends: a parting that is not a box.
 -- Anchor it as a frame; across, its height is 1, down, its width.
@@ -1345,7 +1398,13 @@ function ns.Window(spec)
     -- docked, the underline floating (none under a heading)
     local function Boxed(b, on)
         if b.edge then b.edge:SetShown(on) end
-        if b.well then b.well:SetShown(on) end
+        if b.well then b.well:SetShown(on and not b.metal) end
+        for _, t in pairs(b.metal or {}) do t:SetShown(on) end
+        -- on the bronze its glyph dark; floating, as drawn
+        if b.metalGlyph and b.icon then
+            local c = on and BRONZE.glyph or { 1, 1, 1 }
+            b.icon:SetVertexColor(c[1], c[2], c[3])
+        end
     end
     local function Mark(b, on)
         if b.row then
@@ -1467,6 +1526,7 @@ function ns.Window(spec)
         end
         Swell()
         Cut()
+        if drop.Paint then drop.Paint() end         -- the head's words and glyph for the look
     end
 
     -- The view's place, scale and medallion, then the layout; out of combat.
@@ -1644,6 +1704,9 @@ function ns.Window(spec)
     -- top the head's foot line (no edge of its own there); ink with a
     -- faint gold rising from its foot, gold down its sides and along its
     -- foot; under the head's step and medallion. The page fills it.
+    -- (2026-11-26, the user's: 4b's banner, kept and refined) a matte shade
+    -- over its ink, and on its foot's middle a gold diamond under a faint
+    -- short rule.
     function Joined(p)
         local f = CreateFrame("Frame", nil, window)
         f:SetFrameLevel(window:GetFrameLevel() + 1)
@@ -1654,7 +1717,17 @@ function ns.Window(spec)
         f.fill:SetColorTexture(ink[1], ink[2], ink[3], 1)
         -- the gold rising from its foot, gone by its top: there it is the
         -- head's step's ink, which runs over it unseen
-        f.glow = f:CreateTexture(nil, "BACKGROUND", nil, 2)
+        -- (2026-11-26, the user's: no linen here, something neutral) a
+        -- matte shade: a faint untinted light at its top, gone by its foot
+        f.shade = f:CreateTexture(nil, "BACKGROUND", nil, 2)
+        f.shade:SetAllPoints()
+        if f.shade.SetGradient and CreateColor then
+            f.shade:SetColorTexture(1, 1, 1, 1)
+            f.shade:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, SHADE))
+        else
+            f.shade:SetColorTexture(1, 1, 1, SHADE / 2)
+        end
+        f.glow = f:CreateTexture(nil, "BACKGROUND", nil, 3)
         f.glow:SetAllPoints()
         if f.glow.SetGradient and CreateColor then
             f.glow:SetColorTexture(1, 1, 1, 1)
@@ -1673,6 +1746,15 @@ function ns.Window(spec)
             t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
             table.insert(f.edges, t)
         end
+        f.gem = f:CreateTexture(nil, "ARTWORK", nil, 2)
+        f.gem:SetSize(GEM, GEM)
+        f.gem:SetPoint("CENTER", f, "BOTTOM", 0, 0)
+        f.gem:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        if f.gem.SetRotation then f.gem:SetRotation(math.pi / 4) end
+        f.gemRule = f:CreateTexture(nil, "ARTWORK", nil, 1)
+        f.gemRule:SetSize(GEM_RULE, 1)
+        f.gemRule:SetPoint("BOTTOM", 0, 3)
+        f.gemRule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.55)
         f:Hide()
         return f
     end
@@ -1777,10 +1859,9 @@ function ns.Window(spec)
     -- A window on the left strip is mirrored (2026-11-19): its cross (and
     -- view glyph) and the head's chevron at the left, the name and its
     -- ringed icon at the right. Every fade runs from the screen's edge
-    -- towards its middle: the head's from its outer end, a list row's
-    -- from the side away from the window (PlaceList)
+    -- towards its middle: a list row's from the side away from the window
+    -- (PlaceList)
     local mirror = side < 0
-    local inward = side > 0             -- a right-hand window's fades: bright at the right
     -- the window's name, for the list's heading: "Character window" (its
     -- spec's named, in the client's language, else from its frame's name)
     local function Title()
@@ -1832,8 +1913,16 @@ function ns.Window(spec)
         h.split:SetShown(many)
         h.chevron:SetTexture(ns.media .. "strips\\" .. (drop.IsOpen() and "chevron-up" or "chevron-down"))
         h.mark:Hide()
-        h.band:SetShown(not floating)
-        h.lit:SetShown(not floating)
+        -- docked, on the bronze: the title cream, the count paler, the
+        -- chevron and its cut's line dark; floating, the gold and the dim
+        local title = floating and GOLD or BRONZE.title
+        h.label:SetTextColor(title[1], title[2], title[3])
+        local count = floating and ns.colors.dim or BRONZE.count
+        h.count:SetTextColor(count[1], count[2], count[3])
+        local glyph = floating and GOLD or BRONZE.glyph
+        h.chevron:SetVertexColor(glyph[1], glyph[2], glyph[3])
+        local split = floating and GOLD_D or BRONZE.cut
+        h.split:SetColorTexture(split[1], split[2], split[3], floating and 0.8 or 1)
         if h.under then h.under:SetShown(floating) end
     end
     -- its list: on a catcher over the screen (a click on it shuts it)
@@ -2093,16 +2182,9 @@ function ns.Window(spec)
                 local name = p and (p.heading or p.tip or p.label) or ""
                 return drop.count and drop.count > 1 and format(Tr["%s. Click for the window's pages."], name) or name
             end)
-            -- a gold band fading right, lit along its top
-            h.band = h:CreateTexture(nil, "BACKGROUND", nil, 3)
-            h.band:SetPoint("TOPLEFT", 1, -1)
-            h.band:SetPoint("BOTTOMRIGHT", -1, 1)
-            GoldFade(h.band, 0.55, inward)
-            h.lit = h:CreateTexture(nil, "ARTWORK", nil, 1)
-            h.lit:SetHeight(1)
-            h.lit:SetPoint("TOPLEFT", 1, -1)
-            h.lit:SetPoint("TOPRIGHT", -1, -1)
-            Fade(h.lit, GOLD, 0.75, inward)
+            -- (2026-11-26, pick 4b) docked, bronze (was a gold band fading
+            -- right, lit along its top)
+            Metal(h)
             -- (2026-11-19, mockup C3 of /workspace/medal-C3-text.png) the
             -- page's medallion on the window's inner edge (near: the end
             -- towards the screen's middle), half out of it, its top the
@@ -2589,6 +2671,7 @@ function ns.Window(spec)
         -- the cross flush in the top right corner
         close = Button(window, TAB, function() spec.Close() end, function() return spec.closeTip end)
         Glyph(close, "close")
+        Metal(close, true)
         close:SetPoint("TOPRIGHT", 0, 0)
         window.close = close
         if spec.place and not spec.detachedOnly then
@@ -2612,6 +2695,7 @@ function ns.Window(spec)
                     or Tr["Detached: a box of its own, to move and size."]
             end)
             Glyph(view)
+            Metal(view, true)
             view:SetPoint("RIGHT", close, "LEFT", 1, 0)
             window.view = view
         end

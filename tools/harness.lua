@@ -405,6 +405,29 @@ function fadeDir(t)
     local l, r = A(g[2]), A(g[3])
     return l > r and ">" or l < r and "<" or "="
 end
+-- (2026-11-26) a button's bronze (window/shell.lua Metal): its halves' light,
+-- "^" brighter at the top, "v" at the foot; its lit lines; whether its well
+-- shows instead; its glyph's tint; or "none"
+function harnessMetal(b)
+    local m = b and b.metal
+    if not m then return "none" end
+    local function way(t)
+        local g = t.gradient
+        if not g then return "flat" end
+        local function L(c)
+            if type(c) ~= "table" then return 0 end
+            local r, gg, bb = c.r or c[1] or 0, c.g or c[2] or 0, c.b or c[3] or 0
+            if c.GetRGBA then r, gg, bb = c:GetRGBA() end
+            return r + gg + bb
+        end
+        return L(g[3]) > L(g[2]) and "^" or "v"
+    end
+    local v = b.icon and b.icon.vertex
+    return string.format("%s%s/%s%s lines=%s,%s well=%s glyph=%s", m.upper.shown == false and "-" or "",
+        way(m.upper), m.lower.shown == false and "-" or "", way(m.lower), tostring(m.shine.shown ~= false),
+        tostring(m.under.shown ~= false), tostring(b.well and b.well.shown ~= false),
+        v and string.format("%.2f", v[1]) or "-")
+end
 function Region:SetTextColor(r, g, b, a) self.textColor = { r, g, b, a } end
 function Region:SetBlendMode(m) self.blend = m end
 function Region:GetBlendMode() return self.blend or "BLEND" end
@@ -19624,7 +19647,10 @@ if characterPass then
             for _, r in ipairs(d.rows) do
                 if r.shown then table.insert(hairs, r.hair.shown and "-" or ".") end
             end
-            print("char.gilded", "band=" .. tostring(h.band.shown), "lit=" .. tostring(h.lit.shown),
+            local function tc(fs) local c = fs.textColor or {} return string.format("%.2f,%.2f,%.2f", c[1] or -1, c[2] or -1, c[3] or -1) end
+            print("char.gilded", "metal=" .. harnessMetal(h), "cross=" .. harnessMetal(w.close),
+                "title=" .. tc(h.label) .. " count=" .. tc(h.count) .. " chevron=" .. string.format("%.2f",
+                (h.chevron.vertex or {})[1] or -1),
                 "count=" .. tostring(h.count.text), "split=" .. tostring(h.split.shown),
                 "title=" .. tostring(f.title.text), "notch=" .. tostring(np and np[2]) .. "," .. tostring(np and np[4]),
                 "hairs=" .. table.concat(hairs), "open=" .. tostring(d.rows[1].open.text) .. "/"
@@ -19742,7 +19768,7 @@ if characterPass then
             h.medal.scripts.OnClick(h.medal, "LeftButton")
             print("char.medal click", "open=" .. tostring(d.IsOpen()))
             h.medal.scripts.OnClick(h.medal, "LeftButton")
-            print("char.fades", "band=" .. fadeDir(h.band), "lit=" .. fadeDir(h.lit),
+            print("char.fades", "metal=" .. harnessMetal(h),
                 "held=" .. fadeDir(d.rows[1].fill), "bar=" .. tostring(d.list.edge))
         end
         local escape = false
@@ -20463,6 +20489,24 @@ if characterPass then
         ns.gold.linen = { 0.2, 0.4, 0.6 }
         C.Select(rp)
         print("char.linen themed", "reputation " .. weave())
+        -- (2026-11-26) the joined panel (the name's banner): no linen (the
+        -- user's), a matte shade over its ink, light at the top only, untinted;
+        -- its foot's diamond and faint rule
+        do
+            local pn = pd.panel
+            local g = pn.shade.gradient or {}
+            local function rgba(c)
+                if type(c) ~= "table" then return "-" end
+                local r, gg, bb, a = c.r or c[1], c.g or c[2], c.b or c[3], c.a or c[4]
+                if c.GetRGBA then r, gg, bb, a = c:GetRGBA() end
+                return string.format("%.2f,%.2f,%.2f/%.2f", r or -1, gg or -1, bb or -1, a or -1)
+            end
+            local gp = pn.gem.points.CENTER or {}
+            print("char.banner", "linen=" .. tostring(pn.linen ~= nil), "shade=" .. tostring(pn.shade.sub) .. ">"
+                .. tostring(pn.fill.sub) .. " foot=" .. rgba(g[2]) .. " top=" .. rgba(g[3]),
+                "gem=" .. tostring(gp[2]) .. " " .. tostring(pn.gem.w) .. " rot=" .. string.format("%.2f",
+                pn.gem.rotation or 0) .. " rule=" .. tostring(pn.gemRule.w))
+        end
         ns.gold.linen = keep
         if was then C.Select(was) end
     end
@@ -24526,7 +24570,7 @@ if profPass then
         print("prof.medal", "medal=" .. tostring(select(3, d.head.medal:GetPoint(1))) .. " "
             .. tostring(select(4, d.head.medal:GetPoint(1))) .. "," .. tostring(select(5, d.head.medal:GetPoint(1))),
             "step=" .. tostring(select(1, d.head.step:GetPoint(1))), "count=" .. tostring(select(1, d.head.count:GetPoint(1))))
-        print("prof.fades", "band=" .. fadeDir(d.head.band), "lit=" .. fadeDir(d.head.lit),
+        print("prof.fades", "metal=" .. harnessMetal(d.head),
             "held=" .. fadeDir(d.rows[1].fill), "bar=" .. tostring(d.list.edge))
         local bs
         for _, b in ipairs(d.holder.buttons) do
@@ -24801,7 +24845,10 @@ if profPass then
             local function tabs()
                 local h = AW.dropdown.head
                 local out = { "head[box=" .. tostring(h.edge.shown) .. " mark=" .. tostring(h.mark.shown)
-                    .. " under=" .. tostring(h.under.shown) .. " " .. h.label.text .. "]" }
+                    .. " under=" .. tostring(h.under.shown) .. " " .. h.label.text
+                    -- (2026-11-26) floating: no bronze, the title gold
+                    .. " metal=" .. harnessMetal(h) .. " title=" .. string.format("%.2f,%.2f,%.2f",
+                        unpack(h.label.textColor or { -1, -1, -1 })) .. "]" }
                 for _, p in ipairs(W.altPages) do
                     table.insert(out, p.key .. (p.tab.mark.shown and "*" or ""))
                 end
@@ -24810,7 +24857,8 @@ if profPass then
             local _, _, _, bx = AW.window.bandRule:GetPoint(1)
             print("prof.alt chrome", tabs(), "shadow=" .. tostring(ch.shadow ~= nil),
                 "head=" .. tostring(ch.head.shown), "lit=" .. tostring(ch.lit.shown), "edge=" .. ch.edge.alpha,
-                "close box=" .. tostring(AW.window.close.edge.shown), "band@" .. bx)
+                "close box=" .. tostring(AW.window.close.edge.shown), "close metal=" .. harnessMetal(AW.window.close),
+                "band@" .. bx)
             AW.Select(page("items"))
             print("prof.alt chrome items", tabs())
             AW.Select(P)
@@ -25135,6 +25183,14 @@ if profPass then
                 "search@" .. -sy)
         end
         banner("prof.banner")
+        -- (2026-11-26) its gilded frame: a gold ring two out, a dark gap one
+        -- out, both behind the bar
+        do
+            local function out(t) local p = t.points.TOPLEFT or {} return tostring(p[3]) .. "," .. tostring(p[4]) end
+            print("prof.banner frame", "ring=" .. out(b.ring) .. " " .. string.format("%.2f", b.ring.color[1])
+                .. " sub" .. tostring(b.ring.sub), "gap=" .. out(b.gap) .. " sub" .. tostring(b.gap.sub),
+                "on=" .. tostring(b.ring.points.TOPLEFT[1] == b.bar and b.gap.points.TOPLEFT[1] == b.bar))
+        end
         -- at its rank's top: the highest this expansion
         local prof = W.Current().prof
         local was = { prof.rank, prof.max }
