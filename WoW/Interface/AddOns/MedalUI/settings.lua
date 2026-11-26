@@ -202,6 +202,7 @@ local DEFAULTS = {
     questsTitleFont = "marcellus", questsTitleSize = 12,         -- ns.Fonts()'s keys, and points
     questsObjectiveFont = "marcellus", questsObjectiveSize = 12,
     optionsPoint = false,   -- where the settings window was dragged to, the same way (options/window.lua)
+    optionsFolded = false,  -- the settings sections folded, by page and title (options/window.lua)
     editorPoint = false,    -- and the unit-frame editor's (options/editor.lua)
     xpCast = false,         -- the player's casts over the experience bar
     repCast = false,        -- the target's casts over the reputation bar

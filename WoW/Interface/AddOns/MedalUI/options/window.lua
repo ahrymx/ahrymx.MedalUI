@@ -23,7 +23,8 @@ local C = UI.colors
 local W, H = 900, 600
 local SIDE_W, BAR_H, FOOT, EDGE = 200, 34, 40, 1 -- the sidebar; the window's head and footer; its edge
 local HEAD_TOP, RIGHT = EDGE + BAR_H + 14, 16    -- a page's header: its top, and its right margin
-local HEAD_H, COL_GAP, SEC_GAP, CARD_PAD, BAND_H = 50, 12, 12, 12, 36
+local HEAD_H, SEC_GAP, CARD_PAD, BAND_H = 50, 8, 12, 28
+local CHIP_H, CHIPS_H = 20, 28          -- the index's chips, and their row under the header
 local STRIP_H, ROW_GAP = 26, 4          -- a page's sheet tabs, under its crumb; between a card's rows
 local ITEM_H, CAT_H, SEARCH_H, LINK_H = 28, 42, 26, 20
 local CARD_H, CARD_GAP = 44, 8
@@ -35,7 +36,6 @@ local pages        -- pages.lua's, built at login
 local categories
 local window, side, nav, navChild, search, body, scroll, thumb, flash
 local finds        -- a search's page: the sections it matched, lent by their own
-local colW         -- a section's width
 local footProfile, footReload, footDot, footChip, footButton
 local built = {}   -- page frames by path ("general", "console/unit")
 ns.optionPages = built
@@ -191,6 +191,7 @@ local function Control(parent, spec, width, row, label)
 end
 
 local ShowSheet, SetVariant
+local Layout, Found, Thumb, Choose   -- (folding, the chips: defined further down)
 
 -- The header's crumb: where the page sits, the sheet shown, its scope.
 local function Crumb(head, sheet)
@@ -198,9 +199,87 @@ local function Crumb(head, sheet)
         .. (head.scope and ("   \194\183   " .. head.scope) or "")
 end
 
+-- (2026-11-25, the user's pick C) the index: under the header, a chip for
+-- each section shown (its title up to a ":"), when there are three or more;
+-- a click opens its section there and scrolls to it. The tabs, the variant's
+-- switch and the hairline stand above the chips' row.
+local function Chips(f)
+    local head = f.head
+    f.chips = f.chips or {}
+    local shown = {}
+    for _, sec in ipairs(f.sections) do
+        if sec.chipName and (not f.sheet or sec.sheet == f.sheet) and (not sec.variant or sec.variant == f.variant) then
+            table.insert(shown, sec)
+        end
+    end
+    local on = #shown >= 3
+    local x, room = 0, head:GetWidth()
+    if not room or room <= 0 then room = W - X - RIGHT end
+    for i, sec in ipairs(on and shown or {}) do
+        local b = f.chips[i]
+        if not b then
+            b = CreateFrame("Button", nil, head)
+            b:SetHeight(CHIP_H)
+            b.bg = UI.Fill(b, "BACKGROUND", C.well, 1)
+            b.bg:SetAllPoints()
+            b.edge = UI.Outline(b, "BORDER", C.lineStrong, 0)
+            b.text = UI.Plain(b, 11, C.dim)
+            b.text:SetPoint("CENTER", 0, 0)
+            b:SetScript("OnClick", function(self)
+                Choose({ path = f.path, section = self.section, control = self.section })
+            end)
+            b:SetScript("OnEnter", function(self)
+                self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
+            end)
+            b:SetScript("OnLeave", function() ns.LightChips() end)
+            f.chips[i] = b
+        end
+        b.section = sec
+        b.text:SetText(sec.chipName)
+        local w = math.ceil(b.text:GetStringWidth() or 0) + 18
+        b:SetWidth(w)
+        b:ClearAllPoints()
+        b:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", x, 4)
+        -- a row that runs out of room ends there
+        b:SetShown(x + w <= room)
+        x = x + w + 6
+    end
+    for i = (on and #shown or 0) + 1, #f.chips do f.chips[i]:Hide() end
+    f.chipsUp = on and CHIPS_H or 0
+    head:SetHeight(f.headBase + f.chipsUp)
+    head.rule:ClearAllPoints()
+    head.rule:SetPoint("BOTTOMLEFT", 0, f.chipsUp)
+    head.rule:SetPoint("BOTTOMRIGHT", 0, f.chipsUp)
+    if f.aside then
+        f.aside:ClearAllPoints()
+        f.aside:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, 3 + f.chipsUp)
+    end
+end
+
+-- the chip of the section at the scroll's top lit, the rest dim
+function ns.LightChips()
+    local f = current and built[current]
+    if not (f and f.chips and scroll) then return end
+    local at = scroll:GetVerticalScroll() or 0
+    local lit
+    for _, b in ipairs(f.chips) do
+        if b:IsShown() and b.section and b.section.top then
+            if not lit or b.section.top <= at + 4 then lit = b end
+        end
+    end
+    for _, b in ipairs(f.chips) do
+        local on = b == lit
+        local t = on and C.gold or C.dim
+        b.text:SetTextColor(t[1], t[2], t[3])
+        UI.Paint(b.bg, on and C.selected or C.well)
+        UI.Paint(b.edge, on and C.goldDark or C.lineStrong)
+    end
+end
+
 -- The tabs shown: each sheet with a section of the variant shown, left to
 -- right; the one shown lit, a gold foot under it, the crumb ending on it.
 local function Strip(f)
+    Chips(f)
     if not f.tabs then return end
     local x = 0
     for _, b in ipairs(f.tabs) do
@@ -212,7 +291,7 @@ local function Strip(f)
         b:SetShown(any)
         if any then
             b:ClearAllPoints()
-            b:SetPoint("BOTTOMLEFT", f.head, "BOTTOMLEFT", x, 1)
+            b:SetPoint("BOTTOMLEFT", f.head, "BOTTOMLEFT", x, 1 + (f.chipsUp or 0))
             x = x + b:GetWidth() + 2
         end
         local on = b.sheet == f.sheet
@@ -331,6 +410,8 @@ local function Header(f, content, path, page, tab)
     rule:SetHeight(1)
     rule:SetPoint("BOTTOMLEFT", 0, 0)
     rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    head.rule = rule
+    f.headBase = head:GetHeight()
     head:Hide()
     f.head = head
 end
@@ -357,20 +438,92 @@ local function Own(row, spec)
     return b
 end
 
--- A group as a card, a step lighter than the page: its head holding its
--- title, its chip (where a variant's options are kept) and, on the right,
--- the switch its rows need, a hairline under it; its tip, then an option a
--- row, a hairline between them. A gold bar runs down its left while its
--- switch is on; a row lifts under the pointer. sheet: its sheet's name,
--- for search's crumb.
+-- ------------------------------------------------------------ folding
+-- (2026-11-25, the user's pick C of the "Settings" mockups) a section
+-- folds to its heading: a click on the heading (its caret at the left)
+-- folds or opens it, and the window keeps which are folded
+-- (optionsFolded, by page and title). A link, a chip or a search opens
+-- one for that look only (peek), never saving it.
+local function Shut(s) return s.folded and not s.peek end
+
+local function Refold(s)
+    local f = s:GetParent()
+    if f == finds then
+        Found()
+    else
+        Layout(s.home or f)
+    end
+    Thumb()
+end
+
+local function FoldSection(s, on)
+    s.folded, s.peek = on and true or false, nil
+    local saved = type(ns.db.optionsFolded) == "table" and ns.db.optionsFolded or {}
+    saved[s.foldKey] = on and true or nil
+    ns.db.optionsFolded = next(saved) and saved or false
+    Refold(s)
+end
+ns.OptionsFold = FoldSection
+
+-- the heading's fold: its caret, and a button across it (short of
+-- whatever sits at its right, room wide)
+local function Folds(s, key, room)
+    s.foldKey = key
+    local saved = ns.db.optionsFolded
+    s.folded = type(saved) == "table" and saved[key] and true or false
+    s.caret = s:CreateTexture(nil, "OVERLAY")
+    s.caret:SetTexture(ns.media .. "strips\\chevron-down")
+    s.caret:SetSize(12, 12)
+    s.caret:SetPoint("CENTER", s, "TOPLEFT", CARD_PAD + 4, -BAND_H / 2)
+    s.caret:SetVertexColor(C.gold[1], C.gold[2], C.gold[3], 1)
+    local b = CreateFrame("Button", nil, s)
+    b:SetPoint("TOPLEFT", 0, 0)
+    b:SetPoint("TOPRIGHT", -(room or 0), 0)
+    b:SetHeight(BAND_H)
+    b.lift = UI.Fill(b, "BACKGROUND", C.lift, 3)
+    b.lift:SetAllPoints()
+    b.lift:Hide()
+    b:SetScript("OnClick", function() FoldSection(s, not Shut(s)) end)
+    b:SetScript("OnEnter", function(self) self.lift:Show() end)
+    b:SetScript("OnLeave", function(self) self.lift:Hide() end)
+    s.foldButton = b
+end
+
+-- the caret's turn: down while open, right while folded
+local function Caret(s)
+    if not s.caret then return end
+    local shut = Shut(s)
+    s.caret:SetRotation(shut and math.pi / 2 or 0)
+    local c = shut and C.dim or C.gold
+    s.caret:SetVertexColor(c[1], c[2], c[3], 1)
+end
+
+-- a choice's answer as the list shows it
+local function Answer(spec)
+    local v = UI.Get(spec)
+    for _, ch in ipairs(spec.list and spec.list() or spec.choices or {}) do
+        if ch[1] == v then return ch[2] end
+    end
+end
+
+-- A group as a card, a step lighter than the page: its heading holding
+-- its caret, its title, its chip (where a variant's options are kept)
+-- and, on the right, what is in it (folded: its first choice's answer and
+-- how many options) and the switch its rows need; open, a hairline under
+-- it, its tip, then an option a row, a hairline between them. A gold bar
+-- runs down its left while its switch is on; a row lifts under the
+-- pointer. A group of one choice or button and nothing else is one line,
+-- its control in its heading, with nothing to fold. sheet: its sheet's
+-- name, for search's crumb.
 local function Section(f, group, width, path, sheet)
     local s = CreateFrame("Frame", nil, f)
     s:SetWidth(width)
     s.group = group
+    s.path = path
+    s.chipName = tostring(group.title or ""):match("^(.-):") or group.title
     local inset = CARD_PAD
     width = width - 2 * inset
     UI.Fill(s, "BACKGROUND", C.raised, 1):SetAllPoints()
-    -- its head: the card's own fill (the band is where it is)
     local band = UI.Fill(s, "BACKGROUND", C.raised, 2)
     band:SetPoint("TOPLEFT", 1, -1)
     band:SetPoint("TOPRIGHT", -1, -1)
@@ -382,9 +535,16 @@ local function Section(f, group, width, path, sheet)
     s.accent:SetPoint("TOPLEFT", 1, -1)
     s.accent:SetPoint("BOTTOMLEFT", 1, 1)
     s.accent:Hide()
-    s.title = UI.Serif(s, 14, C.text)
-    s.title:SetPoint("LEFT", s, "TOPLEFT", inset, -BAND_H / 2)
+    -- one line: a single choice (that fits beside its title) or button
+    local only = #group.items == 1 and group.items[1]
+    local inline = only and not group.switch and not group.tip and not only.beside and not only.hide
+        and (only.kind == "button" or only.kind == "choice" and not (only.key and ns.SharedOf(only.key)))
+    s.title = UI.Serif(s, 13, C.text)
+    s.title:SetWordWrap(false)
+    s.title:SetJustifyH("LEFT")
+    s.title:SetPoint("LEFT", s, "TOPLEFT", inline and inset or inset + 14, -BAND_H / 2)
     s.title:SetText(group.title)
+    s.titleW = math.ceil(s.title:GetStringWidth() or 0)
     if group.chip then
         local shared = group.chip == Tr["Shared"]
         local chip = CreateFrame("Frame", nil, s)
@@ -401,13 +561,16 @@ local function Section(f, group, width, path, sheet)
     rule:SetHeight(1)
     rule:SetPoint("TOPLEFT", 1, -BAND_H)
     rule:SetPoint("TOPRIGHT", -1, -BAND_H)
+    s.rule = rule
     local where = Where(path, group.title, sheet)
+    local right = inset     -- the heading's room taken at the right
     if group.switch then
         -- a part's title names it; another's switch says what it is
         local w = Control(s, group.switch, nil, "switch", not group.id and group.switch.label or nil)
         w:SetPoint("TOPRIGHT", -inset, -(BAND_H - w:GetHeight()) / 2)
         table.insert(f.controls, w)
         s.switch = w
+        right = right + w:GetWidth() + 10
         local refresh = w.Refresh
         function w:Refresh(enabled)
             refresh(self, enabled)
@@ -415,19 +578,58 @@ local function Section(f, group, width, path, sheet)
         end
         table.insert(index, { label = group.switch.label, path = path, section = s, control = w, where = where })
     end
+    s.right = right
+    s.sum = UI.Plain(s, 11, C.faint)
+    s.sum:SetWordWrap(false)
+    s.sum:SetPoint("RIGHT", s, "TOPRIGHT", -right, -BAND_H / 2)
+    table.insert(index, { label = group.title, path = path, section = s, where = Where(path, nil, sheet) })
+    s.rows = {}
+    if inline then
+        -- the control in the heading, at its right; its label is the title
+        -- (a choice as its list, never side by side answers: one line)
+        local c
+        if only.kind == "choice" then
+            c = UI.Choice(s, only, width, true)
+            c.needs, c.always, c.can = only.needs, only.always, only.can
+            if only.key then controls[only.key] = c end
+        else
+            c = Control(s, only, width, true)
+        end
+        if c.stacked then
+            inline = false
+            c:Hide()
+            c:SetParent(nil)
+        else
+            table.insert(f.controls, c)
+            if c.label and only.kind == "choice" then c.label:Hide() end
+            if c.line then c.line:Hide() end
+            c:ClearAllPoints()
+            if only.kind == "choice" then
+                c:SetHeight(BAND_H)
+                c:SetPoint("TOPLEFT", inset, 0)
+            else
+                c:SetPoint("RIGHT", s, "TOPRIGHT", -inset, -BAND_H / 2)
+            end
+            s.inline = c
+            if only.label then
+                table.insert(index, { label = only.label, path = path, section = s, control = c, where = where })
+            end
+        end
+    end
+    s.isInline = inline and true or false
+    if not inline then Folds(s, path .. "|" .. tostring(group.title), right) end
     local y = -BAND_H - 10
-    if group.tip then
+    if group.tip and not inline then
         local tip = UI.Plain(s, 11, C.dim)
         tip:SetPoint("TOPLEFT", inset, y)
         tip:SetWidth(width)
         tip:SetJustifyH("LEFT")
         tip:SetText(group.tip)
+        s.tip = tip
         y = y - math.ceil(tip:GetStringHeight()) - 8
     end
     local top = y
-    table.insert(index, { label = group.title, path = path, section = s, where = Where(path, nil, sheet) })
-    s.rows = {}
-    for i, spec in ipairs(group.items) do
+    for i, spec in ipairs(inline and {} or group.items) do
         local c = Control(s, spec, width, true)
         table.insert(f.controls, c)
         local r = { control = c }
@@ -467,51 +669,77 @@ local function Section(f, group, width, path, sheet)
             table.insert(index, { label = spec.label, path = path, section = s, control = c, where = where })
         end
     end
+    -- what the heading says at its right: folded, the first choice's answer
+    -- and how many options; open, how many (none beside a switch). The
+    -- title gives way to it, ending in "...".
+    function s:Summary()
+        local room = s:GetWidth() - (self.isInline and inset or inset + 14) - self.right - 8
+        local text = ""
+        if self.isInline then
+            local c = self.inline
+            room = room - (c.button and c.button:GetWidth() or c:GetWidth()) - 8
+        else
+            local n, first = 0, nil
+            for _, r in ipairs(self.rows) do
+                local c = r.control
+                if not (c.spec.hide and c.can and not c.can()) then
+                    n = n + 1
+                    if not first and c.spec.kind == "choice" then first = c.spec end
+                end
+            end
+            local count = ns.Plural(n, format(Tr["%d |4option:options;"], n))
+            if Shut(self) then
+                local answer = first and Answer(first)
+                text = answer and (answer .. "   \194\183   " .. count) or count
+                self.sum:SetText(text)
+                if answer and self.titleW + math.ceil(self.sum:GetStringWidth() or 0) + 12 > room then
+                    text = count
+                end
+            elseif not self.switch and n > 0 then
+                text = tostring(n)
+            end
+        end
+        self.sum:SetText(text)
+        local used = text ~= "" and math.ceil(self.sum:GetStringWidth() or 0) + 12 or 0
+        self.title:SetWidth(math.max(20, math.min(self.titleW, room - used)))
+    end
     -- its rows, one under another; a row its page's layout does not use
-    -- (spec.hide, while its test says no) off, and the card as tall as the rest
+    -- (spec.hide, while its test says no) off, and the card as tall as the
+    -- rest; folded, its heading alone
     function s:Rows()
+        local shut = Shut(self)
         local ry = top
         for _, r in ipairs(self.rows) do
             local c = r.control
             local on = not (c.spec.hide and c.can and not c.can())
-            c:SetShown(on)
-            if r.beside then r.beside:SetShown(on) end
-            if on then
+            c:SetShown(on and not shut)
+            if r.beside then r.beside:SetShown(on and not shut) end
+            if on and not shut then
                 c:ClearAllPoints()
                 c:SetPoint("TOPLEFT", inset, ry)
                 ry = ry - c:GetHeight() - ROW_GAP
             end
         end
-        self:SetHeight(-ry + 4)
+        if self.tip then self.tip:SetShown(not shut) end
+        self.rule:SetShown(not shut and not self.isInline)
+        Caret(self)
+        if shut or self.isInline then
+            self:SetHeight(BAND_H)
+        else
+            self:SetHeight(-ry + 4)
+        end
+        self:Summary()
     end
     s:Rows()
     s.sheetName = sheet
     return s
 end
 
--- The page's sections: on a page with sheets, those on the sheet shown
--- (and of the variant shown), one under another across the page; on
--- another, each in the shorter of two columns, so the columns end level
--- (a wide one across both, under the longer). Each's rows as they stand.
--- A section a search has lent is left where it is.
-local function Layout(f)
-    if f.cards then
-        -- Modules: the category shown, its cards under the intro
-        local h = 0
-        for _, sec in ipairs(f.sections) do
-            local on = sec.sheet == f.sheet
-            sec:SetShown(on)
-            if on then
-                sec:ClearAllPoints()
-                sec:SetPoint("TOPLEFT", 0, f.y0)
-                sec.top = -f.y0
-                h = sec:GetHeight()
-            end
-        end
-        f:SetHeight(-f.y0 + h + 4)
-        return
-    end
-    local tops = { f.y0, f.y0 }
+-- The page's sections, one under another across the page: on a page with
+-- sheets, those on the sheet shown (and of the variant shown). Each's rows
+-- as they stand. A section a search has lent is left where it is.
+function Layout(f)
+    local top = f.y0
     for _, sec in ipairs(f.sections) do
         if sec:GetParent() == f then
             local on = (not f.sheet or sec.sheet == f.sheet) and (not sec.variant or sec.variant == f.variant)
@@ -519,22 +747,13 @@ local function Layout(f)
             if on then
                 sec:Rows()
                 sec:ClearAllPoints()
-                if sec.wide then
-                    local top = math.min(tops[1], tops[2])
-                    sec.x, sec.top, sec.col = 0, -top, 1
-                    sec:SetPoint("TOPLEFT", 0, top)
-                    tops[1] = top - sec:GetHeight() - SEC_GAP
-                    tops[2] = tops[1]
-                else
-                    local col = tops[2] > tops[1] and 2 or 1
-                    sec.x, sec.top, sec.col = (col - 1) * (colW + COL_GAP), -tops[col], col
-                    sec:SetPoint("TOPLEFT", sec.x, tops[col])
-                    tops[col] = tops[col] - sec:GetHeight() - SEC_GAP
-                end
+                sec.x, sec.top, sec.col = 0, -top, 1
+                sec:SetPoint("TOPLEFT", 0, top)
+                top = top - sec:GetHeight() - SEC_GAP
             end
         end
     end
-    f:SetHeight(-math.min(tops[1], tops[2]) + 4)
+    f:SetHeight(-top + 4)
 end
 
 -- The page: its header (with its sheets' tabs, when its groups are on two
@@ -580,12 +799,11 @@ local function Build(content, path, page, tab, width)
     for _, v in ipairs(content.variants or {}) do names[v[1]] = v[2] end
     for i, group in ipairs(content.groups) do
         local sheet = f.sheets and (group.sheet or f.sheets[1]) or nil
-        local wide = (f.sheets or group.wide) and true or nil
         -- search's crumb: the sheet, and the variant ("Auras (Widget)")
         local crumb = sheet and SheetName(content, sheet)
         if crumb and group.variant then crumb = crumb .. " (" .. names[group.variant] .. ")" end
-        local s = Section(f, group, wide and width or colW, path, crumb)
-        s.home, s.sheet, s.variant, s.wide = f, sheet, group.variant, wide
+        local s = Section(f, group, width, path, crumb)
+        s.home, s.sheet, s.variant, s.wide = f, sheet, group.variant, true
         f.sections[i] = s
     end
     Strip(f)
@@ -734,13 +952,10 @@ local function Modules(content, path, page, width)
         end
         return out
     end
-    -- a tab for each category with a part, by its name
-    local lists, sheets = {}, {}
-    for i, cat in ipairs(categories) do
-        lists[i] = Parts(cat)
-        if #lists[i] > 0 then table.insert(sheets, cat.name) end
-    end
-    if #sheets >= 2 then f.sheets, f.sheet = sheets, sheets[1] end
+    -- (2026-11-25, the user's pick C) every category with a part, one under
+    -- another, each folding to its heading: its scope or note at the right
+    local lists = {}
+    for i, cat in ipairs(categories) do lists[i] = Parts(cat) end
     Header(f, content, path, page, nil)
     local intro = UI.Plain(f, 12, C.dim)
     intro:SetPoint("TOPLEFT", 0, -4)
@@ -753,26 +968,39 @@ local function Modules(content, path, page, width)
     for i, cat in ipairs(categories) do
         local list = lists[i]
         if #list > 0 then
-            -- a category's cards, on its tab: its scope or note over them
             local s = CreateFrame("Frame", nil, f)
             s:SetWidth(width)
-            s.sheet = cat.name
-            s.title = UI.Serif(s, 14, C.text)
+            s.home, s.path, s.chipName, s.cat = f, path, cat.name, cat.name
+            s.band = UI.Fill(s, "BACKGROUND", C.raised, 1)
+            s.band:SetPoint("TOPLEFT", 0, 0)
+            s.band:SetPoint("TOPRIGHT", 0, 0)
+            s.band:SetHeight(BAND_H)
+            UI.Outline(s, "BORDER", C.line, 0)
+            s.title = UI.Serif(s, 13, C.text)
+            s.title:SetPoint("LEFT", s, "TOPLEFT", CARD_PAD + 14, -BAND_H / 2)
             s.title:SetText(cat.name)
-            s.title:Hide()
             s.note = UI.Plain(s, 11, C.faint)
-            s.note:SetPoint("TOPLEFT", 0, 0)
+            s.note:SetPoint("RIGHT", s, "TOPRIGHT", -CARD_PAD, -BAND_H / 2)
             s.note:SetText(cat.note or cat.scope or "")
-            local sy = s.note:GetText() ~= "" and -20 or 0
+            Folds(s, path .. "|" .. cat.name, 0)
+            s.cards = {}
+            local sy = -BAND_H - CARD_GAP
             for n, part in ipairs(list) do
-                local card = Card(s, part[1], part[2], cardW, names)
+                local card = Card(s, part[1], part[2], cardW - CARD_GAP, names)
                 local col = (n - 1) % 2
-                card:SetPoint("TOPLEFT", col * (cardW + CARD_GAP), sy)
+                card:SetPoint("TOPLEFT", CARD_GAP + col * cardW, sy)
                 if col == 1 or n == #list then sy = sy - CARD_H - CARD_GAP end
                 table.insert(f.controls, card)
                 table.insert(f.cards, card)
+                table.insert(s.cards, card)
             end
-            s:SetHeight(-sy)
+            s.open = -sy
+            function s:Rows()
+                local shut = Shut(self)
+                for _, card in ipairs(self.cards) do card:SetShown(not shut) end
+                Caret(self)
+                self:SetHeight(shut and BAND_H or self.open)
+            end
             table.insert(f.sections, s)
         end
     end
@@ -783,7 +1011,8 @@ local function Modules(content, path, page, width)
 end
 
 -- ------------------------------------------------------------ scrolling
-local function Thumb()
+function Thumb()
+    ns.LightChips()
     local range = scroll:GetVerticalScrollRange() or 0
     if range <= 0 then
         thumb:Hide()
@@ -797,10 +1026,19 @@ local function Thumb()
     thumb:Show()
 end
 
+-- The body under the shown page's header, as tall as the header is.
+local function PlaceBody(f)
+    local top = HEAD_TOP + f.head:GetHeight() + 12
+    body:ClearAllPoints()
+    body:SetPoint("TOPLEFT", window, "TOPLEFT", X, -top)
+    body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -RIGHT, EDGE + FOOT + 6)
+end
+
 -- A sheet shown: its tab lit, its cards laid out, at their top.
 function ShowSheet(f, sheet)
     f.sheet = sheet
     Strip(f)
+    PlaceBody(f)
     Layout(f)
     scroll:SetVerticalScroll(0)
     flash:Hide()
@@ -814,6 +1052,7 @@ function SetVariant(f, v)
     f.variant = v
     if f.variantSeg then f.variantSeg:Refresh(true) end
     Strip(f)
+    if f.path == current then PlaceBody(f) end
     local here
     for _, b in ipairs(f.tabs or {}) do
         if b.sheet == f.sheet then here = b.any end
@@ -826,6 +1065,7 @@ function SetVariant(f, v)
             end
         end
         Strip(f)
+        if f.path == current then PlaceBody(f) end
     end
     Layout(f)
     Thumb()
@@ -1027,6 +1267,7 @@ local function Home()
     for _, s in ipairs(finds.lent) do
         s:SetParent(s.home)
         s:ClearAllPoints()
+        s.peek = nil
         homes[s.home] = true
     end
     finds.lent = {}
@@ -1047,12 +1288,16 @@ end
 
 -- A match chosen: its page, on its sheet and variant, scrolled to its
 -- section, the match outlined.
-local function Choose(e)
+function Choose(e)
     local s = e.section
     Select(e.path, s and s.sheet)
     local f = built[current]
     if s and f then
         if s.variant and f.variant ~= s.variant then SetVariant(f, s.variant) end
+        if s.folded and not s.peek then
+            s.peek = true
+            Layout(f)
+        end
         local range = math.max(0, f:GetHeight() - scroll:GetHeight())
         scroll:SetVerticalScroll(math.min(range, s.top or 0))
         Thumb()
@@ -1090,7 +1335,7 @@ end
 -- What a search found, on the right: the pages whose names match, then each
 -- section with a match (its own, lent: its options work there) under a
 -- line saying where it is, in two columns.
-local function Found()
+function Found()
     Home()
     local seen, sections, named = {}, {}, {}
     for _, e in ipairs(results) do
@@ -1120,32 +1365,25 @@ local function Found()
         y = y - LINK_H
     end
     if #named > 0 then y = y - 10 end
-    local tops = { y, y }
     for _, e in ipairs(sections) do
         local s = e.section
-        local col = tops[2] > tops[1] and 2 or 1
-        local x = (col - 1) * (colW + COL_GAP)
-        -- a wide one across both, under the longer
-        if s.wide then
-            col, x = 1, 0
-            tops[1] = math.min(tops[1], tops[2])
-        end
-        Line(e, Where(e.path, nil, s.sheetName) .. "  >", x, tops[col], s.wide and 2 * colW + COL_GAP or colW)
-        -- one off its page's sheet, or a row its layout leaves off, as it is
+        Line(e, Where(e.path, nil, s.sheetName) .. "  >", 0, y, width)
+        -- one off its page's sheet, or a row its layout leaves off, as it
+        -- is; a folded one open while it is lent
+        s.peek = true
         s:Show()
         s:Rows()
         s:SetParent(finds)
         s:ClearAllPoints()
-        s:SetPoint("TOPLEFT", finds, "TOPLEFT", x, tops[col] - LINK_H - 2)
+        s:SetPoint("TOPLEFT", finds, "TOPLEFT", 0, y - LINK_H - 2)
         table.insert(finds.lent, s)
-        tops[col] = tops[col] - LINK_H - 2 - s:GetHeight() - SEC_GAP
-        if s.wide then tops[2] = tops[1] end
+        y = y - LINK_H - 2 - s:GetHeight() - SEC_GAP
     end
     finds.none:SetShown(#results == 0)
     finds.head.crumb:SetText(#results == 0 and format(Tr["Nothing matches \"%s\"."], query)
         or format(Tr["%s and %s match \"%s\""], ns.Plural(#sections, format(Tr["%d |4section:sections;"], #sections)),
             ns.Plural(#named, format(Tr["%d |4page:pages;"], #named)), query))
-    finds:SetHeight(-math.min(tops[1], tops[2]) + 4)
+    finds:SetHeight(-y + 4)
 end
 
 -- lower case for matching: string.lower is ASCII only, so Cyrillic capitals
@@ -1306,12 +1544,12 @@ function Select(path, sheet)
         local ok = false
         for _, id in ipairs(f.sheets) do ok = ok or id == sheet end
         if ok then f.sheet = sheet end
-        Strip(f)
     end
-    local top = HEAD_TOP + f.head:GetHeight() + 12
-    body:ClearAllPoints()
-    body:SetPoint("TOPLEFT", window, "TOPLEFT", X, -top)
-    body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -RIGHT, EDGE + FOOT + 6)
+    -- a section a link or chip opened for a look is folded again
+    for _, s in ipairs(f.sections) do s.peek = nil end
+    Strip(f)
+    Layout(f)
+    PlaceBody(f)
     for p, pf in pairs(built) do
         pf:SetShown(p == current)
         pf.head:SetShown(p == current)
@@ -1586,7 +1824,6 @@ local function Window()
     window.footProfile, window.footReload, window.footDot = footProfile, footReload, footDot
 
     local width = W - X - RIGHT - 12
-    colW = math.floor((width - COL_GAP) / 2)
     -- a search's page, its header saying what it found
     finds = CreateFrame("Frame", nil, scroll)
     finds:SetWidth(width)

@@ -689,17 +689,6 @@ local function Shared(list)
     local grid = Group(Tr["On the frames"], { kind = "grid", label = Tr["Auras"], cols = AURA_COLS, rows = AURA_ROWS })
     grid.wide = true
     grid.tip = Tr["All sets every frame that has not chosen its own; a gold corner marks one that has."]
-    -- Tools: Overview > General's sections, the same ones
-    local tools = {
-        Mirror(Tr["Preview"], { "simParty", "simCdm" }),
-        Group(Tr["Editor"], Editor(nil, Tr["Edit unit frames"])),
-        Group(Tr["Key bindings"], Button(Tr["Bind keys"], function()
-            if ns.CloseOptions then ns.CloseOptions() end
-            ns.KeybindMode(true)
-        end, Tr["Closes this window. Point at an action button and press a key to bind it; Esc over a button "
-            .. "removes its keys. Also /mdlui kb."])),
-        Mirror(Tr["Game menu"], { "gameMenu" }),
-    }
     return {
         id = "shared", name = Tr["Shared"],
         tabs = {
@@ -758,10 +747,6 @@ local function Shared(list)
                     Mirror(Tr["Quest tracker"], { "questsTitleFont", "questsTitleSize", "questsObjectiveFont",
                         "questsObjectiveSize" }),
                 },
-            },
-            {
-                id = "tools", name = Tr["Tools"], intro = Tr["Also on Overview > General."],
-                groups = tools,
             },
         },
     }
@@ -1736,7 +1721,7 @@ function ns.OptionCategories()
     return {
         { name = Tr["Overview"], glyph = "menu", items = { "modules", "general" } },
         { name = Tr["Shared"], glyph = "channels", scope = Tr["Every part's, in one place"],
-            items = { "shared/visibility", "shared/auras", "shared/look", "shared/tools" } },
+            items = { "shared/visibility", "shared/auras", "shared/look" } },
         { name = Tr["Console"], glyph = "skills", scope = Tr["Kept per profile"],
             items = { "console/general", "console/bar", "console/paging", "console/minimap" } },
         -- shared by every profile, unlike the console (2026-11-15): its own
@@ -1749,7 +1734,7 @@ function ns.OptionCategories()
             items = { "units/general", "units/party", "units/raid", "units/battleground", "units/boss",
                 "units/arena" } },
         { name = Tr["Interface"], glyph = "view-full", scope = Tr["Shared by every profile"],
-            items = { "chat", "side", "quests", "tray", "windows" } },
-        { name = Tr["Extensions"], glyph = "misc", note = Tr["Companion addons"], items = { "tooltips", "radial" } },
+            items = { "chat", "side", "quests", "tray", "windows", "tooltips" } },
+        { name = Tr["Extensions"], glyph = "misc", note = Tr["Companion addons"], items = { "radial" } },
     }
 end

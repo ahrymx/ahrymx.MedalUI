@@ -6114,10 +6114,55 @@ if barPass then
     end
     print("window", "size=" .. win.w .. "x" .. win.h, "strata=" .. tostring(win.strata),
         "esc=" .. tostring(UISpecialFrames[1]), "title=" .. win.title.text)
-    for _, path in ipairs({ "general", "shared/visibility", "shared/auras", "shared/look", "shared/tools",
+    for _, path in ipairs({ "general", "shared/visibility", "shared/auras", "shared/look",
         "console/general", "console/layout", "console/bar", "console/paging", "console/overhead",
         "console/minimap", "units/general", "units/party", "units/raid", "units/battleground", "units/boss",
         "units/arena", "chat", "side", "windows" }) do dump(path) end
+    -- (2026-11-25, mockup C) a section folds to its heading, kept; a chip
+    -- opens it for a look and scrolls to it; a search shows it open, and it
+    -- is folded again after
+    do
+        ns.OpenOptions("shared/visibility")
+        local f = ns.optionPages["shared/visibility"]
+        local sec
+        for _, x in ipairs(f.sections) do
+            if not sec and x.shown ~= false and x.foldKey and #x.rows > 1 then sec = x end
+        end
+        local open = sec.h
+        sec.foldButton.scripts.OnClick(sec.foldButton)
+        local rows = 0
+        for _, r in ipairs(sec.rows) do if r.control.shown ~= false then rows = rows + 1 end end
+        print("options.fold", sec.title.text, "open h=" .. open, "folded h=" .. sec.h, "rows shown=" .. rows,
+            "sum=" .. tostring(sec.sum.text), "caret=" .. string.format("%.2f", sec.caret.rotation or 0),
+            "saved=" .. tostring(ns.db.optionsFolded and ns.db.optionsFolded[sec.foldKey]))
+        local chip, names = nil, {}
+        for _, b in ipairs(f.chips or {}) do
+            if b.shown ~= false then table.insert(names, b.text.text) end
+            if b.section == sec then chip = b end
+        end
+        print("options.chips", "shown=" .. table.concat(names, " "), "head=" .. f.head.h)
+        chip.scripts.OnClick(chip)
+        print("options.chip click", chip.text.text, "peek=" .. tostring(sec.peek), "h=" .. sec.h,
+            "scroll=" .. win.scroll:GetVerticalScroll(), "top=" .. tostring(sec.top),
+            "saved=" .. tostring(ns.db.optionsFolded[sec.foldKey]))
+        ns.OpenOptions("general")
+        ns.OpenOptions("shared/visibility")
+        print("options.fold kept", "h=" .. sec.h, "peek=" .. tostring(sec.peek))
+        local label = sec.rows[#sec.rows].control.spec.label
+        ns.SearchOptions(label)
+        print("options.fold search", label, "lent=" .. tostring(sec:GetParent() == win.finds), "h=" .. sec.h)
+        ns.SearchOptions("")
+        ns.OpenOptions("shared/visibility")
+        print("options.fold after search", "h=" .. sec.h, "home=" .. tostring(sec:GetParent() == f))
+        ns.OptionsFold(sec, false)
+        print("options.fold open again", "h=" .. sec.h, "saved=" .. tostring(ns.db.optionsFolded))
+        -- a page of one or two sections has no chips
+        ns.OpenOptions("console/minimap")
+        local mf = ns.optionPages["console/minimap"]
+        local n = 0
+        for _, b in ipairs(mf.chips or {}) do if b.shown ~= false then n = n + 1 end end
+        print("options.chips minimap", "sections=" .. #mf.sections, "chips=" .. n, "head=" .. mf.head.h)
+    end
     -- a card's switch off greys its card's rows, not the others; the footer
     -- asks for a reload
     page.settings.bags:Set(false)
@@ -6444,21 +6489,30 @@ if barPass then
         local secs = {}
         for _, s in ipairs(mods.sections) do table.insert(secs, s.title.text .. " (" .. s.note.text .. ")") end
         print("options.modules sections", table.concat(secs, "; "))
-        -- a tab per category; only its cards shown, under the intro
+        -- (2026-11-25) every category one under another, each folding to its
+        -- heading; the chips over them
         local function shownSecs()
             local o = {}
             for _, s in ipairs(mods.sections) do
-                if s.shown ~= false then table.insert(o, s.sheet .. "@" .. select(5, s:GetPoint(1))) end
+                if s.shown ~= false then
+                    table.insert(o, s.cat .. "@" .. select(5, s:GetPoint(1)) .. "h" .. s.h)
+                end
             end
             return table.concat(o, ",")
         end
-        local tabs = {}
-        for _, b in ipairs(mods.tabs or {}) do table.insert(tabs, b.name .. (b.foot.shown and "*" or "")) end
-        local before = shownSecs()
-        for _, b in ipairs(mods.tabs or {}) do if b.name == ns.L["Interface"] then b.scripts.OnClick(b) end end
-        print("options.modules tabs", table.concat(tabs, " "), "shown=" .. before, "after Interface=" .. shownSecs(),
-            "crumb=" .. mods.head.crumb.text)
-        for _, b in ipairs(mods.tabs or {}) do if b.name == ns.L["Console"] then b.scripts.OnClick(b) end end
+        local chipNames = {}
+        for _, b in ipairs(mods.chips or {}) do
+            if b.shown ~= false then table.insert(chipNames, b.text.text) end
+        end
+        print("options.modules column", "tabs=" .. tostring(mods.tabs ~= nil), "shown=" .. shownSecs(),
+            "chips=" .. table.concat(chipNames, " "))
+        local interface
+        for _, s in ipairs(mods.sections) do if s.cat == ns.L["Interface"] then interface = s end end
+        ns.OptionsFold(interface, true)
+        print("options.modules Interface folded", "shown=" .. shownSecs(),
+            "saved=" .. tostring(ns.db.optionsFolded and ns.db.optionsFolded[interface.foldKey]))
+        ns.OptionsFold(interface, false)
+        print("options.modules Interface open", "saved=" .. tostring(ns.db.optionsFolded))
         cards("all on")
         page.settings.side:Set(false)
         cards("side off")
