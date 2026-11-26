@@ -112,13 +112,13 @@ local BOTTOM = BAND + RULE                      -- the page's (or its details') 
 -- A docked window's margin (2026-11-19, mockup B of /workspace/margin-B.png;
 -- at the top only since /workspace/meld-sheet.png): its head and pages
 -- stand this far down from the screen's top; the window's gold frame only
--- on its inner side and foot, the screen being the frame on the others,
--- and flush against the screen's edge a gold rail (RAIL: its columns, outer
--- first, bevelled), top to foot, the head and cross reaching it. Floating,
--- none.
+-- on its inner side and foot, the screen being the frame on the others.
+-- (2026-11-26, the user's: the gold rail down the screen's edge gone; the
+-- head and cross reach the edge.) The margin is a recess (RECESS: the ink
+-- darker, its top to its foot), so it reads apart from the page under the
+-- head. Floating, none.
 local MARGIN = 10
-local RAIL = { ns.Themed({ 0.27, 0.22, 0.11 }), ns.Themed({ 0.80, 0.69, 0.41 }), ns.Themed({ 0.98, 0.90, 0.67 }),
-    ns.Themed({ 0.37, 0.29, 0.14 }) }
+local RECESS = { 0.35, 0.7 }
 local LIFT = 20                                 -- the medallion's buttons' level over the window's
 local HEIGHT, LEAST = 480, { WIDTH, 240 }        -- a detached window's first height, its least size
 local SCALES = { 0.6, 1.4, 0.05 }               -- a detached window's scale: least, most, a step
@@ -1097,10 +1097,9 @@ function ns.Window(spec)
         return floating and 0 or MARGIN, 0, 0
     end
     -- the chrome's (the head's, the cross's, a joined panel's) insets from
-    -- the window's sides: docked, the outer side's to the rail
+    -- the window's sides: none (the rail they once stopped at is gone)
     local function Edges()
-        local m = floating and 0 or #RAIL
-        return side < 0 and m or 0, side > 0 and m or 0
+        return 0, 0
     end
     -- a page's top: under its joined panel (under), or the window's
     local function TopOf(p)
@@ -1323,6 +1322,12 @@ function ns.Window(spec)
     -- edge, ink and head band from where the rim meets them, and lit gold
     -- there, fading along the top and down the side
     local GLINT = { top = 70, side = 40 }
+    -- docked, the swell round the head's medallion while it shows (floating,
+    -- the cut corner instead)
+    local function Swell()
+        local h = drop.head
+        if h and h.swell then h.swell:SetShown(not floating and h.medal:IsShown()) end
+    end
     local function Cut()
         local c = chrome.cut
         if not c then return end
@@ -1395,6 +1400,7 @@ function ns.Window(spec)
         chrome.edge:SetAlpha(off and FLOAT.edge or 1)
         chrome.lit:SetShown(off)
         chrome.head:SetShown(off)
+        chrome.recess:SetShown(not off)
         rule:SetAlpha(off and FLOAT.rule or 1)
         local inset = off and 1 or PAD
         local el, er = Edges()                  -- (on the pages' grid)
@@ -1406,6 +1412,7 @@ function ns.Window(spec)
             Boxed(b, not off)
             if b.icon then b.icon:SetAlpha(off and FLOAT.close or 1) end
         end
+        Swell()
         Cut()
     end
 
@@ -1572,7 +1579,7 @@ function ns.Window(spec)
         for _, sc in ipairs(ns.window.scrollers) do
             local f = sc.body
             while f and f ~= window do f = f:GetParent() end
-            if f then sc.Edge(side, floating and PAD / 2 or (PAD - #RAIL) / 2) end
+            if f then sc.Edge(side, PAD / 2) end
         end
     end
 
@@ -1664,7 +1671,6 @@ function ns.Window(spec)
                 p.foot:SetPoint("BOTTOMRIGHT", -(PAD + ri), BOTTOM)
             end
         end
-        if window.metal then window.metal.Set(not floating) end
         Bars()
     end
 
@@ -1684,7 +1690,12 @@ function ns.Window(spec)
     -- head, a heading naming the window, ringed rows on hairlines, the open
     -- one in a gold fade marked open)
     local DROP_ROW, DROP_ICON, DROP_RULE, DROP_HEAD = 30, 18, 9, 30
-    local MEDAL, STEP, SLANT = 40, 40, 6        -- the head's medallion, its step's length, the slant up
+    -- the head's medallion, its step's length, the slant up; docked, the
+    -- swell's radius round the medallion (2026-11-26, /workspace/swell-mock-2.png:
+    -- the inner edge swelling out round it, the step's foot running into it;
+    -- art/window/gen_swell.py draws it to these)
+    local MEDAL, STEP, SLANT = 46, 40, 6
+    local SWELL = MEDAL / 2 + 5
     local FAINT = { 0.37, 0.345, 0.29 }
     local HAIR = { 0.157, 0.137, 0.106 }
     local LIFT_ROW = { 0.141, 0.125, 0.098 }
@@ -1747,6 +1758,7 @@ function ns.Window(spec)
         local p = current
         if p then PageIcon(h.icon, p, true) end
         h.medal:SetShown(p ~= nil)
+        Swell()
         Cut()
         h.label:SetText(p and (p.heading or p.label) or "")
         local many = drop.count and drop.count > 1 or false
@@ -2043,28 +2055,36 @@ function ns.Window(spec)
             m:SetScript("OnClick", function() drop.Toggle() end)
             m:SetScript("OnEnter", function() local f = h:GetScript("OnEnter") if f then f(h) end end)
             m:SetScript("OnLeave", function() GameTooltip:Hide() end)
-            local function Disc(size, c, sub)
-                local t = m:CreateTexture(nil, "BACKGROUND", nil, sub)
-                t:SetSize(size, size)
-                t:SetPoint("CENTER")
-                t:SetTexture(ns.media .. "strips\\round")
-                t:SetVertexColor(c[1], c[2], c[3], 1)
-                return t
+            -- (2026-11-26) a bevelled ring, lit at its top, in the gold
+            -- (art/window/gen_medallion.py), round a face of ink lifted at
+            -- its top; the icon in its thin dark-gold ring inside
+            local ink = ns.colors.ink
+            m.face = m:CreateTexture(nil, "BACKGROUND", nil, 1)
+            m.face:SetSize(MEDAL - 8, MEDAL - 8)
+            m.face:SetPoint("CENTER")
+            m.face:SetTexture(ns.media .. "strips\\round")
+            if m.face.SetGradient and CreateColor then
+                m.face:SetVertexColor(1, 1, 1, 1)
+                m.face:SetGradient("VERTICAL", CreateColor(ink[1], ink[2], ink[3], 1),
+                    CreateColor(ink[1] + 0.07, ink[2] + 0.07, ink[3] + 0.07, 1))
+            else
+                m.face:SetVertexColor(ink[1] + 0.03, ink[2] + 0.03, ink[3] + 0.03, 1)
             end
-            m.rim = Disc(MEDAL, GOLD, 1)                        -- the gold rim
-            m.gap = Disc(MEDAL - 3, ns.colors.ink, 2)           -- a dark line inside it
-            m.icon = Ring(m, MEDAL - 8)                         -- the icon in a thin dark-gold ring
+            m.rim = m:CreateTexture(nil, "BACKGROUND", nil, 2)
+            m.rim:SetSize(MEDAL, MEDAL)
+            m.rim:SetPoint("CENTER")
+            m.rim:SetTexture(ns.media .. "window\\medallion-ring")
+            m.rim:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1)
+            m.icon = Ring(m, MEDAL - 16)
             m.icon:SetPoint("CENTER")
             h.medal, h.icon = m, m.icon
             -- the step: the foot down to the medallion's base, a short
             -- slant back up to the head's (covering the rule there)
             local st = CreateFrame("Frame", nil, h)
             st:SetFrameLevel(h:GetFrameLevel() + 10)
-            st:SetSize(STEP, MEDAL - TAB + 2)
             -- its ink the step's shape: square to the slant's foot, then a
             -- column a pixel wide each, cut at the slant (nothing beyond it)
-            local rise, run = MEDAL - TAB, SLANT
-            local ink = ns.colors.ink
+            local run = SLANT
             local fill = st:CreateTexture(nil, "BACKGROUND")
             fill:SetPoint("TOP" .. near)
             fill:SetPoint("BOTTOM" .. near)
@@ -2073,34 +2093,59 @@ function ns.Window(spec)
             for i = 1, run do
                 local col = st:CreateTexture(nil, "BACKGROUND")
                 col:SetWidth(1)
-                col:SetHeight(math.max(1, (MEDAL - TAB + 2) - rise * (i - 0.5) / run))
                 col:SetColorTexture(ink[1], ink[2], ink[3], 1)
                 st.wedge[i] = col
             end
-            -- its length: STEP, longer by the medallion's shift docked
-            function st.Length(len)
-                st:SetWidth(len)
-                fill:SetWidth(len - run)
-                for i, col in ipairs(st.wedge) do
-                    col:ClearAllPoints()
-                    col:SetPoint("TOP" .. near, (len - run + i - 1) * out, 0)
-                end
-            end
-            st.Length(STEP)
             local foot = st:CreateTexture(nil, "ARTWORK")
             foot:SetHeight(1)
-            foot:SetPoint("BOTTOM" .. near, 0, 0)
-            foot:SetPoint("BOTTOM" .. far, -run * out, 0)
             foot:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
             -- the slant: from the foot's end up to the head's foot, inside
             -- the step, which covers the head's foot as far as its top
             local slant = st:CreateTexture(nil, "ARTWORK")
-            slant:SetSize(math.sqrt(rise * rise + run * run) + 1, 1)
-            slant:SetPoint("CENTER", st, "BOTTOM" .. far, -run / 2 * out, rise / 2)
             slant:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-            if slant.SetRotation then slant:SetRotation(out * math.atan2(rise, run)) end
-            st.fill = fill
+            -- its length (STEP, longer by the medallion's shift), its depth
+            -- (down to the medallion's base floating, the swell's docked),
+            -- and where its foot starts (docked, at the medallion's middle:
+            -- the swell's line goes on from there)
+            function st.Fit(len, height, from)
+                local rise = height - 2
+                st:SetSize(len, height)
+                fill:SetWidth(len - run)
+                for i, col in ipairs(st.wedge) do
+                    col:SetHeight(math.max(1, height - rise * (i - 0.5) / run))
+                    col:ClearAllPoints()
+                    col:SetPoint("TOP" .. near, (len - run + i - 1) * out, 0)
+                end
+                foot:ClearAllPoints()
+                foot:SetPoint("BOTTOM" .. near, from * out, 0)
+                foot:SetPoint("BOTTOM" .. far, -run * out, 0)
+                slant:SetSize(math.sqrt(rise * rise + run * run) + 1, 1)
+                slant:ClearAllPoints()
+                slant:SetPoint("CENTER", st, "BOTTOM" .. far, -run / 2 * out, rise / 2)
+                if slant.SetRotation then slant:SetRotation(out * math.atan2(rise, run)) end
+            end
+            st.Fit(STEP, MEDAL - TAB + 2, 0)
+            st.fill, st.foot = fill, foot
             h.step = st
+            -- the swell (docked): over the step (its foot runs on round the
+            -- swell's), under the medallion; the art the left strip's (its
+            -- inner edge the right), mirrored for the right strip's
+            local sw = CreateFrame("Frame", nil, window)
+            sw:SetSize(64, 64)
+            sw.fill = sw:CreateTexture(nil, "BACKGROUND")
+            sw.fill:SetAllPoints()
+            sw.fill:SetTexture(ns.media .. "window\\swell-fill")
+            sw.fill:SetVertexColor(ink[1], ink[2], ink[3], spec.opaque and 1 or 0.94)
+            sw.line = sw:CreateTexture(nil, "ARTWORK")
+            sw.line:SetAllPoints()
+            sw.line:SetTexture(ns.media .. "window\\swell-line")
+            sw.line:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+            if not mirror then
+                sw.fill:SetTexCoord(1, 0, 0, 1)
+                sw.line:SetTexCoord(1, 0, 0, 1)
+            end
+            sw:Hide()
+            h.swell, chrome.swell = sw, sw
             h.label:Hide()
             h.count = ns.Text(h, 10)
             h.count:SetTextColor(unpack(ns.colors.dim))
@@ -2144,14 +2189,23 @@ function ns.Window(spec)
         -- window's corner cut round it (Cut)
         local shift = floating and MEDAL / 2 or MEDAL / 4
         h.cut = MEDAL / 2
+        -- its top the window's (docked, the screen's: it rises through the
+        -- margin); the step's foot at its base floating, docked at the
+        -- swell's lowest point
         h.medal:ClearAllPoints()
-        h.medal:SetPoint("CENTER", window, "TOP" .. near, shift * out, -(top + MEDAL / 2))
+        h.medal:SetPoint("CENTER", window, "TOP" .. near, shift * out, -MEDAL / 2)
         h.count:ClearAllPoints()
         h.count:SetPoint(near, (MEDAL / 2 + 12 + shift) * out, 0)
-        h.step.Length(STEP + shift)
+        local base = floating and MEDAL or MEDAL / 2 + SWELL
+        h.step.Fit(STEP + shift, base - (top + TAB - 2), floating and 0 or shift - 1)
         w.step = STEP + shift
         h.step:ClearAllPoints()
         h.step:SetPoint("TOP" .. near, window, "TOP" .. near, mirror and -1 or 1, -(top + TAB - 2))
+        -- the swell's box: its middle the window's inner side, its top the window's
+        h.swell:ClearAllPoints()
+        h.swell:SetPoint("TOP" .. near, window, "TOP" .. near, -32 * out, 0)
+        h.swell:SetFrameLevel(h:GetFrameLevel() + 11)
+        Swell()
         Boxed(h, not floating)
         h:Show()
         Cut()
@@ -2223,7 +2277,9 @@ function ns.Window(spec)
         if Dropped() then
             for _, b in ipairs(tabs) do b:Hide() end
             Drop(first, second)
-            Under(1, MEDAL)
+            -- clear of the step's foot: the medallion's base floating, the
+            -- swell's lowest point docked (from the window's top, less the margin)
+            Under(1, floating and MEDAL or MEDAL / 2 + SWELL - (Inset()))
             return
         end
         if drop.head then
@@ -2407,6 +2463,24 @@ function ns.Window(spec)
         chrome.head:SetHeight(TAB - 2)
         chrome.head:SetColorTexture(unpack(FLOAT.head))
         chrome.head:Hide()
+        -- docked: the margin over the head a recess, the ink darker to its top
+        chrome.recess = window:CreateTexture(nil, "BACKGROUND", nil, 4)
+        chrome.recess:SetPoint("TOPLEFT", side > 0 and 1 or 0, 0)
+        chrome.recess:SetPoint("TOPRIGHT", side < 0 and -1 or 0, 0)
+        chrome.recess:SetHeight(MARGIN)
+        do
+            local ink = ns.colors.ink
+            local function dark(k) return ink[1] * k, ink[2] * k, ink[3] * k end
+            if chrome.recess.SetGradient and CreateColor then
+                chrome.recess:SetColorTexture(1, 1, 1, 1)
+                local fr, fg, fb = dark(RECESS[2])
+                local tr, tg, tb = dark(RECESS[1])
+                chrome.recess:SetGradient("VERTICAL", CreateColor(fr, fg, fb, 1), CreateColor(tr, tg, tb, 1))
+            else
+                local r, g, b = dark((RECESS[1] + RECESS[2]) / 2)
+                chrome.recess:SetColorTexture(r, g, b, 1)
+            end
+        end
         chrome.lit = window:CreateTexture(nil, "BORDER")
         chrome.lit:SetPoint("TOPLEFT", 1, -1)
         chrome.lit:SetPoint("TOPRIGHT", -1, -1)
@@ -2447,28 +2521,6 @@ function ns.Window(spec)
         bandRule:SetPoint("BOTTOMLEFT", PAD, BAND)
         bandRule:SetPoint("BOTTOMRIGHT", -PAD, BAND)
         window.bandRule = bandRule
-        -- the margin's rail (docked): flush against the screen's edge, the
-        -- window's height; its columns (RAIL) outer first
-        do
-            local metal = CreateFrame("Frame", nil, window)
-            metal:SetWidth(#RAIL)
-            metal:SetFrameLevel(window:GetFrameLevel() + 2)
-            local outer = side < 0 and "LEFT" or "RIGHT"
-            metal:SetPoint("TOP" .. outer, 0, 0)
-            metal:SetPoint("BOTTOM" .. outer, 0, 0)
-            metal.columns = {}
-            for k, c in ipairs(RAIL) do
-                local t = metal:CreateTexture(nil, "ARTWORK")
-                t:SetWidth(1)
-                t:SetPoint("TOP" .. outer, (k - 1) * (side < 0 and 1 or -1), 0)
-                t:SetPoint("BOTTOM" .. outer, (k - 1) * (side < 0 and 1 or -1), 0)
-                t:SetColorTexture(c[1], c[2], c[3], 1)
-                metal.columns[k] = t
-            end
-            metal.Set = function(on) metal:SetShown(on) end
-            metal:Hide()
-            window.metal = metal
-        end
         Medal()
 
         -- the cross flush in the top right corner

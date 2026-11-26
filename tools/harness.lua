@@ -19653,16 +19653,25 @@ if characterPass then
             do  -- (2026-11-25) no shadow, docked or floating
                 print("char.shadow docked", "none=" .. tostring(w.chrome.shadow == nil))
             end
-            do  -- the margin: the metal down the screen's edge, docked only
-                local mt = w.metal
-                local bg = w.chrome.bg
-                local function cols()
-                    local o = {}
-                    for _, c in ipairs(mt.columns) do o[#o + 1] = select(4, c:GetPoint(1)) end
-                    return table.concat(o, ",")
+            do  -- the margin (docked): no rail (2026-11-26), a recess over the head;
+                -- the swell round the medallion, the step's foot into it
+                local ch = w.chrome
+                local bg, rc, sw = ch.bg, ch.recess, ch.swell
+                local function grad(t)
+                    local g = t.gradient
+                    if not g then return "flat" end
+                    local function c(x) return ("%.3f"):format(x[1] or x.r) end
+                    return c(g[2]) .. ">" .. c(g[3])
                 end
-                print("char.margin", "rail=" .. tostring(mt and mt.shown) .. " " .. pt(mt) .. " / " .. pt(mt, 2),
-                    "columns=" .. cols(), "bg=" .. pt(bg) .. " / " .. pt(bg, 2),
+                print("char.margin", "rail=" .. tostring(w.metal ~= nil),
+                    "recess=" .. tostring(rc.shown) .. " " .. pt(rc) .. " / " .. pt(rc, 2) .. " h" .. tostring(rc.h)
+                    .. " " .. grad(rc),
+                    "swell=" .. tostring(sw.shown) .. " " .. pt(sw) .. " " .. sw.w .. "x" .. sw.h
+                    .. " lvl+" .. (sw.level - h.level) .. " medal+" .. (h.medal.level - h.level)
+                    .. " step+" .. (h.step.level - h.level)
+                    .. " coords=" .. (sw.line.coords and table.concat(sw.line.coords, ",") or "-"),
+                    "foot=" .. pt(h.step.foot) .. " / " .. pt(h.step.foot, 2),
+                    "bg=" .. pt(bg) .. " / " .. pt(bg, 2),
                     "close=" .. pt(w.close), "head=" .. pt(h) .. " w" .. tostring(h.w),
                     "first=" .. tostring(select(5, ns.character.pages[1].body:GetPoint(1))))
             end
