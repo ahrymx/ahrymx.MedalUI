@@ -522,6 +522,28 @@ options("tall", nil, 14)
 options("short plain", "plain", 4)
 options("raid", nil, nil, "Raid")
 options("gone", nil, nil, "No Such Bar")
+
+-- (2026-11-26) MedalUI's own tips (ns.Tip's specs): where each line sits,
+-- the header's height, the panel's; the title and the body on one margin
+local function specLayout(label, spec)
+    local panel = ui.renderPreview(anchor, spec, "mdlui")
+    local o = {}
+    for _, t in ipairs(texts(panel)) do
+        if t.f.shown ~= false then o[#o + 1] = plain(t.text):sub(1, 14) .. "@" .. n(t.x) .. "," .. n(t.y) end
+    end
+    print("tooltips spec " .. label, "panel=" .. n(panel.w) .. "x" .. n(panel.h), "header=" .. n(panel.header.h),
+        "inset=" .. n(panel.inset), "rule=" .. tostring(panel.headerRule.shown ~= false), table.concat(o, " | "))
+end
+specLayout("title body", { title = "General", { "body", "That is everything under Console but the Overhead." },
+    { "body", "Also on Shared > Visibility & fading." } })
+specLayout("title count", { title = "General", { "body", "10 spells" } })
+specLayout("title only", { title = "Restoration" })
+-- the window's tabs: the count as a hint (the footer), or none
+specLayout("tab hint", { title = "General", { "hint", "10 spells" } })
+specLayout("tab no hint", { title = "Restoration", { "hint", nil } })
+specLayout("sentence", { title = "Character. Click for the window's pages.", wrap = true })
+-- a headed one after it: its rule back
+specLayout("title again", { title = "General", { "body", "10 spells" } })
 mdlui_TooltipsDB.barStyle, mdlui_TooltipsDB.barHeight, mdlui_TooltipsDB.barTexture = nil, nil, nil
 print("tooltips bar textures", table.concat(ns.barTextureNames(), ","))
 -- with LibSharedMedia: its status bars are the list, and a name it lacks is flat

@@ -258,6 +258,11 @@ local DRAW = {
 
 -- The panel ---------------------------------------------------------------------
 
+-- (2026-11-26) A compact view (MedalUI's own tips): a thinner head, as far
+-- below its title as above; its body a little under the head's rule, not on
+-- it; a head alone is the whole panel, no rule and nothing under it.
+local COMPACT_TOP, COMPACT_BELOW, COMPACT_BODY = 11, 5, 9
+
 local function renderView(panel, tooltip, view)
     -- Whatever a tooltip type lent the panel goes back before anything is drawn.
     if panel.release then panel.release(panel) end
@@ -287,7 +292,8 @@ local function renderView(panel, tooltip, view)
     local indent = indentOf(view)
     local leftIndent, rightIndent = ui.headerInsets(indent)
     local inner = panel.width - 2 * pad()
-    local y = ui.titleTop()
+    local compact = view.compact
+    local y = compact and COMPACT_TOP or ui.titleTop()
     for _, item in ipairs(view.header) do
         if item.text then
             y = y + ui.styledAt(panel, item.text, pad() + leftIndent, y, inner - indent, item.style, item.color)
@@ -302,15 +308,36 @@ local function renderView(panel, tooltip, view)
     end
     local footer = view.footer
     local hasFooter = footer and (footer.draw or #footer.rows > 0)
-    if #view.header > 0 or view.icon then
+    -- the head's rule as the look has it (Gilded's), each time: the backdrop
+    -- is set only when the look changes, and a panel without a head hides it
+    local ruled = panel.backdropMode == "gilded"
+    panel.headerRule:SetShown(ruled)
+    if panel.headerShadow then panel.headerShadow:SetShown(ruled) end
+    if compact and (#view.header > 0 or view.icon) then
+        local alone = #view.sections == 0 and not hasFooter
+        y = math.max(y + COMPACT_BELOW, headerMin)
+        panel.header:SetHeight(y - panel.inset - (alone and panel.inset or 0))
+        if alone then
+            panel.headerRule:Hide()
+            if panel.headerShadow then panel.headerShadow:Hide() end
+            ui.finishPanel(panel, tooltip, y, 0)
+            return
+        end
+        -- (a footer straight under the head has its own band's room)
+        if #view.sections > 0 then y = y + COMPACT_BODY end
+    elseif #view.header > 0 or view.icon then
         -- A header alone ends as far below its last line as its first is from the top.
         local alone = #view.sections == 0 and not hasFooter
         y = math.max(alone and y or y + 6, headerMin)
         panel.header:SetHeight(y - panel.inset)
     else
         -- Sections alone, as the minimap's list: as much room above as below.
-        y = pad() - 2
+        y = compact and COMPACT_TOP or pad() - 2
         panel.header:SetHeight(0)
+        -- (2026-11-26) no head, no rule under it: a 0 high head leaves its
+        -- rule anywhere (it showed far under the panel)
+        panel.headerRule:Hide()
+        if panel.headerShadow then panel.headerShadow:Hide() end
     end
 
     -- The header's rows are not a section's: the first separator follows the band.
@@ -333,7 +360,7 @@ local function renderView(panel, tooltip, view)
             end
         end
     end
-    ui.finishPanel(panel, tooltip, y, bottom)
+    ui.finishPanel(panel, tooltip, y, bottom or (compact and COMPACT_TOP) or nil)
 end
 
 -- The row naming what the panel shows by its ID, while IDs show.

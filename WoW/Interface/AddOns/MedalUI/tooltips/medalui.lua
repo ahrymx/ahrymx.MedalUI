@@ -75,6 +75,11 @@ local function specView(spec)
     end
     local lastRole
     for _, part in ipairs(spec) do
+        -- a line with nothing to say (a tab's count it does not have) left out
+        if part and (part[1] == "body" or part[1] == "hint" or part[1] == "warn")
+            and (part[2] == nil or part[2] == "") then
+            part = false
+        end
         local role = part and part[1]
         if role == "body" then
             local list = rows(part[3] and colors.caption or colors.detail)
@@ -114,7 +119,7 @@ local function specView(spec)
     return { tooltipType = "object", color = GOLD, header = header, sections = sections,
         footer = #hints > 0 and { rows = hints, style = ui.styleOf("objectPrices"), color = colors.caption, gap = 3 }
             or nil,
-        minWidth = 0 }
+        minWidth = 0, compact = true }
 end
 
 ui.defineTooltipType(KIND, { read = readSpec, key = specKey, option = "medaluiPanels", linesOnly = true,
