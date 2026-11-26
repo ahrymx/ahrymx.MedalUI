@@ -22,13 +22,19 @@ local C = UI.colors
 
 local W, H = 900, 600
 local SIDE_W, BAR_H, FOOT, EDGE = 200, 34, 40, 1 -- the sidebar; the window's head and footer; its edge
-local HEAD_TOP, RIGHT = EDGE + BAR_H + 14, 16    -- a page's header: its top, and its right margin
-local HEAD_H, SEC_GAP, CARD_PAD, BAND_H = 50, 8, 12, 28
-local CHIP_H, CHIPS_H = 20, 28          -- the index's chips, and their row under the header
-local STRIP_H, ROW_GAP = 26, 4          -- a page's sheet tabs, under its crumb; between a card's rows
+local HEAD_TOP, RIGHT = EDGE + BAR_H, 16         -- a page's header: its top, and its right margin
+local SEC_GAP, CARD_PAD, BAND_H = 8, 12, 28
+local ROW_GAP = 4                       -- between a card's rows
+-- (2026-11-26, the user's pick "Ledger") a page's header: two rails across
+-- the page, flush under the window's head: the tabs' (the chrome's ink),
+-- then the index's (raised), when the page has one
+local TAB_H, INDEX_H = 32, 26
+local HEAD_H = TAB_H
 local ITEM_H, CAT_H, SEARCH_H, LINK_H = 28, 42, 26, 20
 local CARD_H, CARD_GAP = 44, 8
-local X = EDGE + SIDE_W + 18            -- the header's and body's left
+local X = EDGE + SIDE_W + 18            -- the body's left
+local HEAD_X = EDGE + SIDE_W            -- the header's rails' left, against the sidebar
+local PAD = X - HEAD_X                  -- the rails' words in line with the body
 local ROUND = ns.media .. "strips\\round"
 local GREEN = { 0.42, 0.78, 0.36 }
 
@@ -193,16 +199,11 @@ end
 local ShowSheet, SetVariant
 local Layout, Found, Thumb, Choose   -- (folding, the chips: defined further down)
 
--- The header's crumb: where the page sits, the sheet shown, its scope.
-local function Crumb(head, sheet)
-    return head.crumbBase .. (sheet and ("  >  " .. sheet) or "")
-        .. (head.scope and ("   \194\183   " .. head.scope) or "")
-end
-
--- (2026-11-25, the user's pick C) the index: under the header, a chip for
--- each section shown (its title up to a ":"), when there are three or more;
--- a click opens its section there and scrolls to it. The tabs, the variant's
--- switch and the hairline stand above the chips' row.
+-- (2026-11-26, the user's pick "Ledger") the index: its own rail under the
+-- tabs', each section shown by name (its title up to a ":") between small
+-- gold diamonds, when there are three or more; a click opens its section
+-- there and scrolls to it. The section at the scroll's top is lit,
+-- underlined in gold. Names past the rail's right go in a "+N" word's list.
 local function Chips(f)
     local head = f.head
     f.chips = f.chips or {}
@@ -213,18 +214,50 @@ local function Chips(f)
         end
     end
     local on = #shown >= 3
-    local x, room = 0, head:GetWidth()
-    if not room or room <= 0 then room = W - X - RIGHT end
+    local y = -(TAB_H + INDEX_H / 2)
+    head.index:SetShown(on)
+    head.indexRule:SetShown(on)
+    head:SetHeight(TAB_H + (on and INDEX_H or 0))
+    local x = PAD
+    local room = head:GetWidth()
+    if not room or room <= 0 then room = W - HEAD_X - EDGE end
+    room = room - (RIGHT - EDGE)
+    -- how many fit: all, or as many as leave room for the "+N"
+    head.measure = head.measure or UI.Plain(head, 12)
+    head.measure:Hide()
+    local function Width(name)
+        head.measure:SetText(name)
+        return math.ceil(head.measure:GetStringWidth() or 0) + 4
+    end
+    local fit, used = 0, x
+    for i, sec in ipairs(on and shown or {}) do
+        local nw = Width(sec.chipName)
+        if used + nw > room then break end
+        fit, used = i, used + nw + 18
+    end
+    if on and fit < #shown then
+        fit, used = 0, x
+        for _, sec in ipairs(shown) do
+            local nw = Width(sec.chipName)
+            if used + nw + 18 + Width("+" .. #shown) > room then break end
+            fit, used = fit + 1, used + nw + 18
+        end
+    end
     for i, sec in ipairs(on and shown or {}) do
         local b = f.chips[i]
         if not b then
             b = CreateFrame("Button", nil, head)
-            b:SetHeight(CHIP_H)
-            b.bg = UI.Fill(b, "BACKGROUND", C.well, 1)
-            b.bg:SetAllPoints()
-            b.edge = UI.Outline(b, "BORDER", C.lineStrong, 0)
-            b.text = UI.Plain(b, 11, C.dim)
+            b:SetHeight(INDEX_H - 4)
+            b.text = UI.Plain(b, 12, C.dim)
             b.text:SetPoint("CENTER", 0, 0)
+            b.under = UI.Fill(b, "ARTWORK", C.gold)
+            b.under:SetHeight(2)
+            b.under:SetPoint("BOTTOMLEFT", 0, 0)
+            b.under:SetPoint("BOTTOMRIGHT", 0, 0)
+            -- the diamond after it: a small square, turned
+            b.dot = UI.Fill(head, "ARTWORK", C.goldDark)
+            b.dot:SetSize(4, 4)
+            b.dot:SetRotation(math.pi / 4)
             b:SetScript("OnClick", function(self)
                 Choose({ path = f.path, section = self.section, control = self.section })
             end)
@@ -236,27 +269,55 @@ local function Chips(f)
         end
         b.section = sec
         b.text:SetText(sec.chipName)
-        local w = math.ceil(b.text:GetStringWidth() or 0) + 18
-        b:SetWidth(w)
+        local bw = math.ceil(b.text:GetStringWidth() or 0) + 4
+        b:SetWidth(bw)
         b:ClearAllPoints()
-        b:SetPoint("BOTTOMLEFT", head, "BOTTOMLEFT", x, 4)
-        -- a row that runs out of room ends there
-        b:SetShown(x + w <= room)
-        x = x + w + 6
+        b:SetPoint("LEFT", head, "TOPLEFT", x, y)
+        local fits = i <= fit
+        b:SetShown(fits)
+        b.dot:ClearAllPoints()
+        b.dot:SetPoint("CENTER", head, "TOPLEFT", x + bw + 9, y)
+        b.dot:SetShown(fits and i < #shown)
+        if fits then x = x + bw + 18 end
     end
-    for i = (on and #shown or 0) + 1, #f.chips do f.chips[i]:Hide() end
-    f.chipsUp = on and CHIPS_H or 0
-    head:SetHeight(f.headBase + f.chipsUp)
-    head.rule:ClearAllPoints()
-    head.rule:SetPoint("BOTTOMLEFT", 0, f.chipsUp)
-    head.rule:SetPoint("BOTTOMRIGHT", 0, f.chipsUp)
-    if f.aside then
-        f.aside:ClearAllPoints()
-        f.aside:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, 3 + f.chipsUp)
+    -- the rest, in a list under a "+N"
+    local rest = on and #shown - fit or 0
+    if rest > 0 and not head.rest then
+        local r = CreateFrame("Button", nil, head)
+        r:SetHeight(INDEX_H - 4)
+        r.text = UI.Plain(r, 12, C.gold)
+        r.text:SetPoint("CENTER", 0, 0)
+        r:SetScript("OnClick", function(self)
+            local choices = {}
+            for i = self.fit + 1, #self.secs do choices[#choices + 1] = { i, self.secs[i].chipName } end
+            UI.OpenMenu(self, { choices = choices, get = function() return nil end, set = function(i)
+                local sec = self.secs[i]
+                Choose({ path = f.path, section = sec, control = sec })
+            end })
+        end)
+        r:SetScript("OnEnter", function(self)
+            self.text:SetTextColor(C.goldBright[1], C.goldBright[2], C.goldBright[3])
+        end)
+        r:SetScript("OnLeave", function(self) self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3]) end)
+        head.rest = r
+    end
+    if head.rest then
+        head.rest.secs, head.rest.fit = shown, fit
+        head.rest:SetShown(rest > 0)
+        if rest > 0 then
+            head.rest.text:SetText("+" .. rest)
+            head.rest:SetWidth(math.ceil(head.rest.text:GetStringWidth() or 0) + 4)
+            head.rest:ClearAllPoints()
+            head.rest:SetPoint("LEFT", head, "TOPLEFT", x, y)
+        end
+    end
+    for i = (on and #shown or 0) + 1, #f.chips do
+        f.chips[i]:Hide()
+        f.chips[i].dot:Hide()
     end
 end
 
--- the chip of the section at the scroll's top lit, the rest dim
+-- the name of the section at the scroll's top lit, the rest dim
 function ns.LightChips()
     local f = current and built[current]
     if not (f and f.chips and scroll) then return end
@@ -269,21 +330,18 @@ function ns.LightChips()
     end
     for _, b in ipairs(f.chips) do
         local on = b == lit
-        local t = on and C.gold or C.dim
+        local t = on and C.goldBright or C.dim
         b.text:SetTextColor(t[1], t[2], t[3])
-        UI.Paint(b.bg, on and C.selected or C.well)
-        UI.Paint(b.edge, on and C.goldDark or C.lineStrong)
+        b.under:SetShown(on)
     end
 end
 
 -- The tabs shown: each sheet with a section of the variant shown, left to
--- right; the one shown lit, a gold foot under it, the crumb ending on it.
+-- right; the one shown cut into the page under it, gilded along its top.
 local function Strip(f)
-    Chips(f)
-    if not f.tabs then return end
-    local x = 0
-    for _, b in ipairs(f.tabs) do
-        local any = false
+    local x = PAD - 6
+    for _, b in ipairs(f.tabs or { f.head.only }) do
+        local any = b == f.head.only
         for _, sec in ipairs(f.sections) do
             if sec.sheet == b.sheet and (not sec.variant or sec.variant == f.variant) then any = true end
         end
@@ -291,88 +349,96 @@ local function Strip(f)
         b:SetShown(any)
         if any then
             b:ClearAllPoints()
-            b:SetPoint("BOTTOMLEFT", f.head, "BOTTOMLEFT", x, 1 + (f.chipsUp or 0))
+            b:SetPoint("TOPLEFT", f.head, "TOPLEFT", x, -4)
             x = x + b:GetWidth() + 2
         end
         local on = b.sheet == f.sheet
         b.foot:SetShown(on)
+        b.cut:SetShown(on)
+        for _, e in ipairs(b.sides) do e:SetShown(on) end
         local c = on and C.goldBright or C.dim
         b.text:SetTextColor(c[1], c[2], c[3])
-        if on then f.head.crumb:SetText(Crumb(f.head, b.name)) end
     end
+    Chips(f)
 end
 
--- A page's header, over its body: its title, where it sits ("Console >
--- Action Bars > Look · Kept per profile"), a (?) after that holding the
--- rest of its intro and where else its options are, its master's switch;
--- its sheets' tabs, with the variant's switch or an aside (Simulate) at
--- their right; a hairline under. Shown with its page.
+-- A page's header, over its body (2026-11-26: no title and no crumb, the
+-- sidebar says where it is; the user's pick "Ledger"): the tabs' rail, in
+-- the chrome's ink flush under the window's head, its sheets' tabs at the
+-- left (a page of no sheets: one tab, its name); at its right its master's
+-- switch, the variant's switch or an aside (Simulate), and a (?) holding the
+-- rest of its intro, its own scope and where else its options are. Under
+-- it, the index's rail (Chips). Shown with its page.
 local function Header(f, content, path, page, tab)
     local head = CreateFrame("Frame", nil, window)
-    head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -HEAD_TOP)
-    head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -RIGHT, -HEAD_TOP)
+    head:SetPoint("TOPLEFT", window, "TOPLEFT", HEAD_X, -HEAD_TOP)
+    head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -EDGE, -HEAD_TOP)
     head:SetHeight(HEAD_H)
+    local rail = UI.Fill(head, "BACKGROUND", C.chrome, 1)
+    rail:SetPoint("TOPLEFT", 0, 0)
+    rail:SetPoint("TOPRIGHT", 0, 0)
+    rail:SetHeight(TAB_H)
+    head.index = UI.Fill(head, "BACKGROUND", C.raised, 1)
+    head.index:SetPoint("TOPLEFT", 0, -TAB_H)
+    head.index:SetPoint("TOPRIGHT", 0, -TAB_H)
+    head.index:SetHeight(INDEX_H)
+    head.index:Hide()
+    head.indexRule = UI.Fill(head, "BORDER", C.line)
+    head.indexRule:SetHeight(1)
+    head.indexRule:SetPoint("TOPLEFT", 0, -(TAB_H + INDEX_H - 1))
+    head.indexRule:SetPoint("TOPRIGHT", 0, -(TAB_H + INDEX_H - 1))
+    head.indexRule:Hide()
     local at = place[path]
-    head.title = UI.Serif(head, 20, C.text)
-    head.title:SetPoint("TOPLEFT", 0, -2)
-    head.title:SetText(at and ItemName(at.item) or (tab and tab.name or page.name))
-    local parts = {}
-    if at then
-        table.insert(parts, at.cat.name)
-        if not Single(at.cat) then
-            table.insert(parts, Parent(at.item))
-            table.insert(parts, ItemName(at.item))
-        end
-    end
-    head.scope = content.scope or at and at.cat.scope
-    head.crumbBase = table.concat(parts, "  >  ")
-    head.crumb = UI.Plain(head, 12, C.faint)
-    head.crumb:SetPoint("TOPLEFT", 0, -28)
-    head.crumb:SetText(Crumb(head, nil))
+    head.name = at and ItemName(at.item) or (tab and tab.name or page.name)
+    -- the page's own scope, where it is not its category's (under its name in the sidebar)
+    local scope = content.scope ~= (at and at.cat.scope) and content.scope or nil
     local more = content.more and content.also and (content.more .. "\n\n" .. content.also)
         or content.more or content.also
-    if more then
-        local q = CreateFrame("Button", nil, head)
-        q:SetSize(22, 16)
-        q:SetPoint("LEFT", head.crumb, "RIGHT", 6, 0)
-        q.text = UI.Plain(q, 12, C.gold)
-        q.text:SetPoint("CENTER", 0, 0)
-        q.text:SetText("(?)")
-        q.tip = more
-        q:SetScript("OnEnter", function(self)
-            self.text:SetTextColor(C.goldBright[1], C.goldBright[2], C.goldBright[3])
-            UI.Tip(self, head.title:GetText(), self.tip)
-        end)
-        q:SetScript("OnLeave", function(self)
-            self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3])
-            if GameTooltip then GameTooltip:Hide() end
-        end)
-        head.more = q
-    end
+    if scope then more = more and (scope .. ".\n\n" .. more) or (scope .. ".") end
+    local right = {}   -- the strip's right, from the edge in
     if content.master then
         local m = Control(head, content.master, nil, "switch", Tr["Enabled"])
-        m:SetPoint("TOPRIGHT", 0, -6)
         f.master = m
         table.insert(f.controls, m)
+        table.insert(right, m)
+    end
+    local function Tab(id, name)
+        local b = CreateFrame("Button", nil, head)
+        b.sheet, b.name = id, name
+        -- down to the rail's foot, over its hairline: the shown one opens into the page
+        b:SetHeight(TAB_H - 4)
+        b.lift = UI.Fill(b, "BACKGROUND", C.lift, 2)
+        b.lift:SetAllPoints()
+        b.lift:Hide()
+        b.cut = UI.Fill(b, "BACKGROUND", C.page, 1)
+        b.cut:SetAllPoints()
+        b.sides = {}
+        for i, edge in ipairs({ "LEFT", "RIGHT" }) do
+            local e = UI.Fill(b, "BORDER", C.lineStrong)
+            e:SetWidth(1)
+            e:SetPoint("TOP" .. edge, 0, 0)
+            e:SetPoint("BOTTOM" .. edge, 0, 0)
+            b.sides[i] = e
+        end
+        b.text = UI.Serif(b, 12.5, C.dim)
+        b.text:SetPoint("CENTER", 0, 0)
+        b.text:SetText(name)
+        b:SetWidth(math.ceil(b.text:GetStringWidth()) + 28)
+        -- the shown tab's gilt edge, along its top
+        b.foot = UI.Fill(b, "OVERLAY", C.gold)
+        b.foot:SetHeight(2)
+        b.foot:SetPoint("TOPLEFT", 0, 0)
+        b.foot:SetPoint("TOPRIGHT", 0, 0)
+        return b
+    end
+    if not f.sheets then
+        -- the page's one tab, its name: lit, nothing to switch to
+        head.only = Tab(nil, head.name)
     end
     if f.sheets then
-        head:SetHeight(HEAD_H + STRIP_H - 4)
         f.tabs = {}
         for _, id in ipairs(f.sheets) do
-            local b = CreateFrame("Button", nil, head)
-            b.sheet, b.name = id, SheetName(content, id)
-            b:SetHeight(STRIP_H)
-            b.lift = UI.Fill(b, "BACKGROUND", C.lift, 1)
-            b.lift:SetAllPoints()
-            b.lift:Hide()
-            b.text = UI.Serif(b, 13, C.dim)
-            b.text:SetPoint("CENTER", 0, 1)
-            b.text:SetText(b.name)
-            b:SetWidth(math.ceil(b.text:GetStringWidth()) + 28)
-            b.foot = UI.Fill(b, "OVERLAY", C.goldBright)
-            b.foot:SetHeight(2)
-            b.foot:SetPoint("BOTTOMLEFT", 8, 0)
-            b.foot:SetPoint("BOTTOMRIGHT", -8, 0)
+            local b = Tab(id, SheetName(content, id))
             b:SetScript("OnClick", function(self) ShowSheet(f, self.sheet) end)
             b:SetScript("OnEnter", function(self)
                 if f.sheet ~= self.sheet then
@@ -403,15 +469,44 @@ local function Header(f, content, path, page, tab)
             table.insert(f.controls, aside)
             table.insert(index, { label = content.aside.label, path = path, control = aside, where = Where(path) })
         end
-        if aside then aside:SetPoint("BOTTOMRIGHT", head, "BOTTOMRIGHT", 0, 3) end
+        if aside then table.insert(right, aside) end
         f.aside = aside
     end
-    local rule = UI.Fill(head, "ARTWORK", C.line)
+    if more then
+        local q = CreateFrame("Button", nil, head)
+        q:SetSize(22, 16)
+        q.text = UI.Plain(q, 12, C.gold)
+        q.text:SetPoint("CENTER", 0, 0)
+        q.text:SetText("(?)")
+        q.tip = more
+        q:SetScript("OnEnter", function(self)
+            self.text:SetTextColor(C.goldBright[1], C.goldBright[2], C.goldBright[3])
+            UI.Tip(self, head.name, self.tip)
+        end)
+        q:SetScript("OnLeave", function(self)
+            self.text:SetTextColor(C.gold[1], C.gold[2], C.gold[3])
+            if GameTooltip then GameTooltip:Hide() end
+        end)
+        head.more = q
+        table.insert(right, q)
+    end
+    -- the rail's right: each left of the one before, in line with the tabs
+    local last
+    for _, c in ipairs(right) do
+        c:ClearAllPoints()
+        if last then
+            c:SetPoint("RIGHT", last, "LEFT", -10, 0)
+        else
+            c:SetPoint("RIGHT", head, "TOPRIGHT", -(RIGHT - EDGE), -(TAB_H / 2 + 2))
+        end
+        last = c
+    end
+    -- the rail's foot, which the shown tab stands over
+    local rule = UI.Fill(head, "BORDER", C.lineStrong)
     rule:SetHeight(1)
-    rule:SetPoint("BOTTOMLEFT", 0, 0)
-    rule:SetPoint("BOTTOMRIGHT", 0, 0)
+    rule:SetPoint("TOPLEFT", 0, -(TAB_H - 1))
+    rule:SetPoint("TOPRIGHT", 0, -(TAB_H - 1))
     head.rule = rule
-    f.headBase = head:GetHeight()
     head:Hide()
     f.head = head
 end
@@ -1028,7 +1123,7 @@ end
 
 -- The body under the shown page's header, as tall as the header is.
 local function PlaceBody(f)
-    local top = HEAD_TOP + f.head:GetHeight() + 12
+    local top = HEAD_TOP + f.head:GetHeight() + 10
     body:ClearAllPoints()
     body:SetPoint("TOPLEFT", window, "TOPLEFT", X, -top)
     body:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -RIGHT, EDGE + FOOT + 6)
@@ -1830,14 +1925,13 @@ local function Window()
     finds:SetHeight(1)
     finds.lent, finds.links = {}, {}
     finds.head = CreateFrame("Frame", nil, window)
-    finds.head:SetPoint("TOPLEFT", window, "TOPLEFT", X, -HEAD_TOP)
-    finds.head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -RIGHT, -HEAD_TOP)
+    finds.head:SetPoint("TOPLEFT", window, "TOPLEFT", HEAD_X, -HEAD_TOP)
+    finds.head:SetPoint("TOPRIGHT", window, "TOPRIGHT", -EDGE, -HEAD_TOP)
     finds.head:SetHeight(HEAD_H)
-    finds.head.title = UI.Serif(finds.head, 20, C.text)
-    finds.head.title:SetPoint("TOPLEFT", 0, -2)
-    finds.head.title:SetText(Tr["Search"])
-    finds.head.crumb = UI.Plain(finds.head, 12, C.faint)
-    finds.head.crumb:SetPoint("TOPLEFT", 0, -28)
+    UI.Fill(finds.head, "BACKGROUND", C.chrome, 1):SetAllPoints()
+    -- what matched, on the rail (no title: the search box says it)
+    finds.head.crumb = UI.Plain(finds.head, 13, C.dim)
+    finds.head.crumb:SetPoint("LEFT", finds.head, "TOPLEFT", PAD, -TAB_H / 2)
     local rule = UI.Fill(finds.head, "ARTWORK", C.line)
     rule:SetHeight(1)
     rule:SetPoint("BOTTOMLEFT", 0, 0)

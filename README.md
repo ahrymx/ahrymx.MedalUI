@@ -131,7 +131,7 @@ Every tooltip is drawn as an ornamented panel: items, spells, units, auras, ques
 
 Every part of MedalUI can be switched off on the **Modules** page; turn off what you'd rather keep from another addon or the default UI.
 
-Each page is one column of sections. Click a section's heading to fold it down to one line, which shows how many options it holds; the window remembers what you fold. On a longer page, the chips under the title jump to a section and open it.
+Each page is one column of sections. Click a section's heading to fold it down to one line, which shows how many options it holds; the window remembers what you fold. On a longer page, the section names under the tabs jump to a section and open it.
 
 | | |
 |:---:|:---:|

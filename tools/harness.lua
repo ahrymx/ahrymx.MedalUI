@@ -5997,10 +5997,16 @@ if barPass then
         print("window " .. tostring(page.opened), "tree=" .. lit(win.tree.rows, function(r) return r.lit.shown end),
             "height=" .. f.h, "range=" .. win.scroll:GetVerticalScrollRange(),
             "thumb=" .. tostring(win.thumb.shown))
-        -- the header: title, where it sits, the master's switch; then each
-        -- section's column and top
+        -- the header (2026-11-26: no title, no crumb): the page's name for
+        -- its tip, its height, what sits at the strip's right; the master's
+        -- switch; then each section's column and top
         local m = f.master
-        print("  header", f.head.title.text, f.head.crumb.text, m and ("switch=" .. (m.label and m.label.text or "")
+        local function at(c)
+            local p = c and c.points and c.points.RIGHT
+            return p and (tostring(p[1] == f.head and "head" or "prev") .. " " .. p[3] .. "," .. p[4]) or "-"
+        end
+        print("  header", f.head.name, "h=" .. f.head.h, "rule=" .. tostring(f.head.rule.shown ~= false),
+            "master@" .. at(m), "aside@" .. at(f.aside), "more@" .. at(f.head.more), m and ("switch=" .. (m.label and m.label.text or "")
             .. (m.tick.shown and " on" or " off") .. (m:IsEnabled() and "" or " grey")) or "switch=-")
         -- the intro, one line; the rest in the header's (?)
         print("  intro", f.intro and f.intro.text or "-", "lines=" .. (f.intro and f.intro:GetStringHeight() or 0),
@@ -6104,7 +6110,7 @@ if barPass then
             if b.shown ~= false then
                 b.scripts.OnClick(b)
                 print("  sheet " .. b.text.text, "height=" .. f.h, "range=" .. win.scroll:GetVerticalScrollRange(),
-                    "crumb=" .. f.head.crumb.text)
+                    "head=" .. f.head.h)
                 body()
             end
         end
@@ -6140,7 +6146,25 @@ if barPass then
             if b.shown ~= false then table.insert(names, b.text.text) end
             if b.section == sec then chip = b end
         end
-        print("options.chips", "shown=" .. table.concat(names, " "), "head=" .. f.head.h)
+        local lit = "-"
+        for _, b in ipairs(f.chips or {}) do
+            if b.shown ~= false and b.under.shown ~= false then lit = b.text.text end
+        end
+        print("options.chips", "shown=" .. table.concat(names, " "), "head=" .. f.head.h,
+            "rail=" .. tostring(f.head.index.shown ~= false), "lit=" .. lit,
+            "rest=" .. tostring(f.head.rest and f.head.rest.shown ~= false and f.head.rest.text.text),
+            "tab=" .. (f.tabs and f.tabs[1].text.text or f.head.only and ("only " .. f.head.only.text.text) or "-"))
+        -- the names past the strip's right: a "+N" opens a list of them; a pick opens its section
+        if f.head.rest and f.head.rest.shown ~= false then
+            f.head.rest.scripts.OnClick(f.head.rest)
+            local menu, picks = _G.MedalUIOptionsMenu, {}
+            for _, r in ipairs(menu.rows) do if r.shown ~= false then table.insert(picks, r.text.text) end end
+            local last = menu.rows[#picks]
+            last.scripts.OnClick(last)
+            local want = f.head.rest.secs[#f.head.rest.secs]
+            print("options.chips rest", "list=" .. table.concat(picks, ","), "picked=" .. want.chipName,
+                "scroll=" .. win.scroll:GetVerticalScroll(), "top=" .. tostring(want.top))
+        end
         chip.scripts.OnClick(chip)
         print("options.chip click", chip.text.text, "peek=" .. tostring(sec.peek), "h=" .. sec.h,
             "scroll=" .. win.scroll:GetVerticalScroll(), "top=" .. tostring(sec.top),
@@ -6161,7 +6185,13 @@ if barPass then
         local mf = ns.optionPages["console/minimap"]
         local n = 0
         for _, b in ipairs(mf.chips or {}) do if b.shown ~= false then n = n + 1 end end
-        print("options.chips minimap", "sections=" .. #mf.sections, "chips=" .. n, "head=" .. mf.head.h)
+        print("options.chips minimap", "sections=" .. #mf.sections, "chips=" .. n, "head=" .. mf.head.h,
+            "rail=" .. tostring(mf.head.index.shown ~= false))
+        -- a page of no sheets: one tab, its name, lit
+        ns.OpenOptions("console/paging")
+        local pf = ns.optionPages["console/paging"]
+        print("options.tab only", pf.head.only and pf.head.only.text.text, "lit=" .. tostring(pf.head.only.foot.shown),
+            "tabs=" .. tostring(pf.tabs ~= nil))
     end
     -- a card's switch off greys its card's rows, not the others; the footer
     -- asks for a reload
