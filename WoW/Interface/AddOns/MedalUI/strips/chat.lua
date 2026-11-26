@@ -344,7 +344,9 @@ local function EditBox(frame)
     if not box.medalui then
         box.medalui = {}
         local ink = ns.colors.ink
-        for i, colour in ipairs({ { 0.54, 0.44, 0.20, 0.9 }, { ink[1], ink[2], ink[3], 0.9 } }) do
+        -- its rim the dark gold, themed (2026-11-26, the user's: it stayed
+        -- gold under the Class theme, a copy of the gold's numbers)
+        for i, colour in ipairs({ { GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.9 }, { ink[1], ink[2], ink[3], 0.9 } }) do
             local t = box:CreateTexture(nil, "BACKGROUND", nil, i)
             t:SetPoint("TOPLEFT", i - 1, 1 - i)
             t:SetPoint("BOTTOMRIGHT", 1 - i, i - 1)

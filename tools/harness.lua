@@ -11557,6 +11557,13 @@ if stripsPass then
         local typing = lit(b1)
         b1:ClearFocus()
         print("editBox backing", "rest=" .. rest, "typing=" .. typing, "after=" .. lit(b1))
+        -- (2026-11-26) its rim the dark gold as themed (a class's colour under
+        -- the theme pass), never a copy of its numbers
+        do
+            local c, d = b1.medalui[1].color, ns.gold.dark
+            print("editBox rim", string.format("%.3f,%.3f,%.3f", c[1], c[2], c[3]), "themed="
+                .. tostring(c[1] == d[1] and c[2] == d[2] and c[3] == d[3]))
+        end
         -- typed in, then a click elsewhere: the text stays, and so does the
         -- box over the buffs (its text lay over them), its border dimmed
         b1:SetFocus()
@@ -19768,6 +19775,14 @@ if characterPass then
             h.medal.scripts.OnClick(h.medal, "LeftButton")
             print("char.medal click", "open=" .. tostring(d.IsOpen()))
             h.medal.scripts.OnClick(h.medal, "LeftButton")
+            -- (2026-11-26) the list casts no shadow: nothing under its notch
+            do
+                local under = 0
+                for _, r in ipairs(d.list.all_ or {}) do
+                    if r.kind == "Texture" and r.layer == "BACKGROUND" and (r.sub or 0) < 0 then under = under + 1 end
+                end
+                print("char.list shadow", "under the edge=" .. under)
+            end
             print("char.fades", "metal=" .. harnessMetal(h),
                 "held=" .. fadeDir(d.rows[1].fill), "bar=" .. tostring(d.list.edge))
         end
