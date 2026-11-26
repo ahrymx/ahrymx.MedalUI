@@ -56,7 +56,6 @@ local CUT = { x = MEDAL / 2, y = MEDAL / 2 }
 local MARGIN = 10                       -- the plates in from the floor's edges, each side alike
 local GLOW = 2                          -- the held plate's glow, out from its edge
 local PLATE_TOP = { 0.16, 0.14, 0.11, 1 } -- a plate's head, lit from above
-local FLOOR = { hatch = 0.05, vignette = 0.6, edge = 0.3 } -- the list's floor: its hatch, its edges' dark, its edge
 -- the editor's tray: a button's width and height (the engraved frame's 26),
 -- its glyph, between them, round them, the ink's fade out to the left
 local TRAY = { button = 84, height = 26, glyph = 14, gap = 4, pad = 3, fade = 40 }
@@ -1211,27 +1210,8 @@ function M.Build(p, b)
     list = CreateFrame("Frame", nil, b)
     list:SetPoint("TOPLEFT", 0, -4)
     list:SetPoint("BOTTOMRIGHT", 0, EDITOR + 10)
-    -- the plates' floor: a faint engraved hatch, darkening to its edges,
-    -- a faint gold edge round it
-    local hatch = list:CreateTexture(nil, "BACKGROUND", nil, -8)
-    hatch:SetAllPoints()
-    hatch:SetTexture(ns.media .. "strips\\stripes", "REPEAT", "REPEAT")
-    hatch:SetHorizTile(true)
-    hatch:SetVertTile(true)
-    hatch:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
-    hatch:SetAlpha(FLOOR.hatch)
-    local vignette = list:CreateTexture(nil, "BACKGROUND", nil, -7)
-    vignette:SetAllPoints()
-    vignette:SetTexture(ns.media .. "gamemenu-vignette")
-    vignette:SetVertexColor(0, 0, 0, FLOOR.vignette)
-    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
-        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
-        local t = list:CreateTexture(nil, "BACKGROUND", nil, -6)
-        t:SetPoint(side[1])
-        t:SetPoint(side[2])
-        if side[3] then t:SetHeight(1) else t:SetWidth(1) end
-        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], FLOOR.edge)
-    end
+    -- the plates' floor (ns.window.Floor: the spellbook's windows wear it too)
+    ns.window.Floor(list)
     scroller = ns.window.Scroller(list, GUTTER)
     scroller.Moved = function() Follow() end
     list:EnableMouseWheel(true)

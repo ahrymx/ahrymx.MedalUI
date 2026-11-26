@@ -680,6 +680,32 @@ local function Scroller(body, gutter, outside)
     return s
 end
 ns.window.Scroller = Scroller
+
+-- A list's floor (the macros' list, the spellbook's windows): a faint
+-- engraved hatch in gold, darkening to its edges, a faint gold edge round it
+local FLOOR = { hatch = 0.05, vignette = 0.6, edge = 0.3 }
+function ns.window.Floor(f)
+    local hatch = f:CreateTexture(nil, "BACKGROUND", nil, -8)
+    hatch:SetAllPoints()
+    hatch:SetTexture(ns.media .. "strips\\stripes", "REPEAT", "REPEAT")
+    hatch:SetHorizTile(true)
+    hatch:SetVertTile(true)
+    hatch:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
+    hatch:SetAlpha(FLOOR.hatch)
+    local vignette = f:CreateTexture(nil, "BACKGROUND", nil, -7)
+    vignette:SetAllPoints()
+    vignette:SetTexture(ns.media .. "gamemenu-vignette")
+    vignette:SetVertexColor(0, 0, 0, FLOOR.vignette)
+    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local t = f:CreateTexture(nil, "BACKGROUND", nil, -6)
+        t:SetPoint(side[1])
+        t:SetPoint(side[2])
+        if side[3] then t:SetHeight(1) else t:SetWidth(1) end
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], FLOOR.edge)
+    end
+    return hatch, vignette
+end
 ns.window.scrollers = scrollers
 
 -- GameTooltip for owner, outside frame: beside its inner edge (side 1, a

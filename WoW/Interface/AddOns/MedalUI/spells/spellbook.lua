@@ -8,16 +8,18 @@
 --   | <> General    | <> Elemental  |<> Enhancement | <> Restor.. |
 --   |    9 spells   |   11 spells   |   13 spells   |   9 spells  |
 --   +---------------+---------------+=====[held]====+-------------+
---   Not on your bars 2 ---------------------------------------------
---     [icon] Attack                                     Instant   |
---     ------------------------------------------------------------ | (bar,
---   On your bars 6 ------------------------------------------------ |  in the
---   | [icon] Healing Wave v                               3 sec   |  margin)
---   |  [5]   Rank 5 · Shift+Middle                     200 Mana   |
---   |    |-- Rank 5                       3 sec        200 Mana
---   |    '-- Rank 1                     1.5 sec         25 Mana
---   ...
---   ---------------------------------------------------------------
+--   +- Not on your bars ------------------------------------- 2 -+  |
+--   | [icon] Attack                                     Instant   |  | (its bar,
+--   +-------------------------------------------------------------+  |  in the
+--   +- On your bars ------------------------------------------ 6 -+     margin)
+--   | [icon] Healing Wave v                               3 sec   |  |
+--   |  [5]   Rank 5 · Shift+Middle                     200 Mana   |  |
+--   |    |-- Rank 5                       3 sec        200 Mana   |  |
+--   |    '-- Rank 1                     1.5 sec         25 Mana   |  |
+--   |  Passive · 1 ----------------------------------------------- |
+--   |  [icon] Reincarnation                                Passive |
+--   +-------------------------------------------------------------+
+--     (the floor bare under them)
 --   [Trainer]                                            (backpack)
 --
 -- (2026-11-19, /workspace/spec-tabs-B.png) A panel under the head holds a
@@ -27,11 +29,14 @@
 -- brown), its name, its count; the open one held (MedalUICharDB.bookTab,
 -- by name, each page its own). (2026-11-25, /workspace/spec-rows-B.png)
 -- The specialisations share its top row; General and Pet a slim strip
--- under them, no more than three to a row. Under it that line's spells, on hairlines,
--- scrolled, the bar out in the window's margin by the rail (Scroller's
--- outside), under headings (2026-11-19, mockup B of
--- /workspace/booklist-sheet.png): Not on your bars, On your bars, Passive,
--- each with its count (Grouped). A spell is a row the window's width, at
+-- under them, no more than three to a row. Under it that line's spells, on
+-- hairlines, in two titled windows on the macros' floor (2026-11-26, the
+-- user's, mockup B of /workspace/booklist-windows-sheet.png): Not on your
+-- bars and On your bars, each with its count and its own scroll, its bar
+-- out in the window's margin by the rail (Scroller's outside); the
+-- passives at the foot of On your bars under a heading (Grouped). Each
+-- window fits its rows; when both cannot, Not on your bars is the longer
+-- (Layout). A spell is a row the window's width, at
 -- its highest rank learned, with its cast time over its cost at the right.
 -- One with ranks has how many on a plate at its icon's foot and a chevron
 -- after its name; a left click on it lists each rank under it
@@ -76,8 +81,10 @@ local SPECS_H = 44                      -- the tabs' panel, joined under the hea
 local STRIP_H = 26                      -- under it, General's and the pet's strip
 local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held
 local ICON, INDENT = 30, 20             -- a spell's icon, its left
-local HEADING = 28                      -- a group's heading
-local PAGE = 256                        -- the parchment's tile (media/spellbook, art/spellbook)
+local HEADING = 28                      -- Passive's heading, at the foot of On your bars
+local TITLE_H = 26                      -- a window's title band
+local GAP = 6                           -- between the two windows
+local LEAN = 0.6                        -- the share Not on your bars may take when both cannot fit
 local DOTS = 8                          -- the dotted rule's tile
 local FAINT = { 0.141, 0.122, 0.094 }   -- between a spell's ranks
 local RIGHT = 80                        -- the cast time and cost's column
@@ -317,15 +324,15 @@ local function Missing(item, macros)
     return true
 end
 
--- (2026-11-19, mockup B of /workspace/booklist-sheet.png) The open tab's
--- entries under headings: Not on your bars (each spell Missing finds), On
--- your bars, Passive; each with its count, in the book's order within.
--- Headed only when two have spells, and not on the trainer's page nor
--- while Click Casting binds (nothing is missing then): else one list.
-local GROUPS = { { Tr["Not on your bars"], true }, { Tr["On your bars"] }, { Tr["Passive"] } }
+-- (2026-11-26, /workspace/booklist-windows-sheet.png) The open tab's
+-- spells in two windows: Not on your bars (each spell Missing finds) and
+-- On your bars (the rest), its passives last under a Passive heading; each
+-- in the book's order. Both windows always show, an empty one saying so.
+-- On the trainer's page and while Click Casting binds nothing is missing,
+-- so all stands under On your bars.
 local function Grouped(p, macros, binding)
     local list = p.held and p.held.list or {}
-    local groups, filled = { {}, {}, {} }, 0
+    local groups = { {}, {}, {} }
     for _, item in ipairs(list) do
         if binding or p.trainer then
             item.missing, item.lowerOn = false, nil
@@ -335,16 +342,13 @@ local function Grouped(p, macros, binding)
         local g = item.missing and 1 or item.info.isPassive and 3 or 2
         table.insert(groups[g], item)
     end
-    for _, g in ipairs(groups) do if #g > 0 then filled = filled + 1 end end
-    if filled < 2 or binding or p.trainer then return Entries(p.held) end
-    local out = {}
-    for k, g in ipairs(groups) do
-        if #g > 0 then
-            table.insert(out, { heading = GROUPS[k][1], count = #g, red = GROUPS[k][2], key = "h" .. k })
-            for _, e in ipairs(Entries({ list = g })) do table.insert(out, e) end
-        end
+    local placed = Entries({ list = groups[2] })
+    if #groups[3] > 0 then
+        table.insert(placed, { heading = Tr["Passive"], count = #groups[3], key = "h3" })
+        for _, e in ipairs(Entries({ list = groups[3] })) do table.insert(placed, e) end
     end
-    return out
+    return { items = Entries({ list = groups[1] }), count = #groups[1] },
+        { items = placed, count = #groups[2] + #groups[3] }
 end
 
 -- ------------------------------------------------------------- up-ranking
@@ -629,9 +633,9 @@ end
 --   ranked  [ic]]] Healing Wave                      3 sec      (a stack)
 --                  Rank 5 · 5 ranks                  200 Mana
 --   rank       |   Rank 4                  3 sec     155 Mana
-local function Row(p, i)
-    local c = CreateFrame("Button", nil, p.scroller.child)
-    c:SetFrameLevel(p.scroller.child:GetFrameLevel() + 3)
+local function Row(p, win, i)
+    local c = CreateFrame("Button", nil, win.scroller.child)
+    c:SetFrameLevel(win.scroller.child:GetFrameLevel() + 3)
     -- the hairline at a row's foot, from the icon's left (Refresh hides
     -- it on a group's last, over a heading and between ranks)
     c.hair = c:CreateTexture(nil, "BACKGROUND", nil, -6)
@@ -797,7 +801,12 @@ local function Row(p, i)
     end)
     c:SetScript("OnEnter", function(self) if self.item then Tooltip(self, self.item) end end)
     c:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    p.rows[i] = c
+    -- an empty window's one line
+    c.empty = ns.Text(c, 11)
+    c.empty:SetPoint("LEFT", INDENT + ICON + 8, 0)
+    c.empty:SetTextColor(unpack(ns.colors.dim))
+    c.empty:SetText(Tr["None"])
+    win.rows[i] = c
     return c
 end
 
@@ -805,6 +814,7 @@ local PARTS = {
     spell = { "icon", "edge", "name", "sub", "cast", "cost" },
     rank = { "stem", "branch", "rank", "rcast", "rcost" },
     heading = { "hname", "hcount", "hunder", "hline" },
+    none = { "empty" },
 }
 local function Kind(c, kind)
     for k, list in pairs(PARTS) do
@@ -814,19 +824,23 @@ local function Kind(c, kind)
         c[part]:Hide()
     end
     c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    -- a heading is no button: no highlight under the pointer, no click
-    c:EnableMouse(kind ~= "heading")
-    c.glow:SetShown(kind ~= "heading")
+    -- a heading (or an empty window's line) is no button: no highlight
+    -- under the pointer, no click
+    local still = kind == "heading" or kind == "none"
+    c:EnableMouse(not still)
+    c.glow:SetShown(not still)
     c.kind = kind
 end
 
--- The entries laid out top to bottom in the scroll's child, the list's
--- width; the rows left over hidden.
-local function Place(p, items)
+-- A window's entries laid out top to bottom in its scroll's child, the
+-- list's width (an empty window: its one None line); the rows left over
+-- hidden. Its content's height kept for the windows' split (Layout).
+local function Place(p, win, items)
     local width = W.width
     local y = 0
+    if #items == 0 then items = { { none = true } } end
     for i, item in ipairs(items) do
-        local c = p.rows[i] or Row(p, i)
+        local c = win.rows[i] or Row(p, win, i)
         local h = item.heading and HEADING or item.rank and RANK or SPELL
         c:ClearAllPoints()
         c:SetPoint("TOPLEFT", 0, -y)
@@ -836,11 +850,13 @@ local function Place(p, items)
         c:Show()
         y = y + h
     end
-    for i = #items + 1, #p.rows do
-        p.rows[i].item = nil
-        p.rows[i]:Hide()
+    for i = #items + 1, #win.rows do
+        win.rows[i].item = nil
+        win.rows[i]:Hide()
     end
-    p.scroller.child:SetSize(width, math.max(1, y))
+    win.scroller.child:SetSize(width, math.max(1, y))
+    win.content = y
+    return items
 end
 
 -- -------------------------------------------------------- the secure layer
@@ -909,25 +925,27 @@ end
 local function Follow()
     if not layer or InCombatLockdown() then return end
     local p = W.Current()
-    local rows = open and p and p.casts and p.rows or {}
-    local s = p and p.scroller
-    local top = s and s.offset or 0
-    local bottom = top + (s and s.scroll:GetHeight() or 0)
+    local wins = open and p and p.casts and p.wins or {}
     local n = 0
-    for _, c in ipairs(rows) do
-        local item = c:IsShown() and c.item
-        if item and c.y >= top - 0.5 and c.y + c.h <= bottom + 0.5 then
-            n = n + 1
-            local b = Secure(n)
-            b.item, b.page = item, p
-            -- Click Casting open: nothing cast, the click binds (Press)
-            Arm(b, not Binding() and item or nil)
-            if Binding() then
-                b:RegisterForClicks("AnyUp", "AnyDown")
-            else
-                b:RegisterForClicks("LeftButtonUp", "RightButtonUp", "RightButtonDown")
+    for _, win in ipairs(wins) do
+        local s = win.scroller
+        local top = s.offset or 0
+        local bottom = top + (s.scroll:GetHeight() or 0)
+        for _, c in ipairs(win.rows) do
+            local item = c:IsShown() and c.item
+            if item and c.y >= top - 0.5 and c.y + c.h <= bottom + 0.5 then
+                n = n + 1
+                local b = Secure(n)
+                b.item, b.page = item, p
+                -- Click Casting open: nothing cast, the click binds (Press)
+                Arm(b, not Binding() and item or nil)
+                if Binding() then
+                    b:RegisterForClicks("AnyUp", "AnyDown")
+                else
+                    b:RegisterForClicks("LeftButtonUp", "RightButtonUp", "RightButtonDown")
+                end
+                b:SetShown(W.Over(b, c.hit))
             end
-            b:SetShown(W.Over(b, c.hit))
         end
     end
     for i = n + 1, #layer.buttons do
@@ -998,7 +1016,7 @@ local function Cell(p, i)
     t:SetScript("OnClick", function(self)
         if not self.section then return end
         Hold(p, self.section.name)
-        p.scroller.To(0, true)
+        for _, win in ipairs(p.wins or {}) do win.scroller.To(0, true) end
         Refresh(p)
     end)
     t:SetScript("OnEnter", function(self)
@@ -1134,73 +1152,101 @@ local function Panel(p)
     return panel
 end
 
--- The page under the list (2026-11-19, mockup B of
--- /workspace/bookpage-sheet.png): a dark aged parchment, tiled, from the
--- window's inner frame to the rail and up to the tabs' panel's foot; the
--- spine's shadow down its inner edge (the left: the book stands on the
--- right), and it darkens at its top, its foot and its outer edge.
-local function Paper(body)
+-- (2026-11-26, /workspace/booklist-windows-sheet.png) A window of the
+-- list: the macros' floor (ns.window.Floor), a dark title band with its
+-- name (red: Not on your bars) and its count at the right over a gold
+-- rule, and under it its own scroll, its bar out by the rail beside it.
+local function Win(p, body, key, title, red)
+    local win = { key = key, title = title, rows = {}, content = 0 }
     local f = CreateFrame("Frame", nil, body)
-    local pad = ns.window.pad
-    f:SetPoint("TOPLEFT", -(pad - 1), 5)
-    f:SetPoint("BOTTOMRIGHT", pad - 4, 0)
-    f:SetFrameLevel(body:GetFrameLevel())
-    f.page = f:CreateTexture(nil, "BACKGROUND", nil, -8)
-    f.page:SetAllPoints()
-    f.page:SetTexture(ns.media .. "spellbook\\parchment", "REPEAT", "REPEAT")
-    f:SetScript("OnSizeChanged", function(self, w, h)
-        self.page:SetTexCoord(0, (w or 0) / PAGE, 0, (h or 0) / PAGE)
-    end)
-    f.shades = {}
-    -- black fading inwards from an edge: its side, how far, how dark
-    for _, e in ipairs({ { "LEFT", 16, 0.55 }, { "TOP", 14, 0.35 }, { "BOTTOM", 18, 0.4 }, { "RIGHT", 8, 0.3 } }) do
-        local at, size, a = e[1], e[2], e[3]
-        local t = f:CreateTexture(nil, "BACKGROUND", nil, -7)
-        local across = at == "LEFT" or at == "RIGHT"
-        if across then
-            t:SetPoint("TOP" .. at)
-            t:SetPoint("BOTTOM" .. at)
-            t:SetWidth(size)
-        else
-            t:SetPoint(at .. "LEFT")
-            t:SetPoint(at .. "RIGHT")
-            t:SetHeight(size)
-        end
-        if t.SetGradient and CreateColor then
-            t:SetColorTexture(1, 1, 1, 1)
-            local dark, clear = CreateColor(0, 0, 0, a), CreateColor(0, 0, 0, 0)
-            -- (a gradient runs left to right, bottom to top)
-            local first = (at == "LEFT" or at == "BOTTOM")
-            t:SetGradient(across and "HORIZONTAL" or "VERTICAL", first and dark or clear, first and clear or dark)
-        else
-            t:SetColorTexture(0, 0, 0, a / 2)
-        end
-        f.shades[at] = t
+    f:SetPoint("LEFT")
+    f:SetPoint("RIGHT")
+    ns.window.Floor(f)
+    local ink = ns.colors.ink
+    f.band = f:CreateTexture(nil, "BACKGROUND", nil, -5)
+    f.band:SetPoint("TOPLEFT", 1, -1)
+    f.band:SetPoint("TOPRIGHT", -1, -1)
+    f.band:SetHeight(TITLE_H - 1)
+    f.band:SetColorTexture(ink[1], ink[2], ink[3], 0.6)
+    f.rule = f:CreateTexture(nil, "BORDER")
+    f.rule:SetHeight(1)
+    f.rule:SetPoint("TOPLEFT", 0, -TITLE_H)
+    f.rule:SetPoint("TOPRIGHT", 0, -TITLE_H)
+    f.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
+    f.title = ns.Text(f, 13)
+    f.title:SetPoint("LEFT", f, "TOPLEFT", 10, -TITLE_H / 2)
+    f.title:SetText(title)
+    local col = red and MISSING or GOLD
+    f.title:SetTextColor(col[1], col[2], col[3])
+    f.count = ns.Text(f, 11)
+    f.count:SetPoint("RIGHT", f, "TOPRIGHT", -EDGE, -TITLE_H / 2)
+    f.count:SetJustifyH("RIGHT")
+    f.count:SetTextColor(unpack(ns.colors.dim))
+    local inner = CreateFrame("Frame", nil, f)
+    inner:SetPoint("TOPLEFT", 0, -(TITLE_H + 1))
+    inner:SetPoint("BOTTOMRIGHT", 0, 1)
+    win.frame, win.inner = f, inner
+    win.scroller = ns.window.Scroller(inner, 0, true)
+    -- the buttons over the rows follow them as they scroll
+    if p.casts then win.scroller.Moved = function() Follow() end end
+    inner:EnableMouseWheel(true)
+    inner:SetScript("OnMouseWheel", function(_, delta) win.scroller.To(win.scroller.target - delta * STEP) end)
+    return win
+end
+
+-- The windows' heights: each fits its rows while both do, the floor bare
+-- under them. When they cannot (2026-11-26, the user's: Not on your bars
+-- the longer when it has a lot), Not on your bars has what it needs up to
+-- LEAN of the room (all it needs when On your bars is short), On your bars
+-- the rest; neither less than its title and two spells while the room
+-- holds both so, else split at LEAN.
+local function Layout(p)
+    local wins = p.wins
+    if not wins then return end
+    local room = math.max(0, (p.listBody:GetHeight() or 0) - GAP)
+    local miss, placed = wins[1], wins[2]
+    local a, b = TITLE_H + 1 + miss.content + 1, TITLE_H + 1 + placed.content + 1
+    local least = TITLE_H + 2 + 2 * SPELL
+    -- (no "do both fit" test before it: when they do, room - b >= a and
+    -- this gives each its own; a sweep measured the test and the formula alone
+    -- as one)
+    local ha = math.min(a, math.max(math.floor(room * LEAN), room - b))
+    local fa, fb = math.min(a, least), math.min(b, least)
+    if fa + fb <= room then
+        -- (Not on your bars is never under fa here: LEAN of a room holding
+        -- both floors is over it, and room - b is when On your bars is
+        -- short; a sweep measured a math.max(fa, ...) as changing nothing)
+        ha = math.min(ha, room - fb)
+    else
+        ha = math.min(a, math.floor(room * LEAN))
     end
-    return f
+    local hb = math.max(0, math.min(b, room - ha))
+    miss.frame:ClearAllPoints()
+    miss.frame:SetPoint("TOPLEFT", p.listBody, "TOPLEFT", 0, 0)
+    miss.frame:SetPoint("TOPRIGHT", p.listBody, "TOPRIGHT", 0, 0)
+    miss.frame:SetHeight(math.max(1, ha))
+    placed.frame:ClearAllPoints()
+    placed.frame:SetPoint("TOPLEFT", miss.frame, "BOTTOMLEFT", 0, -GAP)
+    placed.frame:SetPoint("TOPRIGHT", miss.frame, "BOTTOMRIGHT", 0, -GAP)
+    placed.frame:SetHeight(math.max(1, hb))
+    for _, win in ipairs(wins) do win.scroller.To(win.scroller.target) end
 end
 
 -- ------------------------------------------------------------------ pages
 local Band
-function Refresh(p)
-    if not p.scroller then return end
-    Items(p)
-    local macros = Macros()
-    local binding = Binding()
-    local items = Grouped(p, macros, binding)
-    Place(p, items)
-    local bound = ns.db.spellbookClickCast and ns.clickcast and { ns.clickcast.Bound() }
-    local cbf = _G.ClickBindingFrame
-    -- the halo while nothing is in the binder: pick one
-    local ready = binding and cbf and ns.clickcast.Step and ns.clickcast.Step() == 1
+-- a window's rows drawn: its entries, as Place laid them out
+local function Draw(p, win, items, binding, bound, ready)
     for i, item in ipairs(items) do
-        local c = p.rows[i]
+        local c = win.rows[i]
         local nxt = items[i + 1]
-        if item.heading then
+        if item.none then
+            Kind(c, "none")
+            c.item = nil
+        elseif item.heading then
             Kind(c, "heading")
             c.item = nil
             c.hname:SetText(item.heading)
-            local hc = item.red and MISSING or GOLD
+            local hc = GOLD
             c.hname:SetTextColor(hc[1], hc[2], hc[3])
             c.hunder:SetColorTexture(hc[1], hc[2], hc[3], 0.9)
             c.hcount:SetText("· " .. tostring(item.count))
@@ -1309,7 +1355,27 @@ function Refresh(p)
             end
         end
     end
-    p.scroller.To(p.scroller.target)
+end
+
+function Refresh(p)
+    if not p.wins then return end
+    Items(p)
+    local macros = Macros()
+    local binding = Binding()
+    local lists = { Grouped(p, macros, binding) }
+    local bound = ns.db.spellbookClickCast and ns.clickcast and { ns.clickcast.Bound() }
+    local cbf = _G.ClickBindingFrame
+    -- the halo while nothing is in the binder: pick one
+    local ready = binding and cbf and ns.clickcast.Step and ns.clickcast.Step() == 1
+    p.rows = {}
+    for k, win in ipairs(p.wins) do
+        local list = lists[k]
+        win.frame.count:SetText(tostring(list.count))
+        Draw(p, win, Place(p, win, list.items), binding, bound, ready)
+        -- every row of both, in order (the windows' pools: the hidden too)
+        for _, c in ipairs(win.rows) do table.insert(p.rows, c) end
+    end
+    Layout(p)
     Tabs(p)
     Band(p)
     Follow()
@@ -1393,19 +1459,12 @@ local function Page(spec)
             ns.macros.Build(p, body)
             return
         end
-        -- the tabs' panel (joined under the head); the list on its page,
-        -- its bar out by the rail
+        -- the tabs' panel (joined under the head); the list in its two
+        -- windows, each its bar out by the rail
         Panel(p)
-        p.paper = Paper(body)
-        local holder = CreateFrame("Frame", nil, body)
-        holder:SetPoint("TOPLEFT")
-        holder:SetPoint("BOTTOMRIGHT")
-        p.holder = holder
-        p.scroller = ns.window.Scroller(holder, 0, true)
-        -- the buttons over the rows follow them as they scroll
-        if p.casts then p.scroller.Moved = function() Follow() end end
-        holder:EnableMouseWheel(true)
-        holder:SetScript("OnMouseWheel", function(_, delta) p.scroller.To(p.scroller.target - delta * STEP) end)
+        p.listBody = body
+        p.wins = { Win(p, body, "missing", Tr["Not on your bars"], true), Win(p, body, "placed", Tr["On your bars"]) }
+        body:HookScript("OnSizeChanged", function() Layout(p) Follow() end)
     end
     function p.Refresh()
         if p.macros then

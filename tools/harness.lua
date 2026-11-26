@@ -21645,13 +21645,37 @@ if spellPass then
             end
             table.insert(list, "#[" .. table.concat(tabs, " | ") .. "]")
         end
-        for i, c in ipairs(p.rows) do
+        -- (2026-11-26) each window first: =Title(count)! (red) h=its height
+        -- (the frame's)/its list's height; then its rows. p.rows is both
+        -- windows' rows in order; from/to count the rows shown, across them
+        -- (as the one pool's index did: its shown rows were its first).
+        local i = 0
+        for _, win in ipairs(p.wins or {}) do
+            local tc = win.frame.title.textColor
+            local wr = tc and tc[1] > 0.8 and tc[2] < 0.5
+            local shownAny = false
+            for _, c in ipairs(win.rows) do
+                if c.shown then
+                    i = i + 1
+                    if i >= (from or 1) and i <= (to or #p.rows) then shownAny = true end
+                end
+            end
+            if shownAny or (from or 1) == 1 then
+                table.insert(list, string.format("=%s(%s)%s h=%s/%s", win.frame.title.text, win.frame.count.text,
+                    wr and "!" or "", tostring(win.frame.h), tostring(win.scroller.child.h)))
+            end
+            for _, c in ipairs(win.rows) do if c.shown then i = i - 1 end end
+        for _, c in ipairs(win.rows) do
+            if c.shown then i = i + 1 end
             if c.shown and i >= (from or 1) and i <= (to or #p.rows) then
                 -- (2026-11-19) a heading #Name(n), red ! ; a spell's ranks [n] on
                 -- its plate and its chevron v (open) or > ; an open group's
-                -- rows | (the bar); a rank's stem ' when it stops (the last)
+                -- rows | (the bar); a rank's stem ' when it stops (the last);
+                -- an empty window's line ~None
                 local g = c.bar.shown and "|" or ""
-                if c.kind == "heading" then
+                if c.kind == "none" then
+                    table.insert(list, "~" .. c.empty.text .. (c.empty.shown and "" or "(hidden)"))
+                elseif c.kind == "heading" then
                     local tc = c.hname.textColor
                     local red = tc and tc[1] > 0.8 and tc[2] < 0.5
                     table.insert(list, string.format("#%s(%s)%s", c.hname.text, c.hcount.text, red and "!" or ""))
@@ -21671,10 +21695,15 @@ if spellPass then
                 end
             end
         end
+        end
         local function button(b)
             return b.shown == false and "-" or (b.mark.shown and "on" or "off")
         end
-        print(tag, "band=trainer:" .. button(p.trainerButton), "list=" .. tostring(p.scroller.child.h),
+        print(tag, "band=trainer:" .. button(p.trainerButton), "list=" .. (function()
+            local t = {}
+            for _, win in ipairs(p.wins or {}) do table.insert(t, tostring(win.scroller.child.h)) end
+            return table.concat(t, "+")
+        end)(),
             table.concat(list, " "))
     end
     -- the foot: none on any page now (shown, and how tall the shell makes it)
@@ -21726,16 +21755,43 @@ if spellPass then
     end
     -- the scroll's height, as the anchors would give it (the mock's
     -- GetHeight does not resolve them)
+    -- (2026-11-26) each window's scroll the height Layout gave its frame,
+    -- less its title band and edges (TITLE_H + 2)
+    -- (the mock's GetHeight does not resolve anchors: a window's scroll
+    -- follows its frame's height, as its anchors would make it; a global,
+    -- the main chunk is at Lua's 200)
+    function harnessAnchorWins(p)
+        for _, win in ipairs(p.wins or {}) do
+            if not win.anchored_ then
+                win.anchored_ = true
+                local set = win.frame.SetHeight
+                win.frame.SetHeight = function(f, h)
+                    set(f, h)
+                    win.scroller.scroll.h = math.max(0, h - 28)
+                end
+            end
+        end
+    end
     local function tall(p, h)
+        harnessAnchorWins(p)
         p.body.h = h
-        p.scroller.scroll.h = h
         p.Refresh()
     end
     local function ease(p)
         for _ = 1, 80 do
-            local up = p.scroller.scroll.scripts.OnUpdate
-            if up then up(p.scroller.scroll, 0.05) end
+            for _, win in ipairs(p.wins) do
+                local up = win.scroller.scroll.scripts.OnUpdate
+                if up then up(win.scroller.scroll, 0.05) end
+            end
         end
+    end
+    -- the window with the most to scroll (its list the longest)
+    local function long(p)
+        local best = p.wins[1]
+        for _, win in ipairs(p.wins) do
+            if (win.scroller.child.h or 0) > (best.scroller.child.h or 0) then best = win end
+        end
+        return best
     end
 
     -- 1. at login: Blizzard's book not loaded, nothing parked, ours closed
@@ -21822,7 +21878,7 @@ if spellPass then
             local n = 0
             for _, bb in ipairs(layer.buttons) do if bb.shown then n = n + 1 end end
             return n
-        end)(), "at=" .. book.scroller.target)
+        end)(), "at=" .. book.wins[1].scroller.target .. "," .. book.wins[2].scroller.target)
     book.Refresh()
     rows("book.tab again", 1, 3)
     local function at(f, pt)
@@ -21841,11 +21897,19 @@ if spellPass then
         "step=" .. tostring(w.dropdown and w.dropdown.head.step.shown)
         .. " fill=" .. tostring(w.dropdown and w.dropdown.head.step.fill.w) .. "+" .. tostring(w.dropdown and #w.dropdown.head.step.wedge))
     print("book.panel", "at=" .. tostring(book.specs == book.panel) .. " h="
-        .. tostring(book.specs.h), "list=" .. tostring(book.holder.points.TOPLEFT and book.holder.points.TOPLEFT[4]),
-        "bar=" .. (function()
-            local pt = book.scroller.bar.points.TOPLEFT
-            return pt and (tostring(pt[1] == book.holder and "holder" or pt[1]) .. ":" .. pt[2] .. " " .. pt[3]) or "-"
-        end)(), "list@" .. tostring(book.scroller.scroll.points.TOPLEFT[3]))
+        .. tostring(book.specs.h), "list=" .. tostring(book.wins[1].frame.points.TOPLEFT
+            and book.wins[1].frame.points.TOPLEFT[4]),
+        "bars=" .. (function()
+            local t = {}
+            for k, win in ipairs(book.wins) do
+                local pt = win.scroller.bar.points.TOPLEFT
+                table.insert(t, pt and ((pt[1] == win.inner and "inner" .. k or tostring(pt[1])) .. ":" .. pt[2]
+                    .. " " .. pt[3]) or "-")
+            end
+            return table.concat(t, ",")
+        end)(), "list@" .. tostring(book.wins[1].scroller.scroll.points.TOPLEFT[3]),
+        "second under first=" .. tostring(book.wins[2].frame.points.TOPLEFT
+            and book.wins[2].frame.points.TOPLEFT[1] == book.wins[1].frame and book.wins[2].frame.points.TOPLEFT[4]))
 
     -- 4. Healing Wave unfolds: its ranks, highest first, each its own cast
     -- and cost, each casting its own rank; remembered, and folds shut again
@@ -21905,16 +21969,19 @@ if spellPass then
     -- wheel scrolls, and the buttons follow
     tall(book, 3 * 36)
     rows("book.short", 1, 6)
-    book.holder.scripts.OnMouseWheel(book.holder, -1)
-    print("book.short wheel", "target=" .. book.scroller.target, "at=" .. book.scroller.offset)
+    do
+    local lw = long(book)
+    lw.inner.scripts.OnMouseWheel(lw.inner, -1)
+    print("book.short wheel", lw.key, "target=" .. lw.scroller.target, "at=" .. lw.scroller.offset)
     ease(book)
     rows("book.short scrolled", 1, 6)
-    for _ = 1, 20 do book.holder.scripts.OnMouseWheel(book.holder, -1) end
+    for _ = 1, 20 do lw.inner.scripts.OnMouseWheel(lw.inner, -1) end
     ease(book)
-    print("book.short bottom", "at=" .. book.scroller.offset .. "/" .. book.scroller.scroll:GetVerticalScrollRange())
+    print("book.short bottom", "at=" .. lw.scroller.offset .. "/" .. lw.scroller.scroll:GetVerticalScrollRange())
     rows("book.short bottom", 10)
     tall(book, 900)
-    print("book.tall again", "at=" .. book.scroller.offset)
+    print("book.tall again", "at=" .. lw.scroller.offset)
+    end
 
     -- 6. a pet comes: its section last, Bite and Growl and their focus
     bookWorld.pet = 2
@@ -21955,13 +22022,13 @@ if spellPass then
     tall(book, 3 * 36)
     local placed = {}
     for _, bb in ipairs(layer.buttons) do placed[bb] = bb.shown and bb.item and bb.item.info.name end
-    book.holder.scripts.OnMouseWheel(book.holder, -1)
+    long(book).inner.scripts.OnMouseWheel(long(book).inner, -1)
     ease(book)
     local moved = 0
     for _, bb in ipairs(layer.buttons) do
         if (bb.shown and bb.item and bb.item.info.name) ~= placed[bb] then moved = moved + 1 end
     end
-    print("book.combat scrolled", "at=" .. book.scroller.offset, "buttons changed=" .. moved)
+    print("book.combat scrolled", long(book).key, "at=" .. long(book).scroller.offset, "buttons changed=" .. moved)
     local hs = row("Hearthstone")
     hs.scripts.OnClick(hs, "LeftButton")
     print("book.combat left", "rows=" .. #book.rows)
@@ -22120,40 +22187,87 @@ if spellPass then
         end
     end
     edges("book.bars")
-    -- (2026-11-19, mockup B of /workspace/bookpage-sheet.png) the page:
-    -- the parchment tiled to its size, its shades, the dotted rules, a
-    -- heading's underline in its ink
+    -- (2026-11-26, /workspace/booklist-windows-sheet.png) the page: no
+    -- parchment; each window on the macros' floor (the stripes' hatch, the
+    -- vignette, four gold edges), its title band and rule; the dotted rules,
+    -- a heading's underline in its ink
     do
-        local pp = B.Current().paper
-        if pp then
-            local function at(pt)
-                local q = pp.points[pt]
-                return q and (pt .. " " .. q[3] .. "," .. q[4]) or (pt .. " -")
+        local bp = B.Current()
+        -- (Elemental's tab: spells in both windows, a passive under its heading)
+        for _, cell in ipairs(bp.specs.cells) do
+            if cell.shown and cell.section and cell.section.name == "Elemental" then
+                cell.scripts.OnClick(cell, "LeftButton")
             end
-            if pp.scripts.OnSizeChanged then pp.scripts.OnSizeChanged(pp, 440, 512) end
-            local tc = pp.page.coords or {}
-            local sh = {}
-            for k, t in pairs(pp.shades) do
-                sh[#sh + 1] = k .. "=" .. tostring((k == "LEFT" or k == "RIGHT") and t.w or t.h)
-            end
-            -- (General's tab: its spells under both headings)
-            local cell = B.Current().specs.cells[1]
-            cell.scripts.OnClick(cell, "LeftButton")
-            table.sort(sh)
-            local hd, sp
-            for _, c in ipairs(B.Current().rows) do
-                if c.shown and c.kind == "heading" and not hd then hd = c end
-                if c.shown and c.kind == "spell" and c.hair.shown and not sp then sp = c end
-            end
-            print("book.page", tostring(pp.page.texture):match("[^\\]+$"), at("TOPLEFT"), at("BOTTOMRIGHT"),
-                "tile=" .. string.format("%.2f,%.2f", tc[2] or -1, tc[4] or -1), "shades=" .. table.concat(sh, " "),
-                "rule=" .. (sp and (tostring(sp.hair.texture):match("[^\\]+$") .. string.format(" x%.1f",
-                    (sp.hair.coords or {})[2] or -1)) or "-"),
-                "heading=" .. (hd and (hd.hname.font and hd.hname.font[2] or "?") .. " under="
-                    .. tostring(hd.hunder.shown) or "-"))
-        else
-            print("book.page", "none")
         end
+        local out = { "paper=" .. tostring(bp.paper ~= nil) }
+        for k, win in ipairs(bp.wins) do
+            local tex, edges = {}, 0
+            for _, r in ipairs(win.frame.all_ or {}) do
+                local name = r.texture and tostring(r.texture):match("[^\\]+$")
+                if name then tex[#tex + 1] = name end
+                if not r.texture and r.color and (r.w == 1 or r.h == 1) and r ~= win.frame.rule then
+                    edges = edges + 1
+                end
+            end
+            table.sort(tex)
+            out[#out + 1] = string.format("%d:%s edges=%d band=%s rule=%s", k, table.concat(tex, ","), edges,
+                tostring(win.frame.band.h), tostring(win.frame.rule.points.TOPLEFT and win.frame.rule.points.TOPLEFT[4]))
+        end
+        local hd, sp
+        for _, c in ipairs(bp.rows) do
+            if c.shown and c.kind == "heading" and not hd then hd = c end
+            if c.shown and c.kind == "spell" and c.hair.shown and not sp then sp = c end
+        end
+        print("book.page", table.concat(out, " "),
+            "rule=" .. (sp and (tostring(sp.hair.texture):match("[^\\]+$") .. string.format(" x%.1f",
+                (sp.hair.coords or {})[2] or -1)) or "-"),
+            "heading=" .. (hd and (hd.hname.font and hd.hname.font[2] or "?") .. " under="
+                .. tostring(hd.hunder.shown) or "-"))
+    end
+    -- (2026-11-26, the user's) each window fits its rows while both fit;
+    -- short of room, Not on your bars is the longer, neither under its
+    -- title and two spells while the room holds both so, else split at
+    -- 0.6. Each: missing/placed frame heights, the room, and how many
+    -- secure buttons each window's rows have (only those wholly in view)
+    do
+        local bp = B.Current()
+        local out = {}
+        -- (the bars emptied: Elemental's three casts all not on them)
+        -- (kept on bp, not a local: the main chunk is at Lua's 200)
+        bp.kept_ = {}
+        for k, v in pairs(actionSlots) do bp.kept_[k] = v end
+        for k in pairs(bp.kept_) do actionSlots[k] = nil end
+        for _, h in ipairs({ 900, 236, 160, 108 }) do
+            tall(bp, h)
+            local armed = {}
+            for k, win in ipairs(bp.wins) do
+                armed[k] = 0
+                for _, c in ipairs(win.rows) do
+                    for _, bb in ipairs(layer.buttons) do
+                        if c.shown and c.item and bb.shown and bb.item == c.item then armed[k] = armed[k] + 1 end
+                    end
+                end
+            end
+            out[#out + 1] = string.format("%d:%s/%s(%d+%d)", h, tostring(bp.wins[1].frame.h),
+                tostring(bp.wins[2].frame.h), armed[1], armed[2])
+        end
+        -- both windows scrolled down, then a tab clicked: both back at the top
+        tall(bp, 160)
+        for _, win in ipairs(bp.wins) do
+            for _ = 1, 5 do win.inner.scripts.OnMouseWheel(win.inner, -1) end
+        end
+        ease(bp)
+        local before = bp.wins[1].scroller.offset .. "," .. bp.wins[2].scroller.offset
+        for _, cell in ipairs(bp.specs.cells) do
+            if cell.shown and cell.section and cell.section.name == "Elemental" then
+                cell.scripts.OnClick(cell, "LeftButton")
+            end
+        end
+        print("book.fit tab", "scrolled=" .. before,
+            "after=" .. bp.wins[1].scroller.offset .. "," .. bp.wins[2].scroller.offset)
+        for k, v in pairs(bp.kept_) do actionSlots[k] = v end
+        tall(bp, 900)
+        print("book.fit", "Elemental", table.concat(out, " "))
     end
     -- no marks when asked for none
     ns.SetOption("spellbookMissing", false)
@@ -22303,14 +22417,17 @@ if spellPass then
     first.scripts.OnEnter(first)
     print("book.trainer tooltip", tostring(GameTooltip.shown))
     first.scripts.OnClick(first, "RightButton")
-    -- a short body: the list scrolls, the bar at the left
+    -- a short body: the list scrolls, the bar at the left (2026-11-26: the
+    -- trainer's spells all under On your bars, the second window)
+    -- (kept on tr, not a local: the main chunk is at Lua's 200)
+    tr.w2 = tr.wins[2]
     local function scrolled(tag)
-        local bar, th = tr.scroller.bar, tr.scroller.bar.thumb
+        local bar, th = tr.w2.scroller.bar, tr.w2.scroller.bar.thumb
         print(tag, string.format("range=%d at=%.1f target=%.1f easing=%s bar=%s thumb=%.1f@%.1f",
-            tr.scroller.scroll:GetVerticalScrollRange(), tr.scroller.scroll:GetVerticalScroll(), tr.scroller.target or 0,
-            tostring(tr.scroller.scroll.scripts.OnUpdate ~= nil), tostring(bar.shown), th.h or 0,
+            tr.w2.scroller.scroll:GetVerticalScrollRange(), tr.w2.scroller.scroll:GetVerticalScroll(), tr.w2.scroller.target or 0,
+            tostring(tr.w2.scroller.scroll.scripts.OnUpdate ~= nil), tostring(bar.shown), th.h or 0,
             th.points.TOP and th.points.TOP[4] or 0), "bar@" .. tostring(bar.points.TOPLEFT and bar.points.TOPLEFT[3]),
-            "list@" .. tostring(tr.scroller.scroll.points.TOPLEFT[3]), "rows in list=" .. tostring(tr.rows[1].parent == tr.scroller.child))
+            "list@" .. tostring(tr.w2.scroller.scroll.points.TOPLEFT[3]), "rows in list=" .. tostring(tr.w2.rows[1].parent == tr.w2.scroller.child))
     end
     scrolled("book.trainer tall")
     local trH = tr.body.h
@@ -22318,32 +22435,35 @@ if spellPass then
     for _, t in ipairs(tr.specs and tr.specs.cells or {}) do
         if t.shown and t.name.text == "Other" then t.scripts.OnClick(t, "LeftButton") end
     end
-    tr.body.h = 2 * 30
-    tr.scroller.scroll.h = 2 * 30
+    -- (2026-11-26) a body that leaves the list's window 2 * 30 to scroll
+    -- in: the empty Not on your bars (its title and None: 64), the gap,
+    -- On your bars' title (28)
+    harnessAnchorWins(tr)
+    tr.body.h = 64 + 6 + 28 + 2 * 30
     tr.Refresh()
     scrolled("book.trainer short")
-    tr.holder.scripts.OnMouseWheel(tr.holder, -1)
+    tr.w2.inner.scripts.OnMouseWheel(tr.w2.inner, -1)
     scrolled("book.trainer wheel")
-    tr.scroller.scroll.scripts.OnUpdate(tr.scroller.scroll, 0.05)
+    tr.w2.scroller.scroll.scripts.OnUpdate(tr.w2.scroller.scroll, 0.05)
     scrolled("book.trainer easing")
-    for _ = 1, 40 do if tr.scroller.scroll.scripts.OnUpdate then tr.scroller.scroll.scripts.OnUpdate(tr.scroller.scroll, 0.05) end end
+    for _ = 1, 40 do if tr.w2.scroller.scroll.scripts.OnUpdate then tr.w2.scroller.scroll.scripts.OnUpdate(tr.w2.scroller.scroll, 0.05) end end
     scrolled("book.trainer eased")
-    for _ = 1, 10 do tr.holder.scripts.OnMouseWheel(tr.holder, -1) end
-    for _ = 1, 80 do if tr.scroller.scroll.scripts.OnUpdate then tr.scroller.scroll.scripts.OnUpdate(tr.scroller.scroll, 0.05) end end
+    for _ = 1, 10 do tr.w2.inner.scripts.OnMouseWheel(tr.w2.inner, -1) end
+    for _ = 1, 80 do if tr.w2.scroller.scroll.scripts.OnUpdate then tr.w2.scroller.scroll.scripts.OnUpdate(tr.w2.scroller.scroll, 0.05) end end
     scrolled("book.trainer bottom")
     -- the bar pressed at its top: the list there at once, and following
     local cursorAt = GetCursorPosition
     -- the cursor in the screen's units, as the game gives it
-    function GetCursorPosition() return 0, tr.scroller.bar:GetTop() * tr.scroller.bar:GetEffectiveScale() end
-    tr.scroller.bar.scripts.OnMouseDown(tr.scroller.bar)
+    function GetCursorPosition() return 0, tr.w2.scroller.bar:GetTop() * tr.w2.scroller.bar:GetEffectiveScale() end
+    tr.w2.scroller.bar.scripts.OnMouseDown(tr.w2.scroller.bar)
     scrolled("book.trainer bar pressed")
-    function GetCursorPosition() return 0, tr.scroller.bar:GetBottom() * tr.scroller.bar:GetEffectiveScale() end
-    tr.scroller.bar.scripts.OnUpdate(tr.scroller.bar, 0.05)
+    function GetCursorPosition() return 0, tr.w2.scroller.bar:GetBottom() * tr.w2.scroller.bar:GetEffectiveScale() end
+    tr.w2.scroller.bar.scripts.OnUpdate(tr.w2.scroller.bar, 0.05)
     scrolled("book.trainer bar dragged")
-    tr.scroller.bar.scripts.OnMouseUp(tr.scroller.bar)
-    print("book.trainer bar let go", tostring(tr.scroller.bar.scripts.OnUpdate ~= nil))
+    tr.w2.scroller.bar.scripts.OnMouseUp(tr.w2.scroller.bar)
+    print("book.trainer bar let go", tostring(tr.w2.scroller.bar.scripts.OnUpdate ~= nil))
     GetCursorPosition = cursorAt
-    tr.body.h, tr.scroller.scroll.h = trH, trH
+    tr.body.h = trH
     tr.Refresh()
     scrolled("book.trainer tall again")
     -- a level later: Frost Shock's time comes
