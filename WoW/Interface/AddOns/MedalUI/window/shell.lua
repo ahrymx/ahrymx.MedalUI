@@ -126,6 +126,11 @@ local BESIDE = 4                                -- a tooltip outside the window:
 local GAME_ICON = 0.08                          -- the game's icons' border, trimmed
 local UNDER = 44                                -- a floating window's tab's underline
 local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118, 0.102, 0.071, 0.8 } }
+-- a page's linen backdrop (page.linen): its tile and size, its colour
+-- unless the page gives one (the Character page: the class's), its alpha at
+-- the foot and at the top
+local LINEN, LINEN_PX = "character\\linen", 128
+local LINEN_INK, LINEN_A = { 0.95, 0.88, 0.72 }, { 0.06, 0.12 }
 
 ns.window = { width = WIDTH - 2 * PAD, pad = PAD, band = BAND }
 
@@ -1520,6 +1525,13 @@ function ns.Window(spec)
             Remark(p, p == page)
         end
         if drop.Paint then drop.Paint() end
+        -- the page's backdrop, behind it alone
+        if chrome.linen then
+            chrome.linen:SetShown(page.linen and true or false)
+            -- its colour: the page's own (a function), or the cream
+            if page.linen then chrome.Dye(type(page.linen) == "function" and page.linen() or nil) end
+            chrome.Weave()
+        end
         Layout()
         Listen()
         if window:IsShown() and page.Shown then page.Shown() end
@@ -2360,6 +2372,33 @@ function ns.Window(spec)
         bg:SetPoint("BOTTOMRIGHT", side < 0 and -1 or 0, 1)
         bg:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], spec.opaque and 1 or 0.94)
         chrome.bg, window.chrome = bg, chrome     -- (the harness reads them)
+        -- (2026-11-26, the user's: "woven linen in the class's colour", its
+        -- threads larger) a page's backdrop (page.linen): a plain weave over
+        -- the ink, a texel a point, faint, a little stronger at the top
+        -- (art/character/gen_linen.py); Dye colours it
+        local linen = window:CreateTexture(nil, "BACKGROUND", nil, 3)
+        linen:SetAllPoints(bg)
+        linen:SetTexture(ns.media .. LINEN, "REPEAT", "REPEAT")
+        linen:Hide()
+        chrome.linen = linen
+        function chrome.Dye(c)
+            c = c or LINEN_INK
+            linen.dye = c
+            if linen.SetGradient and CreateColor then
+                linen:SetVertexColor(1, 1, 1, 1)
+                linen:SetGradient("VERTICAL", CreateColor(c[1], c[2], c[3], LINEN_A[1]),
+                    CreateColor(c[1], c[2], c[3], LINEN_A[2]))
+            else
+                linen:SetVertexColor(c[1], c[2], c[3], (LINEN_A[1] + LINEN_A[2]) / 2)
+            end
+        end
+        -- its threads kept their size: the tile's coords from the window's
+        local function Weave()
+            local lw, lh = window:GetWidth() or 0, window:GetHeight() or 0
+            if lw > 0 and lh > 0 then linen:SetTexCoord(0, lw / LINEN_PX, 0, lh / LINEN_PX) end
+        end
+        chrome.Weave = Weave
+        window:HookScript("OnSizeChanged", Weave)
         -- floating: the head's quiet band, and a lit line along the top
         chrome.head = window:CreateTexture(nil, "BACKGROUND", nil, 3)
         chrome.head:SetPoint("TOPLEFT", 1, -1)

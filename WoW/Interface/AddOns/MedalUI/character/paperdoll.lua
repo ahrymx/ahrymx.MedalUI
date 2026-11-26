@@ -641,6 +641,13 @@ end
 page = {
     key = "character", label = Tr["Character"], frame = "PaperDollFrame", order = 1,
     height = ns.character.dollJoin.height, under = ns.character.dollJoin.under, bandUsed = true,
+    -- the window's linen backdrop behind it (window/shell.lua), woven in the
+    -- class's colour
+    linen = function()
+        local _, class = UnitClass("player")
+        local c = class and not ns.IsSecret(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
+        return c and { c.r, c.g, c.b } or nil
+    end,
     events = { "PLAYER_EQUIPMENT_CHANGED", "UNIT_MODEL_CHANGED", "UNIT_NAME_UPDATE", "PLAYER_LEVEL_UP",
         "UNIT_STATS", "UNIT_RESISTANCES", "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_DAMAGE",
         "UNIT_ATTACK_SPEED", "UNIT_MAXHEALTH", "UNIT_MAXPOWER", "COMBAT_RATING_UPDATE", "SPELL_POWER_CHANGED",

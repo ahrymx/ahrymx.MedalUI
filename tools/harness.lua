@@ -20242,6 +20242,30 @@ if characterPass then
         harnessBeside("char gear default tips", MedalUICharacter, nil, nil, gear)
     end
     harnessBeside("char tips, no width", MedalUICharacter, true)
+    do  -- (2026-11-26) the Character page's linen: over the ink, under the
+        -- page, its tile a texel a point; gone on the other pages
+        local ln, pd, rp = w.chrome.linen, nil, nil
+        for _, p in ipairs(C.pages) do
+            if p.key == "character" then pd = p elseif p.key == "reputation" then rp = p end
+        end
+        local function weave()
+            local c = ln.coords or {}
+            return "shown=" .. tostring(ln.shown == true) .. " coords=" .. string.format("%.2f,%.2f",
+                c[2] or -1, c[4] or -1) .. " want=" .. string.format("%.2f,%.2f", w.w / 128, w.h / 128)
+                .. " dye=" .. (ln.dye and string.format("%.2f,%.2f,%.2f", ln.dye[1], ln.dye[2], ln.dye[3]) or "-")
+        end
+        local was = current()
+        C.Select(pd)
+        local on = weave()
+        C.Select(rp)
+        local off = weave()
+        C.Select(pd)
+        print("char.linen", "layer=" .. tostring(ln.layer) .. " " .. tostring(ln.sub),
+            "on=" .. tostring(ln.all == w.chrome.bg),
+            "texture=" .. tostring(ln.texture):match("([^\\]+)$"), "character " .. on,
+            "reputation " .. off, "back " .. weave())
+        if was then C.Select(was) end
+    end
     state("char.end")
     return
 end
