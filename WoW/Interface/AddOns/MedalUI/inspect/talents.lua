@@ -22,7 +22,7 @@ local Tr = ns.L
 
 local LINES = 4
 
-local page = { key = "inspectTalents", label = Tr["Talents"], tip = Tr["Their talents"], glyph = "talents", order = 2,
+local page = { key = "inspectTalents", linen = false, label = Tr["Talents"], tip = Tr["Their talents"], glyph = "talents", order = 2,
     flex = true, height = 0, bandUsed = true, bandFlush = true, readonly = true }
 page.nodes, page.edges = {}, {}
 local tree                              -- the tree in view, by its place; nil: the fullest, chosen anew

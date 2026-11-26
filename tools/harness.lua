@@ -20435,7 +20435,8 @@ if characterPass then
     end
     harnessBeside("char tips, no width", MedalUICharacter, true)
     do  -- (2026-11-26) the Character page's linen: over the ink, under the
-        -- page, its tile a texel a point; gone on the other pages
+        -- page, its tile a texel a point; on the other pages too (the
+        -- user's, the same day: every page without a ground of its own)
         local ln, pd, rp = w.chrome.linen, nil, nil
         for _, p in ipairs(C.pages) do
             if p.key == "character" then pd = p elseif p.key == "reputation" then rp = p end
@@ -20456,6 +20457,13 @@ if characterPass then
             "on=" .. tostring(ln.all == w.chrome.bg),
             "texture=" .. tostring(ln.texture):match("([^\\]+)$"), "character " .. on,
             "reputation " .. off, "back " .. weave())
+        -- a page with no colour of its own: the theme's (a class theme's
+        -- stand-in)
+        local keep = ns.gold.linen
+        ns.gold.linen = { 0.2, 0.4, 0.6 }
+        C.Select(rp)
+        print("char.linen themed", "reputation " .. weave())
+        ns.gold.linen = keep
         if was then C.Select(was) end
     end
     state("char.end")
@@ -22237,6 +22245,7 @@ if spellPass then
         end
         table.sort(sf)
         print("book.page", table.concat(out, " "), "surface=" .. table.concat(sf, ","),
+            "linen=" .. tostring(ns.spellbook.window.chrome.linen.shown == true),
             "card=" .. (sp and string.format("fill%s%.2f rims=%s%s%s%s sheen=%s shine=%s inset=%s,%s",
                 sp.fill.shown and "" or "(hidden)", (sp.fill.color or {})[4] or -1, sp.rimL.shown and "L" or "", sp.rimR.shown and "R" or "",
                 sp.rimT.shown and "T" or "", sp.rimB.shown and "B" or "", tostring(sp.sheen.shown),
@@ -22682,6 +22691,7 @@ if spellPass then
         calls()
         state("book.macros page")
         print("book.macros frame", "inPage=" .. tostring(MacroFrame.parent == macros.body),
+            "linen=" .. tostring(ns.spellbook.window.chrome.linen.shown == true),
             "at=" .. where(MacroFrame), "mouse=" .. tostring(MacroFrame.mouse),
             "selector=" .. tostring(MacroFrame.MacroSelector.shown), "tabs=" .. tostring(MacroFrameTab1.shown),
             "art=" .. tostring(MacroFrame.NineSlice.shown) .. "/" .. tostring(MacroFrame.Bg:GetAlpha()),
@@ -23178,6 +23188,17 @@ if talentPass then
             end
         end
         print("talents.ground", table.concat(list, " "))
+        -- (2026-11-26) the window's linen: off over a tree (its ground its
+        -- own), on over Plans
+        local was, woven = W.Current(), {}
+        for _, page in ipairs(W.pages) do
+            if page.available then
+                W.Select(page)
+                woven[#woven + 1] = page.key .. "=" .. tostring(W.window.chrome.linen.shown == true)
+            end
+        end
+        if was then W.Select(was) end
+        print("talents.linen", table.concat(woven, " "))
         -- the role by class and place: a mage's are all damage, a paladin's
         -- healer, tank, damage; a class unknown, by place
         local roles = {}
@@ -24113,7 +24134,8 @@ if profPass then
 
     -- 1. at login: Overview and a tab per profession that crafts (Fishing none)
     state("prof.login")
-    print("prof.anchor", where(w), "parent=" .. tostring(w.parent == ns.strips[1]))
+    print("prof.anchor", where(w), "parent=" .. tostring(w.parent == ns.strips[1]),
+        "linen=" .. tostring(w.chrome.linen.shown == true))
     tabs("prof.tabs")
 
     -- 2. the key loads Blizzard_Professions on its book: parked, Overview
@@ -24176,7 +24198,8 @@ if profPass then
     -- 3. Blacksmithing's tab opens it: the crafting page follows
     local smith = pageOf("craft1")
     click(smith.tab)
-    print("prof.opened", table.concat(P.calls, ","))
+    -- (2026-11-26) the linen: off on Overview (its cards' art), on a craft's page
+    print("prof.opened", table.concat(P.calls, ","), "linen=" .. tostring(w.chrome.linen.shown == true))
     P.calls = {}
     rows("prof.waiting")
     P.Show(164)

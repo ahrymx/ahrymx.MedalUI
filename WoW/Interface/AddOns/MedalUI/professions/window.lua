@@ -546,8 +546,9 @@ local function Cooldowns(body)
 end
 
 -- -------------------------------------------------------------- Overview
+-- (linen = false: its cards' art is its ground, the user's 2026-11-26)
 overview = { key = "overview", label = Tr["Overview"], glyph = "profession", order = 0, frame = "ProfessionsFrame",
-    bandUsed = true, under = W.UNDER }
+    bandUsed = true, under = W.UNDER, linen = false }
 overview.cards = {}
 overview.events = { "SKILL_LINES_CHANGED", "SPELLS_CHANGED", "TRADE_SKILL_LIST_UPDATE", "PLAYER_REGEN_ENABLED",
     "PLAYER_LEVEL_UP", "TRAINER_UPDATE", "BAG_UPDATE_DELAYED" }

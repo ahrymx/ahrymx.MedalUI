@@ -25,10 +25,8 @@ L["Detached: a box of its own, to move and size."] = "Откреплено: от
 L["Game menu"] = "Игровое меню"
 L["Theme"] = "Тема"
 L["Golden"] = "Золотая"
-L["MedalUI's gold, as drawn: its frames, rules, glyphs and titles, and the character page's linen woven "
-    .. "in gold."] =
-    "Золото MedalUI, как оно нарисовано: рамки, линии, значки и заголовки, а холст страницы персонажа "
-    .. "соткан золотом."
+L["MedalUI's gold, as drawn: its frames, rules, glyphs and titles, and the windows' linen woven in gold."] =
+    "Золото MedalUI, как оно нарисовано: рамки, линии, значки и заголовки, а холст окон соткан золотом."
 L["Every gold accent in your class's colour, kept as light as the gold, and the linen woven in it."] =
     "Все золотые акценты в цвете вашего класса, такие же светлые, как золото, и холст, сотканный в нём."
 L["The colour of MedalUI's accents: the windows' edges and rules, their glyphs and tabs, the strips and the "

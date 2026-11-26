@@ -893,7 +893,7 @@ function ns.OptionPages()
                 Group(Tr["Theme"],
                     Choice("theme", Tr["Theme"], {
                         { "golden", Tr["Golden"], Tr["MedalUI's gold, as drawn: its frames, rules, glyphs and "
-                            .. "titles, and the character page's linen woven in gold."] },
+                            .. "titles, and the windows' linen woven in gold."] },
                         { "class", Tr["Class"], Tr["Every gold accent in your class's colour, kept as light as "
                             .. "the gold, and the linen woven in it."] },
                     }, Tr["The colour of MedalUI's accents: the windows' edges and rules, their glyphs and "

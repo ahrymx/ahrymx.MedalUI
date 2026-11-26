@@ -127,9 +127,11 @@ local BESIDE = 4                                -- a tooltip outside the window:
 local GAME_ICON = 0.08                          -- the game's icons' border, trimmed
 local UNDER = 44                                -- a floating window's tab's underline
 local FLOAT = { edge = 0.7, rule = 0.55, close = 0.8, dim = 0.5, head = { 0.118, 0.102, 0.071, 0.8 } }
--- a page's linen backdrop (page.linen): its tile and size, its colour
--- unless the page gives one (the Character page: the theme's), its alpha at
--- the foot and at the top
+-- a page's linen backdrop: its tile and size, its colour (the theme's, or
+-- a page's own as page.linen, a function), its alpha at the foot and at
+-- the top. (2026-11-26, the user's: every page wears it but one with its
+-- own ground, which says page.linen = false: the spellbook's floor, the
+-- talent trees' clouds)
 local LINEN, LINEN_PX = "character\\linen", 128
 local LINEN_INK, LINEN_A = { 0.95, 0.88, 0.72 }, { 0.06, 0.12 }
 
@@ -1586,9 +1588,12 @@ function ns.Window(spec)
         if drop.Paint then drop.Paint() end
         -- the page's backdrop, behind it alone
         if chrome.linen then
-            chrome.linen:SetShown(page.linen and true or false)
-            -- its colour: the page's own (a function), or the cream
-            if page.linen then chrome.Dye(type(page.linen) == "function" and page.linen() or nil) end
+            local woven = page.linen ~= false
+            chrome.linen:SetShown(woven)
+            -- its colour: the page's own (a function), or the theme's
+            if woven then
+                chrome.Dye(type(page.linen) == "function" and page.linen() or ns.gold and ns.gold.linen or nil)
+            end
             chrome.Weave()
         end
         Layout()

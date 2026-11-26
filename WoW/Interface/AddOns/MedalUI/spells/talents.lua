@@ -1525,7 +1525,7 @@ end
 for i = 1, TREES do
     -- no tab of the shell's: the panel's own tabs view the trees, and the
     -- head says only the window's name (no "1 of 3", no list)
-    local p = { key = "tree" .. i, tree = i, order = i, label = "", frame = "TalentsFrame", tabless = true,
+    local p = { key = "tree" .. i, tree = i, linen = false, order = i, label = "", frame = "TalentsFrame", tabless = true,
         heading = Tr["Talents"], headGlyph = "talents" }
     p.nodes, p.edges, p.halos = {}, {}, {}
     p.flex, p.height, p.bandUsed, p.bandFlush = true, 0, true, true

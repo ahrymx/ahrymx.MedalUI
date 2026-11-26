@@ -1588,21 +1588,21 @@ end
 
 -- the book: every skill line, then the pet's
 do
-    local p = { key = "book", casts = true, order = 1, label = Tr["Spellbook"], glyph = "spellbook",
+    local p = { key = "book", casts = true, linen = false, order = 1, label = Tr["Spellbook"], glyph = "spellbook",
         frame = "SpellBookFrame" }
     function p.Available() return SB ~= nil end
     Page(p)
 end
 -- macros: the game's macro window (spells/macros.lua)
 do
-    local p = { key = "macros", macros = true, order = 2, label = Tr["Macros"], glyph = "log",
+    local p = { key = "macros", macros = true, linen = false, order = 2, label = Tr["Macros"], glyph = "log",
         frame = "SpellBookFrame" }
     function p.Available() return SB ~= nil end
     Page(p)
 end
 -- what the class trainers have still to teach, once one has been visited
 do
-    local p = { key = "trainer", trainer = true, tabless = true, order = 3, label = Tr["Trainer"],
+    local p = { key = "trainer", trainer = true, linen = false, tabless = true, order = 3, label = Tr["Trainer"],
         frame = "SpellBookFrame", icon = 136243 }
     function p.Available() return ns.trainers.Visited() end
     Page(p)
