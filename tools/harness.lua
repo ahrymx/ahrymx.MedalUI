@@ -21671,8 +21671,11 @@ if spellPass then
                 -- (2026-11-19) a heading #Name(n), red ! ; a spell's ranks [n] on
                 -- its plate and its chevron v (open) or > ; an open group's
                 -- rows | (the bar); a rank's stem ' when it stops (the last);
-                -- an empty window's line ~None
+                -- an empty window's line ~None. (2026-11-26) a card's top ^
+                -- and foot v; a spell's chips after its second line, {top}
+                -- (blue) or {top~} (dim), {mouse:clicks}
                 local g = c.bar.shown and "|" or ""
+                local rims = c.rimT and ((c.rimT.shown and "^" or "") .. (c.rimB.shown and "v" or "")) or ""
                 if c.kind == "none" then
                     table.insert(list, "~" .. c.empty.text .. (c.empty.shown and "" or "(hidden)"))
                 elseif c.kind == "heading" then
@@ -21682,16 +21685,22 @@ if spellPass then
                 elseif c.kind == "rank" then
                     local last = c.stem.points.BOTTOMLEFT and c.stem.points.BOTTOMLEFT[2] == "LEFT"
                     table.insert(list, string.format("%s |%s%s(%s|%s%s)[%s]", g, last and "'" or "", c.rank.text,
-                        c.rcast.text, c.rcost.text, "", over(c)))
+                        c.rcast.text, c.rcost.text, "", over(c)) .. rims)
                 else
                     local stack = ""
                     if c.plate.shown then
                         stack = "[" .. c.plate.text.text .. "]" .. (c.chev.shown and ((c.chev.rotation or 0) == 0
                             and "v" or ">") or "")
                     end
-                    table.insert(list, string.format("%s%s%s(%s|%s|%s,%.1f%s)[%s]%s", g, stack ~= "" and stack .. " " or "",
-                        c.name.text, c.sub.text, c.cast.text, c.cost.text, c.icon.alpha or 1,
-                        "", over(c), c.hair.shown and "_" or ""))
+                    local chips = ""
+                    if c.topChip.shown then
+                        local v = c.topChip.glyph.vertex or {}
+                        chips = chips .. ((v[3] and v[3] > 0.9 and v[1] < 0.5) and "{top}" or "{top~}")
+                    end
+                    if c.clickChip.shown then chips = chips .. "{mouse:" .. c.clickChip.text.text .. "}" end
+                    table.insert(list, string.format("%s%s%s(%s%s|%s|%s,%.1f%s)[%s]%s", g, stack ~= "" and stack .. " " or "",
+                        c.name.text, c.sub.text, chips, c.cast.text, c.cost.text, c.icon.alpha or 1,
+                        "", over(c), rims))
                 end
             end
         end
@@ -22188,9 +22197,10 @@ if spellPass then
     end
     edges("book.bars")
     -- (2026-11-26, /workspace/booklist-windows-sheet.png) the page: no
-    -- parchment; each window on the macros' floor (the stripes' hatch, the
-    -- vignette, four gold edges), its title band and rule; the dotted rules,
-    -- a heading's underline in its ink
+    -- parchment; the macros' floor (the stripes' hatch, the vignette) under
+    -- the whole page, each window its four gold edges, its title band and
+    -- rule; a spell a glass card (no heading is one), a heading's underline
+    -- in its ink
     do
         local bp = B.Current()
         -- (Elemental's tab: spells in both windows, a passive under its heading)
@@ -22216,13 +22226,24 @@ if spellPass then
         local hd, sp
         for _, c in ipairs(bp.rows) do
             if c.shown and c.kind == "heading" and not hd then hd = c end
-            if c.shown and c.kind == "spell" and c.hair.shown and not sp then sp = c end
+            if c.shown and c.kind == "spell" and not sp then sp = c end
         end
-        print("book.page", table.concat(out, " "),
-            "rule=" .. (sp and (tostring(sp.hair.texture):match("[^\\]+$") .. string.format(" x%.1f",
-                (sp.hair.coords or {})[2] or -1)) or "-"),
+        -- (2026-11-26, the user's) the floor is the page's; a card is glass:
+        -- its tint's alpha, its rims, its light and the inset of its card
+        local sf = {}
+        for _, r in ipairs(bp.surface and bp.surface.all_ or {}) do
+            local name = r.texture and tostring(r.texture):match("[^\\]+$")
+            if name then sf[#sf + 1] = name end
+        end
+        table.sort(sf)
+        print("book.page", table.concat(out, " "), "surface=" .. table.concat(sf, ","),
+            "card=" .. (sp and string.format("fill%s%.2f rims=%s%s%s%s sheen=%s shine=%s inset=%s,%s",
+                sp.fill.shown and "" or "(hidden)", (sp.fill.color or {})[4] or -1, sp.rimL.shown and "L" or "", sp.rimR.shown and "R" or "",
+                sp.rimT.shown and "T" or "", sp.rimB.shown and "B" or "", tostring(sp.sheen.shown),
+                tostring(sp.shine.shown), tostring(sp.hit.points.TOPLEFT and sp.hit.points.TOPLEFT[3]),
+                tostring(sp.hit.points.TOPLEFT and sp.hit.points.TOPLEFT[4])) or "-"),
             "heading=" .. (hd and (hd.hname.font and hd.hname.font[2] or "?") .. " under="
-                .. tostring(hd.hunder.shown) or "-"))
+                .. tostring(hd.hunder.shown) .. " card=" .. tostring(hd.fill.shown or hd.rimL.shown) or "-"))
     end
     -- (2026-11-26, the user's) each window fits its rows while both fit;
     -- short of room, Not on your bars is the longer, neither under its
@@ -22285,8 +22306,8 @@ if spellPass then
         local function chevron()
             local c = row("Rockbiter Weapon")
             if not c then return "no row" end
-            local g = c.top.glyph.vertex or {}
-            return tostring(c.top.shown) .. " blue=" .. tostring(g[3] and g[3] > 0.9 and g[1] < 0.5)
+            local g = c.topChip.glyph.vertex or {}
+            return tostring(c.topChip.shown) .. " blue=" .. tostring(g[3] and g[3] > 0.9 and g[1] < 0.5)
         end
         print("book.toprank mode", tostring(ns.db.spellbookUpRank), "chevron=" .. chevron())
         modsDown.SHIFT = true
@@ -22501,10 +22522,15 @@ if spellPass then
         local out = {}
         for _, c in ipairs(p.rows) do
             if c.shown and c.kind == "spell" then
-                table.insert(out, string.format("%s(%s)%s%s%s[%s]", c.name.text, c.sub.text,
-                    c.badge.shown and string.format(" mouse%dx%d/%d", c.badge.w, c.badge.h, c.badge.glyph.w) or "",
+                -- (2026-11-26) = a name at the card's middle (nothing under
+                -- it); {top} a Top rank chip
+                table.insert(out, string.format("%s%s(%s)%s%s%s%s[%s]%s", c.name.text,
+                    c.name.points.LEFT and "=" or "", c.sub.text, c.topChip.shown and " {top}" or "",
+                    c.clickChip.shown and string.format(" mouse{%s}%dx%d/%d", c.clickChip.text.text,
+                        c.clickChip.w or 0, c.clickChip.h or 0, c.clickChip.glyph.w or 0) or "",
                     c.halo.shown and " halo" or "",
-                    c.icon.desaturated and " grey" or "", over(c)))
+                    c.icon.desaturated and " grey" or "", over(c),
+                    c.clickChip.shown and string.format("@%d", c.clickChip.points.LEFT[3]) or ""))
             end
         end
         print(tag, table.concat(out, " "))
@@ -22512,8 +22538,19 @@ if spellPass then
     bookWorld.LoadCC()
     C_ClickBindings.SetProfileByInfo({ { type = 1, actionID = 401, button = "MiddleButton", modifiers = 1 },
         { type = 1, actionID = 301, button = "LeftButton", modifiers = 2 } })
+    -- (2026-11-26) marked for top rank too: its chip, then the clicks'
+    MedalUICharDB.upRank = { ["Rockbiter Weapon"] = true, ["Healing Wave"] = true }
     book.Refresh()
     marks("book.cc")
+    -- a narrow list: the clicks' words shorten; narrower, their chip goes
+    for _, w in ipairs({ 300, 160 }) do
+        local was = ns.spellbook.width
+        ns.spellbook.width = w
+        book.Refresh()
+        marks("book.cc narrow " .. w)
+        ns.spellbook.width = was
+    end
+    book.Refresh()
     do
         local said, add = {}, GameTooltip.AddLine
         GameTooltip.AddLine = function(_, t) table.insert(said, tostring(t)) end
@@ -22575,6 +22612,7 @@ if spellPass then
     ns.SetOption("spellbookClickCast", true)
     C_ClickBindings.ResetCurrentProfile()
     marks("book.cc reset")
+    MedalUICharDB.upRank = nil
 
     -- 8b. the Macros tab (spells/macros.lua): the switch, a card for each
     -- macro of the set, the editor under them; every save, delete and new

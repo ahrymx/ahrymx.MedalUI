@@ -29,8 +29,8 @@
 -- brown), its name, its count; the open one held (MedalUICharDB.bookTab,
 -- by name, each page its own). (2026-11-25, /workspace/spec-rows-B.png)
 -- The specialisations share its top row; General and Pet a slim strip
--- under them, no more than three to a row. Under it that line's spells, on
--- hairlines, in two titled windows on the macros' floor (2026-11-26, the
+-- under them, no more than three to a row. Under it that line's spells, as
+-- glass cards, in two titled windows on the macros' floor (the page's) (2026-11-26, the
 -- user's, mockup B of /workspace/booklist-windows-sheet.png): Not on your
 -- bars and On your bars, each with its count and its own scroll, its bar
 -- out in the window's margin by the rail (Scroller's outside); the
@@ -54,7 +54,7 @@
 -- the bars at their highest rank (spellbookUpRank): every spell, only those
 -- marked, or none. Shift+Right-click marks a spell or unmarks it (per
 -- character, MedalUICharDB.upRank, by name), and a marked one wears a
--- blue double chevron on its icon's top right, as a bound one wears a mouse. A
+-- Top rank chip on its second line, as a bound one wears its clicks'. A
 -- lower rank on a bar is swapped for the highest as it is learned, or as
 -- its spell is marked: out of combat, the cursor empty.
 --
@@ -80,15 +80,17 @@ local SPELL, RANK = 36, 24              -- a spell's row, a rank's
 local SPECS_H = 44                      -- the tabs' panel, joined under the head: the specs' row
 local STRIP_H = 26                      -- under it, General's and the pet's strip
 local OFF = { 0.37, 0.345, 0.29 }       -- a tab's count, not held
-local ICON, INDENT = 30, 20             -- a spell's icon, its left
+local ICON, INDENT = 30, 8              -- a spell's icon, its left in its card
 local HEADING = 28                      -- Passive's heading, at the foot of On your bars
 local TITLE_H = 26                      -- a window's title band
 local GAP = 6                           -- between the two windows
 local LEAN = 0.6                        -- the share Not on your bars may take when both cannot fit
-local DOTS = 8                          -- the dotted rule's tile
+local SIDE, SPACE = 6, 4                -- a card in from the window's sides; the space over and under it
+local GLASS = { fill = 0.45, sheen = 0.06, edge = 0.45, shine = 0.16 } -- a card: its tint, its light, its rims
+local CHIP_H = 14                       -- a mark's chip on the second line
 local FAINT = { 0.141, 0.122, 0.094 }   -- between a spell's ranks
 local RIGHT = 80                        -- the cast time and cost's column
-local EDGE = 12                         -- the cast time and cost, in from the card's edge
+local EDGE = 10                         -- the cast time and cost, in from the card's edge
 -- a section's colour, by its specialisation's role (General, the pet's
 -- and the trainer's Other: the theme's brown)
 local ROLE = { TANK = { 0.35, 0.55, 0.9 }, HEALER = { 0.35, 0.78, 0.45 }, DAMAGER = { 0.84, 0.35, 0.29 } }
@@ -623,29 +625,101 @@ local function Press(p, item, button, down)
     end
 end
 
--- A section's card, pooled, under its rows: a dark box with a brown edge,
--- its specialisation's icon faint at its top right under the strip.
+-- (2026-11-26, the user's, /workspace/booklist-plates-sheet.png) A spell
+-- is a card: glass over the page's floor (a dark tint the hatch shows
+-- through, a light falling from its top, faint gold rims, a bright line
+-- under its top), SIDE in from the window's sides with SPACE over and
+-- under. An unfolded spell and its ranks are one card: the spell's row has
+-- its top, the last rank its foot. The card is c.hit, so the secure
+-- button covers the card and nothing round it.
+--
+-- Its marks are chips on the second line after the rank: top rank (a
+-- double chevron and "Top rank"; blue while Top rank keeps the marked) and the
+-- click-cast binding (a mouse and its clicks).
+--
+--   spell   +--------------------------------------------------------+
+--           | [icon] Lightning Bolt >                      2.5 sec |
+--           |  [4]   Rank 4 [^ Top rank] [mouse Alt+Left]  100 Mana |
+--   rank    |    |-- Rank 3                3 sec         155 Mana  |
+--           |    '-- Rank 1              1.5 sec          25 Mana  |
+--           +--------------------------------------------------------+
+
+-- a chip: a small well with a gold rim, its glyph, its words
+local function Chip(c, glyph)
+    local h = CreateFrame("Frame", nil, c)
+    h:SetHeight(CHIP_H)
+    h:SetFrameLevel(c:GetFrameLevel() + 2)
+    local rim = h:CreateTexture(nil, "BACKGROUND")
+    rim:SetAllPoints()
+    rim:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
+    local well = h:CreateTexture(nil, "BACKGROUND", nil, 1)
+    well:SetPoint("TOPLEFT", 1, -1)
+    well:SetPoint("BOTTOMRIGHT", -1, 1)
+    well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 0.9)
+    h.glyph = h:CreateTexture(nil, "ARTWORK")
+    h.glyph:SetPoint("LEFT", 4, 0)
+    h.glyph:SetTexture(ns.media .. "strips\\" .. glyph)
+    h.text = ns.Text(h, 9)
+    h.text:SetPoint("LEFT", h.glyph, "RIGHT", 3, 0)
+    h.text:SetJustifyH("LEFT")
+    h.text:SetWordWrap(false)
+    h:Hide()
+    -- its words, a colour, and the most it may take: its width to fit
+    function h.Say(words, col, most)
+        h.text:SetText(words)
+        h.text:SetTextColor(col[1], col[2], col[3])
+        h.glyph:SetVertexColor(col[1], col[2], col[3])
+        local fixed = 4 + (h.glyph:GetWidth() or 0) + 3 + 5
+        local tw = math.ceil(h.text:GetStringWidth() or 0)
+        if most then tw = math.max(0, math.min(tw, most - fixed)) end
+        h.text:SetWidth(tw)
+        h:SetWidth(fixed + tw)
+        return fixed + tw
+    end
+    return h
+end
 
 -- A row, pooled: one frame for each kind, its parts shown for the kind.
---   strip   Restoration                              Healer · 6 (+)
---   spell   [icon] Lightning Bolt                    2.5 sec
---                  Rank 4                            100 Mana
---   ranked  [ic]]] Healing Wave                      3 sec      (a stack)
---                  Rank 5 · 5 ranks                  200 Mana
---   rank       |   Rank 4                  3 sec     155 Mana
 local function Row(p, win, i)
     local c = CreateFrame("Button", nil, win.scroller.child)
     c:SetFrameLevel(win.scroller.child:GetFrameLevel() + 3)
-    -- the hairline at a row's foot, from the icon's left (Refresh hides
-    -- it on a group's last, over a heading and between ranks)
-    c.hair = c:CreateTexture(nil, "BACKGROUND", nil, -6)
-    c.hair:SetHeight(1)
-    c.hair:SetPoint("BOTTOMLEFT", INDENT, 0)
-    c.hair:SetPoint("BOTTOMRIGHT", 0, 0)
-    -- (2026-11-19, mockup B of /workspace/bookpage-sheet.png) dotted, as
-    -- a ledger's: its tile repeated along it (Place sets how many)
-    c.hair:SetTexture(ns.media .. "spellbook\\dots", "REPEAT", "REPEAT")
-    c.hair:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
+    -- the card (what the secure button covers); Place sets its insets
+    c.hit = CreateFrame("Frame", nil, c)
+    c.hit:SetPoint("TOPLEFT", SIDE, -SPACE)
+    c.hit:SetPoint("BOTTOMRIGHT", -SIDE, SPACE)
+    local hit = c.hit
+    local ink = ns.colors.ink
+    c.fill = c:CreateTexture(nil, "BACKGROUND", nil, -5)
+    c.fill:SetAllPoints(hit)
+    c.fill:SetColorTexture(ink[1], ink[2], ink[3], GLASS.fill)
+    -- the light, from the card's top down over its spell's row
+    c.sheen = c:CreateTexture(nil, "BACKGROUND", nil, -4)
+    c.sheen:SetPoint("TOPLEFT", hit)
+    c.sheen:SetPoint("TOPRIGHT", hit)
+    c.sheen:SetHeight(SPELL / 2)
+    if c.sheen.SetGradient and CreateColor then
+        c.sheen:SetColorTexture(1, 1, 1, 1)
+        c.sheen:SetGradient("VERTICAL", CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, GLASS.sheen))
+    else
+        c.sheen:SetColorTexture(1, 1, 1, GLASS.sheen / 2)
+    end
+    local function Rim(a1, a2, across)
+        local t = c:CreateTexture(nil, "BORDER")
+        t:SetPoint(a1, hit)
+        t:SetPoint(a2, hit)
+        if across then t:SetHeight(1) else t:SetWidth(1) end
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], GLASS.edge)
+        return t
+    end
+    c.rimL = Rim("TOPLEFT", "BOTTOMLEFT")
+    c.rimR = Rim("TOPRIGHT", "BOTTOMRIGHT")
+    c.rimT = Rim("TOPLEFT", "TOPRIGHT", true)
+    c.rimB = Rim("BOTTOMLEFT", "BOTTOMRIGHT", true)
+    c.shine = c:CreateTexture(nil, "BORDER", nil, 1)
+    c.shine:SetPoint("TOPLEFT", hit, 1, -1)
+    c.shine:SetPoint("TOPRIGHT", hit, -1, -1)
+    c.shine:SetHeight(1)
+    c.shine:SetColorTexture(1, 1, 1, GLASS.shine)
     -- a spell: its icon (stacked when it has ranks to show), its words
     c.icon = c:CreateTexture(nil, "ARTWORK")
     c.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
@@ -672,15 +746,15 @@ local function Row(p, win, i)
     c.chev:SetSize(9, 9)
     c.chev:SetTexture(ns.media .. "strips\\chevron-down")
     c.chev:SetTexCoord(6 / 32, 26 / 32, 6 / 32, 26 / 32)
-    -- an open spell and its ranks: a gold bar down the inner edge, a soft
-    -- wash brightening outwards
-    c.bar = c:CreateTexture(nil, "BACKGROUND", nil, -1)
+    -- an open spell and its ranks: a gold bar down the card's inner edge, a
+    -- soft wash brightening outwards
+    c.bar = c:CreateTexture(nil, "BORDER", nil, 2)
     c.bar:SetWidth(2)
-    c.bar:SetPoint("TOPLEFT")
-    c.bar:SetPoint("BOTTOMLEFT")
+    c.bar:SetPoint("TOPLEFT", hit)
+    c.bar:SetPoint("BOTTOMLEFT", hit)
     c.bar:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
     c.gwash = c:CreateTexture(nil, "BACKGROUND", nil, -3)
-    c.gwash:SetAllPoints()
+    c.gwash:SetAllPoints(hit)
     if c.gwash.SetGradient and CreateColor then
         c.gwash:SetColorTexture(1, 1, 1, 1)
         c.gwash:SetGradient("HORIZONTAL", CreateColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0),
@@ -688,37 +762,14 @@ local function Row(p, win, i)
     else
         c.gwash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.07)
     end
-    -- a click-cast binding: a small mouse in a gold ring on the icon's
-    -- bottom corner; kept on its top rank: a double chevron, up, on its top
-    local function Badge(glyph, at, dy)
-        local b = CreateFrame("Frame", nil, c)
-        b:SetSize(15, 15)
-        b:SetPoint("CENTER", c.icon, at, -2, dy)
-        b.ring = b:CreateTexture(nil, "ARTWORK", nil, 1)
-        b.ring:SetAllPoints()
-        b.ring:SetTexture(ns.media .. "strips\\round")
-        b.ring:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-        local disc = b:CreateTexture(nil, "ARTWORK", nil, 2)
-        disc:SetPoint("TOPLEFT", 1, -1)
-        disc:SetPoint("BOTTOMRIGHT", -1, 1)
-        disc:SetTexture(ns.media .. "strips\\round")
-        disc:SetVertexColor(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
-        b.glyph = b:CreateTexture(nil, "ARTWORK", nil, 3)
-        b.glyph:SetSize(11, 11)
-        b.glyph:SetPoint("CENTER")
-        b.glyph:SetTexture(ns.media .. "strips\\" .. glyph)
-        b.glyph:SetVertexColor(GOLD[1], GOLD[2], GOLD[3])
-        b:Hide()
-        return b
-    end
-    -- each glyph cut to its drawing (its file is mostly margin), so it
-    -- fills the badge's disc
-    c.badge = Badge("mouse", "BOTTOMRIGHT", 2)
-    c.badge.glyph:SetTexCoord(8 / 32, 24 / 32, 5 / 32, 27 / 32)
-    c.badge.glyph:SetSize(9, 12)
-    c.top = Badge("chevron-double", "TOPRIGHT", -2)
-    c.top.glyph:SetTexCoord(7 / 32, 25 / 32, 27 / 32, 6 / 32)   -- the chevrons point down: turned up
-    c.top.glyph:SetSize(10, 12)
+    -- its marks, as chips (the chevrons point down: turned up; each glyph
+    -- cut to its drawing)
+    c.topChip = Chip(c, "chevron-double")
+    c.topChip.glyph:SetTexCoord(7 / 32, 25 / 32, 27 / 32, 6 / 32)
+    c.topChip.glyph:SetSize(8, 9)
+    c.clickChip = Chip(c, "mouse")
+    c.clickChip.glyph:SetTexCoord(8 / 32, 24 / 32, 5 / 32, 27 / 32)
+    c.clickChip.glyph:SetSize(7, 10)
     -- while Click Casting is open, round a spell it can bind: a gold halo
     c.halo = c:CreateTexture(nil, "BACKGROUND", nil, -1)
     c.halo:SetPoint("TOPLEFT", c.icon, -4, 4)
@@ -726,21 +777,21 @@ local function Row(p, win, i)
     c.halo:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.3)
     c.halo:Hide()
     c.name = ns.Text(c, 12)
-    c.name:SetPoint("TOPLEFT", INDENT + ICON + 8, -5)
-    c.name:SetPoint("RIGHT", -RIGHT, 0)
+    c.name:SetPoint("TOPLEFT", hit, "TOPLEFT", INDENT + ICON + 8, -5)
+    c.name:SetPoint("RIGHT", hit, "RIGHT", -RIGHT, 0)
     c.name:SetJustifyH("LEFT")
     c.name:SetWordWrap(false)
+    -- the second line: its words as wide as they are, the chips after
     c.sub = ns.Text(c, 10)
-    c.sub:SetPoint("BOTTOMLEFT", INDENT + ICON + 8, 5)
-    c.sub:SetPoint("RIGHT", -RIGHT, 0)
+    c.sub:SetPoint("BOTTOMLEFT", hit, "TOPLEFT", INDENT + ICON + 8, -(SPELL - 5))
     c.sub:SetJustifyH("LEFT")
     c.sub:SetWordWrap(false)
     c.sub:SetTextColor(unpack(ns.colors.dim))
     c.cast = ns.Text(c, 11)
-    c.cast:SetPoint("TOPRIGHT", -EDGE, -5)
+    c.cast:SetPoint("TOPRIGHT", hit, "TOPRIGHT", -EDGE, -5)
     c.cast:SetJustifyH("RIGHT")
     c.cost = ns.Text(c, 10)
-    c.cost:SetPoint("BOTTOMRIGHT", -EDGE, 5)
+    c.cost:SetPoint("BOTTOMRIGHT", hit, "TOPRIGHT", -EDGE, -(SPELL - 5))
     c.cost:SetJustifyH("RIGHT")
     c.cost:SetTextColor(unpack(BLUE))
     -- a rank: on a tree from under its spell's icon (a stem down, a
@@ -751,17 +802,16 @@ local function Row(p, win, i)
     c.stem:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
     c.branch = c:CreateTexture(nil, "ARTWORK")
     c.branch:SetHeight(1)
-    c.branch:SetPoint("LEFT", INDENT + ICON / 2, 0)
+    c.branch:SetPoint("LEFT", hit, "LEFT", INDENT + ICON / 2, 0)
     c.branch:SetWidth(14)
     c.branch:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
-    c.rhair = c:CreateTexture(nil, "BACKGROUND", nil, -6)
+    c.rhair = c:CreateTexture(nil, "BACKGROUND", nil, -2)
     c.rhair:SetHeight(1)
-    c.rhair:SetPoint("BOTTOMLEFT", INDENT + ICON + 8, 0)
-    c.rhair:SetPoint("BOTTOMRIGHT", -4, 0)
+    c.rhair:SetPoint("BOTTOMLEFT", hit, "BOTTOMLEFT", INDENT + ICON + 8, 0)
+    c.rhair:SetPoint("BOTTOMRIGHT", hit, "BOTTOMRIGHT", -4, 0)
     c.rhair:SetColorTexture(FAINT[1], FAINT[2], FAINT[3], 1)
-    -- a group's heading, as a book's: its name (red: not on your bars)
-    -- underlined in its ink, its count after, and under both a rule on to
-    -- the edge
+    -- a group's heading, as a book's: its name underlined in its ink, its
+    -- count after, and under both a rule on to the edge
     c.hname = ns.Text(c, 13)
     c.hname:SetPoint("BOTTOMLEFT", 6, 9)
     c.hcount = ns.Text(c, 10)
@@ -777,21 +827,17 @@ local function Row(p, win, i)
     c.hline:SetPoint("BOTTOMRIGHT", 0, 4)
     c.hline:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.6)
     c.rank = ns.Text(c, 11)
-    c.rank:SetPoint("LEFT", INDENT + ICON + 8, 0)
+    c.rank:SetPoint("LEFT", hit, "LEFT", INDENT + ICON + 8, 0)
     c.rcast = ns.Text(c, 10)
-    c.rcast:SetPoint("RIGHT", -(EDGE + 96), 0)
+    c.rcast:SetPoint("RIGHT", hit, "RIGHT", -(EDGE + 96), 0)
     c.rcast:SetJustifyH("RIGHT")
     c.rcast:SetTextColor(unpack(ns.colors.dim))
     c.rcost = ns.Text(c, 10)
-    c.rcost:SetPoint("RIGHT", -EDGE, 0)
+    c.rcost:SetPoint("RIGHT", hit, "RIGHT", -EDGE, 0)
     c.rcost:SetJustifyH("RIGHT")
     c.rcost:SetTextColor(unpack(BLUE))
-    -- what the secure button covers: the row within the card's edges
-    c.hit = CreateFrame("Frame", nil, c)
-    c.hit:SetPoint("TOPLEFT", 1, 0)
-    c.hit:SetPoint("BOTTOMRIGHT", -1, 0)
     c.glow = c:CreateTexture(nil, "HIGHLIGHT")
-    c.glow:SetAllPoints(c.hit)
+    c.glow:SetAllPoints(hit)
     c.glow:SetColorTexture(1, 1, 1, 0.08)
     -- A spell, in combat (the secure layer away) or cut by the scroll's
     -- edge: the left button shows or hides its ranks, the right casts
@@ -803,7 +849,7 @@ local function Row(p, win, i)
     c:SetScript("OnLeave", function() GameTooltip:Hide() end)
     -- an empty window's one line
     c.empty = ns.Text(c, 11)
-    c.empty:SetPoint("LEFT", INDENT + ICON + 8, 0)
+    c.empty:SetPoint("LEFT", INDENT + ICON + 8 + SIDE, 0)
     c.empty:SetTextColor(unpack(ns.colors.dim))
     c.empty:SetText(Tr["None"])
     win.rows[i] = c
@@ -816,13 +862,18 @@ local PARTS = {
     heading = { "hname", "hcount", "hunder", "hline" },
     none = { "empty" },
 }
+-- a card's parts: the spell's and the rank's rows
+local CARD = { "fill", "rimL", "rimR" }
 local function Kind(c, kind)
     for k, list in pairs(PARTS) do
         for _, part in ipairs(list) do c[part]:SetShown(k == kind) end
     end
-    for _, part in ipairs({ "badge", "top", "halo", "plate", "chev", "bar", "gwash", "hair", "rhair" }) do
+    for _, part in ipairs({ "topChip", "clickChip", "halo", "plate", "chev", "bar", "gwash", "rhair",
+        "sheen", "shine", "rimT", "rimB" }) do
         c[part]:Hide()
     end
+    local card = kind == "spell" or kind == "rank"
+    for _, part in ipairs(CARD) do c[part]:SetShown(card) end
     c:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     -- a heading (or an empty window's line) is no button: no highlight
     -- under the pointer, no click
@@ -834,18 +885,34 @@ end
 
 -- A window's entries laid out top to bottom in its scroll's child, the
 -- list's width (an empty window: its one None line); the rows left over
--- hidden. Its content's height kept for the windows' split (Layout).
+-- hidden. Its content's height kept for the windows' split (Layout). A
+-- card's row has SPACE over it where the card begins (a spell) and under
+-- it where it ends (a spell with no ranks open, a group's last rank): the
+-- card itself is always SPELL or RANK tall.
 local function Place(p, win, items)
     local width = W.width
     local y = 0
     if #items == 0 then items = { { none = true } } end
     for i, item in ipairs(items) do
         local c = win.rows[i] or Row(p, win, i)
+        local nxt = items[i + 1]
+        local card = not (item.heading or item.none)
+        local over = card and not item.rank and SPACE or 0
+        local under = card and not (nxt and nxt.rank) and SPACE or 0
         local h = item.heading and HEADING or item.rank and RANK or SPELL
+        c.hit:ClearAllPoints()
+        if card then
+            c.hit:SetPoint("TOPLEFT", SIDE, -over)
+            c.hit:SetPoint("BOTTOMRIGHT", -SIDE, under)
+            h = h + over + under
+        else
+            c.hit:SetPoint("TOPLEFT", 0, 0)
+            c.hit:SetPoint("BOTTOMRIGHT", 0, 0)
+        end
+        c.over, c.under = over, under
         c:ClearAllPoints()
         c:SetPoint("TOPLEFT", 0, -y)
         c:SetSize(width, h)
-        c.hair:SetTexCoord(0, (width - INDENT) / DOTS, 0, 0.5)
         c.y, c.h = y, h
         c:Show()
         y = y + h
@@ -1153,7 +1220,7 @@ local function Panel(p)
 end
 
 -- (2026-11-26, /workspace/booklist-windows-sheet.png) A window of the
--- list: the macros' floor (ns.window.Floor), a dark title band with its
+-- list, on the page's floor: a faint gold edge, a dark title band with its
 -- name (red: Not on your bars) and its count at the right over a gold
 -- rule, and under it its own scroll, its bar out by the rail beside it.
 local function Win(p, body, key, title, red)
@@ -1161,7 +1228,9 @@ local function Win(p, body, key, title, red)
     local f = CreateFrame("Frame", nil, body)
     f:SetPoint("LEFT")
     f:SetPoint("RIGHT")
-    ns.window.Floor(f)
+    -- (2026-11-26, the user's) no floor of its own: the page's shows
+    -- through it and its cards; a faint gold edge round it
+    ns.window.Edge(f)
     local ink = ns.colors.ink
     f.band = f:CreateTexture(nil, "BACKGROUND", nil, -5)
     f.band:SetPoint("TOPLEFT", 1, -1)
@@ -1234,6 +1303,39 @@ end
 
 -- ------------------------------------------------------------------ pages
 local Band
+-- A spell's second line: its words as wide as they are, then its chips,
+-- Top (in its colour) and the clicks; all left of the cost's column. Short
+-- of room the clicks' words shorten, and past that their chip goes, then
+-- Top's. Nothing on it: the name stands at the card's middle.
+local function Second(c, sub, topColor, clicks)
+    local room = (W.width or 300) - 2 * SIDE - (INDENT + ICON + 8) - RIGHT
+    c.sub:SetText(sub or "")
+    local x = 0
+    if sub then
+        x = math.min(math.ceil(c.sub:GetStringWidth() or 0), room)
+        c.sub:SetWidth(x)
+        x = x + 6
+    end
+    local function Put(chip, words, col)
+        chip:Hide()
+        if not words or room - x < 2 * CHIP_H then return end
+        local w = chip.Say(words, col, room - x)
+        chip:ClearAllPoints()
+        chip:SetPoint("LEFT", c.hit, "TOPLEFT", INDENT + ICON + 8 + x, -(SPELL - 11))
+        chip:Show()
+        x = x + w + 4
+    end
+    Put(c.topChip, topColor and Tr["Top rank"], topColor)
+    Put(c.clickChip, clicks, GOLD)
+    c.name:ClearAllPoints()
+    if sub or topColor or clicks then
+        c.name:SetPoint("TOPLEFT", c.hit, "TOPLEFT", INDENT + ICON + 8, -5)
+    else
+        c.name:SetPoint("LEFT", c.hit, "LEFT", INDENT + ICON + 8, 0)
+    end
+    c.name:SetPoint("RIGHT", c.hit, "RIGHT", -RIGHT, 0)
+end
+
 -- a window's rows drawn: its entries, as Place laid them out
 local function Draw(p, win, items, binding, bound, ready)
     for i, item in ipairs(items) do
@@ -1255,9 +1357,12 @@ local function Draw(p, win, items, binding, bound, ready)
             c.item = item
             local info = item.info
             local cast, cost = Costs(item)
-            -- a hairline under it, but a group's last, over a heading and
-            -- over its ranks
-            c.hair:SetShown(nxt ~= nil and not nxt.rank and not nxt.heading)
+            -- its card: the top (its rim, the light, the bright line) on a
+            -- spell's row, the foot where Place left space under it
+            c.sheen:SetShown(not item.rank)
+            c.shine:SetShown(not item.rank)
+            c.rimT:SetShown(not item.rank)
+            c.rimB:SetShown(c.under > 0)
             -- an open spell and its ranks: the bar and the wash
             local group = item.rank or Ranked(item) and Open(info.name)
             c.bar:SetShown(group and true or false)
@@ -1269,11 +1374,11 @@ local function Draw(p, win, items, binding, bound, ready)
                 -- the tree: the last rank's stem stops at its branch
                 local last = not (nxt and nxt.rank)
                 c.stem:ClearAllPoints()
-                c.stem:SetPoint("TOPLEFT", INDENT + ICON / 2, 0)
+                c.stem:SetPoint("TOPLEFT", c.hit, "TOPLEFT", INDENT + ICON / 2, 0)
                 if last then
-                    c.stem:SetPoint("BOTTOMLEFT", c, "LEFT", INDENT + ICON / 2, 0)
+                    c.stem:SetPoint("BOTTOMLEFT", c.hit, "LEFT", INDENT + ICON / 2, 0)
                 else
-                    c.stem:SetPoint("BOTTOMLEFT", INDENT + ICON / 2, 0)
+                    c.stem:SetPoint("BOTTOMLEFT", c.hit, "BOTTOMLEFT", INDENT + ICON / 2, 0)
                 end
                 c.rhair:SetShown(not last)
                 -- in bind mode, a rank it cannot bind greyed; the highest gold
@@ -1287,7 +1392,7 @@ local function Draw(p, win, items, binding, bound, ready)
                 -- name (down and gold while they show)
                 c.icon:ClearAllPoints()
                 c.icon:SetSize(ICON, ICON)
-                c.icon:SetPoint("LEFT", INDENT, 0)
+                c.icon:SetPoint("LEFT", c.hit, "LEFT", INDENT, 0)
                 c.plate:SetShown(ranks > 1)
                 c.chev:SetShown(ranks > 1)
                 if ranks > 1 then
@@ -1304,10 +1409,10 @@ local function Draw(p, win, items, binding, bound, ready)
                 c.icon:SetAlpha((learned and not info.isPassive) and 1 or 0.6)
                 c.name:SetText(info.name)
                 if ranks > 1 then
-                    local room = (W.width or 300) - (INDENT + ICON + 8) - RIGHT - 14
+                    local room = (W.width or 300) - 2 * SIDE - (INDENT + ICON + 8) - RIGHT - 14
                     local tw = math.min(c.name:GetStringWidth() or 0, room)
                     c.chev:ClearAllPoints()
-                    c.chev:SetPoint("CENTER", c, "TOPLEFT", INDENT + ICON + 8 + tw + 9, -11)
+                    c.chev:SetPoint("CENTER", c.name, "LEFT", tw + 9, 0)
                 end
                 c.name:SetTextColor(unpack(learned and (info.isPassive and ns.colors.dim or GOLD) or ns.colors.dim))
                 -- its rank (the trainer's), how many it has folded away, its click
@@ -1318,21 +1423,14 @@ local function Draw(p, win, items, binding, bound, ready)
                     sub = Sub(item)
                 end
                 item.clicks = Clicks(item, bound)
-                if item.clicks then sub = (sub and sub .. "  ·  " or "") .. ns.GoldHex(GOLD) .. item.clicks .. "|r" end
-                c.sub:SetText(sub or "")
+                -- marked for top rank: blue while Top rank is on its marks,
+                -- dim while it is on every spell or none
+                local top = not binding and Markable(item) and Marked(info.name)
+                Second(c, sub, top and (Mode() == "marked" and BLUE or ns.colors.dim), item.clicks)
                 c.cast:SetText(cast or "")
                 c.cast:SetTextColor(unpack(item.trainer and not item.now and ns.colors.dim
                     or ns.colors.text or { 1, 1, 1 }))
                 c.cost:SetText(cost or "")
-                c.badge:SetShown(item.clicks ~= nil and not binding)
-                -- marked for top rank: blue while Top rank is on its marks,
-                -- dim while it is on every spell or none
-                local top = not binding and Markable(item) and Marked(info.name)
-                c.top:SetShown(top)
-                if top then
-                    local g = Mode() == "marked" and BLUE or ns.colors.dim
-                    c.top.glyph:SetVertexColor(g[1], g[2], g[3])
-                end
                 -- on no bar (Grouped asked; in bind mode none): a red ring
                 local edge = item.missing and MISSING or GOLD_D
                 c.edge:SetColorTexture(edge[1], edge[2], edge[3], 1)
@@ -1463,6 +1561,12 @@ local function Page(spec)
         -- windows, each its bar out by the rail
         Panel(p)
         p.listBody = body
+        -- (2026-11-26, the user's) the macros' floor under the whole page:
+        -- the windows and their glass cards over it
+        p.surface = CreateFrame("Frame", nil, body)
+        p.surface:SetAllPoints()
+        p.surface:SetFrameLevel(body:GetFrameLevel())
+        ns.window.Floor(p.surface)
         p.wins = { Win(p, body, "missing", Tr["Not on your bars"], true), Win(p, body, "placed", Tr["On your bars"]) }
         body:HookScript("OnSizeChanged", function() Layout(p) Follow() end)
     end

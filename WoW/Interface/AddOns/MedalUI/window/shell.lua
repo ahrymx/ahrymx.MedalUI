@@ -696,15 +696,24 @@ function ns.window.Floor(f)
     vignette:SetAllPoints()
     vignette:SetTexture(ns.media .. "gamemenu-vignette")
     vignette:SetVertexColor(0, 0, 0, FLOOR.vignette)
+    ns.window.Edge(f, FLOOR.edge)
+    return hatch, vignette
+end
+
+-- A faint gold edge round a frame, a pixel wide (the floor's; the
+-- spellbook's windows, on the page's floor, wear it alone)
+function ns.window.Edge(f, alpha)
+    local out = {}
     for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
         { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
         local t = f:CreateTexture(nil, "BACKGROUND", nil, -6)
         t:SetPoint(side[1])
         t:SetPoint(side[2])
         if side[3] then t:SetHeight(1) else t:SetWidth(1) end
-        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], FLOOR.edge)
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], alpha or FLOOR.edge)
+        out[#out + 1] = t
     end
-    return hatch, vignette
+    return out
 end
 ns.window.scrollers = scrollers
 
