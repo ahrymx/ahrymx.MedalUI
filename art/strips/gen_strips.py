@@ -344,8 +344,13 @@ def strip(side):
             f'filter="url(#shadow)"/>')
 
 
-def medallion(cx, cy, inner):
-    """A round button: gold ring, ink well, and whatever sits inside it."""
+def medallion(cx, cy, inner, ring=True):
+    """A round button: gold ring, ink well, and whatever sits inside it. The
+    game's art (layer3) has no ring: the code draws it, the gauge's bezel
+    (rings(), strips/rings.lua), over the disc."""
+    if not ring:
+        return (f'<circle cx="{cx}" cy="{cy}" r="{MED_R + 0.8}" fill="url(#navy)" filter="url(#shadow)"/>'
+                f'<circle cx="{cx}" cy="{cy}" r="{MED_R - 3}" fill="{INK}"/>{inner}')
     return (f'<circle cx="{cx}" cy="{cy}" r="{MED_R}" fill="url(#navy)" stroke="{GOLD_D}" stroke-width="1.6" '
             f'filter="url(#shadow)"/>'
             f'<circle cx="{cx}" cy="{cy}" r="{MED_R - 3}" fill="{INK}" stroke="url(#gold)" stroke-width="2.4"/>'
@@ -700,7 +705,7 @@ def layer3():
     from PIL import ImageDraw
     os.makedirs(OUT, exist_ok=True)
     lx, rx = MED_R + 10, W - MED_R - 10
-    body = strip(-1) + strip(1) + medallion(lx, MED_Y, "") + medallion(rx, MED_Y, "")
+    body = strip(-1) + strip(1) + medallion(lx, MED_Y, "", False) + medallion(rx, MED_Y, "", False)
     png = os.path.join(OUT, "layer3-raw.png")
     subprocess.run(["rsvg-convert", "-o", png], input=svg(body).encode(), check=True)
     img = Image.open(png).convert("RGBA")
@@ -747,64 +752,116 @@ def layer3():
 
 # ------------------------------------------------------------------- rings
 # The gauges round the medallions (2026-11-10, mockup A of
-# /workspace/rings-mockups.png): durability round the portrait, the bags
-# round the backpack. An arc on the medallion's border (its band, from the
-# well's edge to the rim, over the gold line), from 7 o'clock clockwise
-# round to 5, on a dark track all the way round; the value's arc white (code tints
-# it) in an atlas of RING_STEPS frames, 8 to a row. Drawn for the left
-# strip; the right flips them. A box of RING_BOX art px, at 2x.
-RING_R, RING_W, RING_A0, RING_SPAN, RING_STEPS, RING_BOX = MED_R - 1.6, 4.8, 210, 300, 32, 64
-RING_INSET = 5                # the value's arc this many degrees in from each stop, its round cap clear of it
-
-
-def ring_path(c, r, a0, a1):
-    """An arc, angles clockwise from the top."""
-    def p(a):
-        t = math.radians(a - 90)
-        return c + r * math.cos(t), c + r * math.sin(t)
-    x0, y0 = p(a0)
-    x1, y1 = p(a1)
-    large = 1 if a1 - a0 > 180 else 0
-    return f"M{x0:.3f},{y0:.3f} A{r},{r} 0 {large},1 {x1:.3f},{y1:.3f}"
-
-
-def ring_svg(inner, w, h):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w * 2}" height="{h * 2}" viewBox="0 0 {w} {h}">'
-            f'{inner}</svg>')
+# /workspace/rings-mockups.png; restyled 2026-11-26, the user's picks: the
+# medallions' slim "Glint" bezel, /workspace/bezel-mock-sheet.png 5, widened
+# for a dark channel, the gauge in it "C · Ticked", /workspace/gauge-mock-sheet.png;
+# "D · Ember" first, too plain and hard to read in game, the user's):
+# durability round the portrait, the bags round the backpack. The bezel is
+# the medallion's ring (the strip's art has none): outside in, a dark
+# keyline, the gold line, the channel, a fine gold line, a dark line. The
+# gauge runs in the channel from 7 o'clock clockwise round to 5, gold stops
+# at its ends (caps the gauge's inset long, 2026-11-26, the user's: the
+# dark gaps between the stops and the bar were filled with them), the
+# channel closed in dim gold between them at the foot; a
+# notch every tenth of the gauge, dim gold in the empty channel, dark
+# across the bar.
+#   ring-track  the bezel and the empty channel's notches, white (the gold) and black on clear:
+#               code tints it the dark gold
+#   ring-glint  its catch of light at the upper left, and the stops: ADD, the light gold
+#   ring-arc    the gauge, a bar lit along its outer side, notched: an atlas of RING_STEPS frames,
+#               8 a row, white; code tints it by how things stand
+# Drawn for the left strip (the right flips the arc's frames; the track is
+# symmetric, the light from the upper left on both). A box of RING_BOX art
+# px at 2x.
+RING_A0, RING_SPAN, RING_STEPS, RING_BOX = 210, 300, 32, 64
+RING_INSET = 5                # the gauge this many degrees in from each stop
+RING_OUT = MED_R + 0.8        # the bezel's outer edge (over the disc's)
+# keyline, line, channel, fine line, dark line: art px (the channel 50% wider, 2026-11-26, the user's)
+RING_BANDS = (0.7, 1.0, 3.9, 0.6, 0.5)
+RING_NOTCH = 0.45             # a notch's width, art px
 
 
 def rings():
-    """assets/strips/ring-track.png and ring-arc.png (the atlas)."""
+    """assets/strips/ring-track.png, ring-glint.png, and the atlas ring-arc.png."""
+    import numpy as np
     parts = os.path.join(ROOT, "assets", "strips")
     os.makedirs(parts, exist_ok=True)
-    c, b = RING_BOX / 2, RING_BOX
+    k, ss = 2, 4                                   # texels an art px; samples a texel, each way
+    n = RING_BOX * k
+    key, line, chan, fine, dark = RING_BANDS
+    c0 = key + line                                # the channel's outer edge, in from RING_OUT
 
-    def render(name, doc):
-        subprocess.run(["rsvg-convert", "-o", os.path.join(parts, name + ".png")], input=doc.encode(), check=True)
+    def grid():
+        m = n * ss
+        y, x = np.mgrid[0:m, 0:m]
+        dx = (x + 0.5) / (k * ss) - RING_BOX / 2
+        dy = (y + 0.5) / (k * ss) - RING_BOX / 2
+        d = np.hypot(dx, dy)
+        a = (np.degrees(np.arctan2(dx, -dy)) + 360) % 360      # clockwise from the top
+        p = ((a - RING_A0) % 360) / RING_SPAN                   # 0 at 7 o'clock .. 1 at 5; past 1 the foot
+        return dx, dy, d, a, p, RING_OUT - d
 
-    # the track all the way round (no sliver of the gold border between the
-    # arc's ends), the gap under it a muted brown, closed off at each end
-    # of the gauge by a gold stop across the band
-    a1 = RING_A0 + RING_SPAN
-    track = (f'<circle cx="{c}" cy="{c}" r="{RING_R}" fill="none" stroke="#0b0906" stroke-width="{RING_W}"/>'
-             f'<path d="{ring_path(c, RING_R, a1, RING_A0 + 360)}" fill="none" stroke="#3a2f17" '
-             f'stroke-width="{RING_W}"/>')
-    for a in (RING_A0, a1):
-        t = math.radians(a - 90)
-        r0, r1 = RING_R - RING_W / 2, RING_R + RING_W / 2
-        track += (f'<line x1="{c + r0 * math.cos(t):.3f}" y1="{c + r0 * math.sin(t):.3f}" '
-                  f'x2="{c + r1 * math.cos(t):.3f}" y2="{c + r1 * math.sin(t):.3f}" '
-                  f'stroke="{GOLD}" stroke-width="1.8"/>')
-    render("ring-track", ring_svg(track, b, b))
-    cols = 8
-    rows = RING_STEPS // cols
-    body = ""
-    for k in range(1, RING_STEPS + 1):
-        x, y = (k - 1) % cols * b, (k - 1) // cols * b
-        body += (f'<path transform="translate({x},{y})" d="{ring_path(c, RING_R, RING_A0 + RING_INSET, RING_A0 + RING_INSET + (RING_SPAN - 2 * RING_INSET) * k / RING_STEPS)}" '
-                 f'fill="none" stroke="#ffffff" stroke-width="{RING_W - 1.6}" stroke-linecap="round"/>')
-    render("ring-arc", ring_svg(body, cols * b, rows * b))
-    print(parts, "ring-track ring-arc")
+    def down(lum, alpha):
+        """the supersampled planes to a texture: premultiplied over the samples"""
+        lum, alpha = lum.reshape(n, ss, n, ss), alpha.reshape(n, ss, n, ss)
+        a = alpha.mean(axis=(1, 3))
+        v = np.where(a > 0, (lum * alpha).mean(axis=(1, 3)) / np.maximum(a, 1e-6), 0)
+        img = np.dstack([v * 255] * 3 + [a * 255])
+        return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGBA")
+
+    dx, dy, d, a, p, depth = grid()
+    span = p <= 1
+    # the notches: at each tenth of the gauge's own length (its ends in by
+    # RING_INSET), a radial line RING_NOTCH wide
+    ins = RING_INSET / RING_SPAN
+    notch = np.zeros(d.shape, bool)
+    for i in range(1, 10):
+        r = math.radians(RING_A0 + RING_SPAN * (ins + (1 - 2 * ins) * i / 10))
+        ex, ey = math.sin(r), -math.cos(r)
+        notch |= (np.abs(dx * -ey + dy * ex) < RING_NOTCH / 2) & (dx * ex + dy * ey > 0)
+    lum, alpha = np.zeros(d.shape), np.zeros(d.shape)
+
+    def band(lo, hi):
+        return (depth >= lo) & (depth < hi)
+
+    z = 0.0
+    m = band(z, z + key); alpha[m] = 0.9; z += key                         # the keyline
+    m = band(z, z + line); lum[m] = 1; alpha[m] = 1; z += line              # the gold line
+    m = band(z, z + chan); u = (depth - z) / chan                           # the channel
+    lum[m & span] = (0.07 + 0.07 * np.clip(u * 1.6, 0, 1))[m & span]        # shadowed at its outer side
+    lum[m & ~span] = 0.38                                                   # closed at the foot
+    lum[m & span & notch] = 0.45                                            # the notches
+    caps = m & span & ((p < ins) | (p > 1 - ins))
+    lum[caps] = 1                                                           # the caps, the gold
+    alpha[m] = 1
+    z += chan
+    m = band(z, z + fine); lum[m] = 0.8; alpha[m] = 1; z += fine            # the fine gold line
+    m = band(z, z + dark); alpha[m] = 0.85                                  # the dark line
+    down(lum, alpha).save(os.path.join(parts, "ring-track.png"))
+
+    # the glint on the gold line, and the stops across the channel
+    t, lx = (dy / RING_OUT + 1) / 2, dx / RING_OUT
+    g = np.zeros(d.shape)
+    on = band(key, key + line)
+    g[on] = (np.clip(1 - ((t - 0.12) ** 2 * 9 + (lx + 0.55) ** 2 * 2.2), 0, 1) ** 2)[on]
+    g[caps] = 0.6                                                           # the caps lit
+    down(np.ones(d.shape), g).save(os.path.join(parts, "ring-glint.png"))
+
+    # the gauge: a bar filling the channel, lit along its outer side, a fine
+    # highlight there; dark across it at the notches
+    u = (depth - c0) / chan
+    inch = band(c0, c0 + chan)
+    shade = np.clip(0.72 + 0.28 * np.clip(1 - np.abs(u - 0.35) * 2.2, 0, 1), 0, 1)
+    shade = np.where(np.abs(u - 0.28) < 0.09, 1.0, shade)
+    shade = np.where(notch, 0.3, shade)
+    cols, rows = 8, RING_STEPS // 8
+    arc = Image.new("RGBA", (cols * n, rows * n), (0, 0, 0, 0))
+    for step in range(1, RING_STEPS + 1):
+        lit = inch & (p >= ins) & (p <= ins + (1 - 2 * ins) * step / RING_STEPS)
+        x, y = (step - 1) % cols * n, (step - 1) // cols * n
+        arc.paste(down(shade, lit.astype(float)), (x, y))
+    arc.save(os.path.join(parts, "ring-arc.png"))
+    print(parts, "ring-track ring-glint ring-arc")
 
 
 # ------------------------------------------------------------------- chat

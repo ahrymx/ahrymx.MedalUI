@@ -355,12 +355,10 @@ local function Dress(b)
     end
     d.sub = ns.Text(b, 10)
     d.inside = Sides(b, 3, GOLD, 0.3)
-    -- a medallion: a gold rim, an ink well; under the mouse it lights itself
-    -- (the rim bright, the well lifted), with nothing around it
-    d.rim = b:CreateTexture(nil, "BACKGROUND", nil, 4)
-    d.rim:SetSize(MEDAL, MEDAL)
-    d.rim:SetTexture(ROUND)
-    d.rim:SetVertexColor(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    -- a medallion: the medallions' bezel (bezel.lua) round an ink well;
+    -- under the mouse it lights itself (the rim bright, the well lifted),
+    -- with nothing around it
+    d.rim = ns.Bezel(b, MEDAL, "BACKGROUND", 7)
     d.inner = b:CreateTexture(nil, "BACKGROUND", nil, 5)
     d.inner:SetSize(MEDAL - 4, MEDAL - 4)
     d.inner:SetTexture(ROUND)
@@ -547,7 +545,7 @@ local function Look(b, look, kind, glyph, size, primary)
         end
     elseif medal then
         d.rim:ClearAllPoints()
-        d.rim:SetSize(size, size)
+        d.rim:Fit(size)
         d.rim:SetPoint("CENTER", b, "TOP", 0, -size / 2)
         d.inner:ClearAllPoints()
         d.inner:SetSize(size - 4, size - 4)

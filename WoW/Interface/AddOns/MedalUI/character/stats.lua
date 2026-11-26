@@ -468,22 +468,20 @@ local function Ribbon(foot)
         e:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
         table.insert(frame.edges, e)
     end
-    -- the item level in a medallion's ring in the middle, over the band's
-    -- edges: the gold rim, a dark line in it, the ink well
+    -- the item level in a medallion in the middle, over the band's edges:
+    -- the medallions' bezel (bezel.lua) round an ink face
     local b = CreateFrame("Frame", nil, frame)
     b:SetSize(BADGE, BADGE)
     b:SetPoint("CENTER")
     b:SetFrameLevel(frame:GetFrameLevel() + 2)
-    b.rings = {}
-    for k, ring in ipairs({ { BADGE, GOLD }, { BADGE - 3, ns.colors.ink }, { BADGE - 5, GOLD_D },
-        { BADGE - 7, ns.colors.ink } }) do
-        local t = b:CreateTexture(nil, "BACKGROUND", nil, k)
-        t:SetSize(ring[1], ring[1])
-        t:SetPoint("CENTER")
-        t:SetTexture(ns.media .. "strips\\round")
-        t:SetVertexColor(ring[2][1], ring[2][2], ring[2][3], 1)
-        b.rings[k] = t
-    end
+    b.face = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+    b.face:SetSize(BADGE - 2, BADGE - 2)
+    b.face:SetPoint("CENTER")
+    b.face:SetTexture(ns.media .. "strips\\round")
+    b.face:SetVertexColor(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
+    b.rim = ns.Bezel(b, BADGE, "BORDER", 1)
+    b.rim:SetPoint("CENTER")
+    b.rings = { b.face, b.rim }
     b.value = ns.Text(b, 19)
     b.value:SetPoint("CENTER", 0, 4)
     b.value:SetTextColor(GOLD[1], GOLD[2], GOLD[3])

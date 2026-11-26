@@ -10912,17 +10912,17 @@ if stripsPass then
             if f.scripts.OnEvent then f.scripts.OnEvent(f, e, ...) end
         end
     end
+    -- (2026-11-26) on their own frame over the art: the bezel (track, glint)
+    -- and the gauge (arc)
     local function ring(tag, side)
-        local arc, track
-        for _, f in ipairs(all) do
-            if f.kind == "Texture" and f.parent == ns.strips[side].art and tostring(f.texture):match("ring%-arc$") then arc = f end
-            if f.kind == "Texture" and f.parent == ns.strips[side].art and tostring(f.texture):match("ring%-track$") then track = f end
-        end
-        local c = arc.coords or {}
-        local v = arc.vertex or {}
-        screen(tag, arc, string.format("shown=%s coords=%.3f,%.3f,%.3f,%.3f colour=%.2f,%.2f,%.2f track=%s",
+        local r = ns.stripRings[side]
+        local arc, track = r.arc, r.track
+        local c, v = arc.coords or {}, arc.vertex or {}
+        screen(tag, arc, string.format("shown=%s coords=%.3f,%.3f,%.3f,%.3f colour=%.2f,%.2f,%.2f"
+            .. " track=%s glint=%s level=art+%d",
             tostring(arc.shown), c[1] or -1, c[2] or -1, c[3] or -1, c[4] or -1, v[1] or -1, v[2] or -1, v[3] or -1,
-            tostring(track.coords and table.concat(track.coords, ","))))
+            tostring(track.coords and table.concat(track.coords, ",")), tostring(r.glint.blend),
+            r.frame.level - ns.strips[side].art.level))
     end
     local function tip(tag, b)
         b.scripts.OnEnter(b)
@@ -19844,6 +19844,10 @@ if characterPass then
             "art=" .. tostring(w.medal.level) .. string.format(" %dx%d", w.medal.w, w.medal.h)
                 .. " " .. where(w.medal),
             "margin=" .. where(w.bandRule))
+        -- the gauge over the medallion's copy while the window is open (2026-11-26)
+        local g = ns.stripRings[-1].frame
+        print(tag .. " gauge", tostring(g.strata) .. "/" .. tostring(g.level), "over the copy="
+            .. tostring(g.strata == w.strata and g.level > w.medal.level))
     end
     medallion("char.medallion")
     -- put back on the strip under the open window (another window that
@@ -29302,12 +29306,14 @@ if lfgPass then (function()
     print("lfg roles at first", medals())
     -- under the mouse a medallion lights itself (its rim), with no halo
     for _, m in ipairs(G.listme.medals) do
-        local before = m.art.rim.color and m.art.rim.color[1]
+        -- (2026-11-26) the rim the medallions' bezel: tinted, not painted
+        local function red() return m.art.rim.vertex and m.art.rim.vertex[1] end
+        local before = red()
         m.scripts.OnEnter(m)
-        local hot = m.art.rim.color and m.art.rim.color[1]
+        local hot = red()
         m.scripts.OnLeave(m)
         print("lfg medal hover", m.role, string.format("%.2f>%.2f>%.2f", before or -1, hot or -1,
-            m.art.rim.color and m.art.rim.color[1] or -1), "halo=" .. tostring(m.halo ~= nil))
+            red() or -1), "halo=" .. tostring(m.halo ~= nil))
     end
     medal("TANK")
     print("lfg roles tank (the class cannot)", medals())
@@ -30682,7 +30688,8 @@ if cdmPass then (function()
         local o = it.FilterOverlay or it.BarFilterOverlay
         local d
         for _, r in ipairs(it.all_) do
-            if r.kind == "Texture" and r.layer == "BACKGROUND" and r.sub == -6 then d = r end
+            -- (2026-11-26) its rim the medallions' bezel, over the icon
+            if r.kind == "Texture" and tostring(r.texture):match("bezel%-[sml]$") then d = r end
         end
         print(tag, "square alpha=" .. tostring(o and o.alpha), "icon alpha=" .. tostring(it.Icon.alpha),
             "ring=" .. string.format("%.2f", d and d.vertex and d.vertex[4] or -1),

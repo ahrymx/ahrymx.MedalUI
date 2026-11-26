@@ -263,15 +263,16 @@ local function Ring(parent, size, glow)
         end
         return t
     end
-    local rim, well, icon = Disc(1, 4), Disc(2, 2), Disc(3, 0)
-    rim:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+    -- the rim the medallions' bezel (bezel.lua), over the icon's edge
+    local well, icon = Disc(2, 2), Disc(3, 0)
+    local rim = ns.Bezel(parent, size + 6, "ARTWORK", 4)
     well:SetColorTexture(ns.colors.ink[1], ns.colors.ink[2], ns.colors.ink[3], 1)
     rim:SetPoint("CENTER", icon)
     well:SetPoint("CENTER", icon)
     icon:SetTexCoord(GAME_ICON, 1 - GAME_ICON, GAME_ICON, 1 - GAME_ICON)
     icon.rim, icon.well = rim, well
     if glow then
-        rim:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
+        rim:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1)
         icon.glows = {}
         for i, g in ipairs(GLOWS) do
             local t = Disc(1 - i, g[1])
@@ -1145,6 +1146,17 @@ function ns.Window(spec)
     local function Lift(on)
         local strip = ns.strips[side]
         if on and w.Detached() then on = false end
+        -- the medallion's gauge with them, over the copy (strips/rings.lua)
+        local g = ns.stripRings and ns.stripRings[side]
+        if g then
+            if on then
+                g.frame:SetFrameStrata(window:GetFrameStrata())
+                g.frame:SetFrameLevel(window:GetFrameLevel() + LIFT + 3)
+            else
+                g.frame:SetFrameStrata(strip:GetFrameStrata())
+                g.frame:SetFrameLevel(ns.levels.stripArt + 1)
+            end
+        end
         for i, f in ipairs(spec.Lifted()) do
             if not (f:IsProtected() and InCombatLockdown()) then
                 if on then
@@ -1166,6 +1178,10 @@ function ns.Window(spec)
     local function Sunk()
         if w.Detached() then return false end
         local level = window:GetFrameLevel() + LIFT
+        local g = ns.stripRings and ns.stripRings[side]
+        if g and (g.frame:GetFrameStrata() ~= window:GetFrameStrata() or g.frame:GetFrameLevel() < level + 3) then
+            return true
+        end
         for _, f in ipairs(spec.Lifted()) do
             if f:GetFrameStrata() ~= window:GetFrameStrata() or f:GetFrameLevel() < level then return true end
         end
@@ -1696,6 +1712,13 @@ function ns.Window(spec)
     -- art/window/gen_swell.py draws it to these)
     local MEDAL, STEP, SLANT = 46, 40, 6
     local SWELL = MEDAL / 2 + 5
+    -- floating, the medallion this much up and out over its corner, so the
+    -- window's top and side run into its bezel rather than touching it
+    -- (2026-11-26, the user's: they looked cut off where they met it)
+    local NUDGE = 3
+    -- floating, the step's foot this far under the medallion's base: its
+    -- line clear of the bezel by a pixel (2026-11-26, the user's: not over it)
+    local CLEAR = 2
     local FAINT = { 0.37, 0.345, 0.29 }
     local HAIR = { 0.157, 0.137, 0.106 }
     local LIFT_ROW = { 0.141, 0.125, 0.098 }
@@ -2055,12 +2078,11 @@ function ns.Window(spec)
             m:SetScript("OnClick", function() drop.Toggle() end)
             m:SetScript("OnEnter", function() local f = h:GetScript("OnEnter") if f then f(h) end end)
             m:SetScript("OnLeave", function() GameTooltip:Hide() end)
-            -- (2026-11-26) a bevelled ring, lit at its top, in the gold
-            -- (art/window/gen_medallion.py), round a face of ink lifted at
-            -- its top; the icon in its thin dark-gold ring inside
+            -- (2026-11-26) the medallions' bezel (bezel.lua) round a face
+            -- of ink lifted at its top; the page's icon on it, bare
             local ink = ns.colors.ink
             m.face = m:CreateTexture(nil, "BACKGROUND", nil, 1)
-            m.face:SetSize(MEDAL - 8, MEDAL - 8)
+            m.face:SetSize(MEDAL - 4, MEDAL - 4)
             m.face:SetPoint("CENTER")
             m.face:SetTexture(ns.media .. "strips\\round")
             if m.face.SetGradient and CreateColor then
@@ -2070,12 +2092,11 @@ function ns.Window(spec)
             else
                 m.face:SetVertexColor(ink[1] + 0.03, ink[2] + 0.03, ink[3] + 0.03, 1)
             end
-            m.rim = m:CreateTexture(nil, "BACKGROUND", nil, 2)
-            m.rim:SetSize(MEDAL, MEDAL)
+            m.rim = ns.Bezel(m, MEDAL, "BORDER", 1)
             m.rim:SetPoint("CENTER")
-            m.rim:SetTexture(ns.media .. "window\\medallion-ring")
-            m.rim:SetVertexColor(GOLD[1], GOLD[2], GOLD[3], 1)
             m.icon = Ring(m, MEDAL - 16)
+            m.icon.rim:Hide()
+            m.icon.well:Hide()
             m.icon:SetPoint("CENTER")
             h.medal, h.icon = m, m.icon
             -- the step: the foot down to the medallion's base, a short
@@ -2187,16 +2208,18 @@ function ns.Window(spec)
         local out = mirror and -1 or 1
         -- (2026-11-25) floating, in by half: its rim on the near side, the
         -- window's corner cut round it (Cut)
-        local shift = floating and MEDAL / 2 or MEDAL / 4
-        h.cut = MEDAL / 2
+        local shift = floating and MEDAL / 2 - NUDGE or MEDAL / 4
+        local rise = floating and NUDGE or 0
+        -- floating, the corner cut back to where the top and side meet the ring
+        h.cut = floating and math.floor(shift + math.sqrt((MEDAL / 2) ^ 2 - shift ^ 2)) or MEDAL / 2
         -- its top the window's (docked, the screen's: it rises through the
         -- margin); the step's foot at its base floating, docked at the
         -- swell's lowest point
         h.medal:ClearAllPoints()
-        h.medal:SetPoint("CENTER", window, "TOP" .. near, shift * out, -MEDAL / 2)
+        h.medal:SetPoint("CENTER", window, "TOP" .. near, shift * out, -(MEDAL / 2 - rise))
         h.count:ClearAllPoints()
         h.count:SetPoint(near, (MEDAL / 2 + 12 + shift) * out, 0)
-        local base = floating and MEDAL or MEDAL / 2 + SWELL
+        local base = floating and MEDAL - NUDGE + CLEAR or MEDAL / 2 + SWELL
         h.step.Fit(STEP + shift, base - (top + TAB - 2), floating and 0 or shift - 1)
         w.step = STEP + shift
         h.step:ClearAllPoints()
@@ -2279,7 +2302,7 @@ function ns.Window(spec)
             Drop(first, second)
             -- clear of the step's foot: the medallion's base floating, the
             -- swell's lowest point docked (from the window's top, less the margin)
-            Under(1, floating and MEDAL or MEDAL / 2 + SWELL - (Inset()))
+            Under(1, floating and MEDAL - NUDGE + CLEAR or MEDAL / 2 + SWELL - (Inset()))
             return
         end
         if drop.head then

@@ -194,7 +194,7 @@ local function Medallion(parent, role)
     function b:Paint()
         local on, hot = self.on, self.hot and self.can
         local rim = (on or hot) and GOLD or GOLD_D
-        self.art.rim:SetColorTexture(rim[1], rim[2], rim[3], 1)
+        self.art.rim:SetVertexColor(rim[1], rim[2], rim[3], 1)
         local ink, lift = ns.colors.ink, hot and 0.08 or 0
         self.art.well:SetColorTexture(ink[1] + lift, ink[2] + lift, ink[3] + lift * 0.6, 1)
         if self.art.SetDesaturated then self.art:SetDesaturated(not on) end

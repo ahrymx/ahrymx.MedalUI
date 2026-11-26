@@ -379,7 +379,8 @@ end
 
 -- An icon as a medallion: its square border cut off (once, before the
 -- mask: the game refuses tex coords after), masked round (inset from its
--- edge), a thin gold ring round an ink well under it. Returns its dress.
+-- edge), the medallions' bezel (bezel.lua) on its edge, an ink well under
+-- it. Returns its dress.
 -- layer: the ring's and well's draw layer, sublevels 1 and 2 (the icon then
 -- above 2); unless given, BACKGROUND -6 and -5.
 function R.Medal(owner, icon, inset, layer)
@@ -395,8 +396,8 @@ function R.Medal(owner, icon, inset, layer)
         d.mask:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", -inset, inset)
         icon:AddMaskTexture(d.mask)
     end
-    d.rim = owner:CreateTexture(nil, layer or "BACKGROUND", nil, layer and 1 or -6)
-    d.rim:SetTexture(ROUND)
+    d.rim = ns.Bezel(owner, icon:GetWidth() or 28, layer or "OVERLAY", layer and 4 or 6)
+    d.rim:ClearAllPoints()
     d.rim:SetPoint("TOPLEFT", icon, "TOPLEFT", 0, 0)
     d.rim:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 0, 0)
     d.well = owner:CreateTexture(nil, layer or "BACKGROUND", nil, layer and 2 or -5)

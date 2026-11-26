@@ -16,7 +16,9 @@ point-wide column just inside it (x -1..0). In points, as shell.lua has
 them: the medallion MEDAL = 46 across, its middle MEDAL / 4 in from the
 side and MEDAL / 2 down; the swell SWELL = MEDAL / 2 + 5 round it, its
 lowest point (MEDAL / 2 + SWELL down) the step's foot. The line:
-  the swell's foot, from below the middle round to the edge;
+  the step's foot carried on, straight, from below the middle to where it
+  meets the edge's ease (one line: 2026-11-26, the user's screenshot
+  showed a round foot beside the ease, doubled);
   the edge, from below, eased (FILLET) out into the swell, up round it
   and off the top (the screen's).
 The fill is the swell's inside from the edge's column out, under the line
@@ -65,7 +67,11 @@ def shapes():
     ease_end = cross - math.degrees(FILLET / SWELL)
     ease = bez((EDGE, cy_cross + FILLET), (EDGE, cy_cross), at(ease_end))
     bulge = arc(ease_end, -120)                       # up round it and off the top
-    foot = arc(90, cross)                             # the swell's foot, inside, to the edge
+    # the step's foot (a point-wide line on the step's last row: its middle
+    # half a point up) carried on to the ease, where it crosses that row
+    fy = CY + SWELL - 0.5
+    meet = min(ease, key=lambda p: abs(p[1] - fy))
+    foot = [(CX, fy), (meet[0], fy)]
     below = [(EDGE, BOX + 1), (EDGE, cy_cross + FILLET)]
     return foot, below + ease + bulge, cy_cross
 
