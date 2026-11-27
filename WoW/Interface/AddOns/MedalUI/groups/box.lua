@@ -1,8 +1,12 @@
 -- The group frames (party, raid, boss, arena): a box of unit frames in
--- columns, each column under a tab with its title ("Party", "Group 3",
--- "Bosses", "Arena"). A tab is the grip: hold it to drag the box anywhere;
--- where it is left is kept for every profile. The look is art/groups/gen_groups.py
--- (draft B: a tab on the box's top edge); the tab is its export.
+-- columns, each column under a header with its title ("Party", "Group 3",
+-- "Bosses", "Arena"). A header is the grip: hold it to drag the box anywhere;
+-- where it is left is kept for every profile. The look is
+-- art/groups/gen_frames.py (2026-11-27, B: a header strip): the headers make
+-- one strip across the box's top, the title on the left, a grip's three dots
+-- on the right, a gold underline fading rightward; the box a dark rim, no
+-- shadow. (Before it, gen_groups.py's draft B: a tab of art on the top
+-- edge.)
 --
 -- Two frames, because combat locks one of them. The holder is what the
 -- secure unit buttons hang from, so it is protected: it moves, and takes a
@@ -15,21 +19,24 @@ local Tr = ns.L
 
 local C = ns.colors
 local GOLD, GOLD_D, GOLD_B = ns.gold.mid, ns.gold.dark, ns.gold.bright
--- the tab's art: 64x32, the shape 20 high, its ends 8 wide, its bottom 2
--- rows over the box's edge (gen_groups.py: TAB_*)
-local TAB_W, TAB_TEX_H, TAB_H, TAB_END, TAB_OVER = 64, 32, 20, 8, 2
+-- the header strip: its height, the title's inset, the grip's dots
+local HEAD_H, HEAD_INSET, DOT, DOT_STEP = 18, 7, 2, 5
+-- the rim, a dark line round the box and its strip; a faint lighter line
+-- inside it (no shadow outside: taken off 2026-11-27)
+local RIM, BEVEL = { 0.03, 0.03, 0.03 }, { 0.16, 0.15, 0.13 }
+local STRIP = { 0.11, 0.10, 0.086, 0.96 }
 
 ns.GROUP = { edge = 2, pad = 3, gap = 3 }
 local W = ns.GROUP
 
 local boxes = {}
 
--- A rule of the box's edge: gold outside, a dark line inside it.
+-- A rule round a frame, inset from its edge.
 local function Edge(parent, layer, inset, thick, color)
     local t = {}
     for i = 1, 4 do
         t[i] = parent:CreateTexture(nil, layer)
-        t[i]:SetColorTexture(color[1], color[2], color[3], 1)
+        t[i]:SetColorTexture(color[1], color[2], color[3], color[4] or 1)
     end
     t[1]:SetPoint("TOPLEFT", inset, -inset)
     t[1]:SetPoint("TOPRIGHT", -inset, -inset)
@@ -57,61 +64,55 @@ local function Remember(box)
     ns.db[box.key] = { point, relative, math.floor(x + 0.5), math.floor(y + 0.5) }
 end
 
--- A tab's art and its label, on parent at level: the group frames' grip, and the
--- corner minimap's (console/minimap.lua). ns.GroupTabWidth(tab) sizes it to
--- its label; it stands on what it grips with its foot over the edge
--- (ns.GROUP_TAB_OVER).
-function ns.GroupTab(parent, level)
-    local tab = CreateFrame("Button", nil, parent)
-    tab:SetFrameLevel(level)
-    tab:SetHeight(TAB_H)
-    local l, m, r = tab:CreateTexture(nil, "ARTWORK"), tab:CreateTexture(nil, "ARTWORK"),
-        tab:CreateTexture(nil, "ARTWORK")
-    for _, t in ipairs({ l, m, r }) do t:SetTexture(ns.media .. "groups/tab") end
-    local v = TAB_H / TAB_TEX_H
-    l:SetTexCoord(0, TAB_END / TAB_W, 0, v)
-    m:SetTexCoord(TAB_END / TAB_W, (TAB_W - TAB_END) / TAB_W, 0, v)
-    r:SetTexCoord((TAB_W - TAB_END) / TAB_W, 1, 0, v)
-    l:SetPoint("TOPLEFT")
-    l:SetPoint("BOTTOMLEFT")
-    l:SetWidth(TAB_END)
-    r:SetPoint("TOPRIGHT")
-    r:SetPoint("BOTTOMRIGHT")
-    r:SetWidth(TAB_END)
-    m:SetPoint("TOPLEFT", l, "TOPRIGHT")
-    m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
-    tab.label = ns.Text(tab, 12)
-    tab.label:SetTextColor(GOLD_B[1], GOLD_B[2], GOLD_B[3])
-    tab.label:SetPoint("CENTER", 0, (TAB_OVER - 1) / 2)
-    tab.label:SetWordWrap(false)
-    return tab
-end
-ns.GROUP_TAB_OVER = TAB_OVER
-
--- As wide as its label, or most wide (the label ends in an ellipsis).
-function ns.GroupTabWidth(tab, most)
-    tab.label:SetWidth(0)
-    local w = math.ceil(tab.label:GetStringWidth())
-    if most and w + 2 * TAB_END + 10 > most then
-        w = most - 2 * TAB_END - 10
-        tab.label:SetWidth(w)
+-- A gradient where the client has one: from a to b along orient ("HORIZONTAL"
+-- left to right, "VERTICAL" bottom to top); else a flat mean.
+local function Fade(t, orient, a, b)
+    if t.SetGradient and CreateColor then
+        t:SetColorTexture(1, 1, 1, 1)
+        t:SetGradient(orient, CreateColor(unpack(a)), CreateColor(unpack(b)))
+    else
+        t:SetColorTexture(a[1], a[2], a[3], (a[4] + b[4]) / 2)
     end
-    tab:SetWidth(math.max(48, w + 2 * TAB_END + 10))
 end
 
-local function Tab(box)
-    -- behind the skin: the box's gold edge runs on across the tab's foot, so
-    -- the tab grows out of the box, and the cells over both
-    local tab = ns.GroupTab(box.skin, box:GetFrameLevel())
+-- A column's header: its strip, rim and underline, the title, the dots.
+local function Head(box)
+    local head = CreateFrame("Button", nil, box)
+    head:SetFrameLevel(box.skin:GetFrameLevel())
+    head:SetHeight(HEAD_H)
+    local bg = head:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(unpack(STRIP))
+    Edge(head, "BORDER", 0, 1, RIM)
+    local rule = head:CreateTexture(nil, "ARTWORK")
+    rule:SetPoint("BOTTOMLEFT", 1, 0)
+    rule:SetPoint("BOTTOMRIGHT", -1, 0)
+    rule:SetHeight(1)
+    Fade(rule, "HORIZONTAL", { GOLD[1], GOLD[2], GOLD[3], 1 }, { GOLD[1], GOLD[2], GOLD[3], 0.15 })
+    head.rule = rule
+    head.label = ns.Text(head, 11)
+    head.label:SetTextColor(GOLD_B[1], GOLD_B[2], GOLD_B[3])
+    head.label:SetPoint("LEFT", HEAD_INSET, 1)
+    head.label:SetPoint("RIGHT", -(HEAD_INSET + 3 * DOT_STEP), 1)
+    head.label:SetJustifyH("LEFT")
+    head.label:SetWordWrap(false)
+    head.dots = {}
+    for i = 1, 3 do
+        local d = head:CreateTexture(nil, "ARTWORK")
+        d:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
+        d:SetSize(DOT, DOT)
+        d:SetPoint("RIGHT", -(HEAD_INSET + (i - 1) * DOT_STEP), 1)
+        head.dots[i] = d
+    end
 
     -- the grip: the holder moves only out of combat (it is protected)
-    tab:RegisterForDrag("LeftButton")
-    tab:SetScript("OnDragStart", function()
-        if InCombatLockdown() then return end
+    head:RegisterForDrag("LeftButton")
+    head:SetScript("OnDragStart", function(self)
+        if not self.title or InCombatLockdown() then return end
         box.moving = true
         box:StartMoving()
     end)
-    tab:SetScript("OnDragStop", function()
+    head:SetScript("OnDragStop", function()
         if not box.moving then return end
         box.moving = nil
         box:StopMovingOrSizing()
@@ -122,12 +123,13 @@ local function Tab(box)
         -- (editor.lua), which may be the other one now
         if ns.editor then ns.editor.ApplyAll() end
     end)
-    tab:SetScript("OnEnter", function(self)
-        ns.Tip(self, "ANCHOR_TOP", { title = self.label:GetText(), color = ns.colors.white,
+    head:SetScript("OnEnter", function(self)
+        if not self.title then return end
+        ns.Tip(self, "ANCHOR_TOP", { title = self.title, color = ns.colors.white,
             { "hint", Tr["Drag to move. Not in combat."] } })
     end)
-    tab:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    return tab
+    head:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return head
 end
 
 -- A box: name, the option keeping where it was dragged, and where it is
@@ -148,9 +150,10 @@ function ns.GroupBox(name, key, default, hover, minimal)
     skin:SetFrameLevel(box:GetFrameLevel() + 1)
     local ink = skin:CreateTexture(nil, "BACKGROUND")
     ink:SetAllPoints()
-    ink:SetColorTexture(C.ink[1], C.ink[2], C.ink[3], 0.92)
-    Edge(skin, "BORDER", 0, W.edge, GOLD)
-    Edge(skin, "BORDER", W.edge, 1, GOLD_D)
+    ink:SetColorTexture(C.ink[1], C.ink[2], C.ink[3], 0.94)
+    -- the edge's two pixels (W.edge): the dark rim, a faint bevel inside it
+    Edge(skin, "BORDER", 0, 1, RIM)
+    Edge(skin, "BORDER", 1, 1, BEVEL)
     box.skin, box.tabs = skin, {}
     box:Hide()
     table.insert(boxes, box)
@@ -179,23 +182,30 @@ function ns.GroupHolder(box, w, h)
     box:SetSize(w, h)
 end
 
--- The skin: the box drawn at this size with a tab over each column, or
--- none over a column whose title is false. In combat too.
+-- The skin: the box drawn at this size, a header over each column, the
+-- headers one strip across its top. A column whose title is false keeps
+-- its piece of the strip, bare and no grip. In combat too.
 function ns.GroupSkin(box, titles, width, height)
     local w, h = ns.GroupSize(#titles, width, height)
     box.skin:SetSize(w, h)
+    local n = #titles
     for i, title in ipairs(titles) do
-        local tab = box.tabs[i] or Tab(box)
-        box.tabs[i] = tab
-        tab:SetShown(title and true or false)
-        if title then
-            tab.label:SetText(title)
-            ns.GroupTabWidth(tab)
-            tab:ClearAllPoints()
-            tab:SetPoint("BOTTOM", box.skin, "TOPLEFT", ns.GroupColumnX(i, width) + width / 2, -TAB_OVER)
-        end
+        local head = box.tabs[i] or Head(box)
+        box.tabs[i] = head
+        head:Show()
+        head.title = title or nil
+        head.label:SetText(title or "")
+        for _, d in ipairs(head.dots) do d:SetShown(title and true or false) end
+        head:EnableMouse(title and true or false)
+        -- from the middle of the gap before its column to the middle of the
+        -- one after; the ends to the skin's
+        local left = i == 1 and 0 or ns.GroupColumnX(i, width) - math.floor(W.gap / 2)
+        local right = i == n and w or ns.GroupColumnX(i, width) + width + math.ceil(W.gap / 2)
+        head:ClearAllPoints()
+        head:SetPoint("BOTTOMLEFT", box.skin, "TOPLEFT", left, -1)
+        head:SetWidth(right - left)
     end
-    for i = #titles + 1, #box.tabs do box.tabs[i]:Hide() end
+    for i = n + 1, #box.tabs do box.tabs[i]:Hide() end
 end
 
 -- Movers only on mouseover (each Unit Frames tab's option): a box's tabs

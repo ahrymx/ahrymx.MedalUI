@@ -107,26 +107,27 @@ local OA = ns.overheadArt
 
 -- The frames, in the window's order. A piece whose Shown is an option the
 -- Unit Frames page has too names it (shows): the editor's Shown is that
--- option, not a second one. A group frame's cell has its size from cell.
+-- option, not a second one. A group frame's cell has its size from cell;
+-- boxed, its cells sit in a group box (a row outside clears the box).
 E.FRAMES = {
     { id = "unit", key = "editUnit", name = Tr["Player · Target"], buttons = function()
         return { ns.units.player, ns.units.target }
     end, pieces = { "name", "level", "leader", "value", "powerValue", "power", "cc", "boss", "buffs", "mine" },
       shows = { cc = "auraCC", boss = "auraBoss", buffs = "auraBuffs", mine = "auraDebuffs" } },
     { id = "party", key = "editParty", name = Tr["Party"], buttons = Party,
-      cell = { 160, 40 },
+      cell = { 160, 40 }, boxed = true,
       pieces = { "cell", "name", "level", "value", "power", "role", "leader", "status", "cc", "boss", "buffs",
           "mine" },
       shows = { cc = "partyCC", boss = "partyBoss", buffs = "partyBuffs",
           mine = "partyDebuffs" } },
-    { id = "raid", key = "editRaid", name = Tr["Raid"], buttons = Cells("raid"), cell = { 112, 36 },
+    { id = "raid", key = "editRaid", name = Tr["Raid"], buttons = Cells("raid"), cell = { 112, 36 }, boxed = true,
       pieces = { "cell", "name", "level", "value", "power", "leader", "cc", "boss", "mine" },
       hidden = { level = true },
       shows = { cc = "raidCC", boss = "raidBoss", mine = "raidDebuffs" } },
-    { id = "boss", key = "editBoss", name = Tr["Boss"], buttons = Cells("boss"), cell = { 180, 40 },
+    { id = "boss", key = "editBoss", name = Tr["Boss"], buttons = Cells("boss"), cell = { 180, 40 }, boxed = true,
       pieces = { "cell", "name", "level", "value", "power", "mine" },
       shows = { mine = "bossMine" } },
-    { id = "arena", key = "editArena", name = Tr["Arena"], buttons = Cells("arena"), cell = { 160, 40 },
+    { id = "arena", key = "editArena", name = Tr["Arena"], buttons = Cells("arena"), cell = { 160, 40 }, boxed = true,
       pieces = { "cell", "name", "level", "value", "power", "cc", "mine" },
       hidden = { level = true },
       shows = { cc = "arenaCC", mine = "arenaMine" } },
@@ -199,15 +200,43 @@ function E.Set(frame, piece, fields)
 end
 E.NIL = {}
 
+-- A reset goes back to the frame's default edits (settings.lua: the
+-- party's debuffs start outside), not to none.
+local function Base(frame)
+    local base = ns.OptionBase(frame.key)
+    return type(base) == "table" and base or nil
+end
+
+-- Whether two edit tables hold the same (pieces of fields of plain values).
+local function Same(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+    for k, v in pairs(a) do if not Same(v, b[k]) then return false end end
+    for k in pairs(b) do if a[k] == nil then return false end end
+    return true
+end
+
+-- Whether a piece differs from how its frame draws it by default (its
+-- default edits, if any): what the window marks Changed, and when Reset
+-- piece has anything to do.
+function E.Changed(frame, piece)
+    local base = Base(frame)
+    return not Same(E.Edits(frame, piece), base and base[piece])
+end
+
 function E.ResetPiece(frame, piece)
-    local all = type(ns.db[frame.key]) == "table" and Copy(ns.db[frame.key]) or nil
-    if not all or not all[piece] then return end
-    all[piece] = nil
+    local all = type(ns.db[frame.key]) == "table" and Copy(ns.db[frame.key]) or {}
+    local base = Base(frame)
+    local want = base and base[piece] and Copy(base[piece]) or nil
+    if Same(all[piece], want) then return end
+    all[piece] = want
+    -- back to the default whole: stored as no choice at all
+    if base and Same(all, base) then all = base end
     ns.SetOption(frame.key, next(all) and all or false)
 end
 
 function E.ResetFrame(frame)
-    ns.SetOption(frame.key, false)
+    -- the default itself, so it is stored as no choice at all
+    ns.SetOption(frame.key, Base(frame) or false)
 end
 
 -- ------------------------------------------------------------ anchors
@@ -548,6 +577,9 @@ local function OutRow(b, frame, piece, regions, shot, e)
         x = gap + Block(b, "mine", Edited(frame, b, "mine"))
     end
     x, y = x + (e.ox or 0), y + (e.oy or 0)
+    -- a group frame's cell sits in its box: the row starts past the box's
+    -- edge and padding, not on them
+    if frame.boxed then x = x + ns.GROUP.edge + ns.GROUP.pad end
     if by and piece == "mine" then
         local buffs = Edited(frame, b, "buffs")
         x, y = x + (buffs.ox or 0), y + (buffs.oy or 0)

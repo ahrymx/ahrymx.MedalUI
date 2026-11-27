@@ -262,9 +262,10 @@ local DEFAULTS = {
     arenaMoverHover = false,
     -- what the unit-frame editor (editor.lua) changed on each frame, piece
     -- by piece: false until something is; the console's per profile, the
-    -- group frames' shared
+    -- group frames' shared. (2026-11-27) The party's debuffs start outside
+    -- its box on the right, running rightward (its Outside: right).
     editUnit = false,
-    editParty = false, editRaid = false, editBoss = false, editArena = false, editOverhead = false,
+    editParty = { mine = { out = "right" } }, editRaid = false, editBoss = false, editArena = false, editOverhead = false,
     editUndocked = false,
     blizzardAuras = false,  -- Blizzard's own buff and debuff rows, top right (blizzard.lua)
     consoleProfile = "reticule", -- "reticule": the slim console, square minimap & bar 7; "arena": the medallion

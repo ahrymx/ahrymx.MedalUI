@@ -12939,10 +12939,13 @@ if args[2] == "widgets" or args[3] == "widgets" then
         local r, b = resolve(f), resolve(box)
         return n(r[1] - b[1]) .. "," .. n(b[2] - r[2]) .. " " .. n(r[3] - r[1]) .. "x" .. n(r[4] - r[2])
     end
+    -- a header: its title (~ when bare, no grip) where it is
     local function tabs(box)
         local o = {}
         for _, t in ipairs(box.tabs) do
-            if t.shown then table.insert(o, t.label.text .. "@" .. at(t, box)) end
+            if t.shown then
+                table.insert(o, (t.title and "" or "~") .. t.label.text .. "@" .. at(t, box))
+            end
         end
         return table.concat(o, " | ")
     end
@@ -13071,6 +13074,15 @@ if args[2] == "widgets" or args[3] == "widgets" then
                 "name=" .. font(b.name) .. " " .. pt(b.name), "value=" .. font(b.value) .. " " .. pt(b.value),
                 "power=" .. string.format("%.2f,%.2f,%.2f", pc[1] or 0, pc[2] or 0, pc[3] or 0))
         end
+        -- the box's header strip (gen_frames.py B): the grip's dots and mouse
+        -- by its title, the underline fading rightward, the shadow
+        local head = ns.partyBox.tabs[1]
+        local g = head and head.rule.gradient
+        print("  look header", "title=" .. tostring(head and head.title),
+            "font=" .. font(head and head.label), "dots=" .. tostring(head and head.dots[1].shown),
+            "mouse=" .. tostring(head and head.mouse), "rule=" .. (g and (g[1] .. string.format(" %.2f>%.2f",
+                g[2][4], g[3][4])) or grad(head and head.rule)),
+            "shadow=" .. tostring(ns.partyBox.shadow))
         look("party1", ns.units.party1)
         look("player", ns.units.player)
         look("boss1", MedalUIBossUnit1)
@@ -14701,6 +14713,32 @@ local function EditorPass()
         .. "/" .. tostring(ns.units.party1.name.font[3]))
     set("size", 13)
     print("  party band name 13", tostring(band and band.body.h), "font=" .. tostring(ns.units.party1.name.font[2]))
+    -- (2026-11-27) the party's debuffs start outside the box on the right,
+    -- running rightward; Inside sticks; both resets come back to the default
+    do
+        local fr, b1, was = E.byId.party, ns.units.party1, ns.db.editParty
+        local function row(label)
+            local m = b1.mineWidgets
+            local p, q = { m[1]:GetPoint(1) }, { m[2]:GetPoint(1) }
+            local on = p[2] == b1 and "cell" or p[2] == b1.health and "health" or "?"
+            print("  " .. label, "out=" .. tostring((E.Edits(fr, "mine") or {}).out),
+                "first=" .. tostring(p[1]) .. ">" .. on .. ":" .. tostring(p[3]) .. "," .. tostring(p[4]) .. ","
+                .. tostring(p[5]), "next=" .. tostring(q[1]) .. "," .. tostring(q[4]),
+                "stored=" .. stored("editParty"), "changed=" .. tostring(E.Changed(fr, "mine")))
+        end
+        E.ResetFrame(fr)
+        row("party debuffs default")
+        choose("party", "mine")
+        print("  party debuffs place", tostring(get("side")))
+        set("side", "in")
+        row("party debuffs inside")
+        E.ResetPiece(fr, "mine")
+        row("party debuffs piece reset")
+        set("side", "in")
+        E.ResetFrame(fr)
+        row("party debuffs frame reset")
+        ns.SetOption("editParty", was)
+    end
     choose("party", "value")
     print("  party value shown=" .. tostring(get("shown")))
     piece("party1 value default", ns.units.party1, "value")
@@ -14820,6 +14858,8 @@ local function EditorPass()
             end
             print("  widget outside " .. tag, table.concat(o, " | "))
         end
+        -- (the debuffs inside to start: their default is outside, 2026-11-27)
+        E.Set(pw, "mine", { out = E.NIL })
         choose("party", "buffs")
         print("  widget outside controls", controls(), "place=" .. tostring(get("side")))
         rows("inside", cell)

@@ -461,7 +461,7 @@ local function List(i)
         if not self.piece or self.piece == piece then return end
         self.lift:Show()
         self.text:SetTextColor(C.text[1], C.text[2], C.text[3])
-        UI.Tip(self, E.PIECES[self.piece].label, E.Edits(frame, self.piece) and Tr["Changed: Reset piece puts it back."]
+        UI.Tip(self, E.PIECES[self.piece].label, E.Changed(frame, self.piece) and Tr["Changed: Reset piece puts it back."]
             or Tr["As its frame draws it."])
     end)
     row:SetScript("OnLeave", function(self)
@@ -529,7 +529,7 @@ function Refresh()
                 local on = id == piece
                 row.lit:SetShown(on)
                 row.bar:SetShown(on)
-                local edited = E.Edits(frame, id) ~= nil
+                local edited = E.Changed(frame, id)
                 local c = on and C.goldBright or (edited or row.lift:IsShown()) and C.text or C.dim
                 row.text:SetTextColor(c[1], c[2], c[3])
                 row.mark:SetShown(edited)
@@ -550,14 +550,14 @@ function Refresh()
     -- the canvas's card: the frame; the piece's: its name, Changed
     window.canvasCard.title:SetText(frame.name)
     body.title:SetText(E.PIECES[piece].label)
-    body.changed:SetShown(E.Edits(frame, piece) ~= nil)
+    body.changed:SetShown(E.Changed(frame, piece))
     for field, c in pairs(controls) do
         if c:IsShown() and c.Refresh then
             -- a hidden piece's other fields stay set, but wait
             local kind = E.PIECES[piece].type
             local enabled = field == "shown" or field == "reset" or kind == "cell" or kind == "bar"
                 or controls.shown.spec.get() ~= false
-            if field == "reset" then enabled = E.Edits(frame, piece) ~= nil end
+            if field == "reset" then enabled = E.Changed(frame, piece) end
             -- the debuffs' size, while it is the buffs'
             if field == "size" and piece == "mine" and E.Matched(frame) then enabled = false end
             c:Refresh(enabled)
