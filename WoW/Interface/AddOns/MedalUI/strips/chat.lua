@@ -1003,13 +1003,16 @@ local shading = false
 local function Sooner(frame, line, away)
     if away <= 0 then return 1 end
     local bottom, top, at = frame:GetBottom(), frame:GetTop(), line:GetBottom()
+    local high = line:GetTop()
+    -- (2026-11-27) a line with a secret message has its place secret too
+    -- (Retail): it is left alone, as a secret stamp is
+    if ns.IsSecret(bottom) or ns.IsSecret(top) or ns.IsSecret(at) or ns.IsSecret(high) then return 1 end
     if not (bottom and top and at) or top <= bottom then return 1 end
     local info = line.messageInfo
     local a, past = 1, 1
     -- past the top: gone soon after it rose there. Whole, not as far as
     -- the chrome is away: it shows there only because the chat is bare,
     -- so mid-fade it must not show at the chrome's strength (2026-11-25)
-    local high = line:GetTop()
     local key = type(info) == "table" and info or line
     if high and high > top + 1 then
         rose[key] = rose[key] or GetTime()
@@ -1043,9 +1046,10 @@ local function Spill(frame, on)
     spilt[frame] = on
     if on then
         local top = frame:GetTop()
+        if ns.IsSecret(top) then top = nil end
         for _, line in ipairs(top and frame.visibleLines or {}) do
             local low = line:GetBottom()
-            if low and low >= top - 1 then
+            if low and not ns.IsSecret(low) and low >= top - 1 then
                 local info = line.messageInfo
                 rose[type(info) == "table" and info or line] = GetTime() - AGE.past
             end

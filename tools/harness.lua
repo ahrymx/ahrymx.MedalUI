@@ -11847,6 +11847,21 @@ if stripsPass then
                 print("chat bare spill", "container clips=" .. tostring(f.FontStringContainer.clipsChildren),
                     "bands' clip clips=" .. tostring(ns.chatBands[high].parent.clipsChildren))
                 high.GetTop = wasTop
+                -- (2026-11-27, a 1420x error on Retail) a line holding a secret
+                -- message has its place secret: left alone, as a secret stamp
+                -- is, never compared (the client refuses); bare again so Spill
+                -- reads the places too
+                do
+                    local wasIs, wasB = issecretvalue, high.GetBottom
+                    local hidden = secret()
+                    issecretvalue = function(v) return v == hidden or (wasIs ~= nil and wasIs(v)) end
+                    high.GetTop = function() return hidden end
+                    high.GetBottom = function() return hidden end
+                    local ok, err = pcall(step, 0.1)
+                    print("chat bare secret place", "ok=" .. tostring(ok), err and tostring(err):match("[^:]+$") or "")
+                    alphas("secret place")
+                    high.GetTop, high.GetBottom, issecretvalue = wasTop, wasB, wasIs
+                end
                 for _, line in ipairs(f.visibleLines) do line.messageInfo = nil end
                 step(0.1)
                 alphas("no stamps")
