@@ -43,9 +43,13 @@ local PLAIN = { Shirt = true, Tabard = true, Ammo = true }
 local GOLD = ns.gold.light
 local GOLD_D = ns.gold.dark
 local LINE = { 0.227, 0.196, 0.141 }            -- an empty slot's edge
--- the stage's soft light (art/character/gen_glow.py): white, fading out
--- smoothly from its middle, tinted and stretched as each light needs
-local GLOW = "character\\glow"
+-- (2026-11-27, the user's pick A) the stage: no light behind the model (the
+-- class-coloured halo, gone), its rim darkened by a vignette
+-- (art/character/gen_vignette.py) and a shadow on the floor under the feet:
+-- the soft glow (art/character/gen_glow.py) tinted black, stretched flat
+local VIGNETTE, SHADOW = "character\\vignette", "character\\glow"
+local DARK = 0.6                                -- the vignette's black at the rim
+local FEET = { y = 0.147, w = 0.66, h = 0.061, a = 0.62 }  -- the shadow: its middle up from the foot, its size, its black
 local TURN = 0.012                              -- the model's turn, in radians per pixel dragged
 local SWITCH = 26 + 10                          -- the details' switch, and the gap under it
 local VIEWS = { { "stats", Tr["Stats"], Tr["Your stats."] }, { "titles", Tr["Titles"],
@@ -244,23 +248,13 @@ function ns.character.Doll(spec)
 
     -- ------------------------------------------------------------ model
     -- The unit, turned by dragging across it, on a stage: dark at its top
-    -- and warming down, a light in the class's colour behind them; framed
-    -- in gold, a bracket at each corner, a hairline across from each slot.
+    -- and warming down, its rim darker still, a shadow under the feet;
+    -- framed in gold, a bracket at each corner, a hairline across from each slot.
     local stage
     local function Frame()
         model:ClearAllPoints()
         model:SetPoint("TOPLEFT", body, "TOPLEFT", size + STAGE, -cols)
         model:SetPoint("BOTTOMRIGHT", body, "TOPRIGHT", -(size + STAGE), -(cols + (#LEFT - 1) * pitch + size))
-    end
-
-    -- a soft light on the stage: the glow texture, tinted (Light sizes and
-    -- places it)
-    local function Glow(parent, sub, alpha)
-        local t = parent:CreateTexture(nil, "BACKGROUND", nil, sub)
-        t:SetTexture(ns.media .. GLOW)
-        t:SetBlendMode("ADD")
-        t.alpha = alpha
-        return t
     end
 
     local function Stage()
@@ -277,7 +271,17 @@ function ns.character.Doll(spec)
             ground:SetColorTexture(0.1, 0.09, 0.07, 1)
         end
         stage.ground = ground
-        stage.light = Glow(stage, 1, 0.16)
+        -- the rim darkened, over the whole stage
+        local vignette = stage:CreateTexture(nil, "BACKGROUND", nil, -6)
+        vignette:SetAllPoints()
+        vignette:SetTexture(ns.media .. VIGNETTE)
+        vignette:SetVertexColor(0, 0, 0, DARK)
+        stage.vignette = vignette
+        -- the shadow under the feet (Lay sizes and places it)
+        local shadow = stage:CreateTexture(nil, "BACKGROUND", nil, -5)
+        shadow:SetTexture(ns.media .. SHADOW)
+        shadow:SetVertexColor(0, 0, 0, FEET.a)
+        stage.shadow = shadow
         -- the frame: a line round it, a bracket at each corner
         stage.edges = {}
         for i, at in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
@@ -306,21 +310,16 @@ function ns.character.Doll(spec)
         end
     end
 
-    -- the stage's light, laid to its size (Fit's numbers: the
-    -- frame may not be laid out yet), the light in the unit's class colour
-    local function Light()
+    -- the shadow under the feet, laid to the stage's size (Fit's numbers:
+    -- the frame may not be laid out yet)
+    local function Lay()
         local w = ns.character.width - 2 * (size + STAGE)
         local h = (#LEFT - 1) * pitch + size
         stage.w, stage.h = w, h
-        local _, class = UnitClass(Unit())
-        -- an inspected unit's class can be secret: no colour then, gold
-        local c = class and not ns.IsSecret(class) and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
-        local light = stage.light
-        light:ClearAllPoints()
-        light:SetSize(w * 0.95, h * 0.8)
-        light:SetPoint("CENTER", stage, "CENTER", 0, h * 0.06)
-        local r, g, b = c and c.r or GOLD[1], c and c.g or GOLD[2], c and c.b or GOLD[3]
-        light:SetVertexColor(r, g, b, light.alpha)
+        local shadow = stage.shadow
+        shadow:ClearAllPoints()
+        shadow:SetSize(w * FEET.w, h * FEET.h)
+        shadow:SetPoint("CENTER", stage, "BOTTOM", 0, h * FEET.y)
     end
 
     local function Model()
@@ -388,7 +387,7 @@ function ns.character.Doll(spec)
             wash:SetHeight(top + HEAD + top / 2)
         end
         Frame()
-        Light()
+        Lay()
         Place()
         p.fit = { size = size, pitch = pitch, top = top, cols = cols }
     end
@@ -426,7 +425,6 @@ function ns.character.Doll(spec)
         local unit = Unit()
         name:SetText(UnitPVPName(unit) or UnitName(unit))
         line:SetText(ClassLine())
-        Light()
         for _, btn in ipairs(slots) do Paint(btn) end
         for _, btn in ipairs(weapons) do Paint(btn) end
         Place()

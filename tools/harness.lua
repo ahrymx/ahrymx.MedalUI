@@ -20046,10 +20046,17 @@ if characterPass then
         print(tag .. " head", "wash h=" .. tostring(d.wash.h) .. " shown=" .. tostring(d.wash.shown), "crest=" .. tostring(d.crest), "divider="
             .. tostring(d.divider), "belt=" .. tostring(d.belt))
         local st = d.stage
-        local light = st.light.vertex or {}
+        -- (2026-11-27) no light: a vignette over it all, a shadow under the feet
+        local function tint(t)
+            local v = t.vertex or {}
+            return string.format("%s %.2f,%.2f,%.2f@%.2f %s", tostring(t.texture):match("[^\\]+$"), v[1] or -1,
+                v[2] or -1, v[3] or -1, v[4] or -1, tostring(t.blend or "BLEND"))
+        end
+        local sp = st.shadow.points and st.shadow.points.CENTER or {}
         print(tag .. " stage", string.format("%dx%d", st.w or -1, st.h or -1),
-            string.format("light=%.2f,%.2f,%.2f@%.2f %dx%d %s", light[1] or -1, light[2] or -1, light[3] or -1,
-                light[4] or -1, st.light.w or -1, st.light.h or -1, tostring(st.light.texture):match("[^\\]+$")),
+            "light=" .. tostring(st.light), "vignette=" .. tint(st.vignette) .. " all=" .. tostring(st.vignette.all == st),
+            string.format("shadow=%s %dx%d at %s+%.0f", tint(st.shadow), st.shadow.w or -1, st.shadow.h or -1,
+                tostring(sp[2]), sp[4] or -1),
             "floor=" .. tostring(st.floor),
             "edges=" .. #st.edges, "brackets=" .. #st.brackets)
         local out = {}
