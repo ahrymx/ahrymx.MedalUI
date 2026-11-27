@@ -1541,6 +1541,9 @@ function Region:SetMouseMotionEnabled(on)
 end
 function Region:IsMouseEnabled() return self:IsMouseClickEnabled() or self:IsMouseMotionEnabled() end
 function Region:EnableMouseWheel(on) self.wheel = on and true or false end
+-- takes no alpha from its parents (both clients have it)
+function Region:SetIgnoreParentAlpha(on) self.ignoreParentAlpha = on and true or false end
+function Region:IsIgnoringParentAlpha() return self.ignoreParentAlpha or false end
 -- A secure wrap: the snippet runs before the frame's own script, with the
 -- frame as self and the header as owner, in the restricted environment's
 -- few functions.
@@ -13080,7 +13083,9 @@ if args[2] == "widgets" or args[3] == "widgets" then
         local g = head and head.rule.gradient
         print("  look header", "title=" .. tostring(head and head.title),
             "font=" .. font(head and head.label), "dots=" .. tostring(head and head.dots[1].shown),
-            "mouse=" .. tostring(head and head.mouse), "rule=" .. (g and (g[1] .. string.format(" %.2f>%.2f",
+            "mouse=" .. tostring(head and head.mouse), "on surface=" .. tostring(head and
+                head.rule:GetParent() == head.surface and head.dots[1]:GetParent() == head.surface),
+            "rule=" .. (g and (g[1] .. string.format(" %.2f>%.2f",
                 g[2][4], g[3][4])) or grad(head and head.rule)),
             "shadow=" .. tostring(ns.partyBox.shadow))
         look("party1", ns.units.party1)
@@ -13195,15 +13200,22 @@ if args[2] == "widgets" or args[3] == "widgets" then
         end
         local function settle()
             GM.watch.scripts.OnUpdate(GM.watch, 0.1)
-            for _, f in pairs(GM.faders) do
-                for _ = 1, 20 do if f.driver.shown then f.driver.scripts.OnUpdate(f.driver, 0.1) end end
+            for _, list in ipairs({ GM.faders, GM.titles.faders }) do
+                for _, f in pairs(list) do
+                    for _ = 1, 20 do if f.driver.shown then f.driver.scripts.OnUpdate(f.driver, 0.1) end end
+                end
             end
         end
         local function show(tag)
             settle()
             local t = GM.touches[box]
+            -- (2026-11-27) the party's title strip: its surface by the
+            -- pointer alone, its words whole (no alpha from the box)
+            local head = box.tabs[1]
             print("group minimal " .. tag, string.format("party=%.2f raid=%.2f", box:GetAlpha(), ns.raidBox:GetAlpha()),
-                "untouchable=" .. tostring(t and t.want), "watch=" .. tostring(GM.watch.shown))
+                "untouchable=" .. tostring(t and t.want), "watch=" .. tostring(GM.watch.shown),
+                string.format("title surface=%.2f", head.surface:GetAlpha()) .. " text="
+                .. tostring(head.label.ignoreParentAlpha) .. " words=" .. tostring(head.label:GetParent() == head.words))
             now = now + 4
         end
         show("off")
@@ -13218,6 +13230,12 @@ if args[2] == "widgets" or args[3] == "widgets" then
         fire("PLAYER_REGEN_ENABLED")
         watchTick()
         stateTick()
+        -- in combat the cells are whole; the strip waits for the pointer
+        inCombat = true
+        fire("PLAYER_REGEN_DISABLED")
+        show("combat, title")
+        inCombat = false
+        fire("PLAYER_REGEN_ENABLED")
         hurt("party1", 50)
         show("party1 hurt")
         UnitIsDeadOrGhost = function(u) return u == "party1" end
@@ -13237,6 +13255,9 @@ if args[2] == "widgets" or args[3] == "widgets" then
         show("mouseover")
         box.skin.IsMouseOver = was[4]
         show("mouse gone")
+        ns.SetOption("groupMinimalTitleAlpha", 0.4)
+        show("title strip at 40%")
+        ns.SetOption("groupMinimalTitleAlpha", 0)
         ns.SetOption("groupMinimalMouse", false)
         show("no mouseover, at nothing")
         ns.SetOption("groupMinimalAlpha", 0.3)

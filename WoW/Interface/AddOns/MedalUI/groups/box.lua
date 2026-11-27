@@ -80,17 +80,28 @@ local function Head(box)
     local head = CreateFrame("Button", nil, box)
     head:SetFrameLevel(box.skin:GetFrameLevel())
     head:SetHeight(HEAD_H)
-    local bg = head:CreateTexture(nil, "BACKGROUND")
+    -- (2026-11-27) two layers: the surface (band, rim, underline, dots),
+    -- which Minimal OoC Mode fades by the pointer (groupMinimalTitleAlpha),
+    -- and the words over it, always whole there (TitleFade)
+    local surface = CreateFrame("Frame", nil, head)
+    surface:SetAllPoints()
+    surface:SetFrameLevel(head:GetFrameLevel() + 1)
+    head.surface = surface
+    local words = CreateFrame("Frame", nil, head)
+    words:SetAllPoints()
+    words:SetFrameLevel(head:GetFrameLevel() + 2)
+    head.words = words
+    local bg = surface:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
     bg:SetColorTexture(unpack(STRIP))
-    Edge(head, "BORDER", 0, 1, RIM)
-    local rule = head:CreateTexture(nil, "ARTWORK")
+    Edge(surface, "BORDER", 0, 1, RIM)
+    local rule = surface:CreateTexture(nil, "ARTWORK")
     rule:SetPoint("BOTTOMLEFT", 1, 0)
     rule:SetPoint("BOTTOMRIGHT", -1, 0)
     rule:SetHeight(1)
     Fade(rule, "HORIZONTAL", { GOLD[1], GOLD[2], GOLD[3], 1 }, { GOLD[1], GOLD[2], GOLD[3], 0.15 })
     head.rule = rule
-    head.label = ns.Text(head, 11)
+    head.label = ns.Text(words, 11)
     head.label:SetTextColor(GOLD_B[1], GOLD_B[2], GOLD_B[3])
     head.label:SetPoint("LEFT", HEAD_INSET, 1)
     head.label:SetPoint("RIGHT", -(HEAD_INSET + 3 * DOT_STEP), 1)
@@ -98,7 +109,7 @@ local function Head(box)
     head.label:SetWordWrap(false)
     head.dots = {}
     for i = 1, 3 do
-        local d = head:CreateTexture(nil, "ARTWORK")
+        local d = surface:CreateTexture(nil, "ARTWORK")
         d:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 1)
         d:SetSize(DOT, DOT)
         d:SetPoint("RIGHT", -(HEAD_INSET + (i - 1) * DOT_STEP), 1)
@@ -533,10 +544,40 @@ local function GroupFade(box, now)
     f:Go(goal, not now and (goal == 1 and GROUP_IN or GROUP_OUT) or 0, function() touch:Update() end)
     touch:Update()
 end
+-- (2026-11-27) The title strips: in the mode, a box's strip is whole while
+-- the pointer is on the box and at groupMinimalTitleAlpha otherwise (combat
+-- and the hurt do not bring it; the box's Back on mouseover does not stop
+-- it). Its words stay whole all the while, over a box faded to nothing too:
+-- they take no alpha from the box (SetIgnoreParentAlpha).
+minimal.titles = { faders = {}, goals = {} }
+local function TitleFade(box, now)
+    local on = GroupMinimal()
+    local goal = 1
+    if on and not box.moving and not ns.db.simParty and not Hovered(box) then
+        goal = math.max(0, math.min(1, tonumber(ns.db.groupMinimalTitleAlpha) or 0))
+    end
+    local T = minimal.titles
+    for _, head in ipairs(box.tabs or {}) do
+        local label = head.label
+        if label.SetIgnoreParentAlpha then label:SetIgnoreParentAlpha(on) end
+        local f = T.faders[head]
+        if not f then
+            f = ns.Fader(head.surface)
+            T.faders[head] = f
+        end
+        if T.goals[head] ~= goal or now then
+            T.goals[head] = goal
+            f:Go(goal, not now and (goal == 1 and GROUP_IN or GROUP_OUT) or 0)
+        end
+    end
+end
 function minimal.FadeAll(now)
     if not ns.db then return end
     for _, box in ipairs(boxes) do
-        if box.minimal then GroupFade(box, now) end
+        if box.minimal then
+            GroupFade(box, now)
+            TitleFade(box, now)
+        end
     end
 end
 -- the pointer, and secret health's guess (a time, not an event): a look
@@ -562,7 +603,8 @@ ns.On("PLAYER_LOGIN", function()
     inCombat = UnitAffectingCombat("player") and true or false
     GroupSettings()
 end)
-for _, key in ipairs({ "groupMinimal", "groupMinimalAlpha", "groupMinimalHurt", "groupMinimalMouse", "simParty" }) do
+for _, key in ipairs({ "groupMinimal", "groupMinimalAlpha", "groupMinimalTitleAlpha", "groupMinimalHurt",
+    "groupMinimalMouse", "simParty" }) do
     ns.OnSetting(key, GroupSettings)
 end
 

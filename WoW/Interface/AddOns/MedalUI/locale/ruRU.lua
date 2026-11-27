@@ -2243,6 +2243,10 @@ L["Out of combat, fade the party and raid frames (a battleground's too) away. Co
 L["How much of the boxes shows out of combat. 0%: gone, and out of the pointer's way unless "
     .. "mouseover brings them back."] =
     "Насколько окна видны вне боя. 0%: их нет, и они не мешают курсору, если их не возвращает наведение."
+L["Title strip opacity"] = "Непрозрачность полосы заголовка"
+L["The strip behind a box's title while the pointer is off the box. 0%: the bare title. The "
+    .. "words always show whole."] =
+    "Полоса за заголовком окна, пока курсор не над окном. 0%: только заголовок. Сами слова всегда видны полностью."
 L["Back when someone is hurt"] = "Возвращать, когда кто-то ранен"
 L["Whole again while anyone in your group, you too, is below full health. The dead and "
     .. "offline don't count."] =

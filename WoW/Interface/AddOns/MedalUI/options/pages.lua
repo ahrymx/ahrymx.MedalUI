@@ -684,6 +684,9 @@ local function GroupMinimal()
             Opacity("groupMinimalAlpha", Tr["Opacity out of combat"],
                 Tr["How much of the boxes shows out of combat. 0%: gone, and out of the pointer's way unless "
                 .. "mouseover brings them back."]),
+            Opacity("groupMinimalTitleAlpha", Tr["Title strip opacity"],
+                Tr["The strip behind a box's title while the pointer is off the box. 0%: the bare title. The "
+                .. "words always show whole."]),
             { kind = "check", key = "groupMinimalHurt", label = Tr["Back when someone is hurt"],
                 tip = Tr["Whole again while anyone in your group, you too, is below full health. The dead and "
                 .. "offline don't count."] },
