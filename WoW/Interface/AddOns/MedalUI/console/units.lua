@@ -237,7 +237,19 @@ end
 -- simulated unit shows its stub's, else the player's. A secret level still
 -- displays, as it is, in the plain colour.
 local ELITE = { elite = "+", rareelite = "+" }
-local function UpdateLevel(self)
+-- The level badge (LevelBadge, below) shown with the level's words.
+local function BadgeShows(b)
+    local fs, badge = b.levelText, b.levelBadge
+    if not badge then return end
+    local words = fs:GetText()
+    local on = ns.IsSecret(words) or (words ~= nil and words ~= "")
+    local alpha = fs:GetAlpha()
+    for _, t in ipairs(badge) do
+        t:SetShown(on)
+        t:SetAlpha(alpha)
+    end
+end
+local function LevelWords(self)
     local fs = self.levelText
     if not fs then return end
     local stub = self.stub
@@ -266,6 +278,11 @@ local function UpdateLevel(self)
     else
         fs:SetTextColor(unpack(C.dim))
     end
+end
+-- A unit's level, and its badge with it.
+local function UpdateLevel(self)
+    LevelWords(self)
+    BadgeShows(self)
 end
 
 local function UpdateRole(self)
@@ -442,6 +459,35 @@ local function PartyLevel(b, side, inset)
     b.levelText:SetPoint(outer, b.power, outer, -side * inset, 0)
 end
 
+-- (2026-11-27, art/console/gen_units.py B) The player's and target's level
+-- in a dark badge in the power bar's outer bottom corner, under the name:
+-- drawn round the text, so the editor moving or hiding the level takes the
+-- badge along; none while the level is blank.
+local BADGE_X, BADGE_Y = 3, 1
+local function LevelBadge(b, side)
+    local outer = side == 1 and "RIGHT" or "LEFT"
+    local fs = b.levelText
+    fs:ClearAllPoints()
+    fs:SetPoint("BOTTOM" .. outer, b.power, "BOTTOM" .. outer, -side * (BADGE_X + 1), BADGE_Y + 1)
+    local ink, edge = C.ink, ns.gold.dark
+    local bg = b.text:CreateTexture(nil, "BACKGROUND")
+    bg:SetColorTexture(ink[1], ink[2], ink[3], 0.92)
+    bg:SetPoint("TOPLEFT", fs, "TOPLEFT", -BADGE_X, BADGE_Y)
+    bg:SetPoint("BOTTOMRIGHT", fs, "BOTTOMRIGHT", BADGE_X, -BADGE_Y)
+    local badge = { bg }
+    for i, pts in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local t = b.text:CreateTexture(nil, "BORDER")
+        t:SetColorTexture(edge[1], edge[2], edge[3], 1)
+        t:SetPoint(pts[1], bg, pts[1])
+        t:SetPoint(pts[2], bg, pts[2])
+        if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
+        badge[#badge + 1] = t
+    end
+    b.levelBadge = badge
+    hooksecurefunc(fs, "SetAlpha", function() BadgeShows(b) end)
+end
+
 -- The crown on the top edge's outer end, inset from it: over the role
 -- icon on the bottom one.
 local function PartyLeader(b, side, inset)
@@ -505,7 +551,6 @@ local function Spawn(unit, forBox)
     b.name:SetPoint(outer, text, outer, -side * style.textInset, 0)
     if not isParty then
         b.value = ns.Text(text, style.valueSize)
-        b.value:SetTextColor(unpack(C.dim))
         b.value:SetPoint(inner, text, inner, side * style.valueInset, 0)
         b.name:SetPoint(inner, b.value, outer, side * 6, 0)
         b.name:SetJustifyH(outer)
@@ -513,15 +558,15 @@ local function Spawn(unit, forBox)
         local ptext = CreateFrame("Frame", nil, b.power)
         ptext:SetAllPoints(b.power)
         ptext:SetFrameLevel(ns.levels.text)
+        -- (2026-11-27) at the power bar's inner end, under the health value
         b.powerValue = ns.Text(ptext, style.powerSize)
-        b.powerValue:SetTextColor(unpack(C.dim))
-        b.powerValue:SetPoint("CENTER", ptext, "CENTER", 0, 0)
-        b.powerValue:SetJustifyH("CENTER")
+        b.powerValue:SetPoint(inner, ptext, inner, side * style.valueInset, 0)
+        b.powerValue:SetJustifyH(inner)
         b.powerValue:SetWordWrap(false)
 
-        -- the level on the power bar's outer end, clear of its value
+        -- the level in its badge at the power bar's outer bottom corner
         b.levelText = ns.Text(text, style.powerSize)
-        b.levelText:SetPoint(outer, b.power, outer, -side * style.textInset, 0)
+        LevelBadge(b, side)
 
         -- the crown on the top edge's outer end
         ns.LeaderIcon(b, 16, ns.levels.text + 2)

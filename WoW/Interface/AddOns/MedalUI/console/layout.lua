@@ -8,7 +8,7 @@ ns.layout = {
     designHeight = 1080,
 
     -- Player and target: power on top, health below.
-    unit = { power = 12, seam = 0, nameSize = 16, valueSize = 13, powerSize = 10,
+    unit = { power = 12, seam = 0, nameSize = 18, valueSize = 15, powerSize = 11,
              -- the window's inner end is cut at 45 degrees; keep text on
              -- the part of the health bar that stays visible
              textInset = 10, valueInset = 50 },

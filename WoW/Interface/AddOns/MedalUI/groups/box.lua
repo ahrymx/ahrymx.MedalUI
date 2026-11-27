@@ -318,7 +318,7 @@ end
 -- The look on cell b, once: the shades, the light, the band. small: a
 -- raid's cell, its name a size smaller. The texts' sizes and places are
 -- ns.GroupCellText's, as each frame lays them.
-function ns.GroupCellLook(b)
+function ns.GroupCellLook(b, opts)
     if b.cellLook then return b end
     b.cellLook = true
     b.healthShade = Shade(b.health, LOOK.shade)
@@ -329,7 +329,9 @@ function ns.GroupCellLook(b)
     light:SetPoint("TOPRIGHT", b.health:GetStatusBarTexture(), "TOPRIGHT")
     light:SetHeight(1)
     b.healthLight = light
-    b.band = Band(b)
+    -- (the console's player and target take none: their text sits on the
+    -- middle of a taller health, where the shade is light)
+    if not (opts and opts.band == false) then b.band = Band(b) end
     return b
 end
 
@@ -354,6 +356,23 @@ function ns.GroupCellText(b, small, inset)
     b.levelText:SetPoint("TOPLEFT", b.health, "TOPLEFT", 4, -3)
     ns.GroupBandHeight(b)
 end
+
+-- (2026-11-27, art/console/gen_units.py B) The console's player and target
+-- in the look: the shades and the light, no band; the name, value, power
+-- value and level outlined in the text's colour at their own sizes (the
+-- profile's layout.unit). Here, not in console/units.lua, which loads
+-- before this file; still before the editor's first snapshot (PLAYER_LOGIN),
+-- so Reset gives these back.
+function ns.ConsoleUnitLook(b)
+    if not b or b.cellLook then return end
+    ns.GroupCellLook(b, { band = false })
+    for _, fs in ipairs({ b.name, b.value, b.powerValue, b.levelText }) do
+        local _, size = fs:GetFont()
+        Outlined(fs, size or LOOK.value)
+        if fs ~= b.levelText then fs:SetTextColor(unpack(C.text)) end
+    end
+end
+for _, unit in ipairs({ "player", "target" }) do ns.ConsoleUnitLook(ns.units and ns.units[unit]) end
 
 -- A unit cell, the suite's one rectangle: health, a seam, power under it;
 -- the name and the health's value on the band at the health's foot, the

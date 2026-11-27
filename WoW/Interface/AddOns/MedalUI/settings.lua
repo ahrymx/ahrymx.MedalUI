@@ -264,7 +264,10 @@ local DEFAULTS = {
     -- by piece: false until something is; the console's per profile, the
     -- group frames' shared. (2026-11-27) The party's debuffs start outside
     -- its box on the right, running rightward (its Outside: right).
-    editUnit = false,
+    -- (2026-11-27) The player's and target's auras start outside the
+    -- window's outer end, running away from the screen's centre: buffs at
+    -- 35, the debuffs under them at the buffs' size.
+    editUnit = { buffs = { out = true, size = 35 }, mine = { out = true, match = true } },
     editParty = { mine = { out = "right" } }, editRaid = false, editBoss = false, editArena = false, editOverhead = false,
     editUndocked = false,
     blizzardAuras = false,  -- Blizzard's own buff and debuff rows, top right (blizzard.lua)

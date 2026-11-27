@@ -37,7 +37,7 @@ ns.lightProfile = {
         designHeight = 1080,
         unit = {
             power = 8, seam = 2, healthOnTop = true,
-            nameSize = 13, valueSize = 11, powerSize = 9,
+            nameSize = 15, valueSize = 13, powerSize = 10,
             textInset = 8, valueInset = 8,
         },
         party = {

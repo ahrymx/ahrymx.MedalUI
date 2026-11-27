@@ -13090,6 +13090,30 @@ if args[2] == "widgets" or args[3] == "widgets" then
             "shadow=" .. tostring(ns.partyBox.shadow))
         look("party1", ns.units.party1)
         look("player", ns.units.player)
+        look("target", ns.units.target)
+        -- (2026-11-27) the level's badge in the power bar's outer bottom
+        -- corner: round the level's words, gone with them, faded with them
+        local function badge(tag, b)
+            local bg = b.levelBadge and b.levelBadge[1]
+            if not bg then print("  look badge " .. tag, "none") return end
+            print("  look badge " .. tag, "level=" .. pt(b.levelText) .. " " .. font(b.levelText),
+                "power value=" .. pt(b.powerValue) .. " " .. font(b.powerValue),
+                "box=" .. tostring(#b.levelBadge) .. " on level=" .. tostring(select(2, bg:GetPoint(1)) == b.levelText),
+                "shown=" .. tostring(bg:IsShown()), "alpha=" .. tostring(bg.alpha))
+        end
+        local pb = ns.units.player
+        badge("player", pb)
+        badge("target", ns.units.target)
+        local realLevel = UnitLevel
+        UnitLevel = function() return 0 end     -- (the game's answer when it has none)
+        ns.units.player.scripts.OnEvent(pb, "UNIT_LEVEL", "player")
+        badge("player, no level", pb)
+        pb.levelText:SetAlpha(0)
+        badge("player, level hidden", pb)
+        pb.levelText:SetAlpha(1)
+        UnitLevel = realLevel
+        ns.units.player.scripts.OnEvent(pb, "UNIT_LEVEL", "player")
+        badge("player, back", pb)
         look("boss1", MedalUIBossUnit1)
         look("arena1", MedalUIArenaUnit1)
         local b = ns.units.party1
@@ -15016,7 +15040,7 @@ local function EditorPass()
     local function at(tag)
         local p = cv.proxies[1]
         print("  secret points " .. tag, "value " .. pts(p, p.pieces.value), "power " .. pts(p, p.pieces.powerValue)
-            .. " in " .. tostring(p.pieces.powerValue.points.CENTER and p.pieces.powerValue.points.CENTER[1]
+            .. " in " .. tostring(p.pieces.powerValue.points[next(p.pieces.powerValue.points)][1]
             == p.powerBox and "powerBox" or "?"))
     end
     local getPoint = Region.GetPoint
@@ -15403,10 +15427,12 @@ local function EditorPass()
         local function placed() local e = E.Edits(E.byId.unit, "buffs") or {}
             return tostring(e.h) .. "/" .. tostring(e.v) .. " " .. tostring(e.x) .. "," .. tostring(e.y) end
         GetCursorPosition = realCursor
-        E.ResetPiece(E.byId.unit, "buffs")      -- (in the frame: a place to compare)
+        -- (in the frame: a place to compare; the buffs start outside since 2026-11-27)
+        local function inside() E.ResetPiece(E.byId.unit, "buffs"); E.Set(E.byId.unit, "buffs", { out = E.NIL }) end
+        inside()
         drop(P, "left", "bottom", 30, -12)
         local atFit = placed()
-        E.ResetPiece(E.byId.unit, "buffs")
+        inside()
         function GetCursorPosition() return cx, cy end
         wheel("in to drag", midX, midY, 3)
         GetCursorPosition = realCursor
