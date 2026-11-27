@@ -32,6 +32,18 @@
 -- middle click opens the world map at it. The search keeps the quests whose title has
 -- the words, folded zones too. Track all stops at the game's limit.
 -- Drop opens the window that abandons quests (quests/drop.lua).
+-- (2026-11-27, the user's pick D on the canvas "Quest log: a new look")
+-- The window is leather (media/quests/leather, art/quests/gen_log.py)
+-- under a vignette, not the linen, edge to edge. Each zone is a bronze
+-- plate with cut corners (its fold chevron, name, count chip, level range
+-- and eye), its quests on glass hanging from it (the spellbook's tint,
+-- spells/spellbook.lua; in from the plate's ends by its cut corners, its
+-- sides faintly gold, the plate's shadow on it): a ledger, a hairline
+-- under each, the level in a badge of its colour. A zone's foot line
+-- fades the glass out (no rim across it) and leaves the gap to the next;
+-- a folded zone is its plate alone. (2026-11-27 refined: the boxes round
+-- the plates gone, untracked quests darkened, not striped.) The search
+-- sits in a sunk pill rail, the fold-all on a round knob beside it.
 -- The columns' headings sort (2026-11-11): a click sorts each zone's
 -- quests by that column, a second reverses it, a third puts back the log's
 -- order; the sorted heading in gold with a chevron (remembered,
@@ -54,15 +66,27 @@ local FOLD_L, FOLD_D = ns.goldKept.light, ns.goldKept.dark
 local XP = { 0.63, 0.55, 0.9 }
 local RED = { 0.86, 0.27, 0.22 }
 local NONE = { 0.47, 0.24, 0.2 }
-local HEAD = 26                         -- the search and the fold, over the columns
+local HEAD = 32                         -- the search's rail and the fold's knob, over the columns
 local COUNTS = 18                       -- the counts' line under the list, over the margin's buttons
-local COLUMNS, ROW, FOLD = 18, 20, 26   -- the columns' heading, a quest's row, a zone's
+local COLUMNS, ROW, FOLD = 18, 22, 34   -- the columns' heading, a quest's row, a zone's (its plate)
+local FOOT, GAP = 8, 6                  -- a zone's glass fading out under its last row, the gap to the next
+local PLATE, CUT = 28, 14               -- a zone's plate: its height, its cut ends' width
+local LIFT = 2                          -- the plate under the row's top
+local SIDE = 7                          -- the glass hangs from the plate, in from its ends by its cut corners
+local PAD = SIDE + 5                    -- a quest's contents, in from the row's sides
+local SHADOW = { 5, 0.5 }               -- the plate's shadow on the glass: its height, its darkest
+local RAIL, KNOB = 30, 30               -- the search's rail, the fold's knob
+-- the spellbook's glass (spells/spellbook.lua), its rims fainter: here
+-- they run down from the plate and fade out, no box round them
+local GLASS = { fill = 0.45, edge = 0.3 }
+local MEDIA = ns.media .. "quests\\"
+local HAIR = 0.16                       -- the rule under a quest
 local GUTTER = 10                       -- the scroll bar, left of the rows
 local CONTROL = 18
-local ZEBRA, RULE = 0.05, 0.6
-local FILL = 0.45                       -- a fold's gold
 local FAR = 44                          -- the waypoint's distance: its room after the title
-local STRIPES, UNTRACKED = 0.3, 0.75    -- an untracked quest: its row's stripes, its title's colour
+-- an untracked quest: its row darkened, its title's colour and its
+-- columns dimmed
+local DARK, UNTRACKED, FADED = 0.35, 0.65, 0.55
 -- the columns, from the rows' right edge: XP's right, Item's centre, Coin's right
 local AT_XP, AT_ITEM, AT_COIN = 118, 76, 6
 local TITLE = 34                        -- the title's left, past the level
@@ -239,6 +263,7 @@ local function Lines()
             if words or not folded[z.name] then
                 for _, q in ipairs(list) do table.insert(out, { quest = q }) end
             end
+            table.insert(out, { foot = z, open = (words or not folded[z.name]) and true or false })
         end
     end
     return out
@@ -270,17 +295,6 @@ local function LimitTip()
 end
 
 -- ------------------------------------------------------------- the rows
--- c at alpha a at the right (the screen's edge: the log stands on the
--- right) fading to a tenth of it towards the middle
-local function Fade(t, c, a)
-    if t.SetGradient and CreateColor then
-        t:SetColorTexture(1, 1, 1, 1)
-        t:SetGradient("HORIZONTAL", CreateColor(c[1], c[2], c[3], a * 0.1), CreateColor(c[1], c[2], c[3], a))
-    else
-        t:SetColorTexture(c[1], c[2], c[3], a * 0.55)
-    end
-end
-
 local function Glyph(b, name, size)
     b.icon = b.icon or b:CreateTexture(nil, "ARTWORK")
     b.icon:SetSize(size or 16, size or 16)
@@ -313,56 +327,137 @@ local orders = ns.window.Choices({
 })
 log.orders = orders
 
--- A row, either kind: a zone's fold or a quest's line; each drawn as it is
--- filled.
+-- The lowest quest's level to the highest, in a zone
+local function Levels(z)
+    local lo, hi
+    for _, q in ipairs(z.quests) do
+        local l = q.level or 0
+        if l > 0 then
+            lo, hi = math.min(lo or l, l), math.max(hi or l, l)
+        end
+    end
+    if not lo then return "" end
+    return format(Tr["Lvl %s"], lo == hi and tostring(lo) or (lo .. "\226\128\147" .. hi))
+end
+
+-- a texture in colour c, a at its top falling to b at its foot (flat at
+-- their middle where the client has no gradients)
+local function Fall(t, c, a, b)
+    if t.SetGradient and CreateColor then
+        t:SetColorTexture(1, 1, 1, 1)
+        t:SetGradient("VERTICAL", CreateColor(c[1], c[2], c[3], b), CreateColor(c[1], c[2], c[3], a))
+    else
+        t:SetColorTexture(c[1], c[2], c[3], (a + b) / 2)
+    end
+end
+
+-- a texture in three slices (its two ends CUT wide, its middle stretched)
+-- over a frame: the plate's and the rail's
+local function Sliced(f, file, layer, sub, cut)
+    local parts = {}
+    for k, part in ipairs({ { 0, 0.25 }, { 0.25, 0.75 }, { 0.75, 1 } }) do
+        local t = f:CreateTexture(nil, layer, nil, sub)
+        t:SetTexture(MEDIA .. file)
+        t:SetTexCoord(part[1], part[2], 0, 1)
+        t:SetPoint("TOP")
+        t:SetPoint("BOTTOM")
+        parts[k] = t
+    end
+    parts[1]:SetPoint("LEFT")
+    parts[1]:SetWidth(cut)
+    parts[3]:SetPoint("RIGHT")
+    parts[3]:SetWidth(cut)
+    parts[2]:SetPoint("LEFT", parts[1], "RIGHT")
+    parts[2]:SetPoint("RIGHT", parts[3], "LEFT")
+    return parts
+end
+
+-- A row, any kind: a zone's (its card's top and its plate), a quest's (a
+-- line in the card) or a zone's foot (the card's bottom, the gap after);
+-- each drawn as it is filled.
 local function Row()
     local r = CreateFrame("Button", nil, body)
     r:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp")
     r:EnableMouseWheel(true)
     r:SetScript("OnMouseWheel", function(_, delta) Wheel(delta) end)
-    local glow = r:CreateTexture(nil, "HIGHLIGHT")
-    glow:SetAllPoints()
-    glow:SetColorTexture(1, 1, 1, 0.06)
-    -- the fold: a band of gold fading in from the right, lit along its top
-    -- (in gold whatever the theme)
-    r.fill = r:CreateTexture(nil, "BACKGROUND", nil, 1)
-    r.over = r:CreateTexture(nil, "BORDER")
-    r.under = r:CreateTexture(nil, "BORDER")
-    r.sign = ns.Text(r, 14)
-    r.zone = ns.Text(r, 13)
-    ns.KeepGold(r.fill, r.over, r.under, r.sign, r.zone)
-    r.fill:SetPoint("TOPLEFT", 0, -2)
-    r.fill:SetPoint("BOTTOMRIGHT", 0, 2)
-    Fade(r.fill, FOLD_D, FILL)
-    r.over:SetPoint("TOPLEFT", 0, -2)
-    r.over:SetPoint("TOPRIGHT", 0, -2)
-    r.over:SetHeight(1)
-    Fade(r.over, FOLD_L, RULE)
-    r.under:SetPoint("BOTTOMLEFT", 0, 2)
-    r.under:SetPoint("BOTTOMRIGHT", 0, 2)
-    r.under:SetHeight(1)
-    Fade(r.under, FOLD_D, RULE)
-    r.sign:SetPoint("LEFT", 6, 0)
-    r.sign:SetTextColor(unpack(FOLD_L))
-    r.zone:SetPoint("LEFT", 20, 0)
+    -- the card's part on this row: glass hanging from the zone's plate,
+    -- in from the row's sides, its sides lit faintly; at its foot it fades
+    -- out, no rim across it
+    r.card = CreateFrame("Frame", nil, r)
+    local ink = ns.colors.ink
+    r.glass = r:CreateTexture(nil, "BACKGROUND", nil, -5)
+    r.glass:SetAllPoints(r.card)
+    r.glass:SetColorTexture(ink[1], ink[2], ink[3], GLASS.fill)
+    local function Rim(a1, a2)
+        local t = r:CreateTexture(nil, "BORDER")
+        t:SetPoint(a1, r.card)
+        t:SetPoint(a2, r.card)
+        t:SetWidth(1)
+        t:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], GLASS.edge)
+        return t
+    end
+    r.rimL = Rim("TOPLEFT", "BOTTOMLEFT")
+    r.rimR = Rim("TOPRIGHT", "BOTTOMRIGHT")
+    -- the plate's shadow, falling on the glass under it
+    r.shadow = r:CreateTexture(nil, "BACKGROUND", nil, -3)
+    r.shadow:SetHeight(SHADOW[1])
+    r.card.parts = { r.glass, r.rimL, r.rimR }
+    -- under the mouse: the plate, or the quest's line    -- under the mouse: the plate, or the quest's line
+    r.glow = r:CreateTexture(nil, "HIGHLIGHT")
+    r.glow:SetColorTexture(1, 1, 1, 0.06)
+
+    -- the zone's plate (in its gold whatever the theme): its fold chevron,
+    -- name, count chip, levels and eye
+    r.plate = CreateFrame("Frame", nil, r)
+    r.plate:SetPoint("TOPLEFT", 0, -LIFT)
+    r.plate:SetPoint("TOPRIGHT", 0, -LIFT)
+    r.plate:SetHeight(PLATE)
+    r.shadow:SetPoint("TOPLEFT", r.plate, "BOTTOMLEFT", SIDE + 1, 0)
+    r.shadow:SetPoint("TOPRIGHT", r.plate, "BOTTOMRIGHT", -(SIDE + 1), 0)
+    Fall(r.shadow, { 0, 0, 0 }, SHADOW[2], 0)
+    r.plate.slices = Sliced(r.plate, "plate", "ARTWORK", 0, CUT)
+    r.chev = r.plate:CreateTexture(nil, "OVERLAY")
+    r.chev:SetSize(14, 14)
+    r.chev:SetPoint("LEFT", 9, 0)
+    r.chev:SetTexture(ns.media .. "strips\\chevron-down")
+    r.zone = ns.Text(r.plate, 13)
+    r.zone:SetPoint("LEFT", r.chev, "RIGHT", 7, 0)
     r.zone:SetTextColor(unpack(FOLD_L))
-    r.count = ns.Text(r, 11)
-    r.count:SetPoint("LEFT", r.zone, "RIGHT", 6, 0)
-    r.count:SetTextColor(unpack(DIM))
-    r.eye = CreateFrame("Button", nil, r)
-    r.eye:SetSize(CONTROL + 4, CONTROL)
-    r.eye:SetPoint("RIGHT", -4, 0)
+    r.zone:SetShadowColor(0, 0, 0, 1)
+    r.zone:SetShadowOffset(0, -1)
+    -- the count on a chip: a dark well, a lip of light under it
+    r.chip = CreateFrame("Frame", nil, r.plate)
+    r.chip:SetHeight(16)
+    r.chip:SetPoint("LEFT", r.zone, "RIGHT", 7, 0)
+    local well = r.chip:CreateTexture(nil, "ARTWORK", nil, 1)
+    well:SetAllPoints()
+    well:SetColorTexture(0.07, 0.06, 0.035, 1)
+    local lip = r.chip:CreateTexture(nil, "ARTWORK", nil, 2)
+    lip:SetPoint("BOTTOMLEFT", 0, -1)
+    lip:SetPoint("BOTTOMRIGHT", 0, -1)
+    lip:SetHeight(1)
+    lip:SetColorTexture(1, 0.91, 0.67, 0.15)
+    r.count = ns.PlainText(r.chip, 10)
+    r.count:SetPoint("CENTER")
+    r.count:SetTextColor(unpack(FOLD_D))
+    r.levels = ns.PlainText(r.plate, 10)
+    r.levels:SetTextColor(unpack(DIM))
+    ns.KeepGold(r.chev, r.zone, r.count)
+    r.eye = CreateFrame("Button", nil, r.plate)
+    r.eye:SetSize(CONTROL + 6, CONTROL)
+    r.eye:SetPoint("RIGHT", -6, 0)
     r.eye.icon = r.eye:CreateTexture(nil, "ARTWORK")
     ns.KeepGold(r.eye.icon)
-    Glyph(r.eye, "track", CONTROL + 2)
+    Glyph(r.eye, "track", CONTROL)
+    r.levels:SetPoint("RIGHT", r.eye, "LEFT", -4, 0)
     r.eye:SetScript("OnClick", function(self)
-        local z = self:GetParent().data.zone
+        local z = self:GetParent():GetParent().data.zone
         if z.tracked == "all" then UntrackAll(z.quests) else TrackAll(z.quests) end
         log.Refresh()
         if GameTooltip:IsOwned(self) then self:GetScript("OnEnter")(self) end
     end)
     r.eye:SetScript("OnEnter", function(self)
-        local z = self:GetParent().data.zone
+        local z = self:GetParent():GetParent().data.zone
         local all = z.tracked == "all"
         Tip(self, { title = format(all and Tr["Stop tracking %s"] or Tr["Track %s"], z.name),
             { "body", all and Tr["Every quest in it is tracked."] or z.tracked == "some"
@@ -371,34 +466,53 @@ local function Row()
             not all and LimitTip() and { "hint", LimitTip() } or false })
     end)
     r.eye:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    -- the quest: shading, the open page's mark, level, title, mark, columns
-    r.zebra = r:CreateTexture(nil, "BACKGROUND", nil, 1)
-    r.zebra:SetAllPoints()
-    r.zebra:SetColorTexture(1, 1, 1, ZEBRA)
+
+    -- the quest, inside its card: the open page's mark, the level's badge,
+    -- title, mark, columns, the rule under it
+    local function Inside(t)
+        t:SetPoint("TOPLEFT", SIDE + 1, 0)
+        t:SetPoint("BOTTOMRIGHT", -(SIDE + 1), 0)
+    end
     r.mark = r:CreateTexture(nil, "BACKGROUND", nil, 2)
-    r.mark:SetAllPoints()
-    r.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.35)
+    Inside(r.mark)
+    r.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.22)
     r.edge = r:CreateTexture(nil, "BORDER")
-    r.edge:SetPoint("TOPLEFT")
-    r.edge:SetPoint("BOTTOMLEFT")
+    r.edge:SetPoint("TOPLEFT", SIDE + 1, 0)
+    r.edge:SetPoint("BOTTOMLEFT", SIDE + 1, 0)
     r.edge:SetWidth(2)
     r.edge:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 1)
-    r.lvl = ns.PlainText(r, 11)
-    r.lvl:SetPoint("CENTER", r, "LEFT", 14, 0)
-    -- an untracked quest: its row striped, faint
-    r.stripes = r:CreateTexture(nil, "BACKGROUND", nil, 3)
-    r.stripes:SetAllPoints()
-    r.stripes:SetTexture(ns.media .. "strips\\stripes", "REPEAT", "REPEAT")
-    r.stripes:SetHorizTile(true)
-    r.stripes:SetVertTile(true)
-    r.stripes:SetVertexColor(ns.colors.text[1], ns.colors.text[2], ns.colors.text[3])
-    r.stripes:SetAlpha(STRIPES)
+    r.rule = r:CreateTexture(nil, "BORDER", nil, 1)
+    r.rule:SetPoint("BOTTOMLEFT", PAD - 4, 0)
+    r.rule:SetPoint("BOTTOMRIGHT", -(PAD - 4), 0)
+    r.rule:SetHeight(1)
+    r.rule:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], HAIR)
+    -- the level on a badge in its colour: a faint fill, a rim
+    r.lvlBox = CreateFrame("Frame", nil, r)
+    r.lvlBox:SetSize(24, 15)
+    r.lvlBox:SetPoint("CENTER", r, "LEFT", PAD + 12, 0)
+    r.lvlFill = r.lvlBox:CreateTexture(nil, "BACKGROUND", nil, 5)
+    r.lvlFill:SetAllPoints()
+    r.lvlRims = {}
+    for k, e in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local t = r.lvlBox:CreateTexture(nil, "BORDER", nil, 2)
+        t:SetPoint(e[1])
+        t:SetPoint(e[2])
+        if e[3] then t:SetHeight(1) else t:SetWidth(1) end
+        r.lvlRims[k] = t
+    end
+    r.lvl = ns.PlainText(r.lvlBox, 10)
+    r.lvl:SetPoint("CENTER", 0, 0)
+    -- an untracked quest: its line darkened (its words dimmed, FillQuest)
+    r.dark = r:CreateTexture(nil, "BACKGROUND", nil, 3)
+    Inside(r.dark)
+    r.dark:SetColorTexture(0, 0, 0, DARK)
     -- the waypoint's quest: washed, its distance after its title (and mark)
     r.wash = r:CreateTexture(nil, "BACKGROUND", nil, 4)
-    r.wash:SetAllPoints()
+    Inside(r.wash)
     r.wash:SetColorTexture(unpack(WP.WASH))
     r.title = ns.PlainText(r, 11)
-    r.title:SetPoint("LEFT", TITLE, 0)
+    r.title:SetPoint("LEFT", PAD + TITLE, 0)
     r.title:SetJustifyH("LEFT")
     r.title:SetWordWrap(false)
     r.badge = r:CreateTexture(nil, "ARTWORK")
@@ -407,17 +521,18 @@ local function Row()
     r.far = ns.PlainText(r, 10)
     r.far:SetTextColor(unpack(WP.COLOR))
     r.xp = ns.PlainText(r, 11)
-    r.xp:SetPoint("RIGHT", -AT_XP, 0)
+    r.xp:SetPoint("RIGHT", -(PAD + AT_XP), 0)
     r.xp:SetTextColor(unpack(XP))
     r.item = ns.PlainText(r, 11)
-    r.item:SetPoint("CENTER", r, "RIGHT", -AT_ITEM, 0)
+    r.item:SetPoint("CENTER", r, "RIGHT", -(PAD + AT_ITEM), 0)
     r.coin = ns.PlainText(r, 11)
-    r.coin:SetPoint("RIGHT", -AT_COIN, 0)
+    r.coin:SetPoint("RIGHT", -(PAD + AT_COIN), 0)
+    r.quest = { r.mark, r.edge, r.rule, r.lvlBox, r.dark, r.wash, r.title, r.badge, r.far, r.xp, r.item, r.coin }
     r:SetScript("OnClick", function(self, mouse)
         local d = self.data
         if d.zone then
             Fold(d.zone.name)
-        elseif Q.Click(d.quest, mouse) == "track" then
+        elseif d.quest and Q.Click(d.quest, mouse) == "track" then
             log.Refresh()
         end
     end)
@@ -435,42 +550,82 @@ local function Row()
     return r
 end
 
-local function FillZone(r, z)
-    r:SetHeight(FOLD)
-    for _, t in ipairs({ r.fill, r.over, r.under, r.sign, r.zone, r.count }) do t:Show() end
-    r.eye:Show()
-    for _, t in ipairs({ r.zebra, r.mark, r.edge, r.lvl, r.stripes, r.title, r.badge, r.xp, r.item, r.coin,
-        r.wash, r.far }) do
-        t:Hide()
+-- the row's kind: its card's part, what shows, where the glow lies. A
+-- zone's glass starts behind its plate (none while it is folded); a
+-- foot's fades out (and is only the gap after a folded zone).
+local function Kind(r, kind, height, glass)
+    r:SetHeight(height)
+    r.kind = kind
+    r.card:ClearAllPoints()
+    if kind == "zone" then
+        r.card:SetPoint("TOPLEFT", r.plate, "LEFT", SIDE, 0)
+        r.card:SetPoint("BOTTOMRIGHT", -SIDE, 0)
+    else
+        r.card:SetPoint("TOPLEFT", SIDE, 0)
+        r.card:SetPoint("BOTTOMRIGHT", -SIDE, kind == "foot" and height - FOOT or 0)
     end
+    for _, t in ipairs(r.card.parts) do t:SetShown(glass) end
+    r.shadow:SetShown(kind == "zone" and glass)
+    -- the foot's glass, and its rims, fade to nothing
+    local ends = kind == "foot"
+    if ends ~= r.fading then
+        r.fading = ends
+        local ink = ns.colors.ink
+        Fall(r.glass, ink, GLASS.fill, ends and 0 or GLASS.fill)
+        Fall(r.rimL, GOLD_D, GLASS.edge, ends and 0 or GLASS.edge)
+        Fall(r.rimR, GOLD_D, GLASS.edge, ends and 0 or GLASS.edge)
+    end
+    r.plate:SetShown(kind == "zone")
+    for _, t in ipairs(r.quest) do t:SetShown(kind == "quest") end
+    r.glow:ClearAllPoints()
+    if kind == "zone" then
+        r.glow:SetAllPoints(r.plate)
+    else
+        r.glow:SetPoint("TOPLEFT", SIDE + 1, 0)
+        r.glow:SetPoint("BOTTOMRIGHT", -(SIDE + 1), 0)
+    end
+    r.glow:SetShown(kind ~= "foot")
+end
+
+local function FillZone(r, z)
     -- a search opens every zone it finds quests in
     local folded = (ns.db.questLogFolded or {})[z.name] and not (search and search:GetText() or ""):match("%S")
-    r.sign:SetText(folded and "+" or "-")
+    r.folded = folded and true or false
+    Kind(r, "zone", FOLD, not folded)
+    -- the chevron points down when open, right (a quarter turn) when folded
+    r.chev:SetRotation(folded and math.pi / 2 or 0)
     r.zone:SetText(z.name)
-    r.count:SetText("(" .. #z.quests .. ")")
-    Glyph(r.eye, z.tracked == "none" and "track-off" or "track", CONTROL + 2)
+    r.count:SetText(tostring(#z.quests))
+    r.chip:SetWidth(math.max(18, math.ceil(r.count:GetStringWidth() or 0) + 10))
+    r.levels:SetText(Levels(z))
+    Glyph(r.eye, z.tracked == "none" and "track-off" or "track", CONTROL)
     r.eye.icon:SetAlpha(z.tracked == "all" and 1 or 0.45)
 end
 
-local function FillQuest(r, q, n)
-    r:SetHeight(ROW)
-    for _, t in ipairs({ r.fill, r.over, r.under, r.sign, r.zone, r.count }) do t:Hide() end
-    r.eye:Hide()
-    for _, t in ipairs({ r.lvl, r.title, r.xp, r.item, r.coin }) do t:Show() end
-    r.zebra:SetShown(n % 2 == 0)
+local function FillFoot(r, open)
+    Kind(r, "foot", open and FOOT + GAP or GAP, open)
+end
+
+local function FillQuest(r, q)
+    Kind(r, "quest", ROW, true)
     local open = ns.questPage and ns.questPage.Current() == q.id
     r.mark:SetShown(open)
     r.edge:SetShown(open)
     local c = ns.QuestColour and ns.QuestColour(q) or ns.colors.text
     r.lvl:SetText(q.level > 0 and q.level or "")
     r.lvl:SetTextColor(c[1], c[2], c[3])
-    r.stripes:SetShown(not q.tracked)
+    r.lvlBox:SetShown(q.level > 0)
+    r.lvlFill:SetColorTexture(c[1], c[2], c[3], 0.13)
+    for _, t in ipairs(r.lvlRims) do t:SetColorTexture(c[1], c[2], c[3], 0.53) end
+    r.dark:SetShown(not q.tracked)
+    local a = q.tracked and 1 or FADED
+    for _, t in ipairs({ r.lvlBox, r.badge, r.xp, r.item, r.coin }) do t:SetAlpha(a) end
     r.title:SetText(q.title .. (q.state == -1 and "  " .. Tr["(failed)"] or ""))
     local k = q.tracked and 1 or UNTRACKED
     r.title:SetTextColor(c[1] * k, c[2] * k, c[3] * k)
     -- the title, as wide as the room up to the XP's column
     -- (less the waypoint's distance after it)
-    r.title:SetWidth(math.min(r.title:GetStringWidth() + 1, body:GetWidth() - GUTTER - TITLE - AT_XP - 60
+    r.title:SetWidth(math.min(r.title:GetStringWidth() + 1, body:GetWidth() - GUTTER - 2 * PAD - TITLE - AT_XP - 60
         - (WP.Is(q.id) and FAR or 0)))
     local marked = q.state == 1 or q.daily or q.kind
     r.badge:SetShown(marked and ns.QuestMark and ns.character and ns.character.Badge and true or false)
@@ -515,11 +670,11 @@ function log.Refresh()
     count.hold:SetWidth(count:GetStringWidth())
     if first > 0 and first >= #lines then first = math.max(0, #lines - 1) end
     local height = body:GetHeight()
-    local y, used, n = 0, 0, 0
+    local y, used = 0, 0
     shown = 0
     for i = first + 1, #lines do
         local l = lines[i]
-        local h = l.zone and FOLD or ROW
+        local h = l.zone and FOLD or l.foot and (l.open and FOOT + GAP or GAP) or ROW
         if y + h > height then break end
         used = used + 1
         local r = rows[used] or Row()
@@ -529,11 +684,11 @@ function log.Refresh()
         r:SetPoint("TOPLEFT", GUTTER, -y)
         r:SetPoint("TOPRIGHT", 0, -y)
         if l.zone then
-            n = 0
             FillZone(r, l.zone)
+        elseif l.foot then
+            FillFoot(r, l.open)
         else
-            n = n + 1
-            FillQuest(r, l.quest, n)
+            FillQuest(r, l.quest)
         end
         r:Show()
         y = y + h
@@ -573,17 +728,6 @@ function log.Thumb() return first, shown, #lines end
 -- -------------------------------------------------------------- the window
 local W, page
 
-local function Control(parent, name, tip, click)
-    local b = CreateFrame("Button", nil, parent)
-    b:SetSize(CONTROL + 6, CONTROL + 6)
-    ns.window.Face(b)
-    Glyph(b, name, CONTROL)
-    b:SetScript("OnClick", click)
-    b:SetScript("OnEnter", function(self) Tip(self, { title = tip() }) end)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    return b
-end
-
 -- the page: the count, the search and the fold over the columns' heading
 -- and the list; the margin's row edge to edge (bandFlush)
 local function Build(pageBody, _, band)
@@ -608,9 +752,22 @@ local function Build(pageBody, _, band)
         ns.Tip(self, ns.window.Outside, spec)
     end)
     count.hold:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    foldAll = Control(head, "chevron-double", function()
-        return log.AnyOpen() and Tr["Fold every zone."] or Tr["Open every zone."]
-    end, function(self)
+    -- the fold-all on its knob: a bronze dome, the double chevron on it
+    foldAll = CreateFrame("Button", nil, head)
+    foldAll:SetSize(KNOB, KNOB)
+    foldAll:SetPoint("RIGHT", 0, 0)
+    foldAll.knob = foldAll:CreateTexture(nil, "BACKGROUND")
+    foldAll.knob:SetAllPoints()
+    foldAll.knob:SetTexture(MEDIA .. "knob")
+    local glint = foldAll:CreateTexture(nil, "HIGHLIGHT")
+    glint:SetAllPoints()
+    glint:SetTexture(MEDIA .. "knob")
+    glint:SetBlendMode("ADD")
+    glint:SetAlpha(0.3)
+    Glyph(foldAll, "chevron-double", 15)
+    foldAll.icon:ClearAllPoints()
+    foldAll.icon:SetPoint("CENTER", 0, 1)
+    foldAll:SetScript("OnClick", function(self)
         local fold = log.AnyOpen()
         local f = {}
         if fold then
@@ -620,12 +777,27 @@ local function Build(pageBody, _, band)
         log.Refresh()
         if GameTooltip:IsOwned(self) then self:GetScript("OnEnter")(self) end
     end)
-    foldAll:SetPoint("RIGHT", 0, 0)
-    search = CreateFrame("EditBox", "MedalUIQuestLogSearch", head, "SearchBoxTemplate")
+    foldAll:SetScript("OnEnter", function(self)
+        Tip(self, { title = log.AnyOpen() and Tr["Fold every zone."] or Tr["Open every zone."] })
+    end)
+    foldAll:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    -- the search in its rail: a sunk pill, the box's own frame put away,
+    -- its glass in gold
+    local rail = CreateFrame("Frame", nil, head)
+    rail:SetHeight(RAIL)
+    rail:SetPoint("LEFT", 10, 0)
+    rail:SetPoint("RIGHT", foldAll, "LEFT", -8, 0)
+    rail.slices = Sliced(rail, "rail", "BACKGROUND", 0, RAIL / 2)
+    log.rail = rail
+    search = CreateFrame("EditBox", "MedalUIQuestLogSearch", rail, "SearchBoxTemplate")
     search:SetHeight(20)
-    search:SetPoint("LEFT", 10, 0)
-    search:SetPoint("RIGHT", foldAll, "LEFT", -10, 0)
+    search:SetPoint("LEFT", 14, 0)
+    search:SetPoint("RIGHT", -12, 0)
     search:SetAutoFocus(false)
+    for _, k in ipairs({ "Left", "Middle", "Right" }) do
+        if search[k] then search[k]:Hide() end
+    end
+    if search.searchIcon then search.searchIcon:SetVertexColor(GOLD[1], GOLD[2], GOLD[3]) end
     search:HookScript("OnTextChanged", function()
         first = 0
         log.Refresh()
@@ -672,17 +844,25 @@ local function Build(pageBody, _, band)
         b:SetScript("OnLeave", function() GameTooltip:Hide() end)
         return b
     end
-    columns.lvl = Heading("lvl", Tr["Lvl"], "LEFT", 4)
-    columns.quest = Heading("title", Tr["Quest"], "LEFT", TITLE)
-    columns.xp = Heading("xp", Tr["XP"], "RIGHT", -AT_XP)
-    columns.item = Heading("item", Tr["Item"], "CENTER", -AT_ITEM)
-    columns.coin = Heading("coin", Tr["Coin"], "RIGHT", -AT_COIN)
+    -- (over the cards' insides: PAD in from their sides)
+    columns.lvl = Heading("lvl", Tr["Lvl"], "LEFT", PAD + 4)
+    columns.quest = Heading("title", Tr["Quest"], "LEFT", PAD + TITLE)
+    columns.xp = Heading("xp", Tr["XP"], "RIGHT", -(PAD + AT_XP))
+    columns.item = Heading("item", Tr["Item"], "CENTER", -(PAD + AT_ITEM))
+    columns.coin = Heading("coin", Tr["Coin"], "RIGHT", -(PAD + AT_COIN))
     columns.heads = { columns.lvl, columns.quest, columns.xp, columns.item, columns.coin }
+    -- the headings over a groove: a dark line, a lip of light under it
     local under = columns:CreateTexture(nil, "ARTWORK")
     under:SetHeight(1)
     under:SetPoint("BOTTOMLEFT")
     under:SetPoint("BOTTOMRIGHT")
-    Fade(under, GOLD_D, 1)
+    under:SetColorTexture(0, 0, 0, 1)
+    local lip = columns:CreateTexture(nil, "ARTWORK")
+    lip:SetHeight(1)
+    lip:SetPoint("TOPLEFT", under, "BOTTOMLEFT")
+    lip:SetPoint("TOPRIGHT", under, "BOTTOMRIGHT")
+    lip:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.14)
+    columns.under, columns.lip = under, lip
 
     -- the list, and its scroll bar in the gutter
     body = CreateFrame("Frame", nil, pageBody)
@@ -692,13 +872,13 @@ local function Build(pageBody, _, band)
     body:SetScript("OnMouseWheel", function(_, delta) Wheel(delta) end)
     body:SetScript("OnSizeChanged", function() if log.IsShown() then log.Refresh() end end)
     bar = body:CreateTexture(nil, "BORDER")
-    bar:SetColorTexture(0, 0, 0, 0.35)
-    bar:SetWidth(4)
+    bar:SetColorTexture(0, 0, 0, 0.5)
+    bar:SetWidth(6)
     bar:SetPoint("TOPLEFT", 1, 0)
     bar:SetPoint("BOTTOMLEFT", 1, 0)
     thumb = body:CreateTexture(nil, "ARTWORK")
     thumb:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.8)
-    thumb:SetWidth(4)
+    thumb:SetWidth(6)
     empty = ns.Text(body, 11)
     empty:SetPoint("TOPLEFT", GUTTER + 4, -6)
     empty:SetTextColor(unpack(DIM))
@@ -738,6 +918,8 @@ local function Window()
     }
     page = { key = "quests", label = Tr["Quests"], tip = Tr["Every quest in your log."], glyph = "quests", order = 1,
         flex = true, height = 120, bandUsed = true, bandFlush = true,
+        -- its own ground, leather (Build), for the linen
+        linen = false,
         Available = function() return true end,
         Build = Build,
         Refresh = function() log.Refresh() end,
@@ -745,6 +927,20 @@ local function Window()
     W.Page(page)
     W.Build()
     frame = W.window
+    -- the ground: leather over the whole window, where the linen would lie
+    -- (under the head, the margins, the list and the foot's buttons), its
+    -- rim darkened (the character stage's vignette)
+    local under = frame.chrome and frame.chrome.bg or frame
+    local ground = frame:CreateTexture(nil, "BACKGROUND", nil, 3)
+    ground:SetAllPoints(under)
+    ground:SetTexture(MEDIA .. "leather", "REPEAT", "REPEAT")
+    ground:SetHorizTile(true)
+    ground:SetVertTile(true)
+    local shade = frame:CreateTexture(nil, "BACKGROUND", nil, 4)
+    shade:SetAllPoints(under)
+    shade:SetTexture(ns.media .. "character\\vignette")
+    shade:SetVertexColor(0, 0, 0, 0.6)
+    log.ground, log.shade = ground, shade
     frame:HookScript("OnHide", function()
         if search then search:ClearFocus() end
         if ns.questDrop then ns.questDrop.Close() end

@@ -1398,6 +1398,11 @@ function CreateFrame(kind, name, parent, template)
         function f:SetFlowLayoutGrowthDirection(h, v) self.flow.h, self.flow.v = h, v end
         function f:SetFlowLayoutMaximumLineSize(v) self.flow.line = v end
         f.scripts.OnEvent = function(self) self:Fill() end
+    elseif template == "SearchBoxTemplate" then
+        -- (2026-11-27) the game's: an InputBoxTemplate's three frame pieces
+        -- (keys Left, Middle, Right) and its magnifier (searchIcon)
+        for _, k in ipairs({ "Left", "Middle", "Right" }) do f[k] = f:CreateTexture(nil, "BACKGROUND") end
+        f.searchIcon = f:CreateTexture(nil, "OVERLAY")
     elseif template == "SecureHandlerStateTemplate" then
         -- a state-<name> attribute runs the _onstate-<name> snippet
         function f:SetAttribute(k, v)
@@ -20100,8 +20105,22 @@ if characterPass then
         local g = ns.stripRings[-1].frame
         print(tag .. " gauge", tostring(g.strata) .. "/" .. tostring(g.level), "over the copy="
             .. tostring(g.strata == w.strata and g.level > w.medal.level))
+        -- (2026-11-27) the drawer's chevron too: its frame's groove starts
+        -- under the copy's last columns
+        local k = ns.stripDrawers[-1].key
+        print(tag .. " chevron", tostring(k.strata) .. "/" .. tostring(k.level), "over the copy="
+            .. tostring(k.strata == w.strata and k.level > w.medal.level))
     end
     medallion("char.medallion")
+    -- the chevron alone put back down: lifted again
+    do
+        local k = ns.stripDrawers[-1].key
+        k:SetFrameStrata(ns.strips[-1]:GetFrameStrata())
+        k:SetFrameLevel(ns.levels.stripTop)
+        w.scripts.OnUpdate(w, 0.1)
+        w.scripts.OnUpdate(w, 0.2)
+        medallion("char.medallion chevron sunk, lifted again")
+    end
     -- put back on the strip under the open window (another window that
     -- lifts it closed): the window lifts it again within a quarter second
     do
@@ -26711,14 +26730,19 @@ if questLogPass then (function()
         for _, r in ipairs(QL.rows) do
             if r.shown then
                 local d = r.data
+                -- (2026-11-27) a zone: its plate's chevron (+ turned a quarter:
+                -- folded), name, count chip and levels; its card's foot: "_"
                 if d.zone then
-                    table.insert(out, r.sign.text .. r.zone.text .. " " .. r.count.text .. " [" .. r.eye.glyph
+                    table.insert(out, ((r.chev.rotation or 0) ~= 0 and "+" or "-") .. r.zone.text .. " ("
+                        .. r.count.text .. ") " .. tostring(r.levels.text) .. " [" .. r.eye.glyph
                         .. string.format("@%.2f", r.eye.icon.alpha or 1) .. "]")
+                elseif d.foot then
+                    table.insert(out, "_")
                 else
                     table.insert(out, string.format("%s%s%s %s(%s) xp=%s item=%s coin=%s%s%s", tostring(r.lvl.text),
-                        r.stripes.shown and "/" or " ", r.title.text, r.badge.shown and "{mark}" or "",
+                        r.dark.shown and "/" or " ", r.title.text, r.badge.shown and "{mark}" or "",
                         c3(r.title.textColor), r.xp.text, tostring(r.item.text):find("\\tick:") and "yes" or "no",
-                        r.coin.text, r.zebra.shown and " z" or "", r.mark.shown and " OPEN" or ""))
+                        r.coin.text, r.rule.shown and "" or " norule", r.mark.shown and " OPEN" or ""))
                 end
             end
         end
@@ -26755,7 +26779,8 @@ if questLogPass then (function()
         "escape=" .. tostring(UISpecialFrames and table.concat(UISpecialFrames, ","):find("MedalUIQuestLog") ~= nil))
     -- 2. the key opens it, over the side panel
     MedalUIToggleQuestLog()
-    QL.body.h = 20 * 14
+    -- (2026-11-27) tall enough for every zone's card and its quests
+    QL.body.h = 20 * 20
     QL.Refresh()
     print("questlog open", "shown=" .. tostring(f.shown))
     box("questlog window", f)
@@ -26772,6 +26797,70 @@ if questLogPass then (function()
         print("questlog margin", "h=" .. tostring(QL.foot.h), table.concat(out, " "))
     end
     rows("questlog rows")
+    -- (2026-11-27, pick D) the look: leather under a vignette, the search in
+    -- its rail, the fold on its knob, each zone a glass card with a plate
+    -- along its top, its quests inside, a foot closing it
+    QL_look = function(tag)
+        local function tex(t)
+            if not t then return "nil" end
+            local c = t.color or t.vertex
+            return tostring(t.texture and t.texture:match("[^\\]+$") or "color")
+                .. (c and string.format(" %.2f,%.2f,%.2f@%.2f", c[1], c[2], c[3], c[4] or 1) or "")
+                .. (t.shown == false and " HIDDEN" or "")
+        end
+        local function cut(t) return t.coords and (t.coords[1] .. "-" .. t.coords[2]) or "all" end
+        local rl = QL.rail
+        local function fall(t)
+            local g = t.gradient
+            return g and string.format(" fall %.2f,%.2f,%.2f %.2f>%.2f", g[3][1], g[3][2], g[3][3], g[3][4], g[2][4])
+                or ""
+        end
+        print(tag .. " ground", tex(QL.ground), "window's=" .. tostring(QL.ground:GetParent() == f
+            and QL.ground.all == f.chrome.bg and QL.shade.all == f.chrome.bg),
+            "linen=" .. tostring(f.chrome and f.chrome.linen and f.chrome.linen.shown),
+            "shade=" .. tex(QL.shade))
+        print(tag .. " rail", "h=" .. tostring(rl.h), rl.slices[1].w .. "|*|" .. rl.slices[3].w,
+            tex(rl.slices[1]) .. " " .. cut(rl.slices[1]) .. "/" .. cut(rl.slices[2]) .. "/" .. cut(rl.slices[3]),
+            "search in rail=" .. tostring(QL.search:GetParent() == rl),
+            "frame hidden=" .. tostring(QL.search.Left.shown == false and QL.search.Middle.shown == false
+                and QL.search.Right.shown == false), "glass=" .. tex(QL.search.searchIcon))
+        -- where each row sits: its kind's letter and its top
+        local at = {}
+        for _, r in ipairs(QL.rows) do
+            if r.shown and r.data then table.insert(at, r.kind:sub(1, 1) .. -r.points.TOPLEFT[4]) end
+        end
+        print(tag .. " rows at", table.concat(at, " "))
+        print(tag .. " knob", tex(QL.foldAll.knob), QL.foldAll.w .. "x" .. QL.foldAll.h, "glyph=" .. tostring(QL.foldAll.glyph))
+        print(tag .. " columns", "lvl x=" .. tostring(QL.columns.lvl.points.LEFT and QL.columns.lvl.points.LEFT[3]),
+            "groove=" .. tex(QL.columns.under), "lip=" .. tex(QL.columns.lip))
+        local seen = {}
+        for _, r in ipairs(QL.rows) do
+            local key = r.kind .. (r.glass.shown == false and " bare" or "")
+                .. (r.kind == "quest" and r.dark.shown and " untracked" or "")
+            if r.shown and r.data and not seen[key] then
+                seen[key] = true
+                local parts = {}
+                for _, k in ipairs({ "glass", "rimL", "rimR", "shadow", "plate", "rule", "lvlBox", "dark" }) do
+                    if r[k].shown ~= false then table.insert(parts, k) end
+                end
+                local tl, br = r.card.points.TOPLEFT, r.card.points.BOTTOMRIGHT
+                table.insert(parts, string.format("card %s%s,%s..%s,%s", tl[1] == r.plate and "plate:" or "",
+                    tostring(tl[3]), tostring(tl[4]), tostring(br[3]), tostring(br[4])))
+                local extra = ""
+                if r.kind == "zone" then
+                    extra = string.format("chev=%.2f chip w=%s levels=%s plate=%s", r.chev.rotation or 0,
+                        tostring(r.chip.w), tostring(r.levels.text), tex(r.plate.slices[2]))
+                elseif r.kind == "quest" then
+                    extra = "badge=" .. tex(r.lvlFill) .. " rule=" .. tex(r.rule) .. " dark=" .. tex(r.dark)
+                        .. string.format(" faded=%.2f,%.2f,%.2f,%.2f,%.2f", r.lvlBox.alpha or 1, r.badge.alpha or 1,
+                            r.xp.alpha or 1, r.item.alpha or 1, r.coin.alpha or 1)
+                end
+                print(tag .. " card " .. key, "h=" .. tostring(r.h), "glass=" .. tex(r.glass) .. fall(r.glass),
+                    "rim=" .. tex(r.rimL) .. fall(r.rimL), table.concat(parts, ","), extra)
+            end
+        end
+    end
+    QL_look("questlog look")
     print("questlog foot", segState(QL.foot))
     print("questlog tips", "eye=" .. tipOf(row("Elwynn Forest").eye), "row=" .. tipOf(row("The Defias Brotherhood")))
     -- (2026-11-24, the user's: Forever tracks 25 of the log's 40) the
@@ -26825,6 +26914,7 @@ if questLogPass then (function()
     print("questlog fold all tip", tipOf(QL.foldAll))
     QL.foldAll.scripts.OnClick(QL.foldAll)
     rows("questlog all folded")
+    QL_look("questlog look folded")
     QL.foldAll.scripts.OnClick(QL.foldAll)
     rows("questlog all open")
     -- 3b. the headings sort each zone's quests: XP, most first; reversed;

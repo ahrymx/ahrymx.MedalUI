@@ -154,7 +154,7 @@ local GILT_STRIPS = {
 local gilt = {}
 for _, name in ipairs(GILT_STRIPS) do gilt[ns.media .. "strips\\" .. name] = true end
 for _, path in ipairs({ "strip", "options\\arrow", "options\\check", "tooltips\\ui\\Arrow", "tooltips\\ui\\Close",
-    "tooltips\\stat-marker",
+    "tooltips\\stat-marker", "quests\\knob",
     "console-light-explore", "console-light-combat", "actionbar-light", "hybrid-light", "bar-wing-light" }) do
     gilt[ns.media .. path] = true
 end

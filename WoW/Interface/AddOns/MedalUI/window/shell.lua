@@ -1247,6 +1247,19 @@ function ns.Window(spec)
                 g.frame:SetFrameLevel(ns.levels.stripArt + 1)
             end
         end
+        -- (2026-11-27) the drawer's chevron too: the copy is the art as far
+        -- as the chat, and the chevron's frame is cut in from just before
+        -- it, so under the copy its groove was painted over (strips/drawer.lua)
+        local d = ns.stripDrawers and ns.stripDrawers[side]
+        if d and d.key then
+            if on then
+                d.key:SetFrameStrata(window:GetFrameStrata())
+                d.key:SetFrameLevel(window:GetFrameLevel() + LIFT + 3)
+            else
+                d.key:SetFrameStrata(strip:GetFrameStrata())
+                d.key:SetFrameLevel(ns.levels.stripTop)
+            end
+        end
         for i, f in ipairs(spec.Lifted()) do
             if not (f:IsProtected() and InCombatLockdown()) then
                 if on then
@@ -1270,6 +1283,10 @@ function ns.Window(spec)
         local level = window:GetFrameLevel() + LIFT
         local g = ns.stripRings and ns.stripRings[side]
         if g and (g.frame:GetFrameStrata() ~= window:GetFrameStrata() or g.frame:GetFrameLevel() < level + 3) then
+            return true
+        end
+        local d = ns.stripDrawers and ns.stripDrawers[side]
+        if d and d.key and (d.key:GetFrameStrata() ~= window:GetFrameStrata() or d.key:GetFrameLevel() < level + 3) then
             return true
         end
         for _, f in ipairs(spec.Lifted()) do

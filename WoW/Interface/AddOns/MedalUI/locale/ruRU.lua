@@ -591,6 +591,7 @@ L["Click: the other way round."] = "Нажмите: в обратном поря
 L["Click: back to the log's order."] = "Нажмите: вернуть порядок журнала."
 L["Sort by %s"] = "Сортировка: %s"
 L["Lvl"] = "Ур."
+L["Lvl %s"] = "Ур. %s"
 L["Quest"] = "Задание"
 L["Item"] = "Предмет"
 L["Coin"] = "Деньги"
