@@ -561,12 +561,6 @@ ns.npc.Page{
     key = "mail", frame = "MailFrame", icon = ns.media .. "strips\\mailbox",
     Title = function() return Tr["Mailbox"] end,
     Blocks = Blocks, Foot = Foot, Close = function() CloseMail() end,
-    -- as tall as the Send tab, whichever is shown
-    Steady = function()
-        local out = { { "tabs", { label = Tr["Inbox"] }, { label = Tr["Send"] } } }
-        Send(out)
-        return out
-    end,
     Start = function()
         local me = UnitName("player")
         if me then Front(Book().alts, me) end

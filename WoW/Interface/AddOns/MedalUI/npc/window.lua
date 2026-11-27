@@ -1,7 +1,7 @@
 -- The NPC windows: gossip, the quest pages and the vendor, MedalUI's
 -- own, in one box standing on the chat box (strips/chat.lua) where the
--- quest tracker's full view stands, as tall as what it shows up to the
--- screen's top. The tracker hides while it is open (quests/tracker.lua),
+-- quest tracker's full view stands, up to the screen's top however little
+-- it shows (2026-11-27, the user's: "always span the entire length"). The tracker hides while it is open (quests/tracker.lua),
 -- as it does under the character window; the box hides under that too.
 --
 --   (portrait) The Defias Brotherhood                       [x]  <- the page's
@@ -47,8 +47,7 @@
 --                             this over their names: "Item", or a
 --                             function saying), icon (the
 --                             portrait's, where there is no NPC: the
---                             mailbox), Steady() -> blocks (the page as
---                             tall as these, on every tab: the rest scrolls),
+--                             mailbox),
 --                             keys (true: its rows numbered, and picked
 --                             with the keys 1 to 0, - and =), space (Space presses the foot's primary
 --                             button, while the Space option is on), spaceClick
@@ -968,10 +967,6 @@ function ns.npc.Refresh()
         return top, h, #docked > 0 and low + GAP + 1 or 0
     end
     numbering = current.keys or false
-    -- a page as tall on every tab: its steady blocks drawn first, to be
-    -- measured, then drawn over
-    local steady = current.Steady and HEAD + PAD + (function(t, b, d) return t + b + d end)(Draw(current.Steady()))
-        + PAD + FOOT
     local top, h, low = Draw(current.Blocks())
     scroll:SetPoint("TOPLEFT", PAD, -(HEAD + PAD + top))
     scroll:SetPoint("BOTTOMRIGHT", -PAD, FOOT + PAD + low)
@@ -979,8 +974,8 @@ function ns.npc.Refresh()
     dock:SetShown(low > 0)
     dock:SetHeight(math.max(1, low))
     Foot(current.Foot and current.Foot())
-    local want = steady or HEAD + PAD + top + h + low + PAD + FOOT
-    box:SetHeight(math.min(want, Room()))
+    -- the whole room, on every page and tab: the list scrolls in it
+    box:SetHeight(Room())
     offset = math.min(offset, scroll:GetVerticalScrollRange() or 0)
     scroll:SetVerticalScroll(offset)
     Thumb()
