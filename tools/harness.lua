@@ -13038,6 +13038,59 @@ if args[2] == "widgets" or args[3] == "widgets" then
 
     harnessHolds["group:party"] = grouped
     state("login")
+    -- the cells' look (groups/box.lua, 2026-11-27): shades, light and band
+    -- on every group cell, none on the console's own; the texts outlined on
+    -- the band; a group cell's power muted further; the band under the
+    -- texts, so the dead look takes it with them
+    do
+        local function grad(t)
+            local g = t and t.gradient
+            if not g then return t and ("flat" .. string.format("%.2f", (t.color or {})[4] or 0)) or "none" end
+            return g[1] .. string.format(" %.2f>%.2f", (g[2] or {})[4] or 0, (g[3] or {})[4] or 0)
+        end
+        local function font(r)
+            local f = r and r.font
+            return f and (tostring(f[2]) .. "/" .. tostring(f[3])) or "none"
+        end
+        local function pt(r)
+            local p, to, rp, x, y = r:GetPoint(1)
+            local b = r.parent and r.parent.parent
+            local on = b and (to == b.health and "health" or to == b.value and "value" or to == b and "frame")
+                or "other"
+            return tostring(p) .. ">" .. tostring(on) .. "." .. tostring(rp) .. "," .. tostring(x) .. "," .. tostring(y)
+        end
+        local function look(tag, b)
+            if not b then print("  look " .. tag, "none") return end
+            local band = b.band
+            local pc = b.power and b.power.barColor or {}
+            print("  look " .. tag, "on=" .. tostring(b.cellLook), "shade=" .. grad(b.healthShade),
+                "power shade=" .. grad(b.powerShade),
+                "light=" .. tostring(b.healthLight and b.healthLight.h),
+                "band=" .. (band and (tostring(band.body.parent == b.text) .. " "
+                    .. tostring(band.body.h) .. "+" .. grad(band.top)) or "none"),
+                "name=" .. font(b.name) .. " " .. pt(b.name), "value=" .. font(b.value) .. " " .. pt(b.value),
+                "power=" .. string.format("%.2f,%.2f,%.2f", pc[1] or 0, pc[2] or 0, pc[3] or 0))
+        end
+        look("party1", ns.units.party1)
+        look("player", ns.units.player)
+        look("boss1", MedalUIBossUnit1)
+        look("arena1", MedalUIArenaUnit1)
+        local b = ns.units.party1
+        ns.ShowDead(b, "dead")
+        print("  look dead", "text alpha=" .. tostring(b.text.alpha), "band under text="
+            .. tostring(b.band and b.band.body.parent == b.text))
+        ns.ShowDead(b, false)
+        print("  look alive", "text alpha=" .. tostring(b.text.alpha))
+        -- a member's mana, drawn: the group cell's deeper than the console's
+        local was = b.stub
+        b.stub = { name = "Isolde", class = "PRIEST", powerType = 0, health = 60, maxHealth = 100,
+            power = 50, maxPower = 100 }
+        ns.UpdateUnitButton(b)
+        local pc = b.power.barColor or {}
+        print("  look power drawn", string.format("party1=%.2f,%.2f,%.2f", pc[1] or 0, pc[2] or 0, pc[3] or 0))
+        b.stub = was
+        if was then ns.UpdateUnitButton(b) end
+    end
     -- solo, then in combat one joins (GROUP_ROSTER_UPDATE) and leaves:
     -- the console's party button follows them, its name and the group art
     if not grouped then
@@ -14639,6 +14692,15 @@ local function EditorPass()
     set("shown", not get("shown"))
     print("  cc toggled", tostring(get("shown")), key .. "=" .. tostring(ns.db[key]))
     set("shown", not get("shown"))
+    -- a bigger name: the cell's band grows with it (groups/box.lua)
+    choose("party", "name")
+    local band = ns.units.party1.band
+    print("  party band before", tostring(band and band.body.h))
+    set("size", 17)
+    print("  party band name 17", tostring(band and band.body.h), "font=" .. tostring(ns.units.party1.name.font[2])
+        .. "/" .. tostring(ns.units.party1.name.font[3]))
+    set("size", 13)
+    print("  party band name 13", tostring(band and band.body.h), "font=" .. tostring(ns.units.party1.name.font[2]))
     choose("party", "value")
     print("  party value shown=" .. tostring(get("shown")))
     piece("party1 value default", ns.units.party1, "value")

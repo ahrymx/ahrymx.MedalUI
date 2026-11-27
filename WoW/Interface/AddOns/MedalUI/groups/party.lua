@@ -63,27 +63,26 @@ local function LayCell(b, row, CELL_W, UNIT_H, step)
     b.health:SetPoint("TOPRIGHT")
     b.health:SetReverseFill(false)
     b.power:SetReverseFill(false)
-    b.roleFrame:ClearAllPoints()
-    b.roleFrame:SetPoint("CENTER", b, "LEFT", 10, 2)
-    b.name:ClearAllPoints()
-    b.name:SetPoint("LEFT", b.health, "LEFT", 22, 0)
-    b.name:SetPoint("RIGHT", b.health, "RIGHT", -6, 0)
-    b.name:SetJustifyH("LEFT")
-    -- the health value where a cell has it (box.lua)
-    b.value:ClearAllPoints()
-    b.value:SetPoint("BOTTOMRIGHT", b.health, "BOTTOMRIGHT", -4, 3)
-    -- the level bottom left, under the name, clear of the role icon
-    b.levelText:ClearAllPoints()
-    b.levelText:SetPoint("BOTTOMLEFT", b.health, "BOTTOMLEFT", 22, 3)
-    -- the crown on the top edge, over the role icon
+    -- the crown on the top edge's left end
     b.leaderFrame:ClearAllPoints()
     b.leaderFrame:SetPoint("CENTER", b, "TOPLEFT", 10, 0)
 
     -- a cell is a left copy, whichever way its console slot faced
     ns.LayBuffs(b, -1)
     b.inBox = true
-    -- what the editor changed goes back on (editor.lua)
+    -- the editor's own writes undone first (editor.lua), so the look's
+    -- sizes below are what its next snapshot takes for the cell's
     ns.editor.Relaid(b, "name", "level", "role", "leader", "value", "buffs", "mine")
+    -- the group cells' look (box.lua): the role icon on the band, the name
+    -- after it, the value at its end, the level top left
+    ns.GroupCellLook(b)
+    ns.GroupCellText(b, false, 20)
+    -- (on the cell, not its health: the editor keeps a moved icon's place
+    -- by what it is on, and saved places say the cell)
+    local foot = b.health:GetHeight() > 0 and (UNIT_H - b.health:GetHeight()) or 0
+    b.roleFrame:ClearAllPoints()
+    b.roleFrame:SetPoint("CENTER", b, "BOTTOMLEFT", 10, foot + (ns.GROUP_LOOK.name + 5) / 2)
+    -- what the editor changed goes back on
     ns.ApplyEdits(b)
 end
 

@@ -10,6 +10,12 @@ local function Muted(r, g, b)
     return r * ns.mute, g * ns.mute, b * ns.mute
 end
 
+-- A group cell's power, muted further under its look (groups/box.lua).
+local function PowerMuted(self, r, g, b)
+    local k = self.cellLook and ns.GROUP_LOOK.powerMute or ns.mute
+    return r * k, g * k, b * k
+end
+
 local function HealthColor(unit)
     if not UnitIsConnected(unit) or UnitIsDeadOrGhost(unit) then
         return unpack(C.dead)
@@ -179,7 +185,7 @@ local function UpdatePower(self)
         self.power:SetMinMaxValues(0, stub.maxPower)
         self.power:SetValue(stub.power)
         local c = PowerBarColor[stub.powerType] or PowerBarColor.MANA
-        if c then self.power:SetStatusBarColor(Muted(c.r, c.g, c.b)) end
+        if c then self.power:SetStatusBarColor(PowerMuted(self, c.r, c.g, c.b)) end
         if self.powerValue then
             PowerValue(self, FormatPower(stub.power), math.floor(stub.power / stub.maxPower * 100 + 0.5))
         end
@@ -194,7 +200,7 @@ local function UpdatePower(self)
     local cur = UnitPower(unit)
     self.power:SetValue(cur)
     local c = PowerBarColor[UnitPowerType(unit)] or PowerBarColor.MANA
-    self.power:SetStatusBarColor(Muted(c.r, c.g, c.b))
+    self.power:SetStatusBarColor(PowerMuted(self, c.r, c.g, c.b))
     if not self.powerValue then return end
     if not UnitIsConnected(unit) or UnitIsDeadOrGhost(unit) or not self.power:IsShown() then
         self.powerValue:SetText("")

@@ -117,7 +117,6 @@ E.FRAMES = {
       cell = { 160, 40 },
       pieces = { "cell", "name", "level", "value", "power", "role", "leader", "status", "cc", "boss", "buffs",
           "mine" },
-      hidden = { value = true },
       shows = { cc = "partyCC", boss = "partyBoss", buffs = "partyBuffs",
           mine = "partyDebuffs" } },
     { id = "raid", key = "editRaid", name = Tr["Raid"], buttons = Cells("raid"), cell = { 112, 36 },
@@ -683,7 +682,11 @@ end
 -- A frame's buttons (all of them, or one) as its edits have them.
 function E.Apply(frame, only)
     if not ns.db then return end
-    for _, b in ipairs(only and { only } or frame.buttons()) do ApplyButton(frame, b) end
+    for _, b in ipairs(only and { only } or frame.buttons()) do
+        ApplyButton(frame, b)
+        -- a group cell's band follows its name's size (groups/box.lua)
+        if b.band then ns.GroupBandHeight(b) end
+    end
     if E.onApply then E.onApply(frame) end
 end
 

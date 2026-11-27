@@ -239,11 +239,106 @@ for _, key in ipairs({ "partyMoverHover", "raidMoverHover", "bgMoverHover", "bos
 end
 
 -- ------------------------------------------------------------ the cells
+-- The cell's look (2026-11-27, art/groups/gen_cells.py: "class fill,
+-- deepened"). The class colour kept, shaded toward its foot under a faint
+-- light along its top; the name and the value on a soft dark band at the
+-- health's foot, outlined; the level top left. The shades hang from the bars
+-- and the band from the cell's texts (b.text), so the dead look, which
+-- fades the texts, takes the band with them. Alpha only: nothing secure.
+local LOOK = { shade = 0.30, powerShade = 0.35, light = 0.10, band = 0.30, feather = 4,
+    name = 13, small = 12, value = 11, level = 10, powerMute = 0.65 }
+ns.GROUP_LOOK = LOOK
+
+-- black at alpha at the foot, clear at the top; a flat half where the
+-- client has no colour gradients
+local function Rise(t, alpha)
+    if t.SetGradient and CreateColor then
+        t:SetColorTexture(1, 1, 1, 1)
+        t:SetGradient("VERTICAL", CreateColor(0, 0, 0, alpha), CreateColor(0, 0, 0, 0))
+    else
+        t:SetColorTexture(0, 0, 0, alpha / 2)
+    end
+end
+
+local function Shade(bar, alpha)
+    local t = bar:CreateTexture(nil, "OVERLAY")
+    t:SetAllPoints()
+    Rise(t, alpha)
+    return t
+end
+
+-- The band behind the name row: flat, its top feathered.
+local function Band(b)
+    local body = b.text:CreateTexture(nil, "BACKGROUND")
+    body:SetColorTexture(0, 0, 0, LOOK.band)
+    body:SetPoint("BOTTOMLEFT")
+    body:SetPoint("BOTTOMRIGHT")
+    local top = b.text:CreateTexture(nil, "BACKGROUND")
+    top:SetPoint("BOTTOMLEFT", body, "TOPLEFT")
+    top:SetPoint("BOTTOMRIGHT", body, "TOPRIGHT")
+    top:SetHeight(LOOK.feather)
+    Rise(top, LOOK.band)
+    return { body = body, top = top }
+end
+
+-- The band as tall as the name's line: the editor's size, or the look's.
+function ns.GroupBandHeight(b)
+    if not b.band then return end
+    local _, size = b.name:GetFont()
+    b.band.body:SetHeight(math.max(1, (size or LOOK.name) + 5 - LOOK.feather))
+end
+
+-- A text in the look: its size, outlined, the shadow kept.
+local function Outlined(fs, size)
+    local face = fs:GetFont()
+    fs:SetFont(face or ns.font, size, "OUTLINE")
+end
+
+-- The look on cell b, once: the shades, the light, the band. small: a
+-- raid's cell, its name a size smaller. The texts' sizes and places are
+-- ns.GroupCellText's, as each frame lays them.
+function ns.GroupCellLook(b)
+    if b.cellLook then return b end
+    b.cellLook = true
+    b.healthShade = Shade(b.health, LOOK.shade)
+    b.powerShade = Shade(b.power, LOOK.powerShade)
+    local light = b.health:CreateTexture(nil, "OVERLAY")
+    light:SetColorTexture(1, 1, 1, LOOK.light)
+    light:SetPoint("TOPLEFT", b.health:GetStatusBarTexture(), "TOPLEFT")
+    light:SetPoint("TOPRIGHT", b.health:GetStatusBarTexture(), "TOPRIGHT")
+    light:SetHeight(1)
+    b.healthLight = light
+    b.band = Band(b)
+    return b
+end
+
+-- The texts of a cell in the look: the name and value on the band, the
+-- level top left. inset: the name's left (clear of a role icon).
+function ns.GroupCellText(b, small, inset)
+    local mid = (LOOK[small and "small" or "name"] + 5) / 2
+    Outlined(b.name, LOOK[small and "small" or "name"])
+    b.name:SetTextColor(unpack(C.text))
+    b.name:ClearAllPoints()
+    b.name:SetPoint("LEFT", b.health, "BOTTOMLEFT", inset or 4, mid)
+    b.name:SetPoint("RIGHT", b.value, "LEFT", -4, 0)
+    b.name:SetJustifyH("LEFT")
+    b.name:SetWordWrap(false)
+    Outlined(b.value, small and LOOK.level or LOOK.value)
+    b.value:SetTextColor(unpack(C.text))
+    b.value:ClearAllPoints()
+    b.value:SetPoint("RIGHT", b.health, "BOTTOMRIGHT", -4, mid)
+    b.value:SetJustifyH("RIGHT")
+    Outlined(b.levelText, LOOK.level)
+    b.levelText:ClearAllPoints()
+    b.levelText:SetPoint("TOPLEFT", b.health, "TOPLEFT", 4, -3)
+    ns.GroupBandHeight(b)
+end
+
 -- A unit cell, the suite's one rectangle: health, a seam, power under it;
--- the name top left, the level bottom left, the health's value bottom
--- right, a leader's crown on the top edge's left end. units.lua draws it
--- (ns.UpdateUnitButton) as it draws the console's frames, and auras.lua its
--- auras (ns.AttachAuras gives it them).
+-- the name and the health's value on the band at the health's foot, the
+-- level top left, a leader's crown on the top edge's left end. units.lua
+-- draws it (ns.UpdateUnitButton) as it draws the console's frames, and
+-- auras.lua its auras (ns.AttachAuras gives it them).
 function ns.GroupCell(b, width, height)
     local bg = b:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
@@ -261,17 +356,13 @@ function ns.GroupCell(b, width, height)
     text:SetAllPoints(b.health)
     text:SetFrameLevel(b.health:GetFrameLevel() + 2)
     b.text = text
-    b.name = ns.Text(text, 11)
-    b.name:SetPoint("TOPLEFT", 4, -3)
-    b.name:SetPoint("TOPRIGHT", -4, -3)
-    b.name:SetJustifyH("LEFT")
-    b.name:SetWordWrap(false)
-    b.value = ns.Text(text, 9)
-    b.value:SetTextColor(unpack(C.dim))
-    b.value:SetPoint("BOTTOMRIGHT", -4, 3)
-    b.levelText = ns.Text(text, 9)
-    b.levelText:SetPoint("BOTTOMLEFT", 4, 3)
+    b.name = ns.Text(text, LOOK.name)
+    b.value = ns.Text(text, LOOK.value)
+    b.levelText = ns.Text(text, LOOK.level)
     b.levelText:SetWordWrap(false)
+    ns.GroupCellLook(b)
+    -- a raid's cell (36 high by default) a size smaller
+    ns.GroupCellText(b, height < 40)
     ns.LeaderIcon(b, 12, b.health:GetFrameLevel() + 3)
     b.leaderFrame:SetPoint("CENTER", b, "TOPLEFT", 8, 0)
     return b
