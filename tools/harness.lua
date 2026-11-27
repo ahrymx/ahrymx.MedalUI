@@ -6003,7 +6003,7 @@ local function ThemeSweep()
     local mage = ns.themes["class:MAGE"] and ns.themes["class:MAGE"]()
     print("theme classes", "mage=" .. (mage and ("%.2f %.2f %.2f"):format(unpack(mage)) or "none"),
         "lower=" .. tostring(ns.themes["class:mage"]),
-        "bogus=" .. tostring(ns.themes.bogus), "tips=" .. tostring(spec and spec.choices[3] and spec.choices[3][3]))
+        "bogus=" .. tostring(ns.themes.bogus), "warrior=" .. tostring(ns.themes["class:WARRIOR"]), "tips=" .. tostring(spec and spec.choices[3] and spec.choices[3][3]))
     print("theme option", spec and (spec.label .. " " .. table.concat(names, ",") .. " reload="
         .. tostring(spec.reload) .. " now=" .. tostring(ns.db.theme)) or "none")
     print("theme", ns.themeKey, "light=" .. table.concat({ ("%.3f %.3f %.3f"):format(unpack(ns.gold.light)) }),

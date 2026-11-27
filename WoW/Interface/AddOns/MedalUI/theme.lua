@@ -100,8 +100,12 @@ end
 -- The themes: each returns its colour ({ r, g, b }), or nil for the gold as drawn.
 -- "class" is the player's class; "class:MAGE" (2026-11-26, the user's: every
 -- class to pick from) a class's by its file name, whoever plays.
+-- (2026-11-27) Warrior's is no theme: its tan is the gold's own palette, so a
+-- warrior's class theme is the gold as drawn, and "class:WARRIOR" (saved
+-- before) falls back to golden.
+local SAME = { WARRIOR = true }
 local function ClassColour(file)
-    if not file or ns.IsSecret(file) then return nil end
+    if not file or ns.IsSecret(file) or SAME[file] then return nil end
     local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS or {})[file]
     return c and { c.r, c.g, c.b }
 end
@@ -113,7 +117,7 @@ ns.themes = setmetatable({
     end,
 }, { __index = function(_, key)
     local file = type(key) == "string" and key:match("^class:(%u+)$")
-    if file then return function() return ClassColour(file) end end
+    if file and not SAME[file] then return function() return ClassColour(file) end end
 end })
 
 -- The classes this client has, for the option's list: { file, name },
@@ -122,7 +126,7 @@ function ns.ThemeClasses()
     local out = {}
     for i = 1, (GetNumClasses and GetNumClasses() or 0) do
         local name, file = GetClassInfo(i)
-        if name and file then table.insert(out, { file, name }) end
+        if name and file and not SAME[file] then table.insert(out, { file, name }) end
     end
     table.sort(out, function(a, b) return a[2] < b[2] end)
     return out
@@ -264,6 +268,9 @@ end
 
 -- Once the settings load (settings.lua), before any window is built.
 function ns.ApplyTheme()
+    -- a retired class theme saved: golden, written back so the option says so
+    local file = type(ns.db.theme) == "string" and ns.db.theme:match("^class:(%u+)$")
+    if file and SAME[file] then ns.db.theme = "golden" end
     ns.themeKey = ns.themes[ns.db.theme] and ns.db.theme or "golden"
     local c = ns.themes[ns.themeKey]()
     settled = true
