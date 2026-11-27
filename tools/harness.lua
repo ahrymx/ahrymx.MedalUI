@@ -11790,6 +11790,15 @@ if stripsPass then
                 line.GetStringWidth = function() return 77777 end
                 step(0.1)
                 print("chat bare pill secret", "w=" .. tostring(band.w), "window=" .. tostring(line:GetWidth()))
+                -- (2026-11-27, a 264x error on Retail) the line's own width
+                -- secret too: the chat window's, never added to
+                local hidden, wasGW = secret(), line.GetWidth
+                issecretvalue = function(v) return v == 77777 or v == hidden end
+                line.GetWidth = function() return hidden end
+                local ok, err = pcall(step, 0.1)
+                print("chat bare pill width secret", "ok=" .. tostring(ok), err and tostring(err):match("[^:]+$") or "",
+                    "w=" .. tostring(band.w), "chat window=" .. tostring(ChatFrame1:GetWidth()))
+                line.GetWidth = wasGW
                 issecretvalue, line.GetStringWidth = was, wasW
                 line.text = string.rep("a long message ", 40)      -- wider than the window: wrapped
                 step(0.1)

@@ -954,8 +954,13 @@ end
 
 -- a pill's width: its words' and its padding; a line wrapped, its window's.
 -- A secret line's measure is secret too, never tested: the window's
+-- (2026-11-27, Retail: its own width can be secret as well, so the chat
+-- window's; that secret too, the pill keeps the width it had)
 local function Hug(band, line)
-    local full = line:GetWidth() or 0
+    local full = line:GetWidth()
+    if ns.IsSecret(full) then full = band.frame and band.frame:GetWidth() end
+    if ns.IsSecret(full) then return end
+    full = full or 0
     local w = full
     local sw = line:GetStringWidth()
     local n = line.GetNumLines and line:GetNumLines()
@@ -1066,6 +1071,7 @@ local function Shade(frame, line, away)
         hooksecurefunc(line, "SetAlpha", function(self, a)
             if shading then return end
             given[self] = a
+            if ns.IsSecret(a) then return end       -- (a secret alpha is Blizzard's alone)
             local f = Sooner(frame, self, 1 - (chrome and chrome.alpha or 1))
             if f < 1 then
                 shading = true
@@ -1074,6 +1080,7 @@ local function Shade(frame, line, away)
             end
         end)
     end
+    if ns.IsSecret(given[line]) then return end
     shading = true
     line:SetAlpha(given[line] * Sooner(frame, line, away))
     shading = false
@@ -1104,7 +1111,8 @@ local function Bands(frame)
             band:SetShown(on and true or false)
             if on then
                 Hug(band, line)
-                band:SetAlpha(away * (line:GetAlpha() or 1))
+                local a = line:GetAlpha()
+                band:SetAlpha(away * ((a and not ns.IsSecret(a)) and a or 1))
             end
         end
     end
