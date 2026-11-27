@@ -18,12 +18,12 @@ Runs on **WoW Forever** (`16001`) and **Retail** (`120105`).
 
 ## The console
 
-![MedalUI's console card: the Reticule console with player and target on its wings and the action bars between them, the overhead's focus and target-of-target over the pet, and the party, boss and arena widgets at the sides](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/01-console.png)
+![MedalUI's console card: player and target on the console's wings with the action bars between them, the overhead's focus and target-of-target over the pet's deck, the same undocked with portraits, and the party, boss, arena and raid boxes](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/01-console.png)
 
 - **Two profiles:** the slim **Reticule** (default), with the minimap in the console's bay, or the round **Arena**. *Arena is a work in progress: expect rough edges.*
 - **Action bars:** one to three rows, with Blizzard's button art or bare icons. Empty buttons hide and come back while you drag a spell, item or macro.
 - **Class power and cast bars** are built into the console: combo points, holy power, runes, soul shards and the rest.
-- **Party, raid, boss and arena** frames sit on the console's own row or in widgets you can drag. **Minimal OoC Mode** fades the console out of combat.
+- **Party, raid, boss and arena** frames sit in boxes you drag by their header. **Minimal OoC Mode** fades the console out of combat.
 
 ## Themes
 

@@ -53,9 +53,12 @@ def src(name):
 CARDS = [
     dict(key="console", label="The console", title="One console, ink and gold",
          items=["Player and target on its wings, your action bars between them",
-                "Focus and target-of-target overhead, the pet on a deck beneath",
-                "Party, boss and arena frames beside it, as widgets you can move"],
-         imgs=[("console-overhead.png", None, [(1, 551, 1176), (2, 868, 39), (3, 110, 503)])], place="row"),
+                "Focus and target-of-target overhead, the pet on a deck beneath; or undocked, "
+                "each with a portrait",
+                "Party, raid, boss and arena frames in boxes you can move"],
+         imgs=[("console-bar.png", None, [(1, -6, 92)]), ("overhead.png", None, [(2, -6, 20)]),
+               ("overhead-undocked.png", None, [(2, 24, 150)]), ("group-frames.png", None, [(3, -6, 150)])],
+         place="column", most=1.3),
     dict(key="themes", label="Themes", title="A theme for every class", layout="top",
          sub="Every window takes your class's colour, or stays in ink and gold.",
          imgs=[("theme-gold.png", (0, 0, 582, 1000), []), ("theme-teal.png", (0, 0, 582, 1000), []),
