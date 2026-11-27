@@ -60,6 +60,30 @@ local function Editor(id, label)
         .. "texts say. Also /mdlui edit."])
 end
 
+-- The theme (theme.lua): the gold, your class, then each class the client
+-- has by name, in its colour whoever plays. Asked as the list opens, as the
+-- classes come from the game.
+local function ThemeChoice()
+    local spec = Choice("theme", Tr["Theme"], {}, Tr["The colour of MedalUI's accents: the windows' edges "
+        .. "and rules, their glyphs and tabs, the strips and the settings. A colour that tells you something (an "
+        .. "item's quality, a quest, a warning) keeps its own."], true)
+    function spec.list()
+        local out = {
+            { "golden", Tr["Golden"], Tr["MedalUI's gold, as drawn: its frames, rules, glyphs and titles, and the "
+                .. "windows' linen woven in gold."] },
+            { "class", Tr["Current class"], Tr["Every gold accent in your class's colour, kept as light as the "
+                .. "gold, and the linen woven in it."] },
+        }
+        for _, c in ipairs(ns.ThemeClasses()) do
+            table.insert(out, { "class:" .. c[1], c[2], format(Tr["Every gold accent in the %s colour, whatever "
+                .. "you play, kept as light as the gold, and the linen woven in it."], c[2]) })
+        end
+        return out
+    end
+    spec.choices = spec.list()
+    return spec
+end
+
 -- A font for reading (ns.Fonts()): its choices asked as the list opens,
 -- since other addons register theirs after us; each drawn in itself. A
 -- shared font chosen whose addon is gone stays listed, saying so (the text
@@ -890,15 +914,8 @@ function ns.OptionPages()
                     }, Tr["How the menu Escape opens looks. Its buttons stay the game's own."], true)),
                 -- the gold accents' colour (theme.lua): read as frames are
                 -- built, so a switch takes a reload
-                Group(Tr["Theme"],
-                    Choice("theme", Tr["Theme"], {
-                        { "golden", Tr["Golden"], Tr["MedalUI's gold, as drawn: its frames, rules, glyphs and "
-                            .. "titles, and the windows' linen woven in gold."] },
-                        { "class", Tr["Class"], Tr["Every gold accent in your class's colour, kept as light as "
-                            .. "the gold, and the linen woven in it."] },
-                    }, Tr["The colour of MedalUI's accents: the windows' edges and rules, their glyphs and "
-                        .. "tabs, the strips and the settings. A colour that tells you something (an item's "
-                        .. "quality, a quest, a warning) keeps its own."], true)),
+                -- (2026-11-26, the user's: gold, your class, then every class)
+                Group(Tr["Theme"], ThemeChoice()),
                 -- (Latin clients only: Cyrillic has Forum alone, Korean and
                 -- Chinese the game's own)
                 ns.faceChoosable and Group(Tr["Font"],

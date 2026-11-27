@@ -61,6 +61,8 @@ for _, a in ipairs(arg) do
     -- "theme": the Class theme saved (General > Theme); at the end, every
     -- region still wearing gold is listed by where it was painted
     elseif a == "theme" then themePass = true
+    -- "theme:MAGE": the pass under one class's theme, whoever plays (2026-11-26)
+    elseif a:match("^theme:%u+$") then themePass, themeWant = true, "class:" .. a:sub(7)
     elseif a:match("^%l%l%u%u$") then argLocale = a
     elseif a:match("^%u+$") then argClass = a
     else table.insert(args, a) end
@@ -2607,7 +2609,16 @@ end
 if themePass then
     MedalUIDB = MedalUIDB or { consoleProfile = "arena" }
     MedalUIDB.global = MedalUIDB.global or {}
-    MedalUIDB.global.theme = "class"
+    MedalUIDB.global.theme = themeWant or "class"
+    -- the classes: a gap (Forever's) at 6; the mage blue, not the stub's pink
+    local classes = { { "Warrior", "WARRIOR" }, { "Paladin", "PALADIN" }, { "Mage", "MAGE" }, { "Druid", "DRUID" },
+        { "Hunter", "HUNTER" }, nil, { "Death Knight", "DEATHKNIGHT" } }
+    function GetNumClasses() return 7 end
+    function GetClassInfo(i)
+        local c = classes[i]
+        if c then return c[1], c[2], i end
+    end
+    rawset(RAID_CLASS_COLORS, "MAGE", { r = 0.25, g = 0.78, b = 0.92 })
     function Region:GetVertexColor()
         local v = self.vertex or {}
         return v[1] or 1, v[2] or 1, v[3] or 1, v[4] or 1
@@ -5986,7 +5997,13 @@ local function ThemeSweep()
         end
     end
     local names = {}
-    for _, c in ipairs(spec and spec.choices or {}) do table.insert(names, tostring(c[1])) end
+    for _, c in ipairs(spec and spec.choices or {}) do table.insert(names, tostring(c[1]) .. "=" .. tostring(c[2])) end
+    -- (2026-11-26) a class's theme by its file name; a name no class has,
+    -- or no theme at all: none
+    local mage = ns.themes["class:MAGE"] and ns.themes["class:MAGE"]()
+    print("theme classes", "mage=" .. (mage and ("%.2f %.2f %.2f"):format(unpack(mage)) or "none"),
+        "lower=" .. tostring(ns.themes["class:mage"]),
+        "bogus=" .. tostring(ns.themes.bogus), "tips=" .. tostring(spec and spec.choices[3] and spec.choices[3][3]))
     print("theme option", spec and (spec.label .. " " .. table.concat(names, ",") .. " reload="
         .. tostring(spec.reload) .. " now=" .. tostring(ns.db.theme)) or "none")
     print("theme", ns.themeKey, "light=" .. table.concat({ ("%.3f %.3f %.3f"):format(unpack(ns.gold.light)) }),

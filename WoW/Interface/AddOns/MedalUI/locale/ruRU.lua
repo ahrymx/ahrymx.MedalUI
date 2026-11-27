@@ -29,6 +29,10 @@ L["MedalUI's gold, as drawn: its frames, rules, glyphs and titles, and the windo
     "Золото MedalUI, как оно нарисовано: рамки, линии, значки и заголовки, а холст окон соткан золотом."
 L["Every gold accent in your class's colour, kept as light as the gold, and the linen woven in it."] =
     "Все золотые акценты в цвете вашего класса, такие же светлые, как золото, и холст, сотканный в нём."
+L["Current class"] = "Текущий класс"
+L["Every gold accent in the %s colour, whatever you play, kept as light as the gold, and the linen woven in it."] =
+    "Все золотые акценты в цвете класса «%s», кем бы вы ни играли, такие же светлые, как золото, и холст, "
+    .. "сотканный в нём."
 L["The colour of MedalUI's accents: the windows' edges and rules, their glyphs and tabs, the strips and the "
     .. "settings. A colour that tells you something (an item's quality, a quest, a warning) keeps its own."] =
     "Цвет акцентов MedalUI: края и линии окон, их значки и вкладки, панели и настройки. Цвет, который "

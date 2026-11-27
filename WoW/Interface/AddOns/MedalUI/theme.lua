@@ -94,15 +94,35 @@ function ns.GoldHex(t)
 end
 
 -- The themes: each returns its colour ({ r, g, b }), or nil for the gold as drawn.
-ns.themes = {
+-- "class" is the player's class; "class:MAGE" (2026-11-26, the user's: every
+-- class to pick from) a class's by its file name, whoever plays.
+local function ClassColour(file)
+    if not file or ns.IsSecret(file) then return nil end
+    local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS or {})[file]
+    return c and { c.r, c.g, c.b }
+end
+ns.themes = setmetatable({
     golden = function() return nil end,
     class = function()
         local _, class = UnitClass("player")
-        if not class or ns.IsSecret(class) then return nil end
-        local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS or {})[class]
-        return c and { c.r, c.g, c.b }
+        return ClassColour(class)
     end,
-}
+}, { __index = function(_, key)
+    local file = type(key) == "string" and key:match("^class:(%u+)$")
+    if file then return function() return ClassColour(file) end end
+end })
+
+-- The classes this client has, for the option's list: { file, name },
+-- by name (a class id the client lacks, Forever's gaps, skipped).
+function ns.ThemeClasses()
+    local out = {}
+    for i = 1, (GetNumClasses and GetNumClasses() or 0) do
+        local name, file = GetClassInfo(i)
+        if name and file then table.insert(out, { file, name }) end
+    end
+    table.sort(out, function(a, b) return a[2] < b[2] end)
+    return out
+end
 
 -- ------------------------------------------------------------ the art
 -- The textures whose gold is drawn in (under media\): the strips' glyphs,
