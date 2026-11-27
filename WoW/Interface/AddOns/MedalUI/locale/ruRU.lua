@@ -3142,6 +3142,8 @@ L["Show the tab's controls over the panel: the quest items, the text size, where
     .. "управление гидом."
 L["Shown after the subzone. Click: hide them."] = "Показаны после подзоны. Щелчок: скрыть."
 L["Smaller text"] = "Мельче текст"
+L["Plan again"] = "Пересчитать маршрут"
+L["The route worked out afresh, the waypoint back on its first quest."] = "Маршрут пересчитан заново, точка пути снова на первом задании."
 L["Step back"] = "Шаг назад"
 L["Step on"] = "Шаг вперёд"
 L["The Guide lists quests to take near you, not only your log's. The tab's controls switch it too."] =

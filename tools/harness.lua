@@ -8543,7 +8543,9 @@ if sidePass then
                 d.scripts.OnUpdate(d, 1)
                 local function ctl(text)
                     for _, c in ipairs(d.inner.all_) do
-                        if c.spec and c.spec.text == text then return c end
+                        if c.spec and (c.spec.text == text or c.spec.glyph and "{" .. c.spec.glyph .. "}" == text) then
+                            return c
+                        end
                     end
                 end
                 local function heads(tag)
@@ -8558,7 +8560,8 @@ if sidePass then
                     local cs = {}
                     for _, c in ipairs(d.inner.all_) do
                         if c.spec and c.shown then
-                            cs[#cs + 1] = c.spec.text .. (c.mark.shown and "*" or "") .. (c.label.alpha == 1 and "" or "~")
+                            cs[#cs + 1] = (c.spec.text or "{" .. c.spec.glyph .. "}") .. (c.mark.shown and "*" or "")
+                                .. ((c.glyph or c.label).alpha == 1 and "" or "~")
                         end
                     end
                     print("zone guide steps " .. tag, table.concat(ids, " "), table.concat(cs, " "))
@@ -8627,6 +8630,26 @@ if sidePass then
                 way("yours below it")
                 press("<")
                 way("a step onto the last set")
+                -- (2026-11-27, the user's) plan again: two steps down, the
+                -- list scrolled, then the step back at the top and the
+                -- waypoint with it; and from your own waypoint, taken back
+                press(">")
+                press(">")
+                z.Scroll(1)
+                heads("before plan again")
+                press("{side-reset}")
+                way("plan again")
+                heads("plan again")
+                print("zone guide plan again", "top=" .. tostring((z.Thumb())))
+                now = now + 2
+                C_SuperTrack.SetSuperTrackedQuestID(202)
+                way("yours, then plan again")
+                press("{side-reset}")
+                way("plan again over yours")
+                -- (back to the one stepped onto above, as what follows expects)
+                for _ = 1, 5 do press(">") end
+                way("plan again, stepped back down")
+                heads("plan again, stepped back down")
                 -- quests to take: off, then on again
                 press("!")
                 way("no quests to take")
@@ -8889,6 +8912,9 @@ if sidePass then
             quests[203].finishedBy = { { 1004 } }
             log[7].complete = true
             plan("hand-in near, another nearer")
+            -- (2026-11-27) plan again lets go of the held head: the nearer leads
+            G.Restart()
+            plan("hand-in near, another nearer, planned again")
             log[7].complete, quests[203].finishedBy, npcs[1004] = nil, nil, nil
             althea[1] = { 74, 75 }          -- 309 yd
             G.Reset()
@@ -9043,7 +9069,8 @@ if sidePass then
                 local out = {}
                 for _, c in ipairs(d.inner.all_) do
                     if c.shown and c.spec then
-                        out[#out + 1] = c.spec.text .. (c.mark.shown and "*" or "") .. (c.label.alpha == 1 and "" or "~")
+                        out[#out + 1] = (c.spec.text or "{" .. c.spec.glyph .. "}") .. (c.mark.shown and "*" or "")
+                            .. ((c.glyph or c.label).alpha == 1 and "" or "~")
                     elseif c.shown and c.icon then
                         local at = c.points and c.points.LEFT
                         out[#out + 1] = "[" .. (at and (at[2] .. "+" .. at[3] .. " ") or "") .. tostring(c.item) .. " "

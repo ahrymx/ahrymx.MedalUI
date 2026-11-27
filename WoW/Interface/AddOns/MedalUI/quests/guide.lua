@@ -581,6 +581,16 @@ end
 function G.Next(cur) return Step(cur, 1) end
 function G.Back(cur) return Step(cur, -1) end
 
+-- (2026-11-27, the user's) the route worked out afresh: the head's hold let
+-- go, so the next plan ranks from where you stand as a first look would;
+-- the step back at the top, and the waypoint the Guide's again (a
+-- player's own given up, as a step does; the claim lets go of what was
+-- tried). The caches stay: QuestieDB's spots do not move in a session.
+-- The last order stays too: in combat the frozen list is drawn from it.
+function G.Restart()
+    lead, focus, claim = nil, nil, true
+end
+
 -- ----------------------------------------------------------- the waypoint
 -- What the Guide set last: { quest } or { map, x, y }. The waypoint is the
 -- Guide's to move while it is that, or none; one the player set is theirs.

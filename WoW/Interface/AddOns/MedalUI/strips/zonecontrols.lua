@@ -33,6 +33,7 @@ local Tr = ns.L
 local SLOT, PAD, GAP = 26, 5, 4         -- an item's slot; the drawer's padding; between slots
 local EDGE = 2                          -- above and below the slots: the gold edge and a pixel
 local BUTTON = 24                       -- a control's width (as tall as a slot)
+local GLYPH = 16                        -- a control's glyph (media/strips, its 20 px box of 32)
 local SPLIT = 6                         -- room each side of a group's divider
 local GROW = 0.15                       -- seconds to open
 local GOLD = ns.gold.light
@@ -275,6 +276,15 @@ local SPECS = {
                 and Tr["The Guide lists quests to take near you. Click: only your log's."]
                 or Tr["The Guide lists your log's quests only. Click: quests to take near you too."]
         end },
+    -- (2026-11-27, the user's) the route again from scratch, the step back
+    -- at the top of the list (and the list scrolled there)
+    { glyph = "side-reset", group = 2, guide = true,
+        click = function()
+            G().Restart()
+            local v = View()
+            if v then v.Scroll(-math.huge) end
+        end,
+        tip = function() return Tr["Plan again"], Tr["The route worked out afresh, the waypoint back on its first quest."] end },
     { text = "<", size = 13, group = 2, guide = true,
         on = function() return G() ~= nil and G().CanBack(View().Focused()) end,
         click = function() if G().Back(View().Focused()) then Again() end end,
@@ -293,6 +303,7 @@ local function Show(b)
     b.mark:SetShown(spec.lit ~= nil and spec.lit() and true or false)
     b.label:SetTextColor(unpack(on and GOLD or DIM))
     b.label:SetAlpha(on and 1 or 0.4)
+    if b.glyph then b.glyph:SetAlpha(on and 1 or 0.4) end
 end
 
 local function Tip(b)
@@ -310,9 +321,17 @@ local function Control(spec)
     b.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.45)
     b.mark:Hide()
     Inside(b, "HIGHLIGHT"):SetColorTexture(1, 1, 1, 0.12)
-    b.label = ns.Text(b, spec.size)
+    b.label = ns.Text(b, spec.size or 12)
     b.label:SetPoint("CENTER", 0, 0)
-    b.label:SetText(spec.text)
+    b.label:SetText(spec.text or "")
+    -- (a glyph in place of the letters: media/strips/<glyph>)
+    if spec.glyph then
+        b.glyph = b:CreateTexture(nil, "ARTWORK")
+        b.glyph:SetSize(GLYPH, GLYPH)
+        b.glyph:SetPoint("CENTER", 0, 0)
+        b.glyph:SetTexture(ns.media .. "strips\\" .. spec.glyph)
+        b.glyph:SetTexCoord(5 / 32, 27 / 32, 5 / 32, 27 / 32)
+    end
     b:SetScript("OnClick", function(self)
         self.spec.click()
         C.Refresh()
