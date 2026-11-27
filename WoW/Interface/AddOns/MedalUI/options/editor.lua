@@ -115,6 +115,7 @@ local function Specs()
             end,
             tip = function()
                 local key = frame.shows and frame.shows[piece]
+                if key and frame.id == "undocked" then return Tr["The same option as on the Overhead page."] end
                 if key then return Tr["The same option as on the Unit Frames page."] end
                 return Tr["Off, the piece is not drawn, but keeps its place."]
             end },
@@ -233,6 +234,10 @@ local function Specs()
             text = function(v) return v > 0 and tostring(v) or Tr["None"] end,
             tip = Tr["The power bar's height; the health bar takes the rest. None: no power bar, the health the "
                 .. "whole frame."] },
+        ch = { kind = "slider", label = Tr["Height"], min = 6, max = 24,
+            get = function() return ns.CastHeight(frame.id, ns.overheadCastHeight or 12) end,
+            set = function(v) SetField("ch", v) end,
+            tip = Tr["The cast bar's height. Takes effect out of combat."] },
         w = { kind = "slider", label = Tr["Width"], min = 60, max = 300,
             get = function() return (ns.CellSize(frame.id)) end,
             set = function(v) SetField("w", v) end,
@@ -251,7 +256,7 @@ local TAB_NAMES = { place = Tr["Place"], look = Tr["Look"], auras = Tr["Auras"] 
 local function Tabs()
     local kind = E.PIECES[piece].type
     if kind == "cell" then return { { id = "place", fields = { "w", "h" } } } end
-    if kind == "bar" then return { { id = "place", fields = { "ph" } } } end
+    if kind == "bar" then return { { id = "place", fields = { E.PIECES[piece].field or "ph" } } } end
     local place = { "on", "x", "y" }
     local look = { "size" }
     if kind == "text" then
@@ -339,7 +344,8 @@ local function Lay()
     local kind = E.PIECES[piece].type
     local function Down(gap)
         for _, c in pairs(controls) do c:Hide() end
-        if kind ~= "cell" and kind ~= "bar" then controls.shown:Show() end
+        -- (a bar an option shows, the undocked cells' cast strip: its Shown)
+        if kind ~= "cell" and (kind ~= "bar" or (frame.shows and frame.shows[piece])) then controls.shown:Show() end
         local y = Strip(-(BAND_H + 10))
         for i, field in ipairs(t.fields) do
             local c = controls[field]

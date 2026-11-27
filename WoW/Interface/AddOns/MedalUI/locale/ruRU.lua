@@ -3199,3 +3199,17 @@ L["Show your own unit frame as the first row of the party frames."] =
 L["Edit the party frames"] =
     "Править рамки группы"
 L["Boss frames"] = "Рамки боссов"
+
+-- 2026-11-27: the detached overhead frames' icon, cast bar and auras
+L["A bar under a detached frame while its unit casts. The target of target's is checked a few times a second, as the game says nothing of its casts."] = "Полоса под откреплённой рамкой, пока её цель произносит заклинание. Для цели цели проверяется несколько раз в секунду: игра ничего не сообщает о её заклинаниях."
+L["A detached frame's buffs, over its top edge."] = "Положительные эффекты откреплённой рамки, над её верхним краем."
+L["A detached frame's debuffs, over its top edge."] = "Отрицательные эффекты откреплённой рамки, над её верхним краем."
+L["A player's class icon; anyone else's portrait."] = "Значок класса игрока; у остальных портрет."
+L["Cast bar"] = "Полоса заклинаний"
+L["Face"] = "Портрет"
+L["Glyph"] = "Знак"
+L["The cast bar's height. Takes effect out of combat."] = "Высота полосы заклинаний. Применяется вне боя."
+L["The same mark as on the overhead."] = "Тот же знак, что и на верхних рамках."
+L["The same option as on the Overhead page."] = "Та же настройка, что и на странице «Верхние»."
+L["The unit's portrait."] = "Портрет цели."
+L["What a detached frame shows at its left end."] = "Что показывает откреплённая рамка у левого края."

@@ -224,6 +224,11 @@ local DEFAULTS = {
     detachPet = false, detachFocus = false, detachToT = false,
     detachPetX = false, detachPetY = false, detachFocusX = false, detachFocusY = false,
     detachToTX = false, detachToTY = false,
+    -- (2026-11-27) a detached cell's extras, off the overhead only: its icon
+    -- ("glyph" as docked, "face" the unit's portrait, "class" a player's
+    -- class circle and anyone else's face), a cast bar under it, its buffs
+    -- and debuffs (console/overhead.lua, console/auras.lua)
+    undockedIcon = "class", undockedCast = true, undockedBuffs = true, undockedDebuffs = true,
     topStances = true,      -- stance bar on the bottom tier
     topTotems = true,       -- totem bar on the bottom tier (Forever's)
     overheadFlyoutTips = "right",   -- a totem flyout's tooltips: beside it, "right" or "left"

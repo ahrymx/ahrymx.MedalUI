@@ -35,7 +35,7 @@ local W = ns.professions
 local GOLD = ns.gold.light
 local GOLD_D = ns.gold.dark
 local FILL = ns.Themed({ 0.61, 0.48, 0.20 })   -- a skill's bar
-local CIRCLES = "Interface\\TargetingFrame\\UI-Classes-Circles"
+local CIRCLES = ns.CLASS_CIRCLES
 
 local function Realm() return GetRealmName and GetRealmName() or "?" end
 

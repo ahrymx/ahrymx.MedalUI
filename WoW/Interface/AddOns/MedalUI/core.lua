@@ -1,5 +1,7 @@
 -- MedalUI core: namespace, media, palette, events and the hidden parent.
 local _, ns = ...
+-- the class icons, round, as the game draws them (CLASS_ICON_TCOORDS)
+ns.CLASS_CIRCLES = "Interface\\TargetingFrame\\UI-Classes-Circles"
 
 ns.media = "Interface\\AddOns\\MedalUI\\media\\"
 -- the tooltips' own namespace (tooltips/, once the mdlui_Tooltips companion):

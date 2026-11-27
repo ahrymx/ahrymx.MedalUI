@@ -55,6 +55,9 @@ local PIECES = {
     cell = { label = Tr["Cell size"], type = "cell" },
     -- the power bar's height (ns.LayPower, console/units.lua); 0 none
     power = { label = Tr["Power bar"], type = "bar" },
+    -- (2026-11-27) an undocked overhead cell's cast strip (console/overhead.lua):
+    -- a bar too, its height in its own field
+    cast = { label = Tr["Cast bar"], type = "bar", field = "ch", get = function(b) return b.cast end },
     name = { label = Tr["Name"], type = "text", get = function(b) return b.name end },
     level = { label = Tr["Level"], type = "text", get = function(b) return b.levelText end },
     value = { label = Tr["Health value"], type = "text", get = function(b) return b.value end },
@@ -133,7 +136,9 @@ E.FRAMES = {
       pieces = { "name", "value", "power" } },
     { id = "undocked", key = "editUndocked", name = Tr["Undocked Overhead"], buttons = OverheadCells(true),
       cell = { OA.cell.unit, OA.deck.unit - OA.cellTop - OA.cellBottom },
-      pieces = { "cell", "name", "value", "power" } },
+      pieces = { "cell", "name", "value", "power", "cast", "buffs", "mine" },
+      -- (2026-11-27) Overhead > Detached's switches
+      shows = { cast = "undockedCast", buffs = "undockedBuffs", mine = "undockedDebuffs" } },
 }
 local byId = {}
 for _, frame in ipairs(E.FRAMES) do byId[frame.id] = frame end
@@ -719,6 +724,13 @@ function ns.PowerHeight(id, def)
     local frame = byId[id]
     local e = frame and E.Edits(frame, "power")
     return e and e.ph or def
+end
+
+-- An undocked overhead cell's cast strip height: the editor's, else def.
+function ns.CastHeight(id, def)
+    local frame = byId[id]
+    local e = frame and E.Edits(frame, "cast")
+    return e and e.ch or def
 end
 
 function ns.CellSize(id)

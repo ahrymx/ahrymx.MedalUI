@@ -180,6 +180,7 @@ end
 
 -- ------------------------------------------------------------ the cells
 local UpdateUnitStatus
+local Face                  -- a cell's icon column (below)
 -- true while Layout runs: the shows and hides it makes are not news to it
 local laying = false
 local UpdateOverhead
@@ -200,11 +201,74 @@ local function LayTexts(b)
     b.value:SetAlpha(1)
 end
 
+-- ------------------------------------------------------------ the cast strip
+-- (2026-11-27) A cell off the overhead casts on a strip under it (Overhead >
+-- Detached > Cast bar): a key as wide as the cell, its well the channel,
+-- the spell's name left and the time right, wholly clear while the unit
+-- casts nothing (casting.lua). Its room is kept while it is on, cast or not,
+-- so nothing under it (the pet's dock) moves in a fight. On the overhead it
+-- is off. Its height is the editor's (the Undocked Overhead frame's Cast bar).
+local CAST_H, CAST_GAP = 12, 3
+ns.overheadCastHeight = CAST_H
+
+local function CastStrip(b)
+    local e = A.cellEdge
+    local bar = CreateFrame("StatusBar", nil, b)
+    bar:SetStatusBarTexture(ns.bar)
+    bar:SetPoint("TOPLEFT", b, "BOTTOMLEFT", e, -(CAST_GAP + e))
+    bar:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", -e, -(CAST_GAP + e))
+    bar:SetHeight(CAST_H)
+    -- the key round it (a bar's textures may lie past it), and its channel
+    local edge = bar:CreateTexture(nil, "BACKGROUND", nil, 0)
+    edge:SetPoint("TOPLEFT", -e, e)
+    edge:SetPoint("BOTTOMRIGHT", e, -e)
+    edge:SetColorTexture(unpack(A.edge))
+    local channel = bar:CreateTexture(nil, "BACKGROUND", nil, 1)
+    channel:SetAllPoints()
+    channel:SetColorTexture(0.043, 0.035, 0.024, 1)
+    local spark = bar:CreateTexture(nil, "OVERLAY")
+    spark:SetColorTexture(1, 1, 1, 0.8)
+    spark:SetWidth(2)
+    spark:SetPoint("TOP", bar:GetStatusBarTexture(), "TOPRIGHT")
+    spark:SetPoint("BOTTOM", bar:GetStatusBarTexture(), "BOTTOMRIGHT")
+    local name, clock = ns.Text(bar, 10), ns.Text(bar, 10)
+    name:SetPoint("LEFT", 3, 0)
+    name:SetPoint("RIGHT", clock, "LEFT", -3, 0)
+    name:SetJustifyH("LEFT")
+    name:SetWordWrap(false)
+    clock:SetPoint("RIGHT", -3, 0)
+    clock:SetJustifyH("RIGHT")
+    bar.name, bar.clock, bar.spark = name, clock, spark
+    b.cast = bar
+    b.castDriver = ns.CastBar(bar, b.unit, { spark = spark, name = name, clock = clock })
+    b.castDriver:SetEnabled(false)
+    b.castOn = false
+end
+
+-- Whether a cell's strip is on, and the room under the cell it takes.
+local function CastRoom(b)
+    if not (b.mounted and ns.db and ns.db.undockedCast ~= false) then return 0 end
+    local ch = ns.CastHeight and ns.CastHeight("undocked", CAST_H) or CAST_H
+    return CAST_GAP + ch + 2 * A.cellEdge
+end
+ns.OverheadCastRoom = CastRoom
+
+local function LayCast(b)
+    local on = CastRoom(b) > 0
+    b.cast:SetHeight(ns.CastHeight and ns.CastHeight("undocked", CAST_H) or CAST_H)
+    if b.castOn ~= on then
+        b.castOn = on
+        b.castDriver:SetEnabled(on)
+    end
+end
+
 -- The power bar's height: the editor's (ns.PowerHeight), its Undocked
 -- Overhead frame's while the cell hangs on its holder, else its Overhead
--- frame's; the health fills what is left.
+-- frame's; the health fills what is left. (And the cast strip's, which
+-- the editor lays with it.)
 -- The health hangs from two points, so its foot moves rather than its height.
 local function LayPower(b)
+    if b.cast then LayCast(b) end
     local ph = A.power
     if ns.PowerHeight then ph = ns.PowerHeight(b.mounted and "undocked" or "overhead", A.power) end
     b.power:SetHeight(math.max(ph, 0.001))
@@ -254,7 +318,12 @@ local function CreateCell(unit, kind, chip)
     icon:SetTexCoord(0, c.w / c.tw, 0, c.h / c.th)
     icon:SetSize(c.w, c.h)
     icon:SetPoint("TOPLEFT", e, -e)
-    b.chip = icon
+    b.chip, b.chipW = icon, c.w
+    -- (2026-11-27) off the overhead, the unit's face or class in its place
+    -- (Face, Overhead > Detached > Icon)
+    b.portrait = b:CreateTexture(nil, "ARTWORK")
+    b.portrait:SetPoint("TOPLEFT", e, -e)
+    b.portrait:Hide()
 
     -- the trough, sunk in the key: health, one ink row, power, in the window
     -- a pixel inside it
@@ -262,7 +331,9 @@ local function CreateCell(unit, kind, chip)
     trough:SetColorTexture(0.043, 0.035, 0.024, 1)
     trough:SetPoint("TOPLEFT", e + c.w + 2, -e)
     trough:SetPoint("BOTTOMRIGHT", -e, e)
+    b.trough = trough
     local window = CreateFrame("Frame", nil, b)
+    b.window = window
     window:SetPoint("TOPLEFT", e + c.w + 3, -e - 1)
     window:SetPoint("BOTTOMRIGHT", -e - 1, e + 1)
     local health = CreateFrame("StatusBar", nil, window)
@@ -295,13 +366,20 @@ local function CreateCell(unit, kind, chip)
     b.name = ns.Text(text, 10)
     b.name:SetWordWrap(false)
     LayTexts(b)
+    CastStrip(b)
 
     -- Each button hears its own unit: RegisterUnitEvent keeps one unit per
     -- event per frame, so a shared watcher only ever heard the last one.
-    for _, event in ipairs({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE", "UNIT_NAME_UPDATE" }) do
+    for _, event in ipairs({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE", "UNIT_NAME_UPDATE",
+        "UNIT_PORTRAIT_UPDATE", "UNIT_MODEL_CHANGED" }) do
         ns.RegisterUnitEvent(b, event, unit)
     end
-    b:SetScript("OnEvent", function(self) UpdateUnitStatus(self) end)
+    b:SetScript("OnEvent", function(self, event)
+        if event == "UNIT_PORTRAIT_UPDATE" or event == "UNIT_MODEL_CHANGED" or event == "UNIT_NAME_UPDATE" then
+            Face(self)
+        end
+        UpdateUnitStatus(self)
+    end)
     -- the game's unit tooltip (a simulated one says so); the marks place it
     b:SetScript("OnEnter", function(self)
         if self.stub and not UnitExists(self.unit) then
@@ -475,6 +553,58 @@ local function Retire(b)
     SetWatched(b, false)
     b:Hide()
 end
+
+-- ------------------------------------------------------------ the icon
+-- (2026-11-27) The icon column: the docked glyph on the overhead, and off it
+-- as Overhead > Detached > Icon says: "glyph", the same; "face", the
+-- unit's portrait; "class", a player's class circle, anyone else's face.
+-- Off the overhead the column is as tall as the key's inside, and square;
+-- the bars move over for it. A simulated unit has no face: its class circle
+-- (the pet's, none: its glyph).
+local function Column(b, w)
+    if b.column == w then return end
+    b.column = w
+    local e = A.cellEdge
+    b.trough:SetPoint("TOPLEFT", e + w + 2, -e)
+    b.window:SetPoint("TOPLEFT", e + w + 3, -e - 1)
+end
+
+local function Circle(t, class)
+    local coords = class and not ns.IsSecret(class) and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
+    if not coords then return false end
+    t:SetTexture(ns.CLASS_CIRCLES)
+    t:SetTexCoord(unpack(coords))
+    return true
+end
+
+function Face(b)
+    local mode = b.mounted and ns.db and ns.db.undockedIcon or "glyph"
+    local unit, drawn = b.unit, false
+    if mode == "face" or mode == "class" then
+        local t = b.portrait
+        if b.stub and not Exists(unit) then
+            drawn = unit ~= "pet" and Circle(t, b.stub.class)
+        elseif Exists(unit) then
+            -- (a secret answer may not be tested: the face then)
+            local player = UnitIsPlayer(unit)
+            if mode == "class" and not ns.IsSecret(player) and player then
+                drawn = Circle(t, select(2, UnitClass(unit)))
+            end
+            if not drawn and SetPortraitTexture then
+                t:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                drawn = pcall(SetPortraitTexture, t, unit) and true or false
+            end
+        end
+    end
+    local e = A.cellEdge
+    local size = math.max(b.chipW, (b.cellH or 0) - 2 * e)
+    b.portrait:SetSize(size, size)
+    b.portrait:SetShown(drawn)
+    b.chip:SetShown(not drawn)
+    b.iconMode = drawn and mode or "glyph"      -- (the harness)
+    Column(b, drawn and size or b.chipW)
+end
+ns.OverheadFace = Face
 
 function UpdateUnitStatus(b)
     if not b then return end
@@ -944,6 +1074,35 @@ for _, b in ipairs(unitCells) do
     b.shadow:Hide()
 end
 
+-- (2026-11-27) Off the overhead, a cell's buffs and debuffs (console/auras.lua,
+-- Overhead > Detached > Buffs, Debuffs): over its top edge, the buffs from
+-- its left corner rightward, the debuffs from its right corner leftward.
+-- The editor's Undocked Overhead frame moves them from there. On the
+-- overhead a cell shows none (their options answer no while it is docked).
+local ROW_GAP = 2
+local function LayRows(b)
+    for _, set in ipairs({ { b.buffWidgets, "BOTTOMLEFT", "TOPLEFT", 1 },
+        { b.mineWidgets, "BOTTOMRIGHT", "TOPRIGHT", -1 } }) do
+        local row, point, rel, dir = unpack(set)
+        for i, btn in ipairs(row or {}) do
+            local step = (i - 1) * ((btn:GetWidth() or 15) + ROW_GAP)
+            btn:ClearAllPoints()
+            btn:SetPoint(point, b, rel, dir * step, ROW_GAP)
+        end
+    end
+end
+if ns.AttachAuras then
+    for _, b in ipairs(unitCells) do
+        ns.AttachAuras(b, "overhead")
+        -- laid by side by no one: they hang where LayRows puts them
+        if b.mineWidgets then b.mineWidgets.bySide = nil end
+        LayRows(b)
+    end
+end
+local function Auras(b)
+    if ns.UpdateUnitAuras and b.buffWidgets then ns.UpdateUnitAuras(b) end
+end
+
 -- The pet's dock: a key under its cell, the bar's icons in its dark
 -- channel, two gold brackets from the cell's foot. A child of the cell, so
 -- the unit watch hides it with the pet, in combat too.
@@ -993,8 +1152,10 @@ ns.overheadDock = dock
 -- goes (its texts' sizes and fonts, then their places as its own code lays
 -- them), and the frame it joined lays them.
 local function Relay(b)
-    if ns.editor then ns.editor.Relaid(b, "name", "value") end
+    if ns.editor then ns.editor.Relaid(b, "name", "value", "buffs", "mine") end
     LayTexts(b)
+    LayRows(b)
+    Face(b)
     if ns.ApplyEdits then ns.ApplyEdits(b) end
     LayPower(b)
     UpdateUnitStatus(b)
@@ -1011,6 +1172,9 @@ local function Unmount(b)
         b:SetHeight(A.deck[b.kind] - A.cellTop - A.cellBottom)
         Relay(b)
     end
+    LayCast(b)
+    Face(b)
+    Auras(b)
     b.shadow:Hide()
     Holder(b):Hide()
 end
@@ -1023,7 +1187,9 @@ local function Place(b, h, w)
         local k = h:GetScale()
         local order = b.detachOrder - 1
         x = (UIParent:GetWidth() or 1024) / k / 2 - w / 2
-        y = (UIParent:GetHeight() or 768) / k - 160 - order * 60
+        -- (100: a cell with its aura rows over it, its cast strip and the
+        -- pet's dock under it, 2026-11-27; it was 60)
+        y = (UIParent:GetHeight() or 768) / k - 160 - order * 100
     end
     h:ClearAllPoints()
     h:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
@@ -1039,7 +1205,9 @@ local function Mount(b, minw)
     w = math.max(w, minw or 0)
     h:SetScale(overhead:GetScale())
     h:SetAlpha(Alpha())
-    h:SetSize(w, ht)
+    b.cellH = ht
+    -- (its cast strip's room in it, so the strip is kept on the screen too)
+    h:SetSize(w, ht + CastRoom({ mounted = true }))
     if dragging ~= b then Place(b, h, w) end
     if b:GetParent() ~= h then b:SetParent(h) end
     b:SetFrameLevel(h:GetFrameLevel() + 1)
@@ -1054,8 +1222,11 @@ local function Mount(b, minw)
         Relay(b)
     else
         if ns.ApplyEdits then ns.ApplyEdits(b) end
+        Face(b)
         UpdateUnitStatus(b)
     end
+    LayCast(b)
+    Auras(b)
 end
 
 -- The pet's bar in the dock, centred under a cell at least as wide as it;
@@ -1145,6 +1316,11 @@ function ns.OverheadDetached(pets, unitW, unitH)
                 if dock:IsShown() then minw = dock:GetWidth() end
             end
             Mount(b, minw)
+            -- the dock under the cast strip while it is on
+            if b == petUnit then
+                dock:ClearAllPoints()
+                dock:SetPoint("TOP", petUnit, "BOTTOM", 0, -(BRACKET + CastRoom(petUnit)))
+            end
         else
             if b == petUnit then Dock(nil) end
             Unmount(b)
@@ -1224,6 +1400,41 @@ end
 -- the editor's Undocked Overhead frame: its cell size sizes the holders
 -- (editor.lua has already laid its pieces)
 ns.OnSetting("editUndocked", function() UpdateOverhead() end)
+-- (2026-11-27) the detached cells' icon, cast strip and aura rows
+for _, key in ipairs({ "undockedIcon", "undockedCast", "undockedBuffs", "undockedDebuffs" }) do
+    ns.OnSetting(key, function() UpdateOverhead() end)
+end
+
+-- A cell whose unit changed, in combat too (the layout waits for its end):
+-- its icon, words and auras again. The target's target is told nothing
+-- (no event names it): off the overhead, it is asked every TOT_POLL seconds.
+local function Refresh(b)
+    if not b.mounted then return end
+    Face(b)
+    UpdateUnitStatus(b)
+    Auras(b)
+end
+ns.On("PLAYER_FOCUS_CHANGED", function() Refresh(focusUnit) end)
+ns.On("UNIT_PET", function(_, u) if u == "player" then Refresh(petUnit) end end)
+ns.On("PLAYER_TARGET_CHANGED", function() Refresh(totUnit) end)
+ns.On("UNIT_TARGET", function(_, u) if u == "target" then Refresh(totUnit) end end)
+for _, b in ipairs(unitCells) do
+    -- shown again by its watch (a unit back): drawn again
+    b:HookScript("OnShow", Refresh)
+end
+local TOT_POLL = 0.5
+local totPoll = CreateFrame("Frame", nil, totUnit)     -- (ticks only while the cell is shown)
+totPoll.since = 0
+totPoll:SetScript("OnUpdate", function(self, dt)
+    self.since = self.since + (dt or 0)
+    if self.since < TOT_POLL then return end
+    self.since = 0
+    if totUnit.mounted and not totUnit.stub then
+        UpdateUnitStatus(totUnit)
+        Auras(totUnit)
+    end
+end)
+ns.overheadToTPoll = totPoll
 
 -- ------------------------------------------------------------ the bottom row's visibility
 -- The command row (stances, the pet bar, the totems) and the tray deck it

@@ -15618,6 +15618,160 @@ local function EditorPass()
         ns.SetOption("detachFocus", true)
         stateTick()
         print("  tot reset", look(ToT) == totDocked and "as it was" or look(ToT))
+
+        -- (2026-11-27) off the overhead: the icon, the cast strip, the aura
+        -- rows; none of them docked
+        local coordsWas, playerWas = CLASS_ICON_TCOORDS, UnitIsPlayer
+        CLASS_ICON_TCOORDS = { MAGE = { 0.25, 0.49, 0, 0.25 }, WARRIOR = { 0, 0.25, 0, 0.25 },
+            PRIEST = { 0.49, 0.73, 0.25, 0.5 }, PALADIN = { 0, 0.25, 0.5, 0.75 } }
+        local function icon(b)
+            local c = b.portrait.coords
+            return "mode=" .. tostring(b.iconMode) .. " chip=" .. tostring(b.chip:IsShown())
+                .. " portrait=" .. tostring(b.portrait:IsShown()) .. "/" .. tostring(b.portrait.texture)
+                .. "/" .. tostring(b.portrait.portrait) .. "/" .. (c and table.concat(c, ",") or "-")
+                .. " size=" .. n(b.portrait:GetWidth()) .. " trough=" .. n(select(4, b.trough:GetPoint(1)))
+                .. " window=" .. n(select(4, b.window:GetPoint(1)))
+        end
+        for _, mode in ipairs({ "glyph", "face", "class" }) do
+            ns.SetOption("undockedIcon", mode)
+            stateTick()
+            print("undocked icon " .. mode, icon(F))
+        end
+        UnitIsPlayer = function(u) return u ~= "focus" and playerWas(u) end
+        ns.OverheadFace(F)
+        print("  an npc under class", icon(F))
+        UnitIsPlayer = playerWas
+        choose("undocked", "cell")
+        set("h", 40)
+        print("  cell 40 tall", icon(F))
+        E.ResetPiece(E.byId.undocked, "cell")
+        stateTick()
+        ns.SetOption("detachFocus", false)
+        stateTick()
+        print("  docked", icon(F))
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        print("  the tot docked", icon(ToT))
+        ns.SetOption("undockedIcon", "class")
+
+        local function cast(b)
+            return "on=" .. tostring(b.castOn) .. " shown=" .. tostring(b.cast:IsShown()) .. " alpha="
+                .. n((b.cast.alpha or 1) * 100) .. " name=" .. tostring(b.cast.name.text) .. " h="
+                .. n(b.cast:GetHeight()) .. " at=" .. pts(b, b.cast) .. " holder=" .. n(b:GetParent():GetHeight())
+        end
+        print("undocked cast", cast(F))
+        local castWas, unitWas = casting, castUnit
+        casting, castUnit = true, "focus"
+        F.cast.scripts.OnEvent(F.cast, "UNIT_SPELLCAST_START", "focus")
+        print("  focus casts", cast(F))
+        -- the target's target: no event; its cast found by the bar's ticker
+        casting, castUnit = false, "targettarget"
+        ns.SetOption("detachToT", true)
+        stateTick()
+        casting = true
+        print("  tot before the poll", cast(ToT))
+        ToT.cast.scripts.OnUpdate(ToT.cast, 0.1)
+        print("  tot, a tick short", cast(ToT))
+        ToT.cast.scripts.OnUpdate(ToT.cast, 0.1)
+        print("  tot polled", cast(ToT), "spark=" .. tostring(ToT.cast.spark:IsShown()))
+        casting = false
+        ToT.cast.scripts.OnUpdate(ToT.cast, 0.2)
+        print("  tot done", "spark=" .. tostring(ToT.cast.spark:IsShown()))
+        ns.SetOption("detachToT", false)
+        stateTick()
+        print("  tot docked", cast(ToT))
+        choose("undocked", "cast")
+        local pieces = {}
+        for _, row in ipairs(w.list.rows) do if row.shown and row.piece then pieces[#pieces + 1] = row.piece end end
+        print("  undocked pieces", table.concat(pieces, ","), "shown=" .. tostring(w.controls.shown:IsShown()),
+            "ch=" .. tostring(w.controls.ch:IsShown()))
+        set("ch", 16)
+        local copy = cv.proxies[1].pieces.cast
+        print("  ch 16", cast(F), "canvas=" .. tostring(copy and copy.shown) .. "/" .. n(copy and copy:GetHeight())
+            .. "/" .. n(copy and (copy.alpha or 1) * 100), "box=" .. boxed())
+        ns.SetOption("undockedCast", false)
+        stateTick()
+        print("  option off", cast(F))
+        ns.SetOption("undockedCast", true)
+        stateTick()
+        E.ResetPiece(E.byId.undocked, "cast")
+        ns.SetOption("detachFocus", false)
+        stateTick()
+        print("  docked", cast(F))
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        casting, castUnit = castWas, unitWas
+        local d, Pet = ns.overheadDock, ns.overheadCells[1]
+        local existsNow = UnitExists
+        UnitExists = function(u) return u == "pet" or existsNow(u) end
+        for _, on in ipairs({ false, true }) do
+            ns.SetOption("detachPet", on)
+            stateTick()
+            print("  pet dock " .. (on and "detached" or "docked"), "y=" .. n(select(5, d:GetPoint(1))),
+                "room=" .. n(ns.OverheadCastRoom(Pet)), "cast=" .. tostring(Pet.castOn))
+        end
+        ns.SetOption("undockedCast", false)
+        stateTick()
+        print("  pet dock, no cast bar", "y=" .. n(select(5, d:GetPoint(1))))
+        ns.SetOption("undockedCast", true)
+        ns.SetOption("detachPet", false)
+        stateTick()
+        UnitExists = existsNow
+
+        local function rows(b)
+            local out = {}
+            for _, id in ipairs({ "buffWidgets", "mineWidgets" }) do
+                local row, k = b[id], 0
+                for _, btn in ipairs(row) do if btn:IsShown() then k = k + 1 end end
+                out[#out + 1] = id:sub(1, 4) .. "=" .. k .. "/" .. tostring(row.liveState and row.liveState.shown)
+                    .. "@" .. pts(b, row[1])
+            end
+            return table.concat(out, " ")
+        end
+        -- (a client with no aura reads, none to stub)
+        local stubbed = C_UnitAuras
+        local readWas, listWas = stubbed and C_UnitAuras.GetAuraDataByIndex, stubbed and C_UnitAuras.GetUnitAuras
+        local function aura(i, filter)
+            return { auraInstanceID = 900 + i, icon = "Interface\\Icons\\Spell_Holy_Renew", applications = 0,
+                duration = 0, expirationTime = 0, isHarmful = filter:find("HARMFUL") ~= nil }
+        end
+        if stubbed then
+            C_UnitAuras.GetAuraDataByIndex = function(u, i, filter)
+                if u == "focus" then return i <= 2 and aura(i, filter) or nil end
+                return readWas(u, i, filter)
+            end
+            C_UnitAuras.GetUnitAuras = function(u, filter, ...)
+                if u == "focus" then return { aura(1, filter), aura(2, filter) } end
+                return listWas and listWas(u, filter, ...)
+            end
+        end
+        ns.UpdateUnitAuras(F)
+        print("undocked auras", rows(F))
+        ns.SetOption("undockedBuffs", false)
+        print("  buffs off", rows(F))
+        ns.SetOption("undockedBuffs", true)
+        ns.SetOption("detachFocus", false)
+        stateTick()
+        ns.UpdateUnitAuras(F)
+        print("  docked", rows(F))
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        print("  detached again", rows(F))
+        -- the editor's size on the rows, given back when the cell docks:
+        -- a reset after it finds the rows' own
+        choose("undocked", "buffs")
+        set("size", 20)
+        print("  buffs size 20", n(F.buffWidgets[1]:GetWidth()))
+        ns.SetOption("detachFocus", false)
+        stateTick()
+        print("  docked", n(F.buffWidgets[1]:GetWidth()))
+        ns.SetOption("detachFocus", true)
+        stateTick()
+        E.ResetFrame(E.byId.undocked)
+        stateTick()
+        print("  reset after", n(F.buffWidgets[1]:GetWidth()), pts(F, F.buffWidgets[2]))
+        if stubbed then C_UnitAuras.GetAuraDataByIndex, C_UnitAuras.GetUnitAuras = readWas, listWas end
+        CLASS_ICON_TCOORDS = coordsWas
         ns.SetOption("detachFocus", false)
         UnitExists = realExists
         ns.UpdateOverhead()

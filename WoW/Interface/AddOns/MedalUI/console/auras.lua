@@ -1506,6 +1506,15 @@ function ns.AttachAuras(b, kind)
         b.auraKeys = { cc = "arenaCC", mine = "arenaMine" }
         b.ccWidget = CreateCCWidget(b.health, 20)
         Over(b.ccWidget, 4)
+    elseif kind == "overhead" then
+        -- (2026-11-27) an overhead cell's buffs and debuffs, the party's
+        -- rows, shown only while it is off the overhead (b.mounted,
+        -- console/overhead.lua): docked, it answers no to every kind
+        local keys, none = { buffs = "undockedBuffs", mine = "undockedDebuffs" }, {}
+        b.auraKeys = function() return b.mounted and keys or none end
+        b.buffWidgets = CreateBuffWidgets(b.health, -1, true)
+        b.mineWidgets = CreateUnitDebuffs(b.health, -1, true)
+        for _, btn in ipairs(b.buffWidgets) do Over(btn, 4) end
     else
         b.auraKeys = { mine = "bossMine" }
     end
@@ -1561,6 +1570,19 @@ for _, unit in ipairs({ "player", "target", "party1", "party2", "party3", "party
     local events = CreateFrame("Frame")
     ns.RegisterUnitEvent(events, "UNIT_AURA", unit)
     events:SetScript("OnEvent", OnAura)
+end
+-- (2026-11-27) the overhead's pet and focus cells, off the overhead with
+-- their rows (the target's target is told nothing: console/overhead.lua
+-- asks again on a ticker)
+local function OnCarrierAura(_, _, unit)
+    for b in pairs(carriers) do
+        if b.unit == unit then UpdateUnitAuras(b) end
+    end
+end
+for _, unit in ipairs({ "pet", "focus" }) do
+    local events = CreateFrame("Frame")
+    ns.RegisterUnitEvent(events, "UNIT_AURA", unit)
+    events:SetScript("OnEvent", OnCarrierAura)
 end
 
 -- A unit's aggro, wherever its frames are.

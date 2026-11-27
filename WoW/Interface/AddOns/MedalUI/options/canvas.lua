@@ -188,6 +188,14 @@ local function ProxyPiece(p, id, real)
     elseif kind == "icon" then
         have = have or Icon(p)
         p.pieces[id] = have
+    elseif kind == "bar" then
+        -- (a bar of its own, the undocked cells' cast strip: gold, as it fills)
+        if not have then
+            have = CreateFrame("Frame", nil, p)
+            have.fill = UI.Fill(have, "ARTWORK", C.gold)
+            have.fill:SetAllPoints()
+            p.pieces[id] = have
+        end
     elseif kind == "row" then
         have = have or {}
         for k = 1, #real do have[k] = have[k] or Icon(p) end
@@ -325,7 +333,7 @@ local function Mirror(frame, b, p, k)
         end
         if id then
             dst:SetAlpha(E.Shown(frame, id) and 1 or 0.25)
-            if E.PIECES[id].type == "text" then
+            if E.PIECES[id].type == "text" or E.PIECES[id].type == "bar" then
                 dst:Show()
             else
                 -- an icon as the real one is, else while chosen or previewed;
@@ -949,7 +957,7 @@ function Draw()
     for k = 1, #models do
         local p = proxies[k]
         -- the power bar is the copy's own
-        local mine = kind == "bar" and p.power or kind ~= "cell" and p.pieces[piece]
+        local mine = kind == "bar" and (p.pieces[piece] or p.power) or kind ~= "cell" and p.pieces[piece]
         local regions = {}
         for _, r in ipairs(kind == "row" and mine or { mine or nil }) do
             if r:IsShown() then table.insert(regions, r) end

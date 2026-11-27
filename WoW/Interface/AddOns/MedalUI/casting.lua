@@ -33,6 +33,13 @@ local EVENTS = { "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_
 -- ns.CastBar(bar, unit, parts): parts.spark, parts.name and parts.clock are
 -- optional. Returns a driver with :SetEnabled(on); switched off, the bar is
 -- hidden, and switched on, it picks up a cast already under way.
+--
+-- (2026-11-27, the undocked overhead cells) A focus's and a pet's cast is
+-- read again when the unit changes. The target's target is told nothing
+-- (no spellcast event names "targettarget"): its cast is asked for every
+-- POLL seconds while the bar is on, and again when the target, or what it
+-- targets, changes.
+local POLL = 0.2
 function ns.CastBar(bar, unit, parts)
     local spark, name, clock = parts.spark, parts.name, parts.clock
     local enabled = true
@@ -41,7 +48,9 @@ function ns.CastBar(bar, unit, parts)
 
     -- state: "cast", "channel", "timer" (a secret cast), "fade" or nil
     local state, castID, start, finish, fadeAt
-    local channelling
+    local channelling, shown        -- shown: the cast's name, for the poll
+    local polled = unit == "targettarget"
+    local since = 0
 
     local function Idle()
         state = nil
@@ -49,7 +58,7 @@ function ns.CastBar(bar, unit, parts)
     end
 
     local function Show(kind, label, s, f, id)
-        castID, channelling = id, kind == "channel"
+        castID, channelling, shown = id, kind == "channel", label
         if ns.IsSecret(s) or ns.IsSecret(f) then
             local duration = DurationOf[kind] and DurationOf[kind](unit)
             if not (duration and bar.SetTimerDuration and Timer) then return end
@@ -88,7 +97,26 @@ function ns.CastBar(bar, unit, parts)
         if ns.Present(label) then return Show("channel", label, s, f) end
     end
 
-    bar:SetScript("OnUpdate", function()
+    -- the poll's: a cast begun, another in its place, or the one shown gone
+    local function Poll()
+        local label = Casting(unit)
+        if not ns.Present(label) then label = Channel(unit) end
+        local running = state == "cast" or state == "channel" or state == "timer"
+        if ns.Present(label) then
+            if not running or not Same(label, shown) then Begin() end
+        elseif running then
+            Fade()
+        end
+    end
+
+    bar:SetScript("OnUpdate", function(_, elapsed)
+        if polled and enabled then
+            since = since + (elapsed or 0)
+            if since >= POLL then
+                since = 0
+                Poll()
+            end
+        end
         local now = GetTime()
         if state == "fade" then
             local a = 1 - (now - fadeAt) / FADE
@@ -125,13 +153,16 @@ function ns.CastBar(bar, unit, parts)
         end
     end)
     ns.On("PLAYER_ENTERING_WORLD", Begin)
-    -- a new target: its cast, if it is casting, or nothing
-    if unit == "target" then
-        ns.On("PLAYER_TARGET_CHANGED", function()
-            Idle()
-            Begin()
-        end)
+    -- a new target: its cast, if it is casting, or nothing; a new focus,
+    -- pet, or target's target the same
+    local function Again()
+        Idle()
+        Begin()
     end
+    if unit == "target" or polled then ns.On("PLAYER_TARGET_CHANGED", Again) end
+    if unit == "focus" then ns.On("PLAYER_FOCUS_CHANGED", Again) end
+    if unit == "pet" then ns.On("UNIT_PET", function(_, u) if u == "player" then Again() end end) end
+    if polled then ns.On("UNIT_TARGET", function(_, u) if u == "target" then Again() end end) end
     Begin()
 
     return {
@@ -141,5 +172,6 @@ function ns.CastBar(bar, unit, parts)
             bar:SetShown(enabled)
             Begin()
         end,
+        Poll = Poll,                -- (the harness: one tick of it)
     }
 end

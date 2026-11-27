@@ -1105,6 +1105,18 @@ function ns.OptionPages()
                                 Tr["Off the overhead, on its own. Alt+drag it off the overhead, or back onto it."]),
                             Check("detachToT", Tr["Target of target frame"],
                                 Tr["Off the overhead, on its own. Alt+drag it off the overhead, or back onto it."]),
+                            -- (2026-11-27) what a detached frame shows that a docked one does not
+                            Choice("undockedIcon", Tr["Icon"], {
+                                { "glyph", Tr["Glyph"], Tr["The same mark as on the overhead."] },
+                                { "face", Tr["Face"], Tr["The unit's portrait."] },
+                                { "class", Tr["Class"], Tr["A player's class icon; anyone else's portrait."] },
+                            }, Tr["What a detached frame shows at its left end."]),
+                            Check("undockedCast", Tr["Cast bar"],
+                                Tr["A bar under a detached frame while its unit casts. The target of target's is "
+                                .. "checked a few times a second, as the game says nothing of its casts."]),
+                            Check("undockedBuffs", Tr["Buffs"], Tr["A detached frame's buffs, over its top edge."]),
+                            Check("undockedDebuffs", Tr["Debuffs"],
+                                Tr["A detached frame's debuffs, over its top edge."]),
                             Editor("undocked", Tr["Edit the detached frames"])),
                         Group(Tr["Bars"],
                             Check("topPetBar", Tr["Pet action bar"],
