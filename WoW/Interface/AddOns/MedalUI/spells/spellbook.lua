@@ -1269,11 +1269,36 @@ end
 -- LEAN of the room (all it needs when On your bars is short), On your bars
 -- the rest; neither less than its title and two spells while the room
 -- holds both so, else split at LEAN.
+-- (2026-11-27, the user's) The trainer's page has no such split (all of
+-- it stands under On your bars): one window, untitled, from the page's top,
+-- as tall as its rows or the page.
+local function Titled(win, on)
+    local f = win.frame
+    f.band:SetShown(on)
+    f.rule:SetShown(on)
+    f.title:SetShown(on)
+    f.count:SetShown(on)
+    win.inner:ClearAllPoints()
+    win.inner:SetPoint("TOPLEFT", 0, on and -(TITLE_H + 1) or -1)
+    win.inner:SetPoint("BOTTOMRIGHT", 0, 1)
+end
 local function Layout(p)
     local wins = p.wins
     if not wins then return end
-    local room = math.max(0, (p.listBody:GetHeight() or 0) - GAP)
     local miss, placed = wins[1], wins[2]
+    local split = not p.trainer
+    miss.frame:SetShown(split)
+    Titled(placed, split)
+    if not split then
+        local full = math.max(0, p.listBody:GetHeight() or 0)
+        placed.frame:ClearAllPoints()
+        placed.frame:SetPoint("TOPLEFT", p.listBody, "TOPLEFT", 0, 0)
+        placed.frame:SetPoint("TOPRIGHT", p.listBody, "TOPRIGHT", 0, 0)
+        placed.frame:SetHeight(math.max(1, math.min(full, placed.content + 2)))
+        placed.scroller.To(placed.scroller.target)
+        return
+    end
+    local room = math.max(0, (p.listBody:GetHeight() or 0) - GAP)
     local a, b = TITLE_H + 1 + miss.content + 1, TITLE_H + 1 + placed.content + 1
     local least = TITLE_H + 2 + 2 * SPELL
     -- (no "do both fit" test before it: when they do, room - b >= a and

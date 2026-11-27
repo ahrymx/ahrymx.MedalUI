@@ -21860,7 +21860,8 @@ if spellPass then
                 local set = win.frame.SetHeight
                 win.frame.SetHeight = function(f, h)
                     set(f, h)
-                    win.scroller.scroll.h = math.max(0, h - 28)
+                    -- (untitled, the trainer's: its edges alone, 2026-11-27)
+                    win.scroller.scroll.h = math.max(0, h - (win.frame.title.shown == false and 2 or 28))
                 end
             end
         end
@@ -22509,6 +22510,22 @@ if spellPass then
     from.trainerButton.scripts.OnClick(from.trainerButton)
     frame()
     rows("book.trainer")
+    -- (2026-11-27, the user's) the trainer's list untitled: no Not on your
+    -- bars, no title band on its one window, its rows from the top; the
+    -- book's two windows keep theirs
+    do
+        local function titled(p)
+            local w1, w2 = p.wins[1], p.wins[2]
+            local f = w2.frame
+            local at = w2.inner.points.TOPLEFT or {}
+            local top = w2.frame.points.TOPLEFT or {}
+            return "missing=" .. tostring(w1.frame.shown ~= false) .. " band=" .. tostring(f.band.shown ~= false)
+                .. " rule=" .. tostring(f.rule.shown ~= false) .. " title=" .. tostring(f.title.shown ~= false)
+                .. " count=" .. tostring(f.count.shown ~= false) .. " rows@" .. tostring(at[4])
+                .. " window@" .. tostring(top[1] == p.listBody and "top" or top[1] == w1.frame and "under" or "?")
+        end
+        print("book.trainer untitled", "trainer " .. titled(tr), "book " .. titled(from))
+    end
     details("book.trainer summary")
     for _, t in ipairs(tr.specs.cells) do
         if t.shown and t.section and t.section.name == "Elemental" then t.scripts.OnClick(t, "LeftButton") break end
@@ -22541,11 +22558,10 @@ if spellPass then
     for _, t in ipairs(tr.specs and tr.specs.cells or {}) do
         if t.shown and t.name.text == "Other" then t.scripts.OnClick(t, "LeftButton") end
     end
-    -- (2026-11-26) a body that leaves the list's window 2 * 30 to scroll
-    -- in: the empty Not on your bars (its title and None: 64), the gap,
-    -- On your bars' title (28)
+    -- (2026-11-27) a body that leaves the list's window 2 * 30 to scroll
+    -- in: on the trainer's page one untitled window, its edges alone (2)
     harnessAnchorWins(tr)
-    tr.body.h = 64 + 6 + 28 + 2 * 30
+    tr.body.h = 2 + 2 * 30
     tr.Refresh()
     scrolled("book.trainer short")
     tr.w2.inner.scripts.OnMouseWheel(tr.w2.inner, -1)
