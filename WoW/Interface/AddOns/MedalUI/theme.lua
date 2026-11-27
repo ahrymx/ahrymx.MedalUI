@@ -17,7 +17,11 @@ local _, ns = ...
 local themed = {}       -- each gold table made through ns.Themed: its gold as drawn
 local drawn = {}        -- the same golds by value ("r g b"), to know a paint for one
 local tint              -- the theme's colour ({ h, s }), nil under Golden
+-- (2026-11-27) a value the game keeps secret (a damage meter's icon, a
+-- colour read off a unit) cannot key a table: never ours, so never gold
+local secret = issecretvalue or function() return false end
 local function Key(r, g, b)
+    if secret(r) or secret(g) or secret(b) then return nil end
     if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return nil end
     return ("%.3f %.3f %.3f"):format(r, g, b)
 end
@@ -150,7 +154,7 @@ for _, path in ipairs({ "strip", "options\\arrow", "options\\check", "tooltips\\
     "console-light-explore", "console-light-combat", "actionbar-light", "hybrid-light", "bar-wing-light" }) do
     gilt[ns.media .. path] = true
 end
-function ns.IsGilt(path) return type(path) == "string" and gilt[path] == true end
+function ns.IsGilt(path) return not secret(path) and type(path) == "string" and gilt[path] == true end
 
 local artTint           -- what a desaturated gold glyph is multiplied by
 local methods           -- the textures' own methods
@@ -183,7 +187,7 @@ local function Adopt(tex)
     end
 end
 local function Gild(tex, path)
-    local on = gilt[path] == true
+    local on = ns.IsGilt(path)
     if on then Adopt(tex) elseif not tex.themeVertex then return end
     if tex.themeGilt == on then return end
     tex.themeGilt = on
@@ -235,7 +239,7 @@ do
         if tex.themeKeep then return end
         if artTint then return Gild(tex, path) end
         if settled then return end
-        earlyArt[tex] = gilt[path] == true and path or nil
+        earlyArt[tex] = ns.IsGilt(path) and path or nil
     end)
     for _, m in ipairs({ "SetColorTexture", "SetVertexColor", "SetGradient" }) do
         if methods[m] then hooksecurefunc(methods, m, Note(m)) end

@@ -554,6 +554,11 @@ local function Costs(item)
     return cast, cost
 end
 
+-- A spell with ranks to show (a rank's own row has none)
+local function Ranked(item)
+    return item and not item.rank and not item.trainer and item.lower ~= nil and #item.lower > 0
+end
+
 local function Tooltip(owner, item)
     if item.trainer then
         local e = item.trainer
@@ -574,22 +579,13 @@ local function Tooltip(owner, item)
     elseif item.clicks then
         GameTooltip:AddLine(format(Tr["Click casting: %s"], item.clicks), GOLD[1], GOLD[2], GOLD[3])
     end
-    if not Binding() and not item.rank and item.lower and #item.lower > 0 then
-        local dim = ns.colors.dim
-        GameTooltip:AddLine(Open(item.info.name) and Tr["Left-click to hide its ranks."]
-            or Tr["Left-click to show its ranks."],
-            dim[1], dim[2], dim[3])
-    end
+    local m = Mode()
     if not Binding() and Markable(item) then
-        local dim, m = ns.colors.dim, Mode()
         if m == "all" then
             GameTooltip:AddLine(Tr["Kept on its top rank, as every spell is."], GOLD[1], GOLD[2], GOLD[3])
         elseif Marked(item.info.name) then
             GameTooltip:AddLine(m == "none" and Tr["Marked for top rank, but Top rank is off."]
                 or Tr["Kept on its top rank on your bars."], GOLD[1], GOLD[2], GOLD[3])
-            GameTooltip:AddLine(Tr["Shift+Right-click to unmark it."], dim[1], dim[2], dim[3])
-        else
-            GameTooltip:AddLine(Tr["Shift+Right-click to keep it on its top rank."], dim[1], dim[2], dim[3])
         end
     end
     if item.missing then
@@ -597,12 +593,27 @@ local function Tooltip(owner, item)
             or Tr["Not on your action bars."],
             MISSING[1], MISSING[2], MISSING[3])
     end
+    -- (2026-11-27) its clicks, as a mouse glyph and a word each, in the
+    -- quest grid's fixed slots (Press, Arm): left folds the ranks, right
+    -- casts (a flyout opens), Shift+Left links, Shift+Right marks for Top
+    -- rank. All four always, the user's: one this spell has not, greyed
+    -- (off). Click Casting open, every click binds: no grid.
+    if not Binding() then
+        local info = item.info
+        local kind = info and not info.isPassive and info.itemType
+        local castable = kind == TYPE.Spell or kind == TYPE.PetAction or kind == TYPE.Flyout
+        local linkable = info and (info.itemType == TYPE.Spell or info.itemType == TYPE.PetAction)
+            and (info.spellID or info.actionID)
+        local ranked, markable = Ranked(item), Markable(item) and m ~= "all"
+        ns.TipKeys({
+            { "key", "left", nil, ranked and Open(info.name) and Tr["Fold"] or Tr["Ranks"], off = not ranked },
+            { "key", "right", nil, kind == TYPE.Flyout and Tr["Open"] or Tr["Cast"], off = not castable },
+            { "key", "left", "Shift", Tr["Link"], off = not linkable },
+            { "key", "right", "Shift", markable and Marked(info.name) and Tr["Unmark"] or Tr["Top rank"],
+                off = not markable },
+        })
+    end
     GameTooltip:Show()
-end
-
--- A spell with ranks to show (a rank's own row has none)
-local function Ranked(item)
-    return item and not item.rank and not item.trainer and item.lower ~= nil and #item.lower > 0
 end
 
 -- A click on a spell or a rank: Click Casting open, either button binds

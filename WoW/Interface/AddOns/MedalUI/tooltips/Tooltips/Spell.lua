@@ -674,7 +674,15 @@ local function spellView(panel, model, more)
         end
     end
     if more then more(sections, color) end
-    local extras = ui.withID(panel, model.extras, L["Spell ID: %s"], model.spellID)
+    -- (2026-11-27) MedalUI's key rows (the spellbook's clicks, a mouse glyph
+    -- a cell) go to the footer band, a grid of their own, as its quest
+    -- tooltips' do; the other lines stay in the extras
+    local plain, keys = {}, {}
+    for _, row in ipairs(model.extras) do
+        if ui.isKeyRow(row) then keys[#keys + 1] = { left = row.left, right = row.right }
+        else plain[#plain + 1] = row end
+    end
+    local extras = ui.withID(panel, plain, L["Spell ID: %s"], model.spellID)
     if #extras > 0 then
         sections[#sections + 1] = { separator = #sections > 0 and { rule = EXTRAS_RULE } or { space = 12 },
             kind = "rows", rows = extras, style = styles.extras, color = ui.EXTRA_COLOR, gap = 2, wrap = true }
@@ -693,6 +701,8 @@ local function spellView(panel, model, more)
         iconSize = ICON_SIZE,
         header = header,
         sections = sections,
+        footer = #keys > 0 and { rows = keys, style = ui.styleOf("objectPrices"), color = colors.caption, gap = 3 }
+            or nil,
     }
 end
 

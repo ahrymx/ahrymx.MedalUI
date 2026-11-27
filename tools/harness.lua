@@ -22167,12 +22167,35 @@ if spellPass then
 
     -- 4. Healing Wave unfolds: its ranks, highest first, each its own cast
     -- and cost, each casting its own rank; remembered, and folds shut again
+    -- (2026-11-27) its key lines too: two cells, each glyph as <button>
+    -- ("{left}" a glyph whose path is not the mouse's), a blank cell "_"
     local function lines(c)
-        local said, add = {}, GameTooltip.AddLine
+        local said, add, add2 = {}, GameTooltip.AddLine, GameTooltip.AddDoubleLine
         GameTooltip.AddLine = function(_, t) table.insert(said, tostring(t)) end
+        GameTooltip.AddDoubleLine = function(_, a, b)
+            local function cell(s)
+                s = tostring(s or "")
+                if s == "" then return "_" end
+                -- a greyed cell (a key that does nothing here) as "~cell",
+                -- if every piece is greyed and its glyph tinted ("<left~>")
+                local off = s:find("|cff6b665b", 1, true) ~= nil
+                s = s:gsub("|T(.-)|t", function(path)
+                    local b = path:match("strips\\mouse%-(%a+):16:16:")
+                    return b and "<" .. b .. (path:match(":5:27:107:102:91$") and "~" or "") .. ">"
+                        or "{" .. path .. "}"
+                end)
+                local bare = s:gsub("|cff6b665b(.-)|r", "%1")
+                if off and not bare:find("|c", 1, true) then
+                    local loose = bare:gsub("<%a+~>", "")
+                    if bare:find("<%a+~>") or not loose:find("<") then s = "~" .. bare end
+                end
+                return s
+            end
+            table.insert(said, "[" .. cell(a) .. " | " .. cell(b) .. "]")
+        end
         c.scripts.OnEnter(c)
         c.scripts.OnLeave(c)
-        GameTooltip.AddLine = add
+        GameTooltip.AddLine, GameTooltip.AddDoubleLine = add, add2
         return table.concat(said, " / ")
     end
     local wb = button("Healing Wave")
@@ -22181,6 +22204,21 @@ if spellPass then
     wb.scripts.PostClick(wb, "LeftButton", false)
     rows("book.unfolded", 14)
     print("book.ranks tip open", lines(button("Healing Wave")))
+    -- (2026-11-27) the clicks as glyph cells: a rank's own row (no fold, no
+    -- mark); a spell without ranks; a passive (nothing casts: no Right)
+    print("book.keys rank", lines(button("Healing Wave", "Rank 3")))
+    print("book.keys bolt", lines(button("Lightning Bolt")))
+    print("book.keys passive", lines(row("Elemental Focus")))
+    print("book.keys flyout", lines(button("Teleports")))
+    print("book.keys rockbiter", lines(button("Rockbiter Weapon")))
+    harnessKeptUp = MedalUICharDB.upRank     -- (a global: the main chunk is at its local limit)
+    MedalUICharDB.upRank = { ["Rockbiter Weapon"] = true }
+    print("book.keys marked", lines(button("Rockbiter Weapon")))
+    ns.SetOption("spellbookUpRank", "all")
+    print("book.keys all", lines(button("Rockbiter Weapon")))
+    ns.SetOption("spellbookUpRank", "marked")
+    MedalUICharDB.upRank = harnessKeptUp
+    row("Healing Wave")     -- (its tab open again, as the rest expects)
     print("book.unfolded kept", tostring(MedalUICharDB.bookOpen and MedalUICharDB.bookOpen["Healing Wave"]))
     book.Refresh()
     rows("book.unfolded again", 14)
@@ -22835,6 +22873,8 @@ if spellPass then
         return said[#said]
     end
     local b1 = button("Lightning Bolt")
+    -- (2026-11-27) every click binds: no key cells
+    print("book.keys bind mode", lines(b1))
     print("book.cc bind tip", tip(b1), "clicks=" .. table.concat(b1.clicks, ","),
         "row=" .. table.concat(row("Lightning Bolt").clicks, ","))
     -- the press passes by; the release binds

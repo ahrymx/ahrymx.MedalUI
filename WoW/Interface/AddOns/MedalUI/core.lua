@@ -64,6 +64,7 @@ ns.colors = {
     dead = { 0.35, 0.35, 0.35 },
     white = { 1, 1, 1 },
     grey = { 0.7, 0.7, 0.7 },
+    off = { 0.42, 0.40, 0.36 },          -- a key that does nothing here, shown for its place
 }
 -- Blizzard's class and reaction colours are brighter than the art; mute them.
 ns.mute = 0.8
@@ -637,14 +638,25 @@ local fill = {
 }
 
 -- a mouse with its button lit (media/strips/mouse-<button>), as text: the
--- glyph's 20 px box of its 32
-function ns.MouseGlyph(button, size)
+-- glyph's 20 px box of its 32; tinted when a colour is given
+function ns.MouseGlyph(button, size, color)
     size = size or 16
-    return ("|T%sstrips\\mouse-%s:%d:%d:0:0:32:32:5:27:5:27|t"):format(ns.media, button, size, size)
+    local f = math.floor
+    local tint = color and (":%d:%d:%d"):format(f(color[1] * 255), f(color[2] * 255), f(color[3] * 255)) or ""
+    return ("|T%sstrips\\mouse-%s:%d:%d:0:0:32:32:5:27:5:27%s|t"):format(ns.media, button, size, size, tint)
 end
--- a key part as its cell: "Shift + (mouse) Link"
+-- a key part as its cell: "Shift + (mouse) Link". (2026-11-27) p.off: the
+-- key does nothing here, but keeps its place in the grid, greyed: each
+-- piece coloured apart, so the tooltips can still split the modifier
+-- from the glyph
 function ns.KeyCell(p)
     if not p[2] then return "" end      -- an empty slot of the grid
+    if p.off then
+        local c = ns.colors.off
+        local f = math.floor
+        local code = ("|cff%02x%02x%02x"):format(f(c[1] * 255), f(c[2] * 255), f(c[3] * 255))
+        return (p[3] and (code .. p[3] .. " + |r") or "") .. ns.MouseGlyph(p[2], nil, c) .. " " .. code .. p[4] .. "|r"
+    end
     return (p[3] and (p[3] .. " + ") or "") .. ns.MouseGlyph(p[2]) .. " " .. p[4]
 end
 

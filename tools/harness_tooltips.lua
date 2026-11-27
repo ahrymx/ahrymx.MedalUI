@@ -637,6 +637,39 @@ end
 
 -- ------------------------------------------------------------ strip and divider
 local spell = render("spell", byKey.spell.samples[1].label)
+-- (2026-11-27) the spellbook's key rows (a mouse glyph a cell) leave the
+-- extras for the footer band, a grid as the quest tooltips'; its status
+-- lines stay; a spell with none has no footer
+do
+    local glyph = "|TInterface\\AddOns\\MedalUI\\media\\strips\\mouse-left:16:16:0:0:32:32:5:27:5:27|t"
+    local function view(extras)
+        return ui.spellView(spell, ui.spellModel({ name = "Healing Wave", extras = extras }))
+    end
+    local v = view({ { left = "Not on your action bars.", right = "" }, { left = glyph .. " Ranks", right = "" },
+        { left = "Shift + " .. glyph .. " Link",
+            right = H.medalui.KeyCell({ "key", "right", "Shift", "Top rank", off = true }) } })
+    local body, foot = {}, {}
+    for _, s in ipairs(v.sections) do
+        for _, r in ipairs(s.kind == "rows" and s.rows or {}) do body[#body + 1] = plain(r.left) end
+    end
+    for _, r in ipairs(v.footer and v.footer.rows or {}) do
+        foot[#foot + 1] = plain(r.left) .. "|" .. plain(r.right) .. (r.grid and "#" or "")
+    end
+    print("tooltips spell keys", "body=" .. table.concat(body, ","), "footer=" .. table.concat(foot, ","),
+        "none=" .. tostring(view({ { left = "Not on your action bars.", right = "" } }).footer))
+    -- drawn: the footer's cells by their x, glyphs of a column in one line
+    local okDraw, why = pcall(ui.renderView, spell, anchor, v)
+    if not okDraw then print("tooltips spell keys draw error", why) end
+    local at = {}
+    for _, t in ipairs(texts(spell)) do
+        local s = plain(t.text)
+        if s:find("Ranks") or s:find("Link") or s:find("Top rank") or s:find("Shift") then
+            at[#at + 1] = s .. "@" .. n(t.x or 0)
+        end
+    end
+    print("tooltips spell keys drawn", table.concat(at, " "), "grid=" .. tostring(v.footer.rows[1].grid ~= nil))
+    spell = render("spell", byKey.spell.samples[1].label)     -- (the sample again, for the checks below)
+end
 do
     local all, out = pooled(spell), {}
     for _, t in ipairs(all) do
