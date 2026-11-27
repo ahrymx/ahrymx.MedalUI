@@ -18,130 +18,134 @@ Runs on **WoW Forever** (`16001`) and **Retail** (`120105`).
 
 ## The console
 
-The console sits at the bottom: player and target on its wings, action bars in between. The overhead at the top holds your focus and target-of-target side by side, with your pet on a narrower deck beneath; with neither shown, the pet rises to the top.
+![MedalUI's console card: the Reticule console with player and target on its wings and the action bars between them, the overhead's focus and target-of-target over the pet, and the party, boss and arena widgets at the sides](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/01-console.png)
 
-![The Reticule console with its action bars; at the top, the overhead's focus and target-of-target over the pet; the party, boss and arena widgets at the sides](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/console-overhead.png)
+- **Two profiles:** the slim **Reticule** (default), with the minimap in the console's bay, or the round **Arena**. *Arena is a work in progress: expect rough edges.*
+- **Action bars:** one to three rows, with Blizzard's button art or bare icons. Empty buttons hide and come back while you drag a spell, item or macro.
+- **Class power and cast bars** are built into the console: combo points, holy power, runes, soul shards and the rest.
+- **Party, raid, boss and arena** frames sit on the console's own row or in widgets you can drag. **Minimal OoC Mode** fades the console out of combat.
 
-- **Two profiles:** the slim **Reticule** (default), or the round **Arena** below.
-- **Reticule:** the minimap sits in the console's bay, with a 2×5 form, stance and skyriding grid (Action Bar 7) and a party row under the console. Its Minimal OoC Mode fades the console away out of combat, leaving your player and target frames faint until combat brings it back; it can stay half-seen while your health or mana refills.
-- **Action bars:** one to three rows, with Blizzard's button art or **bare icons**. Empty buttons hide and reappear while you drag a spell, item or macro.
-- **Class power and cast bars** built into the console: combo points, holy power, runes, soul shards and the rest.
-- **Party, raid and arena** frames: on the console's own row, or as draggable widgets. Bosses get their own movable widget. Offline and dead members get a look of their own: a plug icon, or wings and a timer.
+## Themes
 
-### Arena
+![MedalUI's themes card: the character window three times, in gold, in a shaman's teal and in violet](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/02-themes.png)
 
-The medallion console: the party on wings around a large player and target, with the minimap in its ring.
+- Every window can take your class's colour, or stay in ink and gold.
 
-> **Work in progress:** Arena is still being built, so expect rough edges. Its showcase will return when it's ready.
+## Spellbook and macros
 
----
+![MedalUI's spellbook card: the Restoration tab with spells not on your bars first, a spell's ranks unfolded with cast times and mana, and the macros page beside it](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/03-spellbook.png)
 
-## The corner strips
-
-The bottom corners carry a strip each, beside a medallion: your portrait on the left, under the chat box, and the backpack on the right. Each strip is a drawer: closed, it shows your durability (a hunter's ammo, as a gauge), your class reagents and your professions (secondary ones as pip gauges); the chevron by the medallion unrolls the menu buttons over it. The queue eye takes the portrait's place while you are queued, and a vehicle exit takes the backpack's on the right. Immersion Mode (Shared > Visibility & fading) leaves the idle chat bare, each message on a band of its own, with its box back while you type or point at it; it fades the side panel when idle too.
-
-The chat box names a speaker in their class colour, after their level in its difficulty colour against yours. A link's tooltip stands to the right of the box, hovered or clicked, as every docked window's does. Each window's last 500 lines come back at your next login, dimmed under a divider (Chat > History: Off to 1000, per character). The Log button in the chat's drawer opens a copyable log, with a tab for each chat window.
-
-![The chat box with its General and Combat Log tabs, above the left strip: the portrait, the drawer's chevron, and the ammo gauge](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/chat.png)
-
-### Side panel
-
-The right strip opens a panel with tabs. **Zone** lends it the minimap beside the current zone's quests; **Loot** lists the group's drops and who won each roll.
-
-| Zone | Loot |
-|:---:|:---:|
-| ![The side panel's Zone tab: the minimap beside the zone's quests, one opened to its objectives, the quest-items bar above and the controls, tracking, map and sort buttons at its side](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/side-panel-zone.png) | ![The side panel's Loot tab: the group's loot with who won each roll](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/side-panel-loot.png) |
-
-- **Meter** shows the game's own damage meter, on clients that have one; **Auras** lists your buffs and debuffs, live in combat.
-- In the Zone tab, click a quest for its objectives, or shift-click it to track it.
-- The Zone tab's sort button also has a **Guide**: what to do next for experience. Quests to take near you and quick objectives come first, whichever is nearer (quests to take equally near by their experience and their chain's). Then come hand-ins, then objectives spread over a wide area, nearest first. A hand-in within 300 yards goes before everything, or within 700 when its chain has another quest after it. The waypoint follows the top of the list; Ctrl+right-click a quest to take to ignore it, so the waypoint passes it by (it stays in the list, striped). It needs [QuestieDB](https://www.curseforge.com/wow/addons/questiedb).
-- The Zone tab's top button opens its **controls** over the panel: a bar of the listed quests' usable items (with QuestieDB, also the ones a quest needs that the game does not mark, such as a necklace to open, once they are in your bags), the list's text size, coordinates on or off, and, with the Guide shown, quests to take on or off and the waypoint moved a row down or up its list (the rows stay put). The mouse wheel on the minimap zooms.
-- The Zone tab's quest items and its controls' item bar work in combat. While one is out, its rows stand still until the fight ends: a quest finished, a fold or a scroll waits, and counts change in place. An item that turns up in combat shows the bags' padlock until it can be used.
-- Addons' minimap buttons gather in a **drawer** at the end of the action bar, instead of crowding the minimap.
-
----
+- Spells not on your bars come first, then the ones that are, each with its click-cast keys.
+- Unfold a spell to see its ranks, with cast time and mana.
 
 ## Quests
 
-| Quest tracker & chat | Quest log |
-|:---:|:---:|
-| ![The quest tracker's full view above the chat box, with a quest's tooltip](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/quest-tracker.png) | ![The quest log on the right strip, quests by zone with their XP, item and coin rewards](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/quest-log.png) |
+![MedalUI's quests card: the quest log by zone, the tracker's full view above the chat, and a quest's own page with its chain](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/04-quests.png)
 
-A quest's own page spells out where it sits in its chain, step by step, with its giver, objectives and rewards.
+- **The quest log** on the right strip, by zone, with each quest's XP, item and coin rewards.
+- **The tracker's full view** above the chat, with every objective.
+- **A quest's own page** lays out its chain step by step. The whole chain needs [QuestieDB](https://www.curseforge.com/wow/addons/questiedb).
+- On WoW Forever, MedalUI turns on the game's hidden in-world marker at each login (**Marker in the world**, under Quests > Behaviour). The game's update of 21 November broke the marker, so the option stays greyed out until the game fixes it.
 
-On WoW Forever, MedalUI turns on the game's hidden in-world marker (`showInGameNavigation`) at each login. The marker is a diamond with its distance, shown at your tracked quest's objective or at your waypoint. To leave it off, untick **Marker in the world** under Quests > Behaviour. WoW Forever's update of 21 November broke the marker, even when typed by hand, so the option stays greyed with a note until the game has it again.
+## Side panel
 
-![A quest's page: its level, zone, giver, step in its chain and status, the chain spelt out, then its objectives, description and rewards](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/quest-page.png)
+![MedalUI's side panel card: the Zone tab with the minimap beside the zone's quests, the Meter tab, and the Loot tab with who won each roll](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/05-side-panel.png)
 
----
+- **Zone:** the minimap beside the zone's quests. Click a quest for its objectives, or shift-click it to track it. Its sort button holds a **Guide** to what to do next for experience, and the waypoint follows the top of that list. The Guide needs [QuestieDB](https://www.curseforge.com/wow/addons/questiedb).
+- **Zone controls:** a bar of the quests' usable items, which work in combat, plus text size and coordinates.
+- **Meter** docks the game's own damage meter. **Auras** lists your buffs and debuffs. **Loot** shows the group's drops and who won each roll.
+- Addons' minimap buttons gather in a drawer at the end of the action bar.
 
-## Character, bags and spells
+## Chat and the corner strips
 
-| Character | Bags |
-|:---:|:---:|
-| ![The character window: a hunter's model, gear slots with item levels, and stats](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/character.png) | ![The bags window in groups, with locked items and the free slots](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/bags.png) |
+![MedalUI's chat card: Immersion Mode's bare chat with each message on its own band, and the chat box with its tabs above the left strip](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/06-chat.png)
 
-| Spellbook | Macros |
-|:---:|:---:|
-| ![The spellbook's Beast Mastery tab: spells not on your bars and on your bars, with ranks, cast times and mana costs](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/spellbook.png) | ![The macros page, with a macro's editor](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/macros.png) |
+- **Immersion Mode** (Shared > Visibility & fading) gives each message a band of its own and brings the box back while you type or point at it.
+- Speakers are named in their class colour, after their level. Each window's last 500 lines come back at your next login, and the **Log** button opens a copyable log.
+- **The corner strips** are drawers. Closed, they show durability, ammo, reagents and professions. The chevron unrolls the menu buttons.
 
-| Professions |
-|:---:|
-| ![The professions overview: two primary professions still to learn, First Aid and Cooking with their skill, cooldowns to track, and the camping row](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/professions.png) |
+## NPC windows
 
-- **Bags** (inspired by Baganator) put the backpack, bags and reagent bag in one window. Items are grouped (New, Equipment, Consumables, Quest items, Trade goods, Junk), and the equipped bags open in a drawer above.
+![MedalUI's NPC windows card: a merchant's window docked above the chat, the full height of the screen](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/07-npc.png)
+
+- Gossip, quest pages, vendors, trainers and the mailbox all open in one box above the chat, the full height of the screen.
+
+## Loot rolls
+
+![MedalUI's loot rolls card: an item's roll with Need, Greed and Pass and the time left, then each player's roll as it comes in](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/08-rolls.png)
+
+- One card per roll: the item, then Need, Greed or Pass with the time left.
+- Everyone's rolls fill in as they come, with the leader marked and a tally at the foot.
+
+## Character and bags
+
+![MedalUI's character and bags card: the character window with gear slots and item levels around the model, and the bags window in groups](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/09-character.png)
+
+- **Bags** (inspired by Baganator) put the backpack, bags and reagent bag in one window, grouped as New, Equipment, Consumables, Quest items, Trade goods and Junk.
 - **Alt+click** an item to lock it: it shows a padlock and can't be sold or destroyed.
 
-### Talents and plans
+## Talents and plans
 
-Each tree sits on a faint wash of its own colour, under a console showing its points, the points left and the next step in your plan, with **Reset**, **Follow** and **Apply** beneath. Talents with points chosen but not yet applied pulse softly (green, or blue when full), learned ones keep a still aura, and maxed ones shine. The game's own talent sounds play as you spend, take back and apply points. Choosing a talent reads out what each rank gives, the current one in green.
+![MedalUI's talents card: a tree on its own colour wash, a plan drafted on a grid, and the plan's list of talents with their levels and progress](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/10-talents.png)
 
-A **plan** lays out a build by level. In plan mode the tree turns to a drafting grid: click to add points, **Checkpoint** each step, then **Save plan**. Each talent shows its levels, goal and progress, the next checkpoint is lit, and **Follow** stages the plan's next talents for you to apply.
+- Each tree sits under a console showing its points, the points left and the next step of your plan, with **Reset**, **Follow** and **Apply** buttons.
+- **Plans:** draft a build by level on a grid, add a **Checkpoint** at each step, then **Save plan**. **Follow** stages the plan's next talents for you to apply.
 
-| Talents | A talent's ranks |
-|:---:|:---:|
-| ![The talents window: the Enhancement tree on its ember wash, its learned talents lit, under the console with the point left, Reset, Follow and Apply, and the next talent in your plan](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talents.png) | ![The Restoration tree on its green wash, Water Shield chosen: its rank, what it needs, and what it does](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-details.png) |
+## Professions
 
-| Drafting a plan | Talent plans |
-|:---:|:---:|
-| ![Plan mode: the Survival tree on a drafting grid, the console with Exit plan, Checkpoint and Save plan, the first talents ready to take](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-planning.png) | ![A talent plan: each talent's levels, goal and progress, the next checkpoint lit](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/talent-plans.png) |
+![MedalUI's professions card: the overview with primary professions, First Aid and Cooking with their skill, and the cooldowns to track](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/11-professions.png)
 
----
+- Your professions with their skill, what you can still learn, and the cooldowns worth tracking.
 
 ## Game menu
 
-Esc opens a game menu that also shows your character, MedalUI's shortcuts, and your friends and guild on two tabs of a Social window. A clock at the top of the screen shows the time, with your gold, session length and latency under it. Your volumes sit at the bottom of the screen: Master, with Music, Effects, Ambience and Dialogue in a tray above it and a shortcut to the game's Audio settings. Left alone, the panel folds into a thin rail at the edge while the camera turns slowly around your character. The cog opens the menu's options, among them how the world behind the menu is dimmed: a vignette or an even shade, its strength and its tint.
+![MedalUI's game menu card: the panel beside the dimmed world with the clock at the top, and the menu folded to a rail while the camera turns](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/12-game-menu.png)
 
-![The game menu over the dimmed world: the panel on the left, the clock with gold, session and latency at the top, the volume at the bottom](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/game-menu-screen.png)
+- Esc opens your character, MedalUI's shortcuts, and your friends and guild in a Social window.
+- A clock at the top shows your gold, session length and latency. Your volumes sit at the bottom.
+- Left alone, the menu folds to a rail while the camera turns. The cog sets how the world is dimmed.
 
-![The game menu's panel: the character and their progress to the next level, the menu's buttons, MedalUI's shortcuts, and the Social window's Friends and guild tabs over Log Out, Return to Game and Exit Game](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/game-menu.png)
+## Click casting
 
----
+![MedalUI's click casting card: each binding as a plate with its click as keys, padlocks on the locked ones, and the binder's steps](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/13-clickcast.png)
+
+- Each binding is a plate showing its click as keys.
+- **Lock** a binding with its padlock, so no other binding can take its click. Locked bindings are tinted blue.
+- To bind a spell, pick it in the spellbook, click the pad, then save. You can also drag a spell or macro into the list.
+
+## Cooldown Manager
+
+![MedalUI's Cooldown Manager card: the game's Cooldown Manager window in ink and gold, its tracked buffs and bars](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/14-cooldowns.png)
+
+- Each of the game's Cooldown Manager viewers gets its own layout (a bar or an arch), shape, text and visibility.
+- A simulation previews them out of combat. Movers place them in Edit Mode.
 
 ## Tooltips
 
-Every tooltip is drawn as an ornamented panel: items, spells, units, auras, quests, mail and world objects, on Forever and Retail. `/mdltip` opens their window, where you set each kind's look against a live sample. To keep the game's tooltips, untick **Tooltips > Reskin tooltips** in the settings. Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard ([README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/LICENSE)).
+![MedalUI's tooltips card: a spell's tooltip with its cost, cast and range in a strip, and a quest's tooltip with its level, XP and objectives](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/15-tooltips.png)
+
+- Every tooltip is an ornamented panel: items, spells, units, auras, quests, mail and world objects.
+- `/mdltip` sets each kind's look against a live sample. To keep the game's tooltips, untick **Tooltips > Reskin tooltips**.
+- Based on [PrettyTooltip](https://github.com/FallenShard/PrettyTooltip) by FallenShard ([README](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/README.md) · [MIT](https://github.com/ahrymx/ahrymx.MedalUI/blob/main/WoW/Interface/AddOns/MedalUI/tooltips/LICENSE)).
 
 > [!NOTE]
-> Tooltips used to be the `mdlui_Tooltips` companion addon. If its folder is still installed, MedalUI turns it off and asks for a `/reload`. Your tooltip settings carry over. You can then delete the folder.
-
----
+> Tooltips used to be the `mdlui_Tooltips` companion addon. If its folder is still installed, MedalUI turns it off and asks for a `/reload`. Your tooltip settings carry over, and you can then delete the folder.
 
 ## Settings
 
-Every part of MedalUI can be switched off on the **Modules** page; turn off what you'd rather keep from another addon or the default UI.
+![MedalUI's settings card: the settings window three times, showing the General page, Visibility & fading with Minimal OoC Mode, and the action bars' Paging page](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/16-settings.png)
 
-Each page is one column of sections. Click a section's heading to fold it down to one line, which shows how many options it holds; the window remembers what you fold. On a longer page, the section names under the tabs jump to a section and open it.
+- Switch off any part of MedalUI on the **Modules** page, to keep another addon's or the default UI's.
+- **Shared** settings cover every part at once. A frame's own setting wins over the shared one and is marked **Own**.
+- **Profiles** keep your settings, action bar skills and key bindings.
+- **Unit frame editor** (`/mui edit`) and **key binding mode** (`/mui kb`).
 
-| | |
-|:---:|:---:|
-| ![The MedalUI settings window on its Modules page, Interface sheet: each part switched on or off, with what it needs](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/settings-modules.png) | ![The Visibility & fading page: the console's Minimal OoC Mode, its opacities and what brings it back](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/settings-visibility.png) |
+## Radial menu (companion)
 
-- **Profiles:** settings, action bar skills and key bindings are kept per profile and restored when you switch.
-- **Unit frame editor** (`/mui edit`): every piece's size, font, text and place, on a live canvas.
-- **Movers** in Edit Mode for the consoles, widgets and cooldown viewers.
-- **Cooldowns:** the game's Cooldown Manager viewers, each with its own layout (a bar or an arch), shape, text and visibility, and its tracked bars in the same ink and gold, plus a simulation to preview them.
-- **Key binding mode** (`/mui kb`): hover a button and press a key.
+![The Radial Menu companion's card: the editor window with options shared by every radial](https://raw.githubusercontent.com/ahrymx/ahrymx.MedalUI/main/showcase/cards/17-radial.png)
+
+- Hold a key, sweep the mouse towards a button and let go, in combat too. The radials are built in an editor window.
+- It comes with the optional `mdlui_RadialMenu` addon (below).
 
 ---
 
