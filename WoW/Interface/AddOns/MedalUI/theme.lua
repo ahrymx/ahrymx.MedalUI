@@ -126,8 +126,11 @@ end
 
 -- ------------------------------------------------------------ the art
 -- The textures whose gold is drawn in (under media\): the strips' glyphs,
--- the tabs and frames, the medallion strip. Pictures (the minimap button,
--- the mailbox, the dungeon's gate) and the console's painted art keep theirs.
+-- the tabs and frames, the medallion strip, and the Reticule's console
+-- (2026-11-27: its plate, action bar, hybrid strip and wings are gold
+-- strokes on a near-black ink, nothing else coloured, so they tint as a
+-- glyph does). Pictures (the minimap button, the mailbox, the dungeon's
+-- gate) and the Medallion's painted stone keep theirs.
 local GILT_STRIPS = {
     "achievement", "channels", "character", "chat-tools", "chat", "check", "chevron-double", "chevron-down",
     "chevron-up", "close", "collections", "currency", "edit", "guild", "help", "housing", "journal", "legacy",
@@ -143,7 +146,8 @@ local GILT_STRIPS = {
 local gilt = {}
 for _, name in ipairs(GILT_STRIPS) do gilt[ns.media .. "strips\\" .. name] = true end
 for _, path in ipairs({ "strip", "options\\arrow", "options\\check", "tooltips\\ui\\Arrow", "tooltips\\ui\\Close",
-    "tooltips\\stat-marker" }) do
+    "tooltips\\stat-marker",
+    "console-light-explore", "console-light-combat", "actionbar-light", "hybrid-light", "bar-wing-light" }) do
     gilt[ns.media .. path] = true
 end
 function ns.IsGilt(path) return type(path) == "string" and gilt[path] == true end

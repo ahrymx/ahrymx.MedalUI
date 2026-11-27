@@ -6011,6 +6011,12 @@ local function ThemeSweep()
         "gilt tinted=" .. gilt, "as drawn=" .. plain, "kept gold=" .. keptGold .. "/" .. kept,
         "gold left=" .. #lines)
     for _, l in ipairs(lines) do print("theme gold", l) end
+    -- (2026-11-27) the console's own art: the Reticule's plate tinted (its
+    -- gold strokes in the theme), the Medallion's painted stone as drawn
+    local ct = ns.consoleTex
+    local vc = ct and ct.vertex
+    print("theme console", tostring(ct and ct.texture), "desaturated=" .. tostring(ct and ct.desaturated),
+        "vertex=" .. (vc and ("%.2f %.2f %.2f"):format(vc[1], vc[2], vc[3]) or "-"))
 end
 -- the passes return where they end: the list is printed as the harness exits
 if themePass then
