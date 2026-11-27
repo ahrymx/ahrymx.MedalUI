@@ -5677,6 +5677,16 @@ if ccPass then (function()
         end
         l.DeleteButton = CreateFrame("Button", nil, l)
         l.DeleteButton.Icon = l.DeleteButton:CreateTexture()
+        -- the game's hover: the delete shown on entering, put away on
+        -- leaving (the mouse on a child of the line leaves it)
+        l:SetScript("OnEnter", function(self)
+            self.over = true
+            self.DeleteButton:SetShown(self.data and self.data.elementType == 4 or false)
+        end)
+        l:SetScript("OnLeave", function(self)
+            self.over = false
+            self.DeleteButton:Hide()
+        end)
         -- ClickBindingLineMixin:Init, as the game's
         function l:Init(e)
             self.data = e
@@ -5698,6 +5708,9 @@ if ccPass then (function()
                 self.Icon:SetTexture(e.icon)
             end
             self.Icon:SetDesaturated(e.unbound and e.elementType ~= 5 or false)
+            -- the delete: a custom binding's, under the mouse only (the
+            -- game's, 2026-11-27 screenshots); a default binding has none
+            self.DeleteButton:SetShown(e.elementType == 4 and self.over or false)
         end
         function l:GetElementData() return self.data end
         return l
@@ -32257,10 +32270,28 @@ if ccPass then (function()
     end
     local cell = deco[f] and deco[f].cell
     print("clickcast top", "cell=" .. rect(cell), "tick=" .. rect(f.EnableMouseoverCastCheckbox),
-        "key=" .. rect(f.MouseoverCastKeyDropdown), "book=" .. rect(f.PlayerSpellsPortrait),
-        "macros=" .. rect(f.MacrosPortrait))
-    local function marked(pt) return tostring(deco[pt].mark.shown) end
-    print("clickcast portraits", "book marked=" .. marked(f.PlayerSpellsPortrait), "macros marked=" .. marked(f.MacrosPortrait),
+        "key=" .. rect(f.MouseoverCastKeyDropdown))
+    -- (2026-11-27, the user's) the windows' buttons away: unseen, unclickable
+    local function away(pt) return string.format("%s/%s", tostring(pt.alpha), tostring(pt.mouse)) end
+    -- (2026-11-27) the rails: each a sunk tray, its cells engraved slots
+    -- (gold when held: the window open beside it, Save with changes)
+    CC_rails = function(tag)
+        local fd = deco[f]
+        local function slot(b)
+            if not b or not b.slot then return "noslot" end
+            local c = b.slot[1].vertex
+            return (b.slotOn and "held" or "-") .. string.format("@%.2f", c and c[1] or -1)
+        end
+        print(tag, "top tray=" .. rect(fd.topTray) .. " " .. tostring(fd.topTray.recess ~= nil),
+            "foot tray=" .. rect(fd.footTray) .. " " .. tostring(fd.footTray.recess ~= nil),
+            "cell=" .. slot(fd.cell) .. " tick over=" .. tostring(f.EnableMouseoverCastCheckbox:GetFrameLevel()
+                > fd.cell:GetFrameLevel()) .. " key over=" .. tostring(f.MouseoverCastKeyDropdown:GetFrameLevel()
+                > fd.cell:GetFrameLevel()),
+            "reset=" .. slot(f.ResetButton), "add=" .. slot(f.AddBindingButton), "save=" .. slot(f.SaveButton),
+            "boxed=" .. tostring(deco[f.SaveButton].edges ~= nil or (deco[fd.cell] or {}).edges ~= nil))
+    end
+    CC_rails("clickcast rails")
+    print("clickcast portraits", "book away=" .. away(f.PlayerSpellsPortrait), "macros away=" .. away(f.MacrosPortrait),
         "tutorial alpha=" .. tostring(f.TutorialButton.alpha))
     print("clickcast list", "box=" .. rect(f.ScrollBox), "bar=" .. rect(f.ScrollBar),
         "background alpha=" .. tostring(f.ScrollBoxBackground.alpha), "unbound text=" .. rect(f.UnboundText))
@@ -32286,6 +32317,35 @@ if ccPass then (function()
         end
     end
     lines("clickcast line")
+    -- (2026-11-27) a binding's plate: glass, square ended, its icon a
+    -- square closing its right end (an ink well under it, a gold line at
+    -- its left); its edges, words and controls left of the icon
+    CC_plate = function(tag, i)
+        local fr = W.frames[i]
+        local d = deco[fr]
+        local p = d.plate
+        local function part(t)
+            local c = t.color
+            return (t.shown == false and "off" or "on") .. (c and string.format("@%.2f", c[4]) or "")
+        end
+        local edges = {}
+        for _, t in ipairs(p.edges) do
+            local c = t.color
+            table.insert(edges, string.format("%.2f/%.2f", c[1], c[4]))
+        end
+        local ed = d.edit
+        print(tag .. " " .. i, "fill=" .. part(p.fill) .. " to " .. tostring(p.fill.points.BOTTOMRIGHT[3]),
+            "wash=" .. part(p.wash), "lit=" .. part(p.lit), "edges=" .. table.concat(edges, " "),
+            "icon=" .. tostring(d.icon.all == p.well) .. " " .. tostring(p.well.w) .. "x" .. tostring(p.well.h)
+            .. " " .. tostring(p.well.points.TOPRIGHT[3]) .. "," .. tostring(p.well.points.TOPRIGHT[4])
+            .. " coords=" .. table.concat(d.icon.coords or {}, ","),
+            "name at=" .. tostring(fr.Name.points.TOPLEFT and fr.Name.points.TOPLEFT[3]),
+            "delete=" .. tostring(fr.DeleteButton.points.RIGHT[3]) .. " " .. tostring(fr.DeleteButton.w)
+            .. " glyph " .. tostring(deco[fr.DeleteButton].glyph.w),
+            "edit=" .. tostring(ed.points.RIGHT[3]) .. " " .. tostring(ed.w) .. " glyph " .. tostring(deco[ed].glyph.w))
+    end
+    CC_plate("clickcast plate", 5)
+    CC_plate("clickcast plate", 8)
     -- the binder over the foot: what it shows, by step
     local function binder(tag)
         local b = C.binder
@@ -32317,6 +32377,7 @@ if ccPass then (function()
     local hl = W.frames[5]
     hl.scripts.OnEnter(hl)
     lines("clickcast hover")
+    CC_plate("clickcast plate hover", 5)
     hl.scripts.OnLeave(hl)
     print("clickcast delete", "glyph=" .. tostring(deco[hl.DeleteButton].glyph.texture), "at=" .. rect(hl.DeleteButton))
     print("clickcast foot", "reset=" .. rect(f.ResetButton), "add=" .. rect(f.AddBindingButton),
@@ -32327,6 +32388,122 @@ if ccPass then (function()
     -- a spell put in the waiting slot: there is something to save
     f:AddNewAction(1, 403)
     print("clickcast save after add", "marked=" .. tostring(deco[f.SaveButton].mark.shown), table.concat(W.calls, " "))
+    CC_rails("clickcast rails after add")
+    -- (2026-11-27, the user's) the lock: a binding's click kept. Its
+    -- padlock between the edit and the delete (in the delete's place on a
+    -- default), its plate tinted blue; a click that would change its click,
+    -- or take it for another binding, held back and said under the list
+    local function lock(tag, i)
+        local fr = W.frames[i]
+        local dd = deco[fr]
+        local g = dd.lockGlyph
+        print(tag, i, "lock=" .. tostring(dd.lock.shown) .. " at " .. tostring(dd.lock.points.RIGHT[3]) .. " "
+            .. tostring(dd.lock.w) .. " " .. tostring(g.atlas) .. " " .. string.format("%.2f,%.2f,%.2f",
+            g.vertex[1], g.vertex[2], g.vertex[3]), "edit at " .. tostring(dd.edit.points.RIGHT[3]),
+            "delete=" .. tostring(fr.DeleteButton.shown),
+            "tint=" .. tostring(dd.plate.lock.shown) .. string.format(" %.2f,%.2f", dd.plate.lock.color[3],
+                dd.plate.lock.color[4]), "locked=" .. tostring(C.Locked(W.data[i].bindingInfo)),
+            "keys=" .. keys(W.data[i].bindingInfo))
+    end
+    local function said() return tostring(f.UnboundText.text) end
+    for _, i in ipairs({ 2, 5 }) do
+        local fr = W.frames[i]
+        fr.scripts.OnEnter(fr)
+        lock("clickcast lock hover", i)
+        fr.scripts.OnLeave(fr)
+    end
+    lock("clickcast lock idle", 5)
+    -- (2026-11-27, the user's) the mouse from the line onto its edit, then
+    -- its lock: the game puts the delete away; it stays, and nothing moves
+    do
+        local fr = W.frames[5]
+        local dd = deco[fr]
+        fr.scripts.OnEnter(fr)
+        fr.scripts.OnLeave(fr)
+        dd.edit.scripts.OnEnter(dd.edit)
+        lock("clickcast lock on edit", 5)
+        dd.edit.scripts.OnLeave(dd.edit)
+        dd.lock.scripts.OnEnter(dd.lock)
+        lock("clickcast lock on lock", 5)
+        -- off the lock onto the line's own square (its delete, its body):
+        -- the delete stays; then off the line: away
+        mouseOver = fr
+        dd.lock.scripts.OnLeave(dd.lock)
+        lock("clickcast lock to line", 5)
+        mouseOver = false
+        dd.lock.scripts.OnEnter(dd.lock)
+        dd.lock.scripts.OnLeave(dd.lock)
+        lock("clickcast lock left", 5)
+    end
+    -- locked: Healing Wave (Shift+Middle) and the default Target (Left)
+    local tip = {}
+    local setText, addLine = GameTooltip.SetText, GameTooltip.AddLine
+    function GameTooltip:SetText(t) tip = { tostring(t) } end
+    function GameTooltip:AddLine(t) tip[#tip + 1] = tostring(t) end
+    for _, i in ipairs({ 2, 5 }) do
+        local lb = deco[W.frames[i]].lock
+        lb.scripts.OnEnter(lb)
+        print("clickcast lock tip", i, table.concat(tip, " / "))
+        lb.scripts.OnClick(lb)
+        print("clickcast lock tip after", i, table.concat(tip, " / "))
+        lb.scripts.OnLeave(lb)
+        lock("clickcast locked", i)
+    end
+    GameTooltip.SetText, GameTooltip.AddLine = setText, addLine
+    print("clickcast lock store", (function()
+        local out = {}
+        for k in pairs(MedalUICharDB.lockedClicks or {}) do table.insert(out, k) end
+        table.sort(out)
+        return table.concat(out, " ")
+    end)())
+    -- Rockbiter clicked with Shift+Middle (Healing Wave's): held back
+    local rockKeys = keys(W.data[6].bindingInfo)
+    modsDown.SHIFT = true
+    W.frames[6]:GetScript("OnClick")(W.frames[6], "MiddleButton")
+    modsDown.SHIFT = nil
+    print("clickcast lock taken", "rock=" .. keys(W.data[6].bindingInfo) .. " (was " .. rockKeys .. ")",
+        "wave=" .. keys(W.data[5].bindingInfo), "said=" .. said(), "pending=" .. tostring(f.pendingChanges))
+    -- Rockbiter given Middle alone (Healing Wave's button, not its keys): goes
+    f.UnboundText:SetText("")
+    W.frames[6]:GetScript("OnClick")(W.frames[6], "MiddleButton")
+    print("clickcast lock other keys", "rock=" .. keys(W.data[6].bindingInfo), "said=" .. said())
+    W.data[6].bindingInfo.button, W.data[6].bindingInfo.modifiers = "Button4", 3
+    -- Rockbiter given Left (the locked default's), with Button1 its other name
+    f.UnboundText:SetText("")
+    W.frames[6]:GetScript("OnClick")(W.frames[6], "Button1")
+    print("clickcast lock taken default", "rock=" .. keys(W.data[6].bindingInfo), "said=" .. said())
+    -- Healing Wave's own line clicked with Right: its click kept
+    f.UnboundText:SetText("")
+    W.frames[5]:GetScript("OnClick")(W.frames[5], "RightButton")
+    print("clickcast lock own", "wave=" .. keys(W.data[5].bindingInfo), "said=" .. said())
+    -- its own click again: let through (the game changes nothing)
+    f.UnboundText:SetText("")
+    modsDown.SHIFT = true
+    W.frames[5]:GetScript("OnClick")(W.frames[5], "MiddleButton")
+    modsDown.SHIFT = nil
+    print("clickcast lock same", "wave=" .. keys(W.data[5].bindingInfo), "said=" .. said())
+    -- the list drawn again (the game sets each line's click anew): still held
+    W.Render()
+    W.frames[5]:GetScript("OnClick")(W.frames[5], "RightButton")
+    print("clickcast lock redrawn", "wave=" .. keys(W.data[5].bindingInfo), "said=" .. said())
+    -- the edit glyph on a locked binding: not into the binder
+    local ed = deco[W.frames[5]].edit
+    ed.scripts.OnEnter(ed)
+    ed.scripts.OnClick(ed)
+    ed.scripts.OnLeave(ed)
+    print("clickcast lock edit", "target=" .. tostring(C.target == W.data[5]))
+    -- unlocked: Rockbiter takes Shift+Middle
+    local lb = deco[W.frames[5]].lock
+    lb.scripts.OnClick(lb)
+    lock("clickcast unlocked", 5)
+    f.UnboundText:SetText("")
+    modsDown.SHIFT = true
+    W.frames[6]:GetScript("OnClick")(W.frames[6], "MiddleButton")
+    modsDown.SHIFT = nil
+    print("clickcast unlocked taken", "rock=" .. keys(W.data[6].bindingInfo), "said=" .. said())
+    W.data[6].bindingInfo.button, W.data[6].bindingInfo.modifiers = "Button4", 3
+    MedalUICharDB.lockedClicks = nil
+    W.Render()
     lines("clickcast filled")
     f.ResetButton:SetWidth(165)
     print("clickcast reset square", "w=" .. tostring(f.ResetButton:GetWidth()))

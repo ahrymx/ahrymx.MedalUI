@@ -7,12 +7,16 @@
 --   ---------------------------------------------------------
 --   [v] Mouseover cast   with Shift v                 | (book) (macros)
 --   - DEFAULT ------------------------------------------
---     (o) Target unit frame
---         [Left]
+--   +----------------------------------------------+(o)
+--   | Target unit frame                              (o)    a binding: a glass
+--   | [Left]                                       |        plate, its medallion
+--   +----------------------------------------------+        in its cut corner
 --   - CUSTOM -------------------------------------------
---     (o) Healing Wave
---         [Shift] + [Middle]                      a binding: its click as keycaps
---     (+) Click on a spell or macro to get started    the slot waiting for one
+--   +----------------------------------------------+(o)
+--   | Healing Wave                     (pen) (x)     (o)
+--   | [Shift] + [Middle]                           |        its click as keycaps
+--   +----------------------------------------------+
+--   | Click on a spell or macro to get started       (+)    the slot waiting for one
 --   ---------------------------------------------------------
 --   BINDER  (1) Pick a spell - (2) Click the pad - (3) Save
 --     (o) Healing Wave   [ (mouse) Click here with the click you want ]
@@ -31,7 +35,7 @@ local Tr = ns.L
 
 local R = ns.reskin
 local deco = R.deco
-local PAD, ROW, GAP, EDGE = R.PAD, R.ROW, R.GAP, R.EDGE
+local PAD, ROW, EDGE = R.PAD, R.ROW, R.EDGE
 local GOLD, GOLD_D, DIM = R.GOLD, R.GOLD_D, R.DIM
 local GLYPHS, ROUND = R.GLYPHS, R.ROUND
 local HEAD = 36
@@ -39,9 +43,28 @@ local TOP = -(HEAD + 18)            -- the top row's top, under the head's hairs
 local LIST = TOP - ROW - 12         -- the list's top, under it
 local FOOT = 1 + ROW + 12           -- the list's foot, over the foot row
 local BINDER = 128                  -- the binder, over the foot
-local ICON = 28                     -- a binding's medallion
+-- (2026-11-27, the user's: the rails' look and feel) the top row and the
+-- foot each a sunk tray (ns.reskin.Recess), its cells engraved slots
+-- apart in it (ns.reskin.Slot, the window bands' look), the window open
+-- beside it and Save with changes held (ns.reskin.Held)
+local SLOT_GAP = 3                  -- between the slots, and round them in the tray
+local SLOT = ROW - 2 * SLOT_GAP     -- a slot's height (a square slot's side)
+-- (2026-11-27, the user's: the macros' plates, see-through, mirrored;
+-- then square ends and a square icon) a binding is a glass plate, its
+-- spell's icon a square closing its right end, a gold line between
+local PLATE = { top = 1, foot = 3 } -- the plate in from its line's top and foot (the gap between)
+local ICON = 40                     -- the icon: the plate's height inside its edges (from the line's, Size)
+local GLASS = { fill = 0.45, head = { 0.16, 0.14, 0.11, 0.55 }, wash = 0.14 }
+local CONTROL = { size = 26, edit = 16, delete = 15, lock = 18, gap = 2 }  -- its edit, lock, delete: the button, glyphs
+local TEXT_X = 10                   -- its words, in from its left edge
+local CONTROLS = 8                  -- its edit, lock and delete, left of the icon (plus its size)
+-- (2026-11-27, the user's) a binding locked: its plate tinted blue, its
+-- padlock lit, the item locks' blue (inventory/slots.lua)
+local BLUE = { 0.45, 0.75, 1 }
+local TINT = 0.10                   -- the plate's blue
 local TYPE = Enum and Enum.ClickBindingType or { None = 0, Spell = 1, Macro = 2, Interaction = 3, PetAction = 4 }
 local NEW_SLOT = 5                  -- the game's ElementDataTypes.NewSlot
+local DEFAULT_LINE = 2              -- its ElementDataTypes.DefaultBinding (no delete)
 
 local cc = {}
 ns.clickcast = cc
@@ -121,6 +144,73 @@ function cc.Macros()
     return out
 end
 
+-- ---------------------------------------------------------------- the locks
+-- (2026-11-27, the user's: "so they can't be accidentally assigned
+-- elsewhere") A binding locked keeps its click: a click on its own line
+-- (or on the binder's pad with it loaded) does not change it, and no other
+-- binding can take it (the game unbinds a clash). On this character, by
+-- the binding and its click: "type:actionID:button:modifiers". Deleting it
+-- stays the cross's to do.
+local SAME = { Button1 = "LeftButton", Button2 = "RightButton", Button3 = "MiddleButton" }
+local function Click(button) return SAME[button] or button end
+
+local function LockKey(info)
+    if type(info) ~= "table" or not info.type or not info.actionID or type(info.button) ~= "string" then
+        return nil
+    end
+    return format("%s:%s:%s:%d", info.type, info.actionID, Click(info.button), info.modifiers or 0)
+end
+
+function cc.Locked(info)
+    local key = LockKey(info)
+    local store = MedalUICharDB and MedalUICharDB.lockedClicks
+    return key ~= nil and store ~= nil and store[key] == true
+end
+
+function cc.Lock(info, on)
+    local key = LockKey(info)
+    if not key then return end
+    MedalUICharDB = MedalUICharDB or {}
+    local store = MedalUICharDB.lockedClicks or {}
+    MedalUICharDB.lockedClicks = store
+    store[key] = on and true or nil
+end
+
+-- the modifiers held now, as the game reads them for a line's click
+local function HeldMods()
+    local make = C_ClickBindings and C_ClickBindings.MakeModifiers
+    if make then
+        local ok, m = pcall(make)
+        if ok and type(m) == "number" then return m end
+    end
+    return (IsShiftKeyDown() and 1 or 0) + (IsControlKeyDown() and 2 or 0) + (IsAltKeyDown() and 4 or 0)
+end
+
+-- What a click with button on element e would break: e itself (locked, its
+-- click to change), or the locked binding holding that click; nil when
+-- the click may go on
+function cc.Blocker(e, button)
+    local f = Frame()
+    local info = e and e.bindingInfo
+    if not (f and info and button) then return nil end
+    local click, mods = Click(button), HeldMods()
+    -- its own click again: the game changes nothing
+    if info.button and Click(info.button) == click and (info.modifiers or 0) == mods then return nil end
+    if cc.Locked(info) then return e end
+    local by
+    local dp = f.dataProvider
+    if dp and dp.ForEach then
+        dp:ForEach(function(o)
+            local oi = o.bindingInfo
+            if not by and o ~= e and oi and type(oi.button) == "string" and Click(oi.button) == click
+                and (oi.modifiers or 0) == mods and cc.Locked(oi) then
+                by = o
+            end
+        end)
+    end
+    return by
+end
+
 -- In the game's bind mode: its window open
 function cc.Binding()
     return _G.InClickBindingMode ~= nil and _G.InClickBindingMode() and true or false
@@ -157,59 +247,66 @@ local function Shade(b)
 end
 
 -- ---------------------------------------------------------------- the rows
--- The top row as the Cooldown Manager's search row: a cell holding the
--- mouseover tick and its key, then the two windows it opens beside it on
--- the edge (the spellbook, the macros), the one open marked.
-local function Portrait(p, glyph, x)
-    R.Bare(p)
-    for _, k in ipairs({ "Portrait", "Frame", "UnselectedFrame", "Highlight" }) do
-        if p[k] then p[k]:SetAlpha(0) end
-    end
-    local d = R.Box(p, 0.4)
-    R.Glyph(p, glyph, 16)
-    R.Lit(p)
-    if not d.mark then
-        d.mark = p:CreateTexture(nil, "BACKGROUND", nil, -6)
-        d.mark:SetPoint("TOPLEFT", 1, -1)
-        d.mark:SetPoint("BOTTOMRIGHT", -1, 1)
-        d.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.35)
-        d.mark:Hide()
-        if p.SetSelectedState then
-            hooksecurefunc(p, "SetSelectedState", function(_, on)
-                d.mark:SetShown(on and true or false)
-                local c = on and GOLD or GOLD_D
-                d.glyph:SetVertexColor(c[1], c[2], c[3])
-            end)
+-- An engraved slot on f (once), its glyph (if any) lit white under the
+-- mouse, gold again after (dim while f is off)
+local function Engraved(f)
+    local d = deco[f] or {}
+    deco[f] = d
+    if f.slot then return d end
+    R.Slot(f)
+    f:HookScript("OnEnter", function()
+        if d.glyph then d.glyph:SetVertexColor(1, 1, 1) end
+    end)
+    f:HookScript("OnLeave", function()
+        if d.glyph then
+            local on = not f.IsEnabled or f:IsEnabled()
+            local c = on and GOLD or DIM
+            d.glyph:SetVertexColor(c[1], c[2], c[3], on and 1 or 0.6)
         end
-    end
-    p:ClearAllPoints()
-    p:SetPoint("TOPRIGHT", Frame(), "TOPRIGHT", x, TOP)
-    p:SetSize(ROW, ROW)
+    end)
+    return d
 end
 
+-- a rail's tray (once), over the window's rect from x1, y1 to x2, y2
+-- (TOPLEFT and BOTTOMRIGHT offsets from the window's corners named)
+local function Tray(d, key, from, x1, y1, to, x2, y2)
+    if not d[key] then
+        d[key] = CreateFrame("Frame", nil, skin)
+        R.Recess(d[key])
+    end
+    local t = d[key]
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", Frame(), from, x1, y1)
+    t:SetPoint("BOTTOMRIGHT", Frame(), to, x2, y2)
+    return t
+end
+
+-- (2026-11-27, the user's: "not needed") the game's buttons for the
+-- windows it opens beside it (the spellbook, the macros): away, as the
+-- tutorial's (they still open with it)
+local function Away(b)
+    if not b then return end
+    b:SetAlpha(0)
+    b:EnableMouse(false)
+end
+
+-- The top row, a tray: a slot holding the mouseover tick and its key.
 local function Top(f)
     -- the windows it opens beside it: the macros on the edge, the book in
     -- from it (sharing an edge), a gap before them
-    local left = -EDGE                  -- the cells' left edge, from the window's right
-    if f.MacrosPortrait then
-        Portrait(f.MacrosPortrait, "log", left)
-        left = left - ROW + 1
-    end
-    if f.PlayerSpellsPortrait then
-        Portrait(f.PlayerSpellsPortrait, "spellbook", left)
-        left = left - ROW + 1
-    end
-    left = left - 1
-    -- the cell: the tick and its key, up to the gap
     local d = deco[f] or {}
     deco[f] = d
+    Tray(d, "topTray", "TOPLEFT", 1, TOP, "TOPRIGHT", -EDGE, TOP - ROW)
+    Away(f.MacrosPortrait)
+    Away(f.PlayerSpellsPortrait)
+    -- the cell: the tick and its key, the tray's length
     if not d.cell then
         d.cell = CreateFrame("Frame", nil, skin)
-        R.Box(d.cell, 0.4)
+        R.Slot(d.cell)
     end
     d.cell:ClearAllPoints()
-    d.cell:SetPoint("TOPLEFT", f, "TOPLEFT", 1, TOP)
-    d.cell:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", left - GAP, TOP - ROW)
+    d.cell:SetPoint("TOPLEFT", f, "TOPLEFT", 1 + SLOT_GAP, TOP - SLOT_GAP)
+    d.cell:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -EDGE - SLOT_GAP, TOP - ROW + SLOT_GAP)
     local check = f.EnableMouseoverCastCheckbox
     if type(check) == "table" then
         R.Plain(check)
@@ -227,6 +324,8 @@ local function Top(f)
         R.Lit(check)
         check:ClearAllPoints()
         check:SetPoint("LEFT", d.cell, "LEFT", 10, 0)
+        -- over the slot's face (at one level, its face would cover the box)
+        check:SetFrameLevel(d.cell:GetFrameLevel() + 2)
         check:SetSize(14, 14)
         if check.Label then
             R.Font(check.Label, 14, ns.colors.text)
@@ -247,7 +346,7 @@ local function Top(f)
         if not e.with then
             e.part = key:CreateTexture(nil, "ARTWORK")
             e.part:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.55)
-            e.part:SetSize(1, ROW - 12)
+            e.part:SetSize(1, SLOT - 8)
             e.part:SetPoint("LEFT", -8, 0)
             e.with = ns.Text(key, 12)
             e.with:SetPoint("LEFT", 0, 0)
@@ -270,7 +369,8 @@ local function Top(f)
         end
         key:ClearAllPoints()
         key:SetPoint("LEFT", d.cell, "LEFT", 168, 0)
-        key:SetSize(120, ROW)
+        key:SetSize(120, SLOT)
+        key:SetFrameLevel(d.cell:GetFrameLevel() + 2)
         R.Dropdown(key)
     end
     -- the tutorial's button: away (its page still opens the first time)
@@ -280,18 +380,16 @@ local function Top(f)
     end
 end
 
--- The foot as the Cooldown Manager's: Reset (a rounded arrow back), a gap,
--- Add binding; at the edge Save, marked while
--- there are changes to save.
+-- The foot, a tray: Reset (a rounded arrow back), Add binding; at the
+-- edge Save, held while there are changes to save. Each an engraved slot.
 local function Cell(b, width)
     R.Plain(b)
     for _, k in ipairs({ "Left", "Right", "Middle" }) do
         if b[k] then b[k]:SetAlpha(0) end
     end
-    local d = R.Box(b, 0.4)
+    local d = Engraved(b)
     if not d.cell then
         d.cell = true
-        R.Lit(b)
         if b.SetMotionScriptsWhileDisabled then b:SetMotionScriptsWhileDisabled(true) end
         b:HookScript("OnEnable", function() Shade(b) end)
         b:HookScript("OnDisable", function() Shade(b) end)
@@ -300,7 +398,7 @@ local function Cell(b, width)
             if w ~= width then self:SetWidth(width) end
         end)
     end
-    b:SetSize(width, ROW)
+    b:SetSize(width, SLOT)
     return d
 end
 
@@ -310,14 +408,17 @@ function cc.Pending()
     local d = save and deco[save]
     if not d or not d.mark then return end
     d.marked = f.pendingChanges and true or false
-    d.mark:SetShown(d.marked)
+    R.Held(save, d.marked)
     Shade(save)
 end
 
 local function Foot(f)
+    local fd = deco[f] or {}
+    deco[f] = fd
+    Tray(fd, "footTray", "BOTTOMLEFT", 1, 1 + ROW, "BOTTOMRIGHT", -EDGE, 1)
     local reset = f.ResetButton
     if reset then
-        local d = Cell(reset, ROW)
+        local d = Cell(reset, SLOT)
         if not d.glyph then
             d.glyph = reset:CreateTexture(nil, "OVERLAY")
             d.glyph:SetTexture(GLYPHS .. "side-reset")
@@ -334,7 +435,7 @@ local function Foot(f)
             reset:HookScript("OnLeave", function() GameTooltip:Hide() end)
         end
         reset:ClearAllPoints()
-        reset:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 1, 1)
+        reset:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 1 + SLOT_GAP, 1 + SLOT_GAP)
     end
     local add = f.AddBindingButton
     if type(add) == "table" then
@@ -342,21 +443,19 @@ local function Foot(f)
         Words(add, Tr["+  Add binding"])
         Shade(add)
         add:ClearAllPoints()
-        add:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 1 + ROW + GAP, 1)
+        add:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 1 + 2 * SLOT_GAP + SLOT, 1 + SLOT_GAP)
     end
     local save = f.SaveButton
     if save then
         local d = Cell(save, 90)
         Words(save, Tr["Save"])
         if not d.mark then
-            d.mark = save:CreateTexture(nil, "BACKGROUND", nil, -6)
-            d.mark:SetPoint("TOPLEFT", 1, -1)
-            d.mark:SetPoint("BOTTOMRIGHT", -1, 1)
-            d.mark:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.35)
-            d.mark:Hide()
+            -- with changes to save: held, its underline as wide as its word
+            d.mark = save.slotHeld
+            R.Under(save, d.words:GetStringWidth() or 0)
         end
         save:ClearAllPoints()
-        save:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -EDGE, 1)
+        save:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -EDGE - SLOT_GAP, 1 + SLOT_GAP)
         cc.Pending()
     end
     -- what a binding taken from another left unbound: over the foot
@@ -417,7 +516,7 @@ local function Caps(line, d)
             local w = (k.word:GetStringWidth() or 0) + 12
             k:SetWidth(w)
             k:ClearAllPoints()
-            k:SetPoint("TOPLEFT", line.Name, "BOTTOMLEFT", x, -4)
+            k:SetPoint("TOPLEFT", line.Name, "BOTTOMLEFT", x, -3)
             local c = d.hot and GOLD or GOLD_D
             R.Edge(deco[k], c)
             local t = d.hot and GOLD or ns.colors.text
@@ -440,10 +539,71 @@ local function Caps(line, d)
     if line.BindingText then line.BindingText:SetAlpha(keys and 0 or 1) end
 end
 
--- A binding: its icon a medallion of ours (the game's own texture, which it
--- sets again and again, an atlas on the waiting slot, left unmasked and
--- hidden), its name, its click as keycaps; the slot waiting for a spell a
--- gold dashed box with a + in its ring.
+-- a control's square lit faintly under the mouse
+local function Hover(b)
+    local t = b:CreateTexture(nil, "HIGHLIGHT")
+    t:SetAllPoints()
+    t:SetColorTexture(1, 1, 1, 0.08)
+end
+
+-- A plate on a line (drawn on the line itself, under the game's words):
+-- glass, its head lit from above, its edges, its icon's square at its
+-- right end (an ink well under it, a gold line at its left), the light
+-- under the mouse and the waiting slot's wash over the rest. Returns its
+-- parts.
+-- the icon's side: the line's height inside the plate's edges
+local function Size(line)
+    local h = line:GetHeight() or 0
+    return h > PLATE.top + PLATE.foot + 10 and h - PLATE.top - PLATE.foot - 2 or ICON
+end
+
+local function Plate(line)
+    local p = {}
+    local side = Size(line)
+    p.size = side
+    local ink = ns.colors.ink
+    local function Body(sub, r, g, b, a)
+        local t = line:CreateTexture(nil, "BACKGROUND", nil, sub)
+        t:SetPoint("TOPLEFT", 0, -PLATE.top)
+        t:SetPoint("BOTTOMRIGHT", -(side + 1), PLATE.foot)
+        t:SetColorTexture(r, g, b, a)
+        return t
+    end
+    p.fill = Body(-8, ink[1], ink[2], ink[3], GLASS.fill)
+    p.wash = Body(-7, GOLD_D[1], GOLD_D[2], GOLD_D[3], GLASS.wash)
+    p.lit = Body(-7, 1, 1, 1, 0.05)
+    p.lock = Body(-7, BLUE[1], BLUE[2], BLUE[3], TINT)
+    p.lock:Hide()
+    p.head = line:CreateTexture(nil, "BACKGROUND", nil, -6)
+    p.head:SetPoint("TOPLEFT", 1, -(PLATE.top + 1))
+    p.head:SetPoint("TOPRIGHT", -(side + 2), -(PLATE.top + 1))
+    p.head:SetHeight(side / 2)
+    R.Shade(p.head, GLASS.head, { ink[1], ink[2], ink[3], 0 })
+    -- the icon's square: an ink well, the gold line at its left
+    p.well = line:CreateTexture(nil, "BACKGROUND", nil, -8)
+    p.well:SetSize(side, side)
+    p.well:SetPoint("TOPRIGHT", -1, -(PLATE.top + 1))
+    p.well:SetColorTexture(ink[1], ink[2], ink[3], 1)
+    p.edges = {}
+    for i, e in ipairs({ { "TOPLEFT", 0, -PLATE.top, "TOPRIGHT", 0, -PLATE.top },
+        { "BOTTOMLEFT", 0, PLATE.foot, "BOTTOMRIGHT", 0, PLATE.foot },
+        { "TOPLEFT", 0, -PLATE.top, "BOTTOMLEFT", 0, PLATE.foot },
+        { "TOPRIGHT", 0, -PLATE.top, "BOTTOMRIGHT", 0, PLATE.foot },
+        { "TOPRIGHT", -(side + 1), -PLATE.top, "BOTTOMRIGHT", -(side + 1), PLATE.foot } }) do
+        local t = line:CreateTexture(nil, "BORDER")
+        t:SetPoint(e[1], e[2], e[3])
+        t:SetPoint(e[4], e[5], e[6])
+        if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
+        p.edges[i] = t
+    end
+    return p
+end
+
+-- A binding: a plate (Plate), its icon a medallion of ours in the plate's
+-- cut corner (the game's own texture, which it sets again and again, an
+-- atlas on the waiting slot, left unmasked and hidden), its name, its
+-- click as keycaps; the slot waiting for a spell a plate washed gold, its
+-- edges lit, a + in its ring.
 local function Line(line)
     local d = deco[line] or {}
     deco[line] = d
@@ -452,28 +612,18 @@ local function Line(line)
         for _, k in ipairs({ "Background", "FrameHighlight", "NewOutline", "EmptySlotIconHighlight" }) do
             if line[k] then line[k]:SetAlpha(0) end
         end
-        d.row = line:CreateTexture(nil, "BACKGROUND", nil, -8)
-        d.row:SetAllPoints()
-        d.row:SetColorTexture(1, 1, 1, 0.05)
-        d.row:Hide()
-        d.slot = CreateFrame("Frame", nil, line)
-        d.slot:SetAllPoints()
-        d.slot:SetFrameLevel(line:GetFrameLevel())
-        R.Box(d.slot, 0)
-        d.slot.wash = d.slot:CreateTexture(nil, "BACKGROUND", nil, -6)
-        d.slot.wash:SetPoint("TOPLEFT", 1, -1)
-        d.slot.wash:SetPoint("BOTTOMRIGHT", -1, 1)
-        d.slot.wash:SetColorTexture(GOLD_D[1], GOLD_D[2], GOLD_D[3], 0.14)
+        d.plate = Plate(line)
+        -- under the mouse (or held): lit; the slot waiting for a spell: washed gold
+        d.row, d.slot = d.plate.lit, d.plate.wash
         d.icon = line:CreateTexture(nil, "ARTWORK")
-        d.icon:SetSize(ICON, ICON)
-        d.icon:SetPoint("LEFT", line, "LEFT", 4, 0)
-        R.Medal(line, d.icon, 2.5)
+        d.icon:SetAllPoints(d.plate.well)
+        d.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         d.plus = ns.Text(line, 16)
         d.plus:SetPoint("CENTER", d.icon, "CENTER", 0, 1)
         d.plus:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
         d.plus:SetText("+")
         if line.IconHighlight then
-            -- the game's glow as it waits for a spell: round, over our ring
+            -- the game's glow as it waits for a spell, round the icon's square
             line.IconHighlight:ClearAllPoints()
             line.IconHighlight:SetPoint("TOPLEFT", d.icon, "TOPLEFT", -6, 6)
             line.IconHighlight:SetPoint("BOTTOMRIGHT", d.icon, "BOTTOMRIGHT", 6, -6)
@@ -482,35 +632,108 @@ local function Line(line)
         if del then
             R.Plain(del)
             if del.Icon then del.Icon:SetAlpha(0) end
-            local g = R.Glyph(del, "close", 10)
+            local g = R.Glyph(del, "close", CONTROL.delete)
             g:SetVertexColor(DIM[1], DIM[2], DIM[3])
             del:HookScript("OnEnter", function() g:SetVertexColor(1, 1, 1) end)
             del:HookScript("OnLeave", function() g:SetVertexColor(DIM[1], DIM[2], DIM[3]) end)
             del:ClearAllPoints()
-            del:SetPoint("RIGHT", line, "RIGHT", -6, 0)
-            del:SetSize(20, 20)
+            del:SetPoint("RIGHT", line, "RIGHT", -(d.plate.size + CONTROLS), 0)
+            del:SetSize(CONTROL.size, CONTROL.size)
+            Hover(del)
         end
-        -- edit: into the binder (left of the game's delete)
+        -- the mouse onto the edit or the lock leaves the line, and the game
+        -- puts a custom binding's delete away: kept beside them; off the
+        -- line's square altogether, away again (2026-11-27, the lock jumped)
+        local function Near(on)
+            if del and d.data and d.data.elementType ~= DEFAULT_LINE and d.data.elementType ~= NEW_SLOT then
+                if on then
+                    del:Show()
+                elseif not line:IsMouseOver() then
+                    del:Hide()
+                end
+            end
+            cc.Line(line)
+        end
+        -- lock: between the edit and the game's delete (in the delete's
+        -- place on a default binding, which has none)
+        local lock = CreateFrame("Button", nil, line)
+        d.lock = lock
+        lock:SetSize(CONTROL.size, CONTROL.size)
+        lock:RegisterForClicks("LeftButtonUp")
+        local lg = lock:CreateTexture(nil, "OVERLAY")
+        lg:SetPoint("CENTER")
+        lg:SetSize(CONTROL.lock, CONTROL.lock)
+        lg:SetAtlas("QuestSharing-Padlock")
+        lg:SetDesaturated(true)
+        d.lockGlyph = lg
+        Hover(lock)
+        lock:SetScript("OnEnter", function(self)
+            d.lockOver = true
+            Near(true)
+            local on = cc.Locked(d.data and d.data.bindingInfo)
+            ns.Tip(self, ns.window.Outside, { title = on and Tr["Unlock"] or Tr["Lock"], color = on and BLUE or GOLD,
+                { "body", on and Tr["Locked: its click stays its own. Click to unlock it."]
+                    or Tr["Keep its click: no other binding can take it, and it cannot be changed by accident."] } })
+        end)
+        lock:SetScript("OnLeave", function()
+            d.lockOver = false
+            GameTooltip:Hide()
+            Near(false)
+        end)
+        lock:SetScript("OnClick", function(self)
+            local info = d.data and d.data.bindingInfo
+            if not info then return end
+            cc.Lock(info, not cc.Locked(info))
+            cc.Line(line)
+            -- its tip again, saying the other way round
+            if d.lockOver then self:GetScript("OnEnter")(self) end
+        end)
+        lock:Hide()
+        -- edit: into the binder (left of the lock)
         local edit = CreateFrame("Button", nil, line)
         d.edit = edit
-        edit:SetSize(20, 20)
-        edit:SetPoint("RIGHT", line, "RIGHT", -30, 0)
-        local eg = R.Glyph(edit, "edit", 11)
+        edit:SetSize(CONTROL.size, CONTROL.size)
+        local eg = R.Glyph(edit, "edit", CONTROL.edit)
+        Hover(edit)
         eg:SetVertexColor(DIM[1], DIM[2], DIM[3])
         edit:SetScript("OnEnter", function(self)
-            eg:SetVertexColor(1, 1, 1)
+            d.editOver = true
+            Near(true)
+            local on = cc.Locked(d.data and d.data.bindingInfo)
+            eg:SetVertexColor(on and DIM[1] or 1, on and DIM[2] or 1, on and DIM[3] or 1)
             ns.Tip(self, ns.window.Outside, { title = Tr["Edit"], color = GOLD,
-                { "body", Tr["Into the binder: click its pad with the new click."] } })
+                { "body", on and Tr["Locked: unlock it to change its click."]
+                    or Tr["Into the binder: click its pad with the new click."] } })
         end)
         edit:SetScript("OnLeave", function()
+            d.editOver = false
             eg:SetVertexColor(DIM[1], DIM[2], DIM[3])
             GameTooltip:Hide()
-            cc.Line(line)
+            Near(false)
         end)
         edit:SetScript("OnClick", function()
+            if cc.Locked(d.data and d.data.bindingInfo) then return end
             cc.Load(line.GetElementData and line:GetElementData(), line)
         end)
         edit:Hide()
+        -- the line's click (the game's, setting the binding's click): held
+        -- back when it would change a locked binding's click or take one's,
+        -- however often the game sets it again
+        d.guard = function(self, button, ...)
+            if cc.Refuse(self:GetElementData(), button) then return end
+            if d.click then return d.click(self, button, ...) end
+        end
+        local function Guard()
+            local click = line:GetScript("OnClick")
+            if click ~= d.guard then
+                d.click = click
+                line:SetScript("OnClick", d.guard)
+            end
+        end
+        hooksecurefunc(line, "SetScript", function(_, kind)
+            if kind == "OnClick" then Guard() end
+        end)
+        Guard()
         line:HookScript("OnEnter", function()
             d.hot = true
             cc.Line(line)
@@ -535,31 +758,58 @@ local function Line(line)
         d.icon:Hide()
     end
     d.plus:SetShown(empty)
-    d.slot:SetShown(new and true or false)
+    d.plate.wash:SetShown(new and true or false)
     -- the binding in the binder: lit as under the mouse
     local held = d.data ~= nil and d.data == cc.target
-    d.row:SetShown((d.hot or held) and not new or false)
-    local over = d.edit.IsMouseOver and d.edit:IsMouseOver()
-    d.edit:SetShown(((d.hot or over) and not new and d.data and d.data.bindingInfo) and true or false)
-    local rim = (d.hot or held) and GOLD or GOLD_D
-    deco[line].rim:SetVertexColor(rim[1], rim[2], rim[3], 1)
+    d.plate.lit:SetShown((d.hot or held) and not new or false)
+    local info = d.data and d.data.bindingInfo
+    local locked = not new and cc.Locked(info)
+    local over = d.editOver or d.lockOver
+    local near = (d.hot or over) and not new and info ~= nil
+    d.edit:SetShown(near and true or false)
+    -- the lock: under the mouse (a binding with a click), and always when on
+    d.lock:SetShown((locked or (near and type(info.button) == "string")) and true or false)
+    local lc = locked and BLUE or d.lockOver and { 1, 1, 1 } or DIM
+    d.lockGlyph:SetVertexColor(lc[1], lc[2], lc[3])
+    d.plate.lock:SetShown(locked)
+    -- the controls from the right: the delete (custom bindings), the lock,
+    -- the edit; a default binding's lock in the delete's place. By the
+    -- binding's kind, not the delete's being shown: the game shows it only
+    -- under the mouse (2026-11-27, the lock jumped into its place)
+    local del = line.DeleteButton
+    local custom = del ~= nil and d.data ~= nil and d.data.elementType ~= DEFAULT_LINE
+    local x = d.plate.size + CONTROLS
+    if custom then x = x + CONTROL.size + CONTROL.gap end
+
+    d.lock:ClearAllPoints()
+    d.lock:SetPoint("RIGHT", line, "RIGHT", -x, 0)
+    d.edit:ClearAllPoints()
+    d.edit:SetPoint("RIGHT", line, "RIGHT", -(x + CONTROL.size + CONTROL.gap), 0)
+    local lit = d.hot or held or new
+    local rim = lit and GOLD or GOLD_D
+    -- its edges: gold when lit, else a dark gold (the top brighter, as
+    -- the macros' plates)
+    for i, t in ipairs(d.plate.edges) do
+        t:SetColorTexture(rim[1], rim[2], rim[3], (lit or i == 1) and 1 or 0.6)
+    end
     if line.Name then
         R.Font(line.Name, 14, ns.colors.text)
         line.Name:ClearAllPoints()
-        line.Name:SetPoint("TOPLEFT", d.icon, "TOPRIGHT", 10, 2)
-        line.Name:SetPoint("RIGHT", line, "RIGHT", -30, 0)
+        line.Name:SetPoint("TOPLEFT", line, "TOPLEFT", TEXT_X, -(PLATE.top + 4))
+        line.Name:SetPoint("RIGHT", line, "RIGHT", -(d.plate.size + CONTROLS + 3 * CONTROL.size), 0)
     end
     if line.BindingText then
         R.Font(line.BindingText, 13)
         line.BindingText:ClearAllPoints()
         line.BindingText:SetPoint("TOPLEFT", line.Name, "BOTTOMLEFT", 0, -5)
-        line.BindingText:SetPoint("RIGHT", line, "RIGHT", -30, 0)
+        line.BindingText:SetPoint("RIGHT", line, "RIGHT", -(d.plate.size + CONTROLS + 3 * CONTROL.size), 0)
     end
     if empty and line.Name then
-        -- the waiting slot: its prompt alone, level with the +
+        -- the waiting slot: its prompt alone, level with the + in the icon's square
         line.Name:SetText("")
         line.BindingText:ClearAllPoints()
-        line.BindingText:SetPoint("LEFT", d.icon, "RIGHT", 10, 0)
+        line.BindingText:SetPoint("LEFT", line, "LEFT", TEXT_X, (PLATE.foot - PLATE.top) / 2)
+        line.BindingText:SetPoint("RIGHT", line, "RIGHT", -(d.plate.size + CONTROLS), 0)
     end
     Caps(line, d)
 end
@@ -639,6 +889,27 @@ local function Describe(data, line)
         icon = not atlas and ic and ic:GetTexture() or nil
     end
     return name or "", icon, atlas, sub or ""
+end
+
+-- A click on element e held back by a lock (cc.Blocker): said under the
+-- list, where the game says what a click unbound. True when held back.
+function cc.Refuse(e, button)
+    local by = cc.Blocker(e, button)
+    if not by then return false end
+    local f = Frame()
+    local box = f.ScrollBox
+    local line = box and box.FindFrame and box:FindFrame(by)
+    local name = Describe(by, line)
+    local _, keys = cc.Keys(by.bindingInfo)
+    local text = by == e and format(Tr["%s is locked to %s: unlock it to change its click."], name, keys)
+        or format(Tr["%s is locked to %s: that click stays with it."], name, keys)
+    if f.UnboundText then
+        f.UnboundText:SetText(text)
+        f.UnboundText:SetTextColor(BLUE[1], BLUE[2], BLUE[3])
+        f.UnboundText:Show()
+    end
+    cc.refused = text
+    return true
 end
 
 -- Where the binder is: 1 nothing loaded, 2 waiting for its click, 3 a new
